@@ -4,13 +4,15 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock } from '@phosphor-icons/react'
+import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock, Robot } from '@phosphor-icons/react'
 import { Session, Course, User } from '@/lib/types'
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
 import { formatDuration } from '@/lib/helpers'
+import { AutoScheduler } from './AutoScheduler'
 
 interface ScheduleProps {
   sessions: Session[]
@@ -26,6 +28,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const [viewType, setViewType] = useState<'calendar' | 'list' | 'gantt' | 'board'>('calendar')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [autoSchedulerOpen, setAutoSchedulerOpen] = useState(false)
   const [currentWeek, setCurrentWeek] = useState(new Date())
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
@@ -34,6 +37,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)
     setSheetOpen(true)
+  }
+
+  const handleAutoSchedule = (sessions: Partial<Session>[]) => {
+    sessions.forEach(session => onCreateSession(session))
+    setAutoSchedulerOpen(false)
   }
 
   const renderCalendarView = () => {
@@ -213,10 +221,16 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           <h1 className="text-3xl font-semibold text-foreground">Schedule</h1>
           <p className="text-muted-foreground mt-1">Manage training sessions and schedules</p>
         </div>
-        <Button onClick={() => onNavigate('schedule', { create: true })}>
-          <Plus size={18} weight="bold" className="mr-2" />
-          New Session
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setAutoSchedulerOpen(true)}>
+            <Robot size={18} weight="bold" className="mr-2" />
+            Auto-Schedule
+          </Button>
+          <Button onClick={() => onNavigate('schedule', { create: true })}>
+            <Plus size={18} weight="bold" className="mr-2" />
+            New Session
+          </Button>
+        </div>
       </div>
 
       <Tabs value={viewType} onValueChange={(v) => setViewType(v as any)}>
@@ -308,6 +322,23 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={autoSchedulerOpen} onOpenChange={setAutoSchedulerOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Automatic Trainer Scheduler</DialogTitle>
+            <DialogDescription>
+              Let AI match trainers based on certifications and shift availability
+            </DialogDescription>
+          </DialogHeader>
+          <AutoScheduler
+            users={users}
+            courses={courses}
+            onSessionsCreated={handleAutoSchedule}
+            onClose={() => setAutoSchedulerOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

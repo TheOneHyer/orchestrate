@@ -37,8 +37,8 @@ This is an enterprise-grade learning management and scheduling system that coord
 - **Functionality**: Automatically match trainers to sessions based on shift alignment, certifications, and availability
 - **Purpose**: Solves the complex problem of 24/7 scheduling across multiple shifts
 - **Trigger**: "Auto-assign trainer" or "Create recurring sessions"
-- **Progression**: Define session parameters (role, shifts, dates) → Algorithm finds certified trainers → Review matches → Confirm assignments → Notifications sent
-- **Success criteria**: Algorithm considers shift overlap, finds all eligible trainers, handles conflicts
+- **Progression**: Define session parameters (role, shifts, dates) → Algorithm finds certified trainers → Review matches with compatibility scores → Confirm assignments → Notifications sent
+- **Success criteria**: Algorithm considers shift overlap, finds all eligible trainers, handles conflicts, provides ranked suggestions with reasoning
 
 ### Student Roster & Attendance
 - **Functionality**: Add employees to courses via search, badge scan simulation, or bulk upload

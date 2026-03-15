@@ -13,7 +13,7 @@ function App() {
   const [activeView, setActiveView] = useState('dashboard')
   
   const [users] = useKV<User[]>('users', [])
-  const [sessions] = useKV<Session[]>('sessions', [])
+  const [sessions, setSessions] = useKV<Session[]>('sessions', [])
   const [courses] = useKV<Course[]>('courses', [])
   const [enrollments] = useKV<Enrollment[]>('enrollments', [])
   const [notifications] = useKV<Notification[]>('notifications', [])
@@ -47,11 +47,30 @@ function App() {
   }
 
   const handleCreateSession = (session: Partial<Session>) => {
-    console.log('Create session:', session)
+    const newSession: Session = {
+      id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      courseId: session.courseId || '',
+      trainerId: session.trainerId || '',
+      title: session.title || 'Untitled Session',
+      startTime: session.startTime || new Date().toISOString(),
+      endTime: session.endTime || new Date().toISOString(),
+      shift: session.shift || 'day',
+      location: session.location || 'TBD',
+      capacity: session.capacity || 20,
+      enrolledStudents: session.enrolledStudents || [],
+      status: session.status || 'scheduled',
+      ...(session.recurrence && { recurrence: session.recurrence })
+    }
+    
+    setSessions((currentSessions) => [...(currentSessions || []), newSession])
   }
 
   const handleUpdateSession = (id: string, updates: Partial<Session>) => {
-    console.log('Update session:', id, updates)
+    setSessions((currentSessions) =>
+      (currentSessions || []).map(session =>
+        session.id === id ? { ...session, ...updates } : session
+      )
+    )
   }
 
   const renderView = () => {
