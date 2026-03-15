@@ -13,6 +13,7 @@ import { TrainerAvailability } from '@/components/views/TrainerAvailability'
 import { BurnoutDashboard } from '@/components/views/BurnoutDashboard'
 import { TrainerWellness } from '@/components/views/TrainerWellness'
 import { CertificationDashboard } from '@/components/views/CertificationDashboard'
+import { Notifications } from '@/components/views/Notifications'
 import { User, Session, Course, Enrollment, Notification, CertificationRecord } from '@/lib/types'
 import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
 import { useCertificationNotifications } from '@/hooks/use-certification-notifications'
@@ -187,6 +188,43 @@ function App() {
     )
   }, [setUsers])
 
+  const handleMarkNotificationAsRead = useCallback((id: string) => {
+    setNotifications((current) =>
+      (current || []).map(notif =>
+        notif.id === id ? { ...notif, read: true } : notif
+      )
+    )
+  }, [setNotifications])
+
+  const handleMarkNotificationAsUnread = useCallback((id: string) => {
+    setNotifications((current) =>
+      (current || []).map(notif =>
+        notif.id === id ? { ...notif, read: false } : notif
+      )
+    )
+  }, [setNotifications])
+
+  const handleMarkAllNotificationsAsRead = useCallback(() => {
+    setNotifications((current) =>
+      (current || []).map(notif => ({ ...notif, read: true }))
+    )
+  }, [setNotifications])
+
+  const handleDismissNotification = useCallback((id: string) => {
+    setNotifications((current) =>
+      (current || []).filter(notif => notif.id !== id)
+    )
+  }, [setNotifications])
+
+  const handleDismissAllNotifications = useCallback((filter?: 'all' | 'read') => {
+    setNotifications((current) => {
+      if (filter === 'read') {
+        return (current || []).filter(notif => !notif.read)
+      }
+      return []
+    })
+  }, [setNotifications])
+
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
@@ -198,6 +236,8 @@ function App() {
             enrollments={safeEnrollments}
             courses={safeCourses}
             onNavigate={handleNavigate}
+            onMarkNotificationAsRead={handleMarkNotificationAsRead}
+            onDismissNotification={handleDismissNotification}
           />
         )
       case 'schedule':
@@ -289,10 +329,15 @@ function App() {
         )
       case 'notifications':
         return (
-          <div className="p-6">
-            <h1 className="text-3xl font-semibold">Notifications</h1>
-            <p className="text-muted-foreground mt-1">Manage your notifications</p>
-          </div>
+          <Notifications
+            notifications={safeNotifications}
+            onMarkAsRead={handleMarkNotificationAsRead}
+            onMarkAsUnread={handleMarkNotificationAsUnread}
+            onMarkAllAsRead={handleMarkAllNotificationsAsRead}
+            onDismiss={handleDismissNotification}
+            onDismissAll={handleDismissAllNotifications}
+            onNavigate={handleNavigate}
+          />
         )
       case 'settings':
         return (

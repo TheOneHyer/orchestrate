@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Clock, CheckCircle, Warning, Users as UsersIcon } from '@phosphor-icons/react'
+import { Clock, CheckCircle, Warning, Users as UsersIcon, X, Check } from '@phosphor-icons/react'
 import { User, Session, Notification, Enrollment, Course } from '@/lib/types'
 import { formatDuration } from '@/lib/helpers'
 import { format } from 'date-fns'
@@ -15,6 +15,8 @@ interface DashboardProps {
   enrollments: Enrollment[]
   courses: Course[]
   onNavigate: (view: string, data?: any) => void
+  onMarkNotificationAsRead?: (id: string) => void
+  onDismissNotification?: (id: string) => void
 }
 
 export function Dashboard({ 
@@ -23,7 +25,9 @@ export function Dashboard({
   notifications, 
   enrollments,
   courses,
-  onNavigate 
+  onNavigate,
+  onMarkNotificationAsRead,
+  onDismissNotification
 }: DashboardProps) {
   const unreadNotifications = notifications.filter(n => !n.read)
   const activeEnrollments = enrollments.filter(e => e.status === 'in-progress')
@@ -162,41 +166,73 @@ export function Dashboard({
               </div>
             ) : (
               notifications.slice(0, 5).map(notification => (
-                <button
+                <div
                   key={notification.id}
-                  onClick={() => {
-                    if (notification.link) onNavigate(notification.link)
-                  }}
-                  className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-colors text-left ${
-                    notification.read 
-                      ? 'border-border bg-background' 
-                      : 'border-accent/30 bg-accent/5'
-                  }`}
+                  className="group relative"
                 >
-                  <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${
-                    notification.type === 'reminder' || notification.type === 'system'
-                      ? 'bg-accent/10'
-                      : 'bg-primary/10'
-                  }`}>
-                    {notification.type === 'reminder' || notification.type === 'system' ? (
-                      <Warning size={20} className="text-accent" />
-                    ) : (
-                      <CheckCircle size={20} className="text-primary" />
+                  <button
+                    onClick={() => {
+                      if (notification.link) onNavigate(notification.link)
+                    }}
+                    className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-colors text-left ${
+                      notification.read 
+                        ? 'border-border bg-background' 
+                        : 'border-accent/30 bg-accent/5'
+                    }`}
+                  >
+                    <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${
+                      notification.type === 'reminder' || notification.type === 'system'
+                        ? 'bg-accent/10'
+                        : 'bg-primary/10'
+                    }`}>
+                      {notification.type === 'reminder' || notification.type === 'system' ? (
+                        <Warning size={20} className="text-accent" />
+                      ) : (
+                        <CheckCircle size={20} className="text-primary" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-foreground">{notification.title}</div>
+                      <div className="text-sm text-muted-foreground line-clamp-2">
+                        {notification.message}
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {format(new Date(notification.createdAt), 'MMM d, h:mm a')}
+                      </div>
+                    </div>
+                    {!notification.read && (
+                      <div className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-2" />
+                    )}
+                  </button>
+                  <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!notification.read && onMarkNotificationAsRead && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onMarkNotificationAsRead(notification.id)
+                        }}
+                        className="h-7 w-7 p-0 bg-background/80 hover:bg-background"
+                      >
+                        <Check size={14} />
+                      </Button>
+                    )}
+                    {onDismissNotification && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onDismissNotification(notification.id)
+                        }}
+                        className="h-7 w-7 p-0 bg-background/80 hover:bg-background text-destructive hover:text-destructive"
+                      >
+                        <X size={14} />
+                      </Button>
                     )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-foreground">{notification.title}</div>
-                    <div className="text-sm text-muted-foreground line-clamp-2">
-                      {notification.message}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {format(new Date(notification.createdAt), 'MMM d, h:mm a')}
-                    </div>
-                  </div>
-                  {!notification.read && (
-                    <div className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-2" />
-                  )}
-                </button>
+                </div>
               ))
             )}
             {notifications.length > 5 && (
