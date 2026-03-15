@@ -83,11 +83,11 @@ This is an enterprise-grade learning management and scheduling system that coord
 - **Success criteria**: Employees cannot access admin functions, trainers see only assigned courses
 
 ### Notification System
-- **Functionality**: Send alerts for upcoming sessions, assignments, completions, administrative messages, and workload warnings
-- **Purpose**: Keeps all users informed of relevant updates, deadlines, and critical workload issues
-- **Trigger**: System event, manual send from admin, or automatic workload threshold detection
-- **Progression**: Event occurs → Notification generated → Appears in dashboard → Toast notification for critical alerts → User clicks → Navigate to source
-- **Success criteria**: Notifications appear in real-time, dismissible, linked to source content, critical workload alerts trigger toast notifications
+- **Functionality**: Send alerts for upcoming sessions, assignments, completions, administrative messages, and workload warnings with sound alerts and browser push notifications
+- **Purpose**: Keeps all users informed of relevant updates, deadlines, and critical workload issues through multiple notification channels
+- **Trigger**: System event, manual send from admin, automatic workload threshold detection, or browser push when app is not in focus
+- **Progression**: Event occurs → Notification generated → Appears in dashboard → Sound alert plays (configurable) → Browser push notification sent (if enabled and permissions granted) → Toast notification for critical alerts → User clicks → Navigate to source
+- **Success criteria**: Notifications appear in real-time, dismissible, linked to source content, critical workload alerts trigger toast notifications, sound alerts play at appropriate volume and can be configured, browser push notifications work when app is not in focus, settings persist across sessions
 
 ### Trainer Workload Balancing
 - **Functionality**: Analyze trainer utilization rates, generate intelligent recommendations for redistributing workload, and automatically notify trainers and admins when utilization thresholds are exceeded
@@ -117,7 +117,12 @@ This is an enterprise-grade learning management and scheduling system that coord
 - **Progression**: Admin selects trainer → Opens recovery plan dialog → System pre-fills trigger reason from latest check-in data → Admin sets target utilization (default 70%) → Sets duration (default 4 weeks) → System suggests initial actions based on wellness data (e.g., workload reduction if >85% utilized, time off if critical stress, support session if follow-up flagged) → Admin adds/customizes recovery actions with descriptions and target dates → Adds plan notes → Submit → Plan created with "active" status → Actions tracked → Progress calculated based on action completion and utilization improvement → Plan marked "completed" when target utilization reached and all actions done
 - **Success criteria**: Recovery plans provide clear structured interventions, actions align with identified wellness issues, progress tracking shows measurable improvement, utilization trends down toward target, multiple check-ins during recovery period show wellness score improvement, plans can be reviewed for compliance and effectiveness analysis
 
-### Schedule Templates
+### Notification Sound Alerts & Browser Push Notifications
+- **Functionality**: Configurable sound alerts using Web Audio API and browser push notifications that alert users even when the application is not in focus. Includes four sound types (default, chime, bell, alert), adjustable volume, priority-based sound variations, and granular control over which notification priorities trigger browser push notifications
+- **Purpose**: Provides immediate, multi-sensory feedback for important system events, ensures users never miss critical notifications even when working in other tabs or applications, supports different user preferences for notification delivery
+- **Trigger**: Any notification event (workload alerts, certification reminders, wellness check-ins, etc.) automatically triggers configured sound and push notifications based on priority level and user settings
+- **Progression**: Notification created → Sound alert plays based on priority (low/medium/high/critical) with distinct audio patterns → Browser push notification sent if enabled and permissions granted → User clicks push notification → App focuses and navigates to relevant view → Settings accessible via speaker icon in header → Permission requested for browser notifications → Test sounds and notifications available → Settings persist via useKV
+- **Success criteria**: Sound alerts play without delay, volume and type preferences persist, different priorities have distinct sounds, push notifications appear outside the app, clicking push notifications navigates to correct view, permission flow is clear and non-intrusive, test functionality allows users to preview settings before committing
 - **Functionality**: Create, save, and apply reusable schedule templates for recurring training programs. Define session patterns (daily, weekly, biweekly, monthly, custom), session times, shifts, locations, capacity, and required certifications. Apply templates to generate multiple sessions at once with configurable start dates and cycle counts.
 - **Purpose**: Streamline creation of recurring training schedules, ensure consistency across training programs, save time for admins when setting up regular training cycles, enable standardization of common training patterns
 - **Trigger**: Navigate to Schedule Templates → Create Template button, or from Schedule view → Apply Template

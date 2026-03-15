@@ -1,4 +1,4 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState } from 'react'
 import { 
   House, 
   CalendarDots, 
@@ -12,12 +12,14 @@ import {
   Repeat,
   Moon,
   Sun,
-  Certificate
+  Certificate,
+  SpeakerHigh
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/use-theme'
+import { NotificationSettingsDialog } from '@/components/NotificationSettingsDialog'
 
 interface LayoutProps {
   children: ReactNode
@@ -29,6 +31,7 @@ interface LayoutProps {
 
 export function Layout({ children, activeView, onNavigate, notificationCount = 0, userRole }: LayoutProps) {
   const { theme, toggleTheme } = useTheme()
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false)
   
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: House, roles: ['admin', 'trainer', 'employee'] },
@@ -113,7 +116,16 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
       </aside>
 
       <main className="flex-1 overflow-auto flex flex-col">
-        <header className="border-b border-border bg-card px-6 py-4 flex items-center justify-end">
+        <header className="border-b border-border bg-card px-6 py-4 flex items-center justify-end gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setShowNotificationSettings(true)}
+            className="rounded-lg"
+            title="Notification Settings"
+          >
+            <SpeakerHigh size={20} weight="regular" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -130,6 +142,11 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
         <div className="flex-1">
           {children}
         </div>
+        
+        <NotificationSettingsDialog
+          open={showNotificationSettings}
+          onOpenChange={setShowNotificationSettings}
+        />
       </main>
     </div>
   )

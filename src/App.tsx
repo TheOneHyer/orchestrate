@@ -17,6 +17,8 @@ import { Notifications } from '@/components/views/Notifications'
 import { User, Session, Course, Enrollment, Notification, CertificationRecord } from '@/lib/types'
 import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
 import { useCertificationNotifications } from '@/hooks/use-certification-notifications'
+import { useNotificationSound } from '@/hooks/use-notification-sound'
+import { usePushNotifications } from '@/hooks/use-push-notifications'
 import { ensureAllTrainersHaveProfiles } from '@/lib/trainer-profile-generator'
 
 function App() {
@@ -27,6 +29,9 @@ function App() {
   const [courses] = useKV<Course[]>('courses', [])
   const [enrollments] = useKV<Enrollment[]>('enrollments', [])
   const [notifications, setNotifications] = useKV<Notification[]>('notifications', [])
+
+  const { playSound } = useNotificationSound()
+  const { sendNotification } = usePushNotifications()
 
   useEffect(() => {
     if (users && users.length > 0) {
@@ -55,6 +60,37 @@ function App() {
     
     setNotifications((current) => [newNotification, ...(current || [])])
     
+    const priorityMap = {
+      low: 'low' as const,
+      medium: 'medium' as const,
+      high: 'high' as const,
+      critical: 'critical' as const
+    }
+    const soundPriority = priorityMap[notification.priority || 'medium']
+    
+    playSound(soundPriority)
+    
+    sendNotification(notification.title, {
+      body: notification.message,
+      priority: soundPriority,
+      tag: notification.type,
+      onClick: notification.link ? () => {
+        if (notification.link) {
+          const viewMap: Record<string, string> = {
+            '/trainer-availability': 'trainer-availability',
+            '/burnout-dashboard': 'burnout-dashboard',
+            '/certifications': 'certifications',
+            '/trainer-wellness': 'trainer-wellness',
+            '/notifications': 'notifications'
+          }
+          const view = viewMap[notification.link]
+          if (view) {
+            setActiveView(view)
+          }
+        }
+      } : undefined
+    })
+    
     if (notification.priority === 'critical' || notification.priority === 'high') {
       const icon = notification.priority === 'critical' ? '🚨' : '⚠️'
       toast.error(`${icon} ${notification.title}`, {
@@ -62,7 +98,7 @@ function App() {
         duration: 8000
       })
     }
-  }, [setNotifications])
+  }, [setNotifications, playSound, sendNotification])
 
   useUtilizationNotifications(safeUsers, safeSessions, handleCreateNotification)
 
