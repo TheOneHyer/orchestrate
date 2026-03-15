@@ -69,18 +69,18 @@ This is an enterprise-grade learning management and scheduling system that coord
 - **Success criteria**: Employees cannot access admin functions, trainers see only assigned courses
 
 ### Notification System
-- **Functionality**: Send alerts for upcoming sessions, assignments, completions, and administrative messages
-- **Purpose**: Keeps all users informed of relevant updates and deadlines
-- **Trigger**: System event or manual send from admin
-- **Progression**: Event occurs → Notification generated → Appears in dashboard → User clicks → Navigate to source
-- **Success criteria**: Notifications appear in real-time, dismissible, linked to source content
+- **Functionality**: Send alerts for upcoming sessions, assignments, completions, administrative messages, and workload warnings
+- **Purpose**: Keeps all users informed of relevant updates, deadlines, and critical workload issues
+- **Trigger**: System event, manual send from admin, or automatic workload threshold detection
+- **Progression**: Event occurs → Notification generated → Appears in dashboard → Toast notification for critical alerts → User clicks → Navigate to source
+- **Success criteria**: Notifications appear in real-time, dismissible, linked to source content, critical workload alerts trigger toast notifications
 
 ### Trainer Workload Balancing
-- **Functionality**: Analyze trainer utilization rates and generate intelligent recommendations for redistributing workload
-- **Purpose**: Prevents trainer burnout, optimizes capacity utilization, and ensures balanced distribution of training sessions
-- **Trigger**: Navigate to Trainer Availability → Workload Balance tab
-- **Progression**: View balance score → Review overutilized/underutilized trainers → Read AI recommendations → Click trainer name → View redistribution opportunities → Apply suggestions
-- **Success criteria**: Balance score calculation accurate, recommendations identify compatible trainers for redistribution, clear action steps provided
+- **Functionality**: Analyze trainer utilization rates, generate intelligent recommendations for redistributing workload, and automatically notify trainers and admins when utilization thresholds are exceeded
+- **Purpose**: Prevents trainer burnout, optimizes capacity utilization, ensures balanced distribution of training sessions, and provides proactive alerts for intervention
+- **Trigger**: Navigate to Trainer Availability → Workload Balance tab, or automatic detection when trainer reaches 85% (overutilized) or 95% (critically overutilized) capacity
+- **Progression**: System monitors utilization → Threshold exceeded → Notifications sent to trainer and admin → View balance score → Review overutilized/underutilized trainers → Read AI recommendations → Click trainer name → View redistribution opportunities → Apply suggestions → Workload normalized notification sent
+- **Success criteria**: Balance score calculation accurate, recommendations identify compatible trainers for redistribution, clear action steps provided, automatic notifications trigger at correct thresholds (85% and 95%), toast alerts appear for critical cases, resolved notifications sent when balance returns to normal
 
 ## Edge Case Handling
 - **No available trainers**: Display warning with conflicting constraints, suggest alternative times/dates
@@ -92,6 +92,9 @@ This is an enterprise-grade learning management and scheduling system that coord
 - **Missing certifications**: Show trainer suggestions with required certification list, training paths
 - **Badge scan failures**: Fallback to manual search, log scan attempts for debugging
 - **Empty states**: Provide helpful onboarding flows with sample data and clear CTAs
+- **Trainer capacity exceeded**: Automatic notifications sent to trainer and admin when utilization reaches 85% (warning) or 95% (critical), prevent new assignments if at 100% capacity
+- **Rapid workload changes**: Debounce notification generation to prevent spam, track historical utilization states to avoid duplicate alerts
+- **Admin user notifications**: Special handling for admin userId to ensure all administrators receive system-wide alerts
 
 ## Design Direction
 The design should evoke professionalism, trust, and efficiency - characteristics essential for enterprise training software handling sensitive employee data. The interface should feel modern and approachable while maintaining corporate polish. Material design principles create familiarity and consistency, with depth through subtle shadows and elevation. The color scheme balances corporate blue (trust, stability) with energetic orange (engagement, learning) while maintaining excellent readability for extended use.

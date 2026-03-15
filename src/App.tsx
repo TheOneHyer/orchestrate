@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Toaster } from '@/components/ui/sonner'
+import { toast } from 'sonner'
 import { Layout } from '@/components/Layout'
 import { Dashboard } from '@/components/views/Dashboard'
 import { Schedule } from '@/components/views/Schedule'
@@ -9,6 +10,7 @@ import { People } from '@/components/views/People'
 import { Analytics } from '@/components/views/Analytics'
 import { TrainerAvailability } from '@/components/views/TrainerAvailability'
 import { User, Session, Course, Enrollment, Notification } from '@/lib/types'
+import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard')
@@ -17,13 +19,33 @@ function App() {
   const [sessions, setSessions] = useKV<Session[]>('sessions', [])
   const [courses] = useKV<Course[]>('courses', [])
   const [enrollments] = useKV<Enrollment[]>('enrollments', [])
-  const [notifications] = useKV<Notification[]>('notifications', [])
+  const [notifications, setNotifications] = useKV<Notification[]>('notifications', [])
 
   const safeUsers = users || []
   const safeSessions = sessions || []
   const safeCourses = courses || []
   const safeEnrollments = enrollments || []
   const safeNotifications = notifications || []
+
+  const handleCreateNotification = useCallback((notification: Omit<Notification, 'id' | 'createdAt'>) => {
+    const newNotification: Notification = {
+      ...notification,
+      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: new Date().toISOString()
+    }
+    
+    setNotifications((current) => [newNotification, ...(current || [])])
+    
+    if (notification.priority === 'critical' || notification.priority === 'high') {
+      const icon = notification.priority === 'critical' ? '🚨' : '⚠️'
+      toast.error(`${icon} ${notification.title}`, {
+        description: notification.message,
+        duration: 8000
+      })
+    }
+  }, [setNotifications])
+
+  useUtilizationNotifications(safeUsers, safeSessions, handleCreateNotification)
 
   const currentUser: User = safeUsers[0] || {
     id: '1',

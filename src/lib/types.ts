@@ -71,12 +71,13 @@ export interface Enrollment {
 export interface Notification {
   id: string
   userId: string
-  type: 'session' | 'assignment' | 'completion' | 'reminder' | 'system'
+  type: 'session' | 'assignment' | 'completion' | 'reminder' | 'system' | 'workload'
   title: string
   message: string
   link?: string
   read: boolean
   createdAt: string
+  priority?: 'low' | 'medium' | 'high' | 'critical'
 }
 
 export interface QuizQuestion {
