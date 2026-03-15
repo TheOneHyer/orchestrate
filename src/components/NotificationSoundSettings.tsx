@@ -17,6 +17,14 @@ export function NotificationSoundSettings() {
     await requestPermission()
   }
 
+  if (!soundSettings || !pushSettings) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <div className="text-muted-foreground">Loading settings...</div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <Card>

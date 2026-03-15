@@ -35,6 +35,8 @@ export function useNotificationSound() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const gainNodeRef = useRef<GainNode | null>(null)
 
+  const safeSettings = settings || DEFAULT_SETTINGS
+
   const initAudioContext = useCallback(() => {
     if (audioContextRef.current) return
 
@@ -48,7 +50,6 @@ export function useNotificationSound() {
   }, [])
 
   const isWithinQuietHours = useCallback(() => {
-    const safeSettings = settings || DEFAULT_SETTINGS
     if (!safeSettings.quietHours.enabled) return false
 
     const now = new Date()
@@ -65,11 +66,9 @@ export function useNotificationSound() {
     } else {
       return currentTime >= startMinutes || currentTime < endMinutes
     }
-  }, [settings])
+  }, [safeSettings])
 
   const playSound = useCallback((priority: 'low' | 'medium' | 'high' | 'critical' = 'medium') => {
-    const safeSettings = settings || DEFAULT_SETTINGS
-    
     if (!safeSettings.enabled) return
 
     if (isWithinQuietHours()) {
@@ -118,7 +117,7 @@ export function useNotificationSound() {
       oscillator.start(startTime)
       oscillator.stop(startTime + tone.duration)
     })
-  }, [settings, initAudioContext, isWithinQuietHours])
+  }, [safeSettings, initAudioContext, isWithinQuietHours])
 
   const updateSettings = useCallback((updates: Partial<NotificationSoundSettings>) => {
     setSettings((current) => ({
@@ -132,7 +131,7 @@ export function useNotificationSound() {
   }, [playSound])
 
   return {
-    settings: settings || DEFAULT_SETTINGS,
+    settings: safeSettings,
     playSound,
     updateSettings,
     testSound

@@ -32,6 +32,8 @@ export function usePushNotifications() {
   const [isSupported] = useState(() => 'Notification' in window)
   const { settings: soundSettings } = useNotificationSound()
 
+  const safeSettings = settings || DEFAULT_SETTINGS
+
   const isWithinQuietHours = useCallback(() => {
     if (!soundSettings?.quietHours?.enabled) return false
 
@@ -57,13 +59,13 @@ export function usePushNotifications() {
   useEffect(() => {
     if (!isSupported) return
 
-    if (Notification.permission !== (settings?.permission || 'default')) {
+    if (Notification.permission !== safeSettings.permission) {
       setSettings((current) => ({
         ...(current || DEFAULT_SETTINGS),
         permission: Notification.permission
       }))
     }
-  }, [isSupported, settings?.permission, setSettings])
+  }, [isSupported, safeSettings.permission, setSettings])
 
   const requestPermission = useCallback(async () => {
     if (!isSupported) {
@@ -100,8 +102,6 @@ export function usePushNotifications() {
       onClick?: () => void
     }
   ) => {
-    const safeSettings = settings || DEFAULT_SETTINGS
-
     if (!isSupported) {
       console.warn('Push notifications are not supported in this browser')
       return null
@@ -157,7 +157,7 @@ export function usePushNotifications() {
       console.error('Failed to send notification:', error)
       return null
     }
-  }, [isSupported, settings, isWithinQuietHours, soundSettings])
+  }, [isSupported, safeSettings, isWithinQuietHours, soundSettings])
 
   const updateSettings = useCallback((updates: Partial<PushNotificationSettings>) => {
     setSettings((current) => ({
@@ -176,7 +176,7 @@ export function usePushNotifications() {
 
   return {
     isSupported,
-    settings: settings || DEFAULT_SETTINGS,
+    settings: safeSettings,
     requestPermission,
     sendNotification,
     updateSettings,
