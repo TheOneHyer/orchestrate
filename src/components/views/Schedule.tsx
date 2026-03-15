@@ -8,11 +8,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock, Robot } from '@phosphor-icons/react'
+import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock, Robot, UserCircleGear } from '@phosphor-icons/react'
 import { Session, Course, User } from '@/lib/types'
 import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
 import { formatDuration } from '@/lib/helpers'
 import { AutoScheduler } from './AutoScheduler'
+import { GuidedScheduler } from './GuidedScheduler'
 
 interface ScheduleProps {
   sessions: Session[]
@@ -29,6 +30,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [autoSchedulerOpen, setAutoSchedulerOpen] = useState(false)
+  const [guidedSchedulerOpen, setGuidedSchedulerOpen] = useState(false)
   const [currentWeek, setCurrentWeek] = useState(new Date())
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
@@ -42,6 +44,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const handleAutoSchedule = (sessions: Partial<Session>[]) => {
     sessions.forEach(session => onCreateSession(session))
     setAutoSchedulerOpen(false)
+  }
+
+  const handleGuidedSchedule = (sessions: Partial<Session>[]) => {
+    sessions.forEach(session => onCreateSession(session))
+    setGuidedSchedulerOpen(false)
   }
 
   const renderCalendarView = () => {
@@ -226,6 +233,10 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             <Robot size={18} weight="bold" className="mr-2" />
             Auto-Schedule
           </Button>
+          <Button variant="outline" onClick={() => setGuidedSchedulerOpen(true)}>
+            <UserCircleGear size={18} weight="bold" className="mr-2" />
+            Guided Schedule
+          </Button>
           <Button onClick={() => onNavigate('schedule', { create: true })}>
             <Plus size={18} weight="bold" className="mr-2" />
             New Session
@@ -336,6 +347,23 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             courses={courses}
             onSessionsCreated={handleAutoSchedule}
             onClose={() => setAutoSchedulerOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={guidedSchedulerOpen} onOpenChange={setGuidedSchedulerOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Guided Trainer Scheduler</DialogTitle>
+            <DialogDescription>
+              Review data-driven insights while you select the best trainer
+            </DialogDescription>
+          </DialogHeader>
+          <GuidedScheduler
+            users={users}
+            courses={courses}
+            onSessionsCreated={handleGuidedSchedule}
+            onClose={() => setGuidedSchedulerOpen(false)}
           />
         </DialogContent>
       </Dialog>

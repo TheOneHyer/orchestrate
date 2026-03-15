@@ -1,4 +1,4 @@
-import { User, Session, Course } from './types'
+import { User, Session, Course, WellnessCheckIn } from './types'
 import { differenceInDays, startOfWeek, endOfWeek, eachWeekOfInterval, subDays } from 'date-fns'
 
 export interface TrainerUtilization {
@@ -304,4 +304,79 @@ function calculateChangeRate(dataPoints: DataPoint[]): number {
   const lastAvg = (recentPoints[recentPoints.length - 2]?.utilization + recentPoints[recentPoints.length - 1].utilization) / 2
 
   return lastAvg - firstAvg
+}
+
+export interface BurnoutRiskAssessment {
+  trainerId: string
+  riskScore: number
+  risk: 'low' | 'moderate' | 'high' | 'critical'
+  factors: string[]
+  recommendations: string[]
+}
+
+export function calculateBurnoutRisk(
+  trainerId: string,
+  allSessions: Session[],
+  wellnessCheckIns: WellnessCheckIn[],
+  allUsers: User[],
+  allCourses: Course[]
+): BurnoutRiskAssessment {
+  const trainer = allUsers.find(u => u.id === trainerId)
+  if (!trainer) {
+    return {
+      trainerId,
+      riskScore: 0,
+      risk: 'low',
+      factors: [],
+      recommendations: []
+    }
+  }
+
+  const utilization = calculateTrainerUtilization(trainer, allSessions, allCourses, 'month')
+  const recentCheckIns = wellnessCheckIns
+    .filter(c => c.trainerId === trainerId)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .slice(0, 5)
+
+  let riskScore = utilization.riskScore
+  const factors: string[] = []
+  const recommendations: string[] = []
+
+  if (recentCheckIns.length > 0) {
+    const avgMood = recentCheckIns.reduce((sum, c) => sum + c.mood, 0) / recentCheckIns.length
+    const highStressCount = recentCheckIns.filter(c => c.stress === 'high' || c.stress === 'critical').length
+    
+    if (avgMood < 2.5) {
+      riskScore += 20
+      factors.push('Low mood reported in recent check-ins')
+    }
+    
+    if (highStressCount >= 3) {
+      riskScore += 25
+      factors.push('Consistent high stress levels')
+      recommendations.push('Schedule immediate wellness intervention')
+    }
+    
+    const concernsRaised = recentCheckIns.filter(c => c.concerns && c.concerns.length > 0).length
+    if (concernsRaised >= 3) {
+      riskScore += 15
+      factors.push('Multiple concerns raised')
+    }
+  }
+
+  factors.push(...utilization.factors.map(f => f.description))
+  recommendations.push(...utilization.recommendations)
+
+  let risk: 'low' | 'moderate' | 'high' | 'critical' = 'low'
+  if (riskScore >= 80) risk = 'critical'
+  else if (riskScore >= 60) risk = 'high'
+  else if (riskScore >= 40) risk = 'moderate'
+
+  return {
+    trainerId,
+    riskScore: Math.min(100, riskScore),
+    risk,
+    factors,
+    recommendations
+  }
 }
