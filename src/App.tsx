@@ -139,6 +139,10 @@ function App() {
     )
   }
 
+  const handleAddUser = (newUser: User) => {
+    setUsers((currentUsers) => [...(currentUsers || []), newUser])
+  }
+
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
@@ -191,6 +195,7 @@ function App() {
             currentUser={currentUser}
             onNavigate={handleNavigate}
             onUpdateUser={handleUpdateUser}
+            onAddUser={handleAddUser}
           />
         )
       case 'analytics':

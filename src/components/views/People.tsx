@@ -12,6 +12,7 @@ import { MagnifyingGlass, Plus, UserCircle, ArrowLeft, WarningCircle } from '@ph
 import { User, Enrollment, Course, Session } from '@/lib/types'
 import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
+import { AddPersonDialog } from '@/components/AddPersonDialog'
 import { getTrainerShifts } from '@/lib/helpers'
 import { format } from 'date-fns'
 
@@ -23,13 +24,15 @@ interface PeopleProps {
   currentUser: User
   onNavigate: (view: string, data?: any) => void
   onUpdateUser?: (user: User) => void
+  onAddUser?: (user: User) => void
 }
 
-export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser }: PeopleProps) {
+export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser, onAddUser }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'trainer' | 'employee'>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
 
   useEffect(() => {
     if (selectedUser) {
@@ -75,6 +78,15 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     setEditDialogOpen(false)
   }
 
+  const handleAddPerson = (newUser: User) => {
+    if (onAddUser) {
+      onAddUser(newUser)
+    }
+    setAddDialogOpen(false)
+  }
+
+  const existingEmails = users.map(u => u.email.toLowerCase())
+
   return (
     <div className="p-6 space-y-6">
       {selectedUser ? (
@@ -107,7 +119,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
               <p className="text-muted-foreground mt-1">Manage employees and training profiles</p>
             </div>
             {currentUser.role === 'admin' && (
-              <Button onClick={() => onNavigate('people', { create: true })}>
+              <Button onClick={() => setAddDialogOpen(true)}>
                 <Plus size={18} weight="bold" className="mr-2" />
                 Add Person
               </Button>
@@ -237,6 +249,13 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
               <p className="text-muted-foreground">No people found</p>
             </div>
           )}
+
+          <AddPersonDialog
+            open={addDialogOpen}
+            onOpenChange={setAddDialogOpen}
+            onSave={handleAddPerson}
+            existingEmails={existingEmails}
+          />
         </>
       )}
     </div>
