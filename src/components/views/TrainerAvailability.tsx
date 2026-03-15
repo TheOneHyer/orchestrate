@@ -9,12 +9,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { MagnifyingGlass, Users as UsersIcon, Certificate, Clock, CalendarBlank, X, ChartBar, Scales, CalendarCheck } from '@phosphor-icons/react'
+import { MagnifyingGlass, Users as UsersIcon, Certificate, Clock, CalendarBlank, X, ChartBar, Scales, CalendarCheck, WarningCircle } from '@phosphor-icons/react'
 import { User, Session, Course, ShiftType, DayOfWeek } from '@/lib/types'
 import { format, startOfWeek, addDays, isSameDay, addWeeks, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
 import { analyzeWorkloadBalance } from '@/lib/workload-balancer'
 import { WorkloadRecommendations } from '@/components/WorkloadRecommendations'
 import { getTrainerShifts } from '@/lib/helpers'
+import { UnconfiguredScheduleAlert } from '@/components/UnconfiguredScheduleAlert'
 
 interface TrainerAvailabilityProps {
   users: User[]
@@ -124,6 +125,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
 
   const renderTrainerRow = (schedule: TrainerSchedule) => {
     const { trainer, availableHours, utilizationRate } = schedule
+    const hasSchedule = trainer.trainerProfile?.shiftSchedules && trainer.trainerProfile.shiftSchedules.length > 0
 
     return (
       <div key={trainer.id} className="border-b border-border last:border-b-0">
@@ -140,17 +142,37 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <div className="font-medium text-foreground truncate">{trainer.name}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-foreground truncate">{trainer.name}</span>
+                  {!hasSchedule && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <WarningCircle size={14} weight="fill" className="text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent>Schedule not configured</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
                 <div className="text-xs text-muted-foreground truncate">{trainer.department}</div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1 mt-2">
-              {getTrainerShifts(trainer).map(shift => (
-                <Badge key={shift} className={`text-[10px] h-5 ${getShiftBadgeColor(shift)}`}>
-                  {shift}
+            {!hasSchedule ? (
+              <div className="mt-2">
+                <Badge variant="outline" className="text-[10px] h-5 text-amber-600 dark:text-amber-500 border-amber-300 dark:border-amber-700">
+                  No schedule
                 </Badge>
-              ))}
-            </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {getTrainerShifts(trainer).map(shift => (
+                  <Badge key={shift} className={`text-[10px] h-5 ${getShiftBadgeColor(shift)}`}>
+                    {shift}
+                  </Badge>
+                ))}
+              </div>
+            )}
             <div className="flex items-center justify-between mt-3 text-xs">
               <span className={getUtilizationColor(utilizationRate)}>
                 {utilizationRate.toFixed(0)}% utilized
@@ -245,6 +267,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
         </SheetHeader>
 
         <div className="space-y-6 mt-6">
+          <UnconfiguredScheduleAlert user={selectedTrainer} variant="compact" />
+          
           <div>
             <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
               <Clock size={16} />
@@ -254,11 +278,15 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Shifts:</span>
                 <div className="flex gap-1">
-                  {getTrainerShifts(selectedTrainer).map(shift => (
-                    <Badge key={shift} className={`text-xs ${getShiftBadgeColor(shift)}`}>
-                      {shift}
-                    </Badge>
-                  ))}
+                  {getTrainerShifts(selectedTrainer).length > 0 ? (
+                    getTrainerShifts(selectedTrainer).map(shift => (
+                      <Badge key={shift} className={`text-xs ${getShiftBadgeColor(shift)}`}>
+                        {shift}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Not configured</span>
+                  )}
                 </div>
               </div>
               {schedule && (

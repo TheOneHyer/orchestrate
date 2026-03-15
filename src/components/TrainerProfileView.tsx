@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { User, Session, Course, Enrollment, DayOfWeek } from '@/lib/types'
 import { Calendar, Clock, GraduationCap, MapPin, Briefcase, ChartBar, PencilSimple } from '@phosphor-icons/react'
 import { differenceInYears, differenceInMonths } from 'date-fns'
+import { UnconfiguredScheduleAlert } from '@/components/UnconfiguredScheduleAlert'
 
 interface TrainerProfileViewProps {
   user: User
@@ -71,6 +72,8 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
           </Button>
         )}
       </div>
+
+      {user.role === 'trainer' && <UnconfiguredScheduleAlert user={user} onEdit={onEdit} />}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>

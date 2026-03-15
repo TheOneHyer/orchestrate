@@ -7,7 +7,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { MagnifyingGlass, Plus, UserCircle, ArrowLeft } from '@phosphor-icons/react'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { MagnifyingGlass, Plus, UserCircle, ArrowLeft, WarningCircle } from '@phosphor-icons/react'
 import { User, Enrollment, Course, Session } from '@/lib/types'
 import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
@@ -151,6 +152,8 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
                     <TableBody>
                       {filteredUsers.map(user => {
                         const stats = getUserEnrollmentStats(user.id)
+                        const isTrainerWithoutSchedule = user.role === 'trainer' && 
+                          (!user.trainerProfile?.shiftSchedules || user.trainerProfile.shiftSchedules.length === 0)
                         
                         return (
                           <TableRow key={user.id} className="cursor-pointer hover:bg-secondary" onClick={() => handleUserClick(user)}>
@@ -162,7 +165,21 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                  <div className="font-medium">{user.name}</div>
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{user.name}</span>
+                                    {isTrainerWithoutSchedule && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger>
+                                            <WarningCircle size={16} weight="fill" className="text-amber-600 dark:text-amber-500" />
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            Schedule not configured
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
                                   <div className="text-sm text-muted-foreground">{user.email}</div>
                                 </div>
                               </div>
@@ -174,13 +191,19 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
                             </TableCell>
                             <TableCell>{user.department}</TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
-                                {getTrainerShifts(user).map(shift => (
-                                  <Badge key={shift} variant="secondary" className="text-xs">
-                                    {shift}
-                                  </Badge>
-                                ))}
-                              </div>
+                              {isTrainerWithoutSchedule ? (
+                                <Badge variant="outline" className="text-amber-600 dark:text-amber-500 border-amber-300 dark:border-amber-700">
+                                  Not configured
+                                </Badge>
+                              ) : (
+                                <div className="flex gap-1">
+                                  {getTrainerShifts(user).map(shift => (
+                                    <Badge key={shift} variant="secondary" className="text-xs">
+                                      {shift}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
                             </TableCell>
                             <TableCell>
                               <div className="text-sm">

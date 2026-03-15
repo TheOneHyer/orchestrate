@@ -445,47 +445,60 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose }: 
 
       <ScrollArea className="h-[600px]">
         <div className="space-y-3 pr-4">
-          {trainerInsights.map((insights, index) => (
-            <Card
-              key={insights.trainer.id}
-              className={`cursor-pointer transition-all hover:shadow-md border-2 ${
-                insights.recommendationLevel === 'optimal' 
-                  ? 'border-green-200 bg-green-50/30' 
-                  : insights.recommendationLevel === 'avoid'
-                  ? 'border-red-200 bg-red-50/30'
-                  : 'border-border'
-              }`}
-              onClick={() => handleTrainerSelect(insights.trainer.id)}
-            >
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-lg font-semibold text-foreground">
-                        {index + 1}. {insights.trainer.name}
+          {trainerInsights.map((insights, index) => {
+            const hasSchedule = insights.trainer.trainerProfile?.shiftSchedules && 
+              insights.trainer.trainerProfile.shiftSchedules.length > 0
+            
+            return (
+              <Card
+                key={insights.trainer.id}
+                className={`cursor-pointer transition-all hover:shadow-md border-2 ${
+                  insights.recommendationLevel === 'optimal' 
+                    ? 'border-green-200 bg-green-50/30' 
+                    : insights.recommendationLevel === 'avoid'
+                    ? 'border-red-200 bg-red-50/30'
+                    : 'border-border'
+                }`}
+                onClick={() => handleTrainerSelect(insights.trainer.id)}
+              >
+                <CardContent className="p-5">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-lg font-semibold text-foreground flex items-center gap-2">
+                          {index + 1}. {insights.trainer.name}
+                          {!hasSchedule && (
+                            <WarningCircle size={18} weight="fill" className="text-amber-600 dark:text-amber-500" />
+                          )}
+                        </span>
+                        <Badge 
+                          variant={
+                            insights.availability === 'available' ? 'default' :
+                            insights.availability === 'partial' ? 'secondary' :
+                            'outline'
+                          }
+                        >
+                          {insights.availability}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {insights.trainer.department} • Works: {insights.trainer.shifts.join(', ')}
+                      </div>
+                      {!hasSchedule && (
+                        <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500 font-medium">
+                          <WarningCircle size={14} weight="fill" />
+                          Work schedule not configured - availability data may be incomplete
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getRecommendationColor(insights.recommendationLevel)}`}>
+                      {getRecommendationIcon(insights.recommendationLevel)}
+                      <span className="text-sm font-semibold">
+                        {getRecommendationText(insights.recommendationLevel)}
                       </span>
-                      <Badge 
-                        variant={
-                          insights.availability === 'available' ? 'default' :
-                          insights.availability === 'partial' ? 'secondary' :
-                          'outline'
-                        }
-                      >
-                        {insights.availability}
-                      </Badge>
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      {insights.trainer.department} • Works: {insights.trainer.shifts.join(', ')}
                     </div>
                   </div>
-                  
-                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getRecommendationColor(insights.recommendationLevel)}`}>
-                    {getRecommendationIcon(insights.recommendationLevel)}
-                    <span className="text-sm font-semibold">
-                      {getRecommendationText(insights.recommendationLevel)}
-                    </span>
-                  </div>
-                </div>
 
                 <div className="grid grid-cols-4 gap-4 mb-4">
                   <div className="space-y-1">
@@ -574,7 +587,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose }: 
                 )}
               </CardContent>
             </Card>
-          ))}
+          )})}
         </div>
       </ScrollArea>
 

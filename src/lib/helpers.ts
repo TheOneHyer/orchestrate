@@ -120,3 +120,11 @@ export function getTrainerShifts(user: User): ShiftType[] {
   
   return user.shifts || []
 }
+
+export function hasConfiguredSchedule(user: User): boolean {
+  return !!(user.trainerProfile?.shiftSchedules && user.trainerProfile.shiftSchedules.length > 0)
+}
+
+export function getTrainersWithoutSchedules(users: User[]): User[] {
+  return users.filter(user => user.role === 'trainer' && !hasConfiguredSchedule(user))
+}
