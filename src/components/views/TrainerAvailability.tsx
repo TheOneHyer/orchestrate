@@ -11,11 +11,10 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { MagnifyingGlass, Users as UsersIcon, Certificate, Clock, CalendarBlank, X, ChartBar, Scales, CalendarCheck, WarningCircle } from '@phosphor-icons/react'
-import { User, Session, Course, ShiftType, DayOfWeek } from '@/lib/types'
+import { User, Session, Course, DayOfWeek } from '@/lib/types'
 import { format, startOfWeek, addDays, isSameDay, addWeeks, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
 import { analyzeWorkloadBalance } from '@/lib/workload-balancer'
 import { WorkloadRecommendations } from '@/components/WorkloadRecommendations'
-import { getTrainerShifts } from '@/lib/helpers'
 import { UnconfiguredScheduleAlert } from '@/components/UnconfiguredScheduleAlert'
 
 interface TrainerAvailabilityProps {
@@ -35,7 +34,6 @@ interface TrainerSchedule {
 export function TrainerAvailability({ users, sessions, courses, onNavigate }: TrainerAvailabilityProps) {
   const [currentWeek, setCurrentWeek] = useState(new Date())
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedShift, setSelectedShift] = useState<ShiftType | 'all'>('all')
   const [selectedCertification, setSelectedCertification] = useState<string>('all')
   const [selectedTrainer, setSelectedTrainer] = useState<User | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -59,15 +57,13 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     return trainers.filter(trainer => {
       const matchesSearch = trainer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           trainer.email.toLowerCase().includes(searchTerm.toLowerCase())
-      const trainerShifts = getTrainerShifts(trainer)
-      const matchesShift = selectedShift === 'all' || trainerShifts.includes(selectedShift)
       const matchesCert = selectedCertification === 'all' || trainer.certifications.includes(selectedCertification)
       const hasSchedule = hideUnconfigured 
         ? (trainer.trainerProfile?.shiftSchedules && trainer.trainerProfile.shiftSchedules.length > 0)
         : true
-      return matchesSearch && matchesShift && matchesCert && hasSchedule
+      return matchesSearch && matchesCert && hasSchedule
     })
-  }, [trainers, searchTerm, selectedShift, selectedCertification, hideUnconfigured])
+  }, [trainers, searchTerm, selectedCertification, hideUnconfigured])
 
   const trainerSchedules = useMemo(() => {
     return filteredTrainers.map(trainer => {
@@ -108,17 +104,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   const handleTrainerClick = (trainer: User) => {
     setSelectedTrainer(trainer)
     setSheetOpen(true)
-  }
-
-  const getShiftBadgeColor = (shift: ShiftType) => {
-    switch (shift) {
-      case 'day':
-        return 'bg-amber-500 text-white'
-      case 'evening':
-        return 'bg-orange-600 text-white'
-      case 'night':
-        return 'bg-indigo-700 text-white'
-    }
   }
 
   const getUtilizationColor = (rate: number) => {
@@ -169,15 +154,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                   No schedule
                 </Badge>
               </div>
-            ) : (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {getTrainerShifts(trainer).map(shift => (
-                  <Badge key={shift} className={`text-[10px] h-5 ${getShiftBadgeColor(shift)}`}>
-                    {shift}
-                  </Badge>
-                ))}
-              </div>
-            )}
+            ) : null}
             <div className="flex items-center justify-between mt-3 text-xs">
               <span className={getUtilizationColor(utilizationRate)}>
                 {utilizationRate.toFixed(0)}% utilized
@@ -280,20 +257,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
               Availability
             </h3>
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Shifts:</span>
-                <div className="flex gap-1">
-                  {getTrainerShifts(selectedTrainer).length > 0 ? (
-                    getTrainerShifts(selectedTrainer).map(shift => (
-                      <Badge key={shift} className={`text-xs ${getShiftBadgeColor(shift)}`}>
-                        {shift}
-                      </Badge>
-                    ))
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Not configured</span>
-                  )}
-                </div>
-              </div>
               {schedule && (
                 <>
                   <div className="flex items-center justify-between text-sm">
@@ -326,9 +289,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                       <div key={idx} className="p-3 rounded-lg border border-border bg-secondary/30">
                         <div className="flex items-center justify-between mb-2">
                           <span className="font-medium text-sm">{shiftSchedule.shiftCode}</span>
-                          <Badge className={`text-xs ${getShiftBadgeColor(shiftSchedule.shiftType)}`}>
-                            {shiftSchedule.shiftType}
-                          </Badge>
                         </div>
                         <div className="space-y-1 text-xs text-muted-foreground">
                           <div>⏰ {shiftSchedule.startTime} - {shiftSchedule.endTime}</div>
@@ -563,18 +523,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                   />
                 </div>
 
-                <Select value={selectedShift} onValueChange={(v) => setSelectedShift(v as any)}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <SelectValue placeholder="Filter by shift" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Shifts</SelectItem>
-                    <SelectItem value="day">Day Shift</SelectItem>
-                    <SelectItem value="evening">Evening Shift</SelectItem>
-                    <SelectItem value="night">Night Shift</SelectItem>
-                  </SelectContent>
-                </Select>
-
                 <Select value={selectedCertification} onValueChange={setSelectedCertification}>
                   <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue placeholder="Filter by certification" />
@@ -587,13 +535,12 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                   </SelectContent>
                 </Select>
 
-                {(searchTerm || selectedShift !== 'all' || selectedCertification !== 'all') && (
+                {(searchTerm || selectedCertification !== 'all') && (
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => {
                       setSearchTerm('')
-                      setSelectedShift('all')
                       setSelectedCertification('all')
                     }}
                   >
@@ -689,18 +636,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                   />
                 </div>
 
-                <Select value={selectedShift} onValueChange={(v) => setSelectedShift(v as any)}>
-                  <SelectTrigger className="w-full sm:w-[180px]">
-                    <SelectValue placeholder="Filter by shift" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Shifts</SelectItem>
-                    <SelectItem value="day">Day Shift</SelectItem>
-                    <SelectItem value="evening">Evening Shift</SelectItem>
-                    <SelectItem value="night">Night Shift</SelectItem>
-                  </SelectContent>
-                </Select>
-
                 <Select value={selectedCertification} onValueChange={setSelectedCertification}>
                   <SelectTrigger className="w-full sm:w-[200px]">
                     <SelectValue placeholder="Filter by certification" />
@@ -713,14 +648,14 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                   </SelectContent>
                 </Select>
 
-                {(searchTerm || selectedShift !== 'all' || selectedCertification !== 'all') && (
+                {(searchTerm || selectedCertification !== 'all') && (
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => {
                       setSearchTerm('')
-                      setSelectedShift('all')
-                      setSelectedCertification('all')
+                      setSelectedCertification('all'
+)
                     }}
                   >
                     <X size={18} />
@@ -782,13 +717,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                                 <div className="text-xs text-muted-foreground truncate">{trainer.department}</div>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {getTrainerShifts(trainer).map(shift => (
-                                <Badge key={shift} className={`text-[10px] h-5 ${getShiftBadgeColor(shift)}`}>
-                                  {shift}
-                                </Badge>
-                              ))}
-                            </div>
                             {profile?.tenure && (
                               <div className="text-xs text-muted-foreground mt-2">
                                 {profile.tenure.yearsOfService}y {profile.tenure.monthsOfService}m tenure
@@ -814,13 +742,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                                           <Tooltip>
                                             <TooltipTrigger asChild>
                                               <div
-                                                className={`w-full p-1.5 rounded text-left text-[10px] cursor-help ${
-                                                  schedule.shiftType === 'day' 
-                                                    ? 'bg-amber-500 text-white' 
-                                                    : schedule.shiftType === 'evening'
-                                                    ? 'bg-orange-600 text-white'
-                                                    : 'bg-indigo-700 text-white'
-                                                }`}
+                                                className="w-full p-1.5 rounded text-left text-[10px] cursor-help bg-primary text-primary-foreground"
                                               >
                                                 <div className="font-medium truncate">{schedule.shiftCode}</div>
                                                 <div className="opacity-90 truncate">
@@ -831,9 +753,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                                             <TooltipContent side="top" className="max-w-[300px]">
                                               <div className="space-y-1">
                                                 <div className="font-semibold">{schedule.shiftCode}</div>
-                                                <div className="text-xs capitalize">
-                                                  {schedule.shiftType} Shift
-                                                </div>
                                                 <div className="text-xs">
                                                   ⏰ {schedule.startTime} - {schedule.endTime}
                                                 </div>
