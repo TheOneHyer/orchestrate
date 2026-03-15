@@ -10,10 +10,11 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock, Robot, UserCircleGear } from '@phosphor-icons/react'
 import { Session, Course, User } from '@/lib/types'
-import { format, startOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, isSameDay, isSameMonth, eachDayOfInterval, startOfDay } from 'date-fns'
+import { format, startOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, isSameDay, isSameMonth, eachDayOfInterval, startOfDay, differenceInMinutes, setHours, setMinutes } from 'date-fns'
 import { formatDuration } from '@/lib/helpers'
 import { AutoScheduler } from './AutoScheduler'
 import { GuidedScheduler } from './GuidedScheduler'
+import { toast } from 'sonner'
 
 interface ScheduleProps {
   sessions: Session[]
@@ -33,6 +34,8 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const [autoSchedulerOpen, setAutoSchedulerOpen] = useState(false)
   const [guidedSchedulerOpen, setGuidedSchedulerOpen] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
+  const [draggedSession, setDraggedSession] = useState<Session | null>(null)
+  const [dragOverDay, setDragOverDay] = useState<Date | null>(null)
 
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)
@@ -65,11 +68,68 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     }
   }
 
+  const handleDragStart = (e: React.DragEvent, session: Session) => {
+    setDraggedSession(session)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/html', e.currentTarget.innerHTML)
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.4'
+    }
+  }
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    setDraggedSession(null)
+    setDragOverDay(null)
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1'
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent, day: Date) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverDay(day)
+  }
+
+  const handleDragLeave = () => {
+    setDragOverDay(null)
+  }
+
+  const handleDrop = (e: React.DragEvent, targetDay: Date) => {
+    e.preventDefault()
+    setDragOverDay(null)
+
+    if (!draggedSession) return
+
+    const originalStart = new Date(draggedSession.startTime)
+    const originalEnd = new Date(draggedSession.endTime)
+    const sessionDuration = differenceInMinutes(originalEnd, originalStart)
+
+    const newStart = new Date(targetDay)
+    newStart.setHours(originalStart.getHours())
+    newStart.setMinutes(originalStart.getMinutes())
+
+    const newEnd = new Date(newStart)
+    newEnd.setMinutes(newEnd.getMinutes() + sessionDuration)
+
+    onUpdateSession(draggedSession.id, {
+      startTime: newStart.toISOString(),
+      endTime: newEnd.toISOString(),
+    })
+
+    toast.success('Session rescheduled', {
+      description: `${draggedSession.title} moved to ${format(newStart, 'MMMM d, yyyy')}`,
+    })
+
+    setDraggedSession(null)
+  }
+
   const renderDailyView = () => {
     const isToday = isSameDay(currentDate, new Date())
     const daySessions = sessions
       .filter(s => isSameDay(new Date(s.startTime), currentDate))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+    const isDragOver = dragOverDay && isSameDay(dragOverDay, currentDate)
 
     return (
       <div className="space-y-4">
@@ -102,7 +162,16 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           </h3>
         </div>
 
-        <div className={`border rounded-lg p-6 min-h-[400px] ${isToday ? 'border-primary bg-primary/5' : 'border-border'}`}>
+        <div 
+          className={`border rounded-lg p-6 min-h-[400px] transition-colors ${
+            isToday ? 'border-primary bg-primary/5' : 
+            isDragOver ? 'border-accent bg-accent/10 border-2' : 
+            'border-border'
+          }`}
+          onDragOver={(e) => handleDragOver(e, currentDate)}
+          onDragLeave={handleDragLeave}
+          onDrop={(e) => handleDrop(e, currentDate)}
+        >
           {daySessions.length === 0 ? (
             <div className="flex items-center justify-center h-[350px] text-muted-foreground">
               No sessions scheduled for this day
@@ -113,10 +182,13 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                 const course = courses.find(c => c.id === session.courseId)
                 const trainer = users.find(u => u.id === session.trainerId)
                 return (
-                  <button
+                  <div
                     key={session.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, session)}
+                    onDragEnd={handleDragEnd}
                     onClick={() => handleSessionClick(session)}
-                    className="w-full text-left p-4 rounded-lg border border-border bg-card hover:bg-secondary transition-colors"
+                    className="w-full text-left p-4 rounded-lg border border-border bg-card hover:bg-secondary transition-colors cursor-move"
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -144,7 +216,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                         {session.status}
                       </Badge>
                     </div>
-                  </button>
+                  </div>
                 )
               })}
             </div>
@@ -193,9 +265,20 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           {weekDays.map(day => {
             const daySessions = sessions.filter(s => isSameDay(new Date(s.startTime), day))
             const isToday = isSameDay(day, new Date())
+            const isDragOver = dragOverDay && isSameDay(dragOverDay, day)
 
             return (
-              <div key={day.toString()} className={`border rounded-lg p-3 min-h-[200px] ${isToday ? 'border-primary bg-primary/5' : 'border-border'}`}>
+              <div 
+                key={day.toString()} 
+                className={`border rounded-lg p-3 min-h-[200px] transition-colors ${
+                  isToday ? 'border-primary bg-primary/5' : 
+                  isDragOver ? 'border-accent bg-accent/10 border-2' : 
+                  'border-border'
+                }`}
+                onDragOver={(e) => handleDragOver(e, day)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, day)}
+              >
                 <div className={`text-sm font-medium mb-2 ${isToday ? 'text-primary' : 'text-foreground'}`}>
                   {format(day, 'EEE')}
                 </div>
@@ -205,14 +288,17 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                 <div className="space-y-2">
                   {daySessions.map(session => {
                     return (
-                      <button
+                      <div
                         key={session.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, session)}
+                        onDragEnd={handleDragEnd}
                         onClick={() => handleSessionClick(session)}
-                        className="w-full text-left p-2 rounded bg-primary text-primary-foreground text-xs hover:opacity-90 transition-opacity"
+                        className="w-full text-left p-2 rounded bg-primary text-primary-foreground text-xs hover:opacity-90 transition-opacity cursor-move"
                       >
                         <div className="font-medium truncate">{session.title}</div>
                         <div className="opacity-90">{format(new Date(session.startTime), 'h:mm a')}</div>
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
@@ -275,13 +361,17 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
               const daySessions = sessions.filter(s => isSameDay(new Date(s.startTime), day))
               const isToday = isSameDay(day, new Date())
               const isCurrentMonth = isSameMonth(day, currentDate)
+              const isDragOver = dragOverDay && isSameDay(dragOverDay, day)
 
               return (
                 <div 
                   key={day.toString()} 
-                  className={`border-r border-b last:border-r-0 p-2 min-h-[100px] ${
+                  className={`border-r border-b last:border-r-0 p-2 min-h-[100px] transition-colors ${
                     !isCurrentMonth ? 'bg-muted/30' : ''
-                  } ${isToday ? 'bg-primary/5' : ''}`}
+                  } ${isToday ? 'bg-primary/5' : ''} ${isDragOver ? 'bg-accent/10 border-accent border-2' : ''}`}
+                  onDragOver={(e) => handleDragOver(e, day)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, day)}
                 >
                   <div className={`text-sm font-medium mb-1 ${
                     isToday ? 'text-primary font-bold' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
@@ -290,13 +380,16 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                   </div>
                   <div className="space-y-1">
                     {daySessions.slice(0, 2).map(session => (
-                      <button
+                      <div
                         key={session.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, session)}
+                        onDragEnd={handleDragEnd}
                         onClick={() => handleSessionClick(session)}
-                        className="w-full text-left px-1 py-0.5 rounded bg-primary text-primary-foreground text-xs hover:opacity-90 transition-opacity truncate"
+                        className="w-full text-left px-1 py-0.5 rounded bg-primary text-primary-foreground text-xs hover:opacity-90 transition-opacity truncate cursor-move"
                       >
                         {format(new Date(session.startTime), 'h:mm a')} {session.title}
-                      </button>
+                      </div>
                     ))}
                     {daySessions.length > 2 && (
                       <div className="text-xs text-muted-foreground px-1">
