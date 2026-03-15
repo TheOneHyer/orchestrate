@@ -1,0 +1,162 @@
+import { useState } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MagnifyingGlass, Plus, UserCircle } from '@phosphor-icons/react'
+import { User, Enrollment, Course } from '@/lib/types'
+import { format } from 'date-fns'
+
+interface PeopleProps {
+  users: User[]
+  enrollments: Enrollment[]
+  courses: Course[]
+  currentUser: User
+  onNavigate: (view: string, data?: any) => void
+}
+
+export function People({ users, enrollments, courses, currentUser, onNavigate }: PeopleProps) {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'trainer' | 'employee'>('all')
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.department.toLowerCase().includes(searchQuery.toLowerCase())
+    
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter
+    
+    return matchesSearch && matchesRole
+  })
+
+  const getUserEnrollmentStats = (userId: string) => {
+    const userEnrollments = enrollments.filter(e => e.userId === userId)
+    return {
+      total: userEnrollments.length,
+      completed: userEnrollments.filter(e => e.status === 'completed').length,
+      inProgress: userEnrollments.filter(e => e.status === 'in-progress').length,
+    }
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold text-foreground">People</h1>
+          <p className="text-muted-foreground mt-1">Manage employees and training profiles</p>
+        </div>
+        {currentUser.role === 'admin' && (
+          <Button onClick={() => onNavigate('people', { create: true })}>
+            <Plus size={18} weight="bold" className="mr-2" />
+            Add Person
+          </Button>
+        )}
+      </div>
+
+      <div className="flex gap-4">
+        <div className="relative flex-1">
+          <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search people..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      <Tabs value={roleFilter} onValueChange={(v) => setRoleFilter(v as any)}>
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="employee">Employees</TabsTrigger>
+          <TabsTrigger value="trainer">Trainers</TabsTrigger>
+          <TabsTrigger value="admin">Admins</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={roleFilter} className="mt-6">
+          <Card>
+            <CardContent className="pt-6">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Department</TableHead>
+                    <TableHead>Shifts</TableHead>
+                    <TableHead>Enrollments</TableHead>
+                    <TableHead>Certifications</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredUsers.map(user => {
+                    const stats = getUserEnrollmentStats(user.id)
+                    
+                    return (
+                      <TableRow key={user.id} className="cursor-pointer hover:bg-secondary" onClick={() => onNavigate('people', { userId: user.id })}>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarFallback className="bg-primary text-primary-foreground">
+                                {user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <div className="font-medium">{user.name}</div>
+                              <div className="text-sm text-muted-foreground">{user.email}</div>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={user.role === 'admin' ? 'default' : 'outline'}>
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{user.department}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {user.shifts.map(shift => (
+                              <Badge key={shift} variant="secondary" className="text-xs">
+                                {shift}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">
+                            <div>{stats.completed} completed</div>
+                            <div className="text-muted-foreground">{stats.inProgress} in progress</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm text-muted-foreground">
+                            {user.certifications.length} certs
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm">
+                            View Profile
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {filteredUsers.length === 0 && (
+        <div className="text-center py-12">
+          <UserCircle size={64} className="mx-auto text-muted-foreground opacity-50 mb-4" />
+          <p className="text-muted-foreground">No people found</p>
+        </div>
+      )}
+    </div>
+  )
+}
