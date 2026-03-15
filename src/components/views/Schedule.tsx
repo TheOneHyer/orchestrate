@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock, Robot, UserCircleGear } from '@phosphor-icons/react'
 import { Session, Course, User } from '@/lib/types'
-import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
+import { format, startOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, isSameDay, isSameMonth, eachDayOfInterval, startOfDay } from 'date-fns'
 import { formatDuration } from '@/lib/helpers'
 import { AutoScheduler } from './AutoScheduler'
 import { GuidedScheduler } from './GuidedScheduler'
@@ -27,14 +27,12 @@ interface ScheduleProps {
 
 export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate }: ScheduleProps) {
   const [viewType, setViewType] = useState<'calendar' | 'list' | 'gantt' | 'board'>('calendar')
+  const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('week')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [autoSchedulerOpen, setAutoSchedulerOpen] = useState(false)
   const [guidedSchedulerOpen, setGuidedSchedulerOpen] = useState(false)
-  const [currentWeek, setCurrentWeek] = useState(new Date())
-
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const [currentDate, setCurrentDate] = useState(new Date())
 
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)
@@ -51,7 +49,28 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     setGuidedSchedulerOpen(false)
   }
 
-  const renderCalendarView = () => {
+  const navigateDate = (direction: 'prev' | 'next' | 'today') => {
+    if (direction === 'today') {
+      setCurrentDate(new Date())
+      return
+    }
+
+    const change = direction === 'prev' ? -1 : 1
+    if (calendarPeriod === 'day') {
+      setCurrentDate(addDays(currentDate, change))
+    } else if (calendarPeriod === 'week') {
+      setCurrentDate(addWeeks(currentDate, change))
+    } else {
+      setCurrentDate(addMonths(currentDate, change))
+    }
+  }
+
+  const renderDailyView = () => {
+    const isToday = isSameDay(currentDate, new Date())
+    const daySessions = sessions
+      .filter(s => isSameDay(new Date(s.startTime), currentDate))
+      .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
+
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -59,23 +78,110 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => setCurrentWeek(addDays(currentWeek, -7))}
+              onClick={() => navigateDate('prev')}
             >
-              Previous
+              Previous Day
             </Button>
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => setCurrentWeek(new Date())}
+              onClick={() => navigateDate('today')}
             >
               Today
             </Button>
             <Button 
               variant="outline" 
               size="sm"
-              onClick={() => setCurrentWeek(addDays(currentWeek, 7))}
+              onClick={() => navigateDate('next')}
             >
-              Next
+              Next Day
+            </Button>
+          </div>
+          <h3 className="text-lg font-medium">
+            {format(currentDate, 'EEEE, MMMM d, yyyy')}
+          </h3>
+        </div>
+
+        <div className={`border rounded-lg p-6 min-h-[400px] ${isToday ? 'border-primary bg-primary/5' : 'border-border'}`}>
+          {daySessions.length === 0 ? (
+            <div className="flex items-center justify-center h-[350px] text-muted-foreground">
+              No sessions scheduled for this day
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {daySessions.map(session => {
+                const course = courses.find(c => c.id === session.courseId)
+                const trainer = users.find(u => u.id === session.trainerId)
+                return (
+                  <button
+                    key={session.id}
+                    onClick={() => handleSessionClick(session)}
+                    className="w-full text-left p-4 rounded-lg border border-border bg-card hover:bg-secondary transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="font-semibold text-foreground text-lg">{session.title}</div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          {format(new Date(session.startTime), 'h:mm a')} - {format(new Date(session.endTime), 'h:mm a')}
+                        </div>
+                        <div className="flex items-center gap-4 mt-3">
+                          <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <MapPin size={16} />
+                            {session.location}
+                          </span>
+                          <span className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <UsersIcon size={16} />
+                            {session.enrolledStudents.length}/{session.capacity}
+                          </span>
+                          {trainer && (
+                            <span className="text-sm text-muted-foreground">
+                              Trainer: {trainer.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Badge variant={session.status === 'scheduled' ? 'secondary' : session.status === 'completed' ? 'default' : 'outline'}>
+                        {session.status}
+                      </Badge>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const renderWeeklyView = () => {
+    const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 })
+    const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigateDate('prev')}
+            >
+              Previous Week
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigateDate('today')}
+            >
+              Today
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigateDate('next')}
+            >
+              Next Week
             </Button>
           </div>
           <h3 className="text-lg font-medium">
@@ -98,7 +204,6 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                 </div>
                 <div className="space-y-2">
                   {daySessions.map(session => {
-                    const course = courses.find(c => c.id === session.courseId)
                     return (
                       <button
                         key={session.id}
@@ -117,6 +222,101 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
         </div>
       </div>
     )
+  }
+
+  const renderMonthlyView = () => {
+    const monthStart = startOfMonth(currentDate)
+    const monthEnd = endOfMonth(currentDate)
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 })
+    const calendarEnd = startOfWeek(addDays(monthEnd, 6), { weekStartsOn: 0 })
+    const calendarDays = eachDayOfInterval({ start: calendarStart, end: addDays(calendarEnd, 6) })
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigateDate('prev')}
+            >
+              Previous Month
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigateDate('today')}
+            >
+              Today
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => navigateDate('next')}
+            >
+              Next Month
+            </Button>
+          </div>
+          <h3 className="text-lg font-medium">
+            {format(currentDate, 'MMMM yyyy')}
+          </h3>
+        </div>
+
+        <div className="border rounded-lg overflow-hidden">
+          <div className="grid grid-cols-7 bg-muted">
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+              <div key={day} className="p-3 text-center text-sm font-medium text-muted-foreground border-r border-b last:border-r-0">
+                {day}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {calendarDays.map((day, idx) => {
+              const daySessions = sessions.filter(s => isSameDay(new Date(s.startTime), day))
+              const isToday = isSameDay(day, new Date())
+              const isCurrentMonth = isSameMonth(day, currentDate)
+
+              return (
+                <div 
+                  key={day.toString()} 
+                  className={`border-r border-b last:border-r-0 p-2 min-h-[100px] ${
+                    !isCurrentMonth ? 'bg-muted/30' : ''
+                  } ${isToday ? 'bg-primary/5' : ''}`}
+                >
+                  <div className={`text-sm font-medium mb-1 ${
+                    isToday ? 'text-primary font-bold' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
+                  }`}>
+                    {format(day, 'd')}
+                  </div>
+                  <div className="space-y-1">
+                    {daySessions.slice(0, 2).map(session => (
+                      <button
+                        key={session.id}
+                        onClick={() => handleSessionClick(session)}
+                        className="w-full text-left px-1 py-0.5 rounded bg-primary text-primary-foreground text-xs hover:opacity-90 transition-opacity truncate"
+                      >
+                        {format(new Date(session.startTime), 'h:mm a')} {session.title}
+                      </button>
+                    ))}
+                    {daySessions.length > 2 && (
+                      <div className="text-xs text-muted-foreground px-1">
+                        +{daySessions.length - 2} more
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderCalendarView = () => {
+    if (calendarPeriod === 'day') return renderDailyView()
+    if (calendarPeriod === 'week') return renderWeeklyView()
+    return renderMonthlyView()
   }
 
   const renderListView = () => {
@@ -245,20 +445,48 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
       </div>
 
       <Tabs value={viewType} onValueChange={(v) => setViewType(v as any)}>
-        <TabsList>
-          <TabsTrigger value="calendar">
-            <CalendarBlank size={18} className="mr-2" />
-            Calendar
-          </TabsTrigger>
-          <TabsTrigger value="list">
-            <ListBullets size={18} className="mr-2" />
-            List
-          </TabsTrigger>
-          <TabsTrigger value="board">
-            <ChartBarIcon size={18} className="mr-2" />
-            Board
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between">
+          <TabsList>
+            <TabsTrigger value="calendar">
+              <CalendarBlank size={18} className="mr-2" />
+              Calendar
+            </TabsTrigger>
+            <TabsTrigger value="list">
+              <ListBullets size={18} className="mr-2" />
+              List
+            </TabsTrigger>
+            <TabsTrigger value="board">
+              <ChartBarIcon size={18} className="mr-2" />
+              Board
+            </TabsTrigger>
+          </TabsList>
+          
+          {viewType === 'calendar' && (
+            <div className="flex items-center gap-2">
+              <Button 
+                variant={calendarPeriod === 'day' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setCalendarPeriod('day')}
+              >
+                Day
+              </Button>
+              <Button 
+                variant={calendarPeriod === 'week' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setCalendarPeriod('week')}
+              >
+                Week
+              </Button>
+              <Button 
+                variant={calendarPeriod === 'month' ? 'default' : 'outline'} 
+                size="sm"
+                onClick={() => setCalendarPeriod('month')}
+              >
+                Month
+              </Button>
+            </div>
+          )}
+        </div>
 
         <TabsContent value="calendar" className="mt-6">
           <Card>
