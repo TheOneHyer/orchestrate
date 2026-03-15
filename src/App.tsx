@@ -14,11 +14,10 @@ import { BurnoutDashboard } from '@/components/views/BurnoutDashboard'
 import { TrainerWellness } from '@/components/views/TrainerWellness'
 import { CertificationDashboard } from '@/components/views/CertificationDashboard'
 import { Notifications } from '@/components/views/Notifications'
-import { NotificationSoundSettings } from '@/components/NotificationSoundSettings'
+import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner'
 import { User, Session, Course, Enrollment, Notification, CertificationRecord } from '@/lib/types'
 import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
 import { useCertificationNotifications } from '@/hooks/use-certification-notifications'
-import { useNotificationSound } from '@/hooks/use-notification-sound'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 import { ensureAllTrainersHaveProfiles } from '@/lib/trainer-profile-generator'
 
@@ -31,7 +30,6 @@ function App() {
   const [enrollments] = useKV<Enrollment[]>('enrollments', [])
   const [notifications, setNotifications] = useKV<Notification[]>('notifications', [])
 
-  const { playSound } = useNotificationSound()
   const { sendNotification } = usePushNotifications()
 
   useEffect(() => {
@@ -67,13 +65,11 @@ function App() {
       high: 'high' as const,
       critical: 'critical' as const
     }
-    const soundPriority = priorityMap[notification.priority || 'medium']
-    
-    playSound(soundPriority)
+    const pushPriority = priorityMap[notification.priority || 'medium']
     
     sendNotification(notification.title, {
       body: notification.message,
-      priority: soundPriority,
+      priority: pushPriority,
       tag: notification.type,
       onClick: notification.link ? () => {
         if (notification.link) {
@@ -99,7 +95,7 @@ function App() {
         duration: 8000
       })
     }
-  }, [setNotifications, playSound, sendNotification])
+  }, [setNotifications, sendNotification])
 
   useUtilizationNotifications(safeUsers, safeSessions, handleCreateNotification)
 
@@ -384,7 +380,7 @@ function App() {
               <p className="text-muted-foreground mt-1">Configure system settings</p>
             </div>
             <div className="max-w-4xl">
-              <NotificationSoundSettings />
+              <div className="text-muted-foreground">Settings coming soon</div>
             </div>
           </div>
         )
@@ -412,6 +408,7 @@ function App() {
       >
         {renderView()}
       </Layout>
+      <NotificationPermissionBanner />
       <Toaster />
     </>
   )
