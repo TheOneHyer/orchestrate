@@ -3,13 +3,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { User, DayOfWeek } from '@/lib/types'
-import { Gear } from '@phosphor-icons/react'
+import { Gear, X } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
 
 interface TrainerCoverageHeatmapProps {
   users: User[]
+  selectedCertification?: string
+  onCertificationChange?: (certification: string) => void
 }
 
 interface HourCoverage {
@@ -18,15 +21,33 @@ interface HourCoverage {
   count: number
 }
 
-export function TrainerCoverageHeatmap({ users }: TrainerCoverageHeatmapProps) {
+export function TrainerCoverageHeatmap({ users, selectedCertification, onCertificationChange }: TrainerCoverageHeatmapProps) {
   const [targetCoverage, setTargetCoverage] = useKV<number>('target-trainer-coverage', 4)
   const [isEditingTarget, setIsEditingTarget] = useState(false)
   const [tempTarget, setTempTarget] = useState((targetCoverage || 4).toString())
+  const [internalCertFilter, setInternalCertFilter] = useState<string>('all')
 
-  const trainers = useMemo(() => 
-    users.filter(u => u.role === 'trainer' && u.trainerProfile?.shiftSchedules && u.trainerProfile.shiftSchedules.length > 0),
+  const certFilter = selectedCertification ?? internalCertFilter
+  const setCertFilter = onCertificationChange ?? setInternalCertFilter
+
+  const allTrainers = useMemo(() => 
+    users.filter(u => u.role === 'trainer'),
     [users]
   )
+
+  const allCertifications = useMemo(() => {
+    const certs = new Set<string>()
+    allTrainers.forEach(t => t.certifications.forEach(c => certs.add(c)))
+    return Array.from(certs).sort()
+  }, [allTrainers])
+
+  const trainers = useMemo(() => {
+    return allTrainers.filter(trainer => {
+      const hasSchedule = trainer.trainerProfile?.shiftSchedules && trainer.trainerProfile.shiftSchedules.length > 0
+      const matchesCert = certFilter === 'all' || trainer.certifications.includes(certFilter)
+      return hasSchedule && matchesCert
+    })
+  }, [allTrainers, certFilter])
 
   const parseTime = (timeStr: string): number => {
     const [time, period] = timeStr.split(' ')
@@ -139,14 +160,39 @@ export function TrainerCoverageHeatmap({ users }: TrainerCoverageHeatmapProps) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
             <CardTitle>Trainer Coverage Heatmap</CardTitle>
             <CardDescription>
               Visual representation of trainer coverage by hour of the day
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {!onCertificationChange && allCertifications.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Select value={certFilter} onValueChange={setCertFilter}>
+                  <SelectTrigger className="w-[180px] h-8 text-xs">
+                    <SelectValue placeholder="All Certifications" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Certifications</SelectItem>
+                    {allCertifications.map(cert => (
+                      <SelectItem key={cert} value={cert}>{cert}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {certFilter !== 'all' && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setCertFilter('all')}
+                  >
+                    <X size={14} />
+                  </Button>
+                )}
+              </div>
+            )}
             {!isEditingTarget ? (
               <Button
                 variant="outline"
@@ -287,6 +333,11 @@ export function TrainerCoverageHeatmap({ users }: TrainerCoverageHeatmapProps) {
               <p>
                 Hover over any cell to see which trainers are working during that hour. 
                 Target coverage is set to <span className="font-semibold">{targetCoverage || 4}</span> trainer{(targetCoverage || 4) !== 1 ? 's' : ''} per hour.
+                {certFilter !== 'all' && (
+                  <span className="ml-1">
+                    • Showing only trainers certified in <span className="font-semibold">{certFilter}</span>.
+                  </span>
+                )}
               </p>
             </div>
           </div>

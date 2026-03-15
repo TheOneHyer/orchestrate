@@ -624,7 +624,11 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
         </TabsContent>
 
         <TabsContent value="work-schedule" className="space-y-6">
-          <TrainerCoverageHeatmap users={users} />
+          <TrainerCoverageHeatmap 
+            users={users} 
+            selectedCertification={selectedCertification}
+            onCertificationChange={setSelectedCertification}
+          />
           
           <Card>
             <CardHeader>
