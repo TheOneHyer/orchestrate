@@ -7,6 +7,7 @@ import { Schedule } from '@/components/views/Schedule'
 import { Courses } from '@/components/views/Courses'
 import { People } from '@/components/views/People'
 import { Analytics } from '@/components/views/Analytics'
+import { TrainerAvailability } from '@/components/views/TrainerAvailability'
 import { User, Session, Course, Enrollment, Notification } from '@/lib/types'
 
 function App() {
@@ -124,6 +125,15 @@ function App() {
             enrollments={safeEnrollments}
             sessions={safeSessions}
             courses={safeCourses}
+          />
+        )
+      case 'trainer-availability':
+        return (
+          <TrainerAvailability
+            users={safeUsers}
+            sessions={safeSessions}
+            courses={safeCourses}
+            onNavigate={handleNavigate}
           />
         )
       case 'notifications':

@@ -6,7 +6,8 @@ import {
   Users, 
   ChartBar, 
   Bell,
-  Gear
+  Gear,
+  Calendar
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +24,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: House, roles: ['admin', 'trainer', 'employee'] },
     { id: 'schedule', label: 'Schedule', icon: CalendarDots, roles: ['admin', 'trainer', 'employee'] },
+    { id: 'trainer-availability', label: 'Trainer Availability', icon: Calendar, roles: ['admin', 'trainer'] },
     { id: 'courses', label: 'Courses', icon: GraduationCap, roles: ['admin', 'trainer', 'employee'] },
     { id: 'people', label: 'People', icon: Users, roles: ['admin', 'trainer'] },
     { id: 'analytics', label: 'Analytics', icon: ChartBar, roles: ['admin', 'trainer'] },
