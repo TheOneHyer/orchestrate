@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useKV } from '@github/spark/hooks'
+import { useNotificationSound } from './use-notification-sound'
 
 interface PushNotificationSettings {
   enabled: boolean
@@ -29,6 +30,26 @@ export function usePushNotifications() {
     DEFAULT_SETTINGS
   )
   const [isSupported] = useState(() => 'Notification' in window)
+  const { settings: soundSettings } = useNotificationSound()
+
+  const isWithinQuietHours = useCallback(() => {
+    if (!soundSettings?.quietHours?.enabled) return false
+
+    const now = new Date()
+    const currentTime = now.getHours() * 60 + now.getMinutes()
+    
+    const [startHour, startMin] = soundSettings.quietHours.startTime.split(':').map(Number)
+    const [endHour, endMin] = soundSettings.quietHours.endTime.split(':').map(Number)
+    
+    const startMinutes = startHour * 60 + startMin
+    const endMinutes = endHour * 60 + endMin
+
+    if (startMinutes < endMinutes) {
+      return currentTime >= startMinutes && currentTime < endMinutes
+    } else {
+      return currentTime >= startMinutes || currentTime < endMinutes
+    }
+  }, [soundSettings])
 
   useEffect(() => {
     if (!isSupported) return
@@ -92,6 +113,12 @@ export function usePushNotifications() {
       return null
     }
 
+    if (isWithinQuietHours()) {
+      if (priority !== 'critical' || !soundSettings?.quietHours?.allowCritical) {
+        return null
+      }
+    }
+
     try {
       const notification = new Notification(title, {
         body: options?.body,
@@ -126,7 +153,7 @@ export function usePushNotifications() {
       console.error('Failed to send notification:', error)
       return null
     }
-  }, [isSupported, settings])
+  }, [isSupported, settings, isWithinQuietHours, soundSettings])
 
   const updateSettings = useCallback((updates: Partial<PushNotificationSettings>) => {
     setSettings((current) => ({

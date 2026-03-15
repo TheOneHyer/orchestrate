@@ -14,6 +14,7 @@ import { BurnoutDashboard } from '@/components/views/BurnoutDashboard'
 import { TrainerWellness } from '@/components/views/TrainerWellness'
 import { CertificationDashboard } from '@/components/views/CertificationDashboard'
 import { Notifications } from '@/components/views/Notifications'
+import { NotificationSoundSettings } from '@/components/NotificationSoundSettings'
 import { User, Session, Course, Enrollment, Notification, CertificationRecord } from '@/lib/types'
 import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
 import { useCertificationNotifications } from '@/hooks/use-certification-notifications'
@@ -378,8 +379,13 @@ function App() {
       case 'settings':
         return (
           <div className="p-6">
-            <h1 className="text-3xl font-semibold">Settings</h1>
-            <p className="text-muted-foreground mt-1">Configure system settings</p>
+            <div className="mb-6">
+              <h1 className="text-3xl font-semibold">Settings</h1>
+              <p className="text-muted-foreground mt-1">Configure system settings</p>
+            </div>
+            <div className="max-w-4xl">
+              <NotificationSoundSettings />
+            </div>
           </div>
         )
       default:
