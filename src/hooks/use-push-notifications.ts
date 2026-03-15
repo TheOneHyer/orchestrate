@@ -33,7 +33,7 @@ export function usePushNotifications() {
   const { settings: soundSettings } = useNotificationSound()
 
   const isWithinQuietHours = useCallback(() => {
-    if (!soundSettings || !soundSettings.quietHours || !soundSettings.quietHours.enabled) return false
+    if (!soundSettings?.quietHours?.enabled) return false
 
     const now = new Date()
     const currentTime = now.getHours() * 60 + now.getMinutes()
