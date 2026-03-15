@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { User, ShiftSchedule, DayOfWeek, ShiftType } from '@/lib/types'
-import { Plus, Trash, Clock, Calendar } from '@phosphor-icons/react'
-import { differenceInMonths, differenceInYears } from 'date-fns'
+import { User, ShiftSchedule, DayOfWeek, ShiftType, CertificationRecord } from '@/lib/types'
+import { Plus, Trash, Clock, Calendar, Certificate } from '@phosphor-icons/react'
+import { differenceInMonths, differenceInYears, format, parseISO } from 'date-fns'
+import { ManageCertificationsDialog } from '@/components/ManageCertificationsDialog'
+import { calculateCertificationStatus } from '@/lib/certification-tracker'
 
 interface TrainerProfileDialogProps {
   user: User
@@ -40,6 +42,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
   const [editedUser, setEditedUser] = useState<User>(user)
   const [newRole, setNewRole] = useState('')
   const [newSpecialization, setNewSpecialization] = useState('')
+  const [certDialogOpen, setCertDialogOpen] = useState(false)
 
   useEffect(() => {
     if (!editedUser.trainerProfile) {
@@ -196,6 +199,31 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
   const handleSave = () => {
     onSave(editedUser)
     onOpenChange(false)
+  }
+
+  const handleCertificationsSave = (certifications: CertificationRecord[]) => {
+    if (!editedUser.trainerProfile) return
+    
+    setEditedUser({
+      ...editedUser,
+      trainerProfile: {
+        ...editedUser.trainerProfile,
+        certificationRecords: certifications
+      }
+    })
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'bg-green-100 text-green-800 border-green-200'
+      case 'expiring-soon':
+        return 'bg-amber-100 text-amber-800 border-amber-200'
+      case 'expired':
+        return 'bg-red-100 text-red-800 border-red-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
   }
 
   if (!editedUser.trainerProfile) return null
@@ -447,6 +475,65 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
 
           <Card>
             <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Certificate size={20} />
+                  Certifications
+                </CardTitle>
+                <Button size="sm" onClick={() => setCertDialogOpen(true)}>
+                  <Plus size={16} weight="bold" className="mr-1" />
+                  Manage Certifications
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!editedUser.trainerProfile.certificationRecords || editedUser.trainerProfile.certificationRecords.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Certificate size={32} weight="duotone" className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No certification records</p>
+                  <p className="text-xs mt-1">Click "Manage Certifications" to add certification records with expiration tracking</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {editedUser.trainerProfile.certificationRecords.map((cert, index) => {
+                    const status = calculateCertificationStatus(cert)
+                    const daysUntil = Math.floor(
+                      (new Date(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                    )
+                    
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-sm">{cert.certificationName}</p>
+                            {cert.renewalInProgress && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                Renewal in Progress
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Expires: {format(parseISO(cert.expirationDate), 'MMM d, yyyy')}
+                          </p>
+                        </div>
+                        <Badge className={getStatusColor(status)}>
+                          {status === 'expired' && 'Expired'}
+                          {status === 'expiring-soon' && `${daysUntil}d left`}
+                          {status === 'active' && 'Active'}
+                        </Badge>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle className="text-lg">Additional Settings</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -513,6 +600,13 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
           <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
+      
+      <ManageCertificationsDialog
+        open={certDialogOpen}
+        onOpenChange={setCertDialogOpen}
+        certifications={editedUser.trainerProfile?.certificationRecords || []}
+        onSave={handleCertificationsSave}
+      />
     </Dialog>
   )
 }
