@@ -11,6 +11,7 @@ import { MagnifyingGlass, Plus, UserCircle, ArrowLeft } from '@phosphor-icons/re
 import { User, Enrollment, Course, Session } from '@/lib/types'
 import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
+import { getTrainerShifts } from '@/lib/helpers'
 import { format } from 'date-fns'
 
 interface PeopleProps {
@@ -174,7 +175,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
                             <TableCell>{user.department}</TableCell>
                             <TableCell>
                               <div className="flex gap-1">
-                                {user.shifts.map(shift => (
+                                {getTrainerShifts(user).map(shift => (
                                   <Badge key={shift} variant="secondary" className="text-xs">
                                     {shift}
                                   </Badge>

@@ -14,6 +14,7 @@ import { User, Session, Course, ShiftType, DayOfWeek } from '@/lib/types'
 import { format, startOfWeek, addDays, isSameDay, addWeeks, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
 import { analyzeWorkloadBalance } from '@/lib/workload-balancer'
 import { WorkloadRecommendations } from '@/components/WorkloadRecommendations'
+import { getTrainerShifts } from '@/lib/helpers'
 
 interface TrainerAvailabilityProps {
   users: User[]
@@ -55,7 +56,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     return trainers.filter(trainer => {
       const matchesSearch = trainer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           trainer.email.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesShift = selectedShift === 'all' || trainer.shifts.includes(selectedShift)
+      const trainerShifts = getTrainerShifts(trainer)
+      const matchesShift = selectedShift === 'all' || trainerShifts.includes(selectedShift)
       const matchesCert = selectedCertification === 'all' || trainer.certifications.includes(selectedCertification)
       return matchesSearch && matchesShift && matchesCert
     })
@@ -143,7 +145,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
               </div>
             </div>
             <div className="flex flex-wrap gap-1 mt-2">
-              {trainer.shifts.map(shift => (
+              {getTrainerShifts(trainer).map(shift => (
                 <Badge key={shift} className={`text-[10px] h-5 ${getShiftBadgeColor(shift)}`}>
                   {shift}
                 </Badge>
@@ -252,7 +254,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Shifts:</span>
                 <div className="flex gap-1">
-                  {selectedTrainer.shifts.map(shift => (
+                  {getTrainerShifts(selectedTrainer).map(shift => (
                     <Badge key={shift} className={`text-xs ${getShiftBadgeColor(shift)}`}>
                       {shift}
                     </Badge>
@@ -748,7 +750,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-1 mt-2">
-                              {trainer.shifts.map(shift => (
+                              {getTrainerShifts(trainer).map(shift => (
                                 <Badge key={shift} className={`text-[10px] h-5 ${getShiftBadgeColor(shift)}`}>
                                   {shift}
                                 </Badge>

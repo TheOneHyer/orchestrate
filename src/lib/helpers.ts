@@ -109,3 +109,14 @@ export function calculateSessionDuration(startTime: Date, endTime: Date): number
   
   return duration
 }
+
+export function getTrainerShifts(user: User): ShiftType[] {
+  if (user.role !== 'trainer') return []
+  
+  if (user.trainerProfile?.shiftSchedules && user.trainerProfile.shiftSchedules.length > 0) {
+    const uniqueShifts = new Set(user.trainerProfile.shiftSchedules.map(schedule => schedule.shiftType))
+    return Array.from(uniqueShifts).sort()
+  }
+  
+  return user.shifts || []
+}
