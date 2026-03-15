@@ -30,7 +30,7 @@ interface ScheduleProps {
 
 export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate }: ScheduleProps) {
   const [viewType, setViewType] = useState<'calendar' | 'list' | 'gantt' | 'board'>('calendar')
-  const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('week')
+  const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('month')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [autoSchedulerOpen, setAutoSchedulerOpen] = useState(false)
