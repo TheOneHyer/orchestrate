@@ -9,8 +9,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { MagnifyingGlass, Users as UsersIcon, Certificate, Clock, CalendarBlank, X, ChartBar, Scales } from '@phosphor-icons/react'
-import { User, Session, Course, ShiftType } from '@/lib/types'
+import { MagnifyingGlass, Users as UsersIcon, Certificate, Clock, CalendarBlank, X, ChartBar, Scales, CalendarCheck } from '@phosphor-icons/react'
+import { User, Session, Course, ShiftType, DayOfWeek } from '@/lib/types'
 import { format, startOfWeek, addDays, isSameDay, addWeeks, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
 import { analyzeWorkloadBalance } from '@/lib/workload-balancer'
 import { WorkloadRecommendations } from '@/components/WorkloadRecommendations'
@@ -221,6 +221,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
       .slice(0, 10)
 
     const schedule = trainerSchedules.find(s => s.trainer.id === selectedTrainer.id)
+    const profile = selectedTrainer.trainerProfile
 
     return (
       <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
@@ -272,6 +273,77 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
               )}
             </div>
           </div>
+
+          {profile && (
+            <>
+              <Separator />
+              
+              <div>
+                <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+                  <CalendarCheck size={16} />
+                  Work Schedule
+                </h3>
+                {profile.shiftSchedules && profile.shiftSchedules.length > 0 ? (
+                  <div className="space-y-2">
+                    {profile.shiftSchedules.map((shiftSchedule, idx) => (
+                      <div key={idx} className="p-3 rounded-lg border border-border bg-secondary/30">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-sm">{shiftSchedule.shiftCode}</span>
+                          <Badge className={`text-xs ${getShiftBadgeColor(shiftSchedule.shiftType)}`}>
+                            {shiftSchedule.shiftType}
+                          </Badge>
+                        </div>
+                        <div className="space-y-1 text-xs text-muted-foreground">
+                          <div>⏰ {shiftSchedule.startTime} - {shiftSchedule.endTime}</div>
+                          <div>📊 {shiftSchedule.totalHoursPerWeek}h per week</div>
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {shiftSchedule.daysWorked.map(day => (
+                              <Badge key={day} variant="outline" className="text-[10px] h-5 capitalize">
+                                {day.slice(0, 3)}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No detailed work schedule configured</p>
+                )}
+              </div>
+
+              {profile.tenure && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Tenure</h3>
+                    <div className="text-sm">
+                      <span className="font-medium">{profile.tenure.yearsOfService}</span> years, <span className="font-medium">{profile.tenure.monthsOfService}</span> months
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Since {format(new Date(profile.tenure.hireDate), 'MMM d, yyyy')}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {profile.authorizedRoles && profile.authorizedRoles.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Authorized to Teach</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {profile.authorizedRoles.map(role => (
+                        <Badge key={role} variant="secondary" className="text-xs">
+                          {role}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
 
           <Separator />
 
@@ -425,10 +497,14 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
       </div>
 
       <Tabs defaultValue="calendar" className="space-y-6">
-        <TabsList className="grid w-full max-w-md grid-cols-2">
+        <TabsList className="grid w-full max-w-2xl grid-cols-3">
           <TabsTrigger value="calendar" className="flex items-center gap-2">
             <CalendarBlank size={16} />
-            Calendar View
+            Session Calendar
+          </TabsTrigger>
+          <TabsTrigger value="work-schedule" className="flex items-center gap-2">
+            <CalendarCheck size={16} />
+            Work Schedule
           </TabsTrigger>
           <TabsTrigger value="recommendations" className="flex items-center gap-2">
             <Scales size={16} />
@@ -560,6 +636,235 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="work-schedule" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+                  <Input
+                    placeholder="Search trainers..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                <Select value={selectedShift} onValueChange={(v) => setSelectedShift(v as any)}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Filter by shift" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Shifts</SelectItem>
+                    <SelectItem value="day">Day Shift</SelectItem>
+                    <SelectItem value="evening">Evening Shift</SelectItem>
+                    <SelectItem value="night">Night Shift</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={selectedCertification} onValueChange={setSelectedCertification}>
+                  <SelectTrigger className="w-full sm:w-[200px]">
+                    <SelectValue placeholder="Filter by certification" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Certifications</SelectItem>
+                    {allCertifications.map(cert => (
+                      <SelectItem key={cert} value={cert}>{cert}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {(searchTerm || selectedShift !== 'all' || selectedCertification !== 'all') && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSearchTerm('')
+                      setSelectedShift('all')
+                      setSelectedCertification('all')
+                    }}
+                  >
+                    <X size={18} />
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader className="border-b border-border pb-4">
+              <CardTitle>Weekly Work Schedule</CardTitle>
+              <CardDescription>
+                View trainers' regular work schedules and shift patterns
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <div className="grid grid-cols-[250px_1fr] divide-x divide-border border-b border-border">
+                <div className="p-3 bg-muted/50 font-medium text-sm">
+                  Trainer
+                </div>
+                <div className="grid grid-cols-7 divide-x divide-border">
+                  {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
+                    <div 
+                      key={day} 
+                      className="p-3 text-center bg-muted/50"
+                    >
+                      <div className="text-xs font-medium text-muted-foreground">
+                        {day.slice(0, 3)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {filteredTrainers.length > 0 ? (
+                <div>
+                  {filteredTrainers.map(trainer => {
+                    const profile = trainer.trainerProfile
+                    const daysOfWeek: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+                    
+                    return (
+                      <div key={trainer.id} className="border-b border-border last:border-b-0">
+                        <div className="grid grid-cols-[250px_1fr] divide-x divide-border">
+                          <button
+                            onClick={() => handleTrainerClick(trainer)}
+                            className="p-4 hover:bg-secondary/50 transition-colors text-left"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-10 w-10">
+                                <AvatarImage src={trainer.avatar} />
+                                <AvatarFallback className="bg-primary text-primary-foreground">
+                                  {trainer.name.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-foreground truncate">{trainer.name}</div>
+                                <div className="text-xs text-muted-foreground truncate">{trainer.department}</div>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {trainer.shifts.map(shift => (
+                                <Badge key={shift} className={`text-[10px] h-5 ${getShiftBadgeColor(shift)}`}>
+                                  {shift}
+                                </Badge>
+                              ))}
+                            </div>
+                            {profile?.tenure && (
+                              <div className="text-xs text-muted-foreground mt-2">
+                                {profile.tenure.yearsOfService}y {profile.tenure.monthsOfService}m tenure
+                              </div>
+                            )}
+                          </button>
+
+                          <div className="grid grid-cols-7 divide-x divide-border">
+                            {daysOfWeek.map(dayOfWeek => {
+                              const schedulesForDay = profile?.shiftSchedules?.filter(schedule => 
+                                schedule.daysWorked.includes(dayOfWeek)
+                              ) || []
+
+                              return (
+                                <div 
+                                  key={dayOfWeek} 
+                                  className="p-2 min-h-[100px]"
+                                >
+                                  <div className="space-y-1">
+                                    {schedulesForDay.length > 0 ? (
+                                      schedulesForDay.map((schedule, idx) => (
+                                        <TooltipProvider key={idx}>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <div
+                                                className={`w-full p-1.5 rounded text-left text-[10px] cursor-help ${
+                                                  schedule.shiftType === 'day' 
+                                                    ? 'bg-amber-500 text-white' 
+                                                    : schedule.shiftType === 'evening'
+                                                    ? 'bg-orange-600 text-white'
+                                                    : 'bg-indigo-700 text-white'
+                                                }`}
+                                              >
+                                                <div className="font-medium truncate">{schedule.shiftCode}</div>
+                                                <div className="opacity-90 truncate">
+                                                  {schedule.startTime} - {schedule.endTime}
+                                                </div>
+                                              </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" className="max-w-[300px]">
+                                              <div className="space-y-1">
+                                                <div className="font-semibold">{schedule.shiftCode}</div>
+                                                <div className="text-xs capitalize">
+                                                  {schedule.shiftType} Shift
+                                                </div>
+                                                <div className="text-xs">
+                                                  ⏰ {schedule.startTime} - {schedule.endTime}
+                                                </div>
+                                                <div className="text-xs">
+                                                  📊 {schedule.totalHoursPerWeek}h/week
+                                                </div>
+                                                <div className="text-xs">
+                                                  📅 {schedule.daysWorked.map(d => d.slice(0, 3)).join(', ')}
+                                                </div>
+                                              </div>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      ))
+                                    ) : (
+                                      <div className="text-[10px] text-muted-foreground/50 text-center pt-4">
+                                        Off
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="p-12 text-center text-muted-foreground">
+                  <UsersIcon size={48} className="mx-auto mb-3 opacity-50" />
+                  <p>No trainers found matching your filters</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {filteredTrainers.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Schedule Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">Total Trainers</div>
+                    <div className="text-2xl font-semibold">{filteredTrainers.length}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">With Detailed Schedules</div>
+                    <div className="text-2xl font-semibold">
+                      {filteredTrainers.filter(t => t.trainerProfile?.shiftSchedules && t.trainerProfile.shiftSchedules.length > 0).length}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground mb-1">Total Weekly Hours</div>
+                    <div className="text-2xl font-semibold">
+                      {filteredTrainers.reduce((sum, trainer) => {
+                        const schedules = trainer.trainerProfile?.shiftSchedules || []
+                        return sum + schedules.reduce((s, schedule) => s + schedule.totalHoursPerWeek, 0)
+                      }, 0).toFixed(0)}h
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="recommendations" className="space-y-6">
