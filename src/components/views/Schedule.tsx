@@ -15,6 +15,7 @@ import { formatDuration } from '@/lib/helpers'
 import { AutoScheduler } from './AutoScheduler'
 import { GuidedScheduler } from './GuidedScheduler'
 import { toast } from 'sonner'
+import { checkSessionConflicts, formatConflictMessage } from '@/lib/conflict-detection'
 
 interface ScheduleProps {
   sessions: Session[]
@@ -36,6 +37,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const [currentDate, setCurrentDate] = useState(new Date())
   const [draggedSession, setDraggedSession] = useState<Session | null>(null)
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null)
+  const [dragConflicts, setDragConflicts] = useState<string[]>([])
 
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)
@@ -80,6 +82,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const handleDragEnd = (e: React.DragEvent) => {
     setDraggedSession(null)
     setDragOverDay(null)
+    setDragConflicts([])
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.style.opacity = '1'
     }
@@ -89,10 +92,39 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDragOverDay(day)
+
+    if (draggedSession) {
+      const originalStart = new Date(draggedSession.startTime)
+      const originalEnd = new Date(draggedSession.endTime)
+      const sessionDuration = differenceInMinutes(originalEnd, originalStart)
+
+      const newStart = new Date(day)
+      newStart.setHours(originalStart.getHours())
+      newStart.setMinutes(originalStart.getMinutes())
+
+      const newEnd = new Date(newStart)
+      newEnd.setMinutes(newEnd.getMinutes() + sessionDuration)
+
+      const conflictCheck = checkSessionConflicts(
+        draggedSession,
+        newStart,
+        newEnd,
+        sessions,
+        users
+      )
+
+      if (conflictCheck.hasConflicts) {
+        setDragConflicts(conflictCheck.conflicts.map(c => c.message))
+        e.dataTransfer.dropEffect = 'none'
+      } else {
+        setDragConflicts([])
+      }
+    }
   }
 
   const handleDragLeave = () => {
     setDragOverDay(null)
+    setDragConflicts([])
   }
 
   const handleDrop = (e: React.DragEvent, targetDay: Date) => {
@@ -112,6 +144,27 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     const newEnd = new Date(newStart)
     newEnd.setMinutes(newEnd.getMinutes() + sessionDuration)
 
+    const conflictCheck = checkSessionConflicts(
+      draggedSession,
+      newStart,
+      newEnd,
+      sessions,
+      users
+    )
+
+    if (conflictCheck.hasConflicts) {
+      const errorConflicts = conflictCheck.conflicts.filter(c => c.severity === 'error')
+      
+      if (errorConflicts.length > 0) {
+        toast.error('Cannot move session', {
+          description: formatConflictMessage(conflictCheck.conflicts),
+          duration: 6000,
+        })
+        setDraggedSession(null)
+        return
+      }
+    }
+
     onUpdateSession(draggedSession.id, {
       startTime: newStart.toISOString(),
       endTime: newEnd.toISOString(),
@@ -130,6 +183,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
       .filter(s => isSameDay(new Date(s.startTime), currentDate))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
     const isDragOver = dragOverDay && isSameDay(dragOverDay, currentDate)
+    const hasConflict = isDragOver && dragConflicts.length > 0
 
     return (
       <div className="space-y-4">
@@ -165,6 +219,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
         <div 
           className={`border rounded-lg p-6 min-h-[400px] transition-colors ${
             isToday ? 'border-primary bg-primary/5' : 
+            hasConflict ? 'border-destructive bg-destructive/10 border-2' :
             isDragOver ? 'border-accent bg-accent/10 border-2' : 
             'border-border'
           }`}
@@ -172,6 +227,16 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, currentDate)}
         >
+          {hasConflict && (
+            <div className="mb-4 p-3 bg-destructive/20 border border-destructive rounded-lg">
+              <div className="font-semibold text-destructive mb-1">⚠️ Scheduling Conflicts</div>
+              <ul className="text-sm text-destructive space-y-1">
+                {dragConflicts.map((conflict, idx) => (
+                  <li key={idx}>• {conflict}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {daySessions.length === 0 ? (
             <div className="flex items-center justify-center h-[350px] text-muted-foreground">
               No sessions scheduled for this day
@@ -266,12 +331,14 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             const daySessions = sessions.filter(s => isSameDay(new Date(s.startTime), day))
             const isToday = isSameDay(day, new Date())
             const isDragOver = dragOverDay && isSameDay(dragOverDay, day)
+            const hasConflict = isDragOver && dragConflicts.length > 0
 
             return (
               <div 
                 key={day.toString()} 
                 className={`border rounded-lg p-3 min-h-[200px] transition-colors ${
                   isToday ? 'border-primary bg-primary/5' : 
+                  hasConflict ? 'border-destructive bg-destructive/10 border-2' :
                   isDragOver ? 'border-accent bg-accent/10 border-2' : 
                   'border-border'
                 }`}
@@ -285,6 +352,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                 <div className={`text-2xl font-semibold mb-3 ${isToday ? 'text-primary' : 'text-foreground'}`}>
                   {format(day, 'd')}
                 </div>
+                {hasConflict && (
+                  <div className="mb-2 p-1 bg-destructive/20 rounded text-xs text-destructive font-medium">
+                    ⚠️ Conflict
+                  </div>
+                )}
                 <div className="space-y-2">
                   {daySessions.map(session => {
                     return (
@@ -362,13 +434,17 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
               const isToday = isSameDay(day, new Date())
               const isCurrentMonth = isSameMonth(day, currentDate)
               const isDragOver = dragOverDay && isSameDay(dragOverDay, day)
+              const hasConflict = isDragOver && dragConflicts.length > 0
 
               return (
                 <div 
                   key={day.toString()} 
                   className={`border-r border-b last:border-r-0 p-2 min-h-[100px] transition-colors ${
                     !isCurrentMonth ? 'bg-muted/30' : ''
-                  } ${isToday ? 'bg-primary/5' : ''} ${isDragOver ? 'bg-accent/10 border-accent border-2' : ''}`}
+                  } ${isToday ? 'bg-primary/5' : ''} ${
+                    hasConflict ? 'bg-destructive/10 border-destructive border-2' : 
+                    isDragOver ? 'bg-accent/10 border-accent border-2' : ''
+                  }`}
                   onDragOver={(e) => handleDragOver(e, day)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, day)}
@@ -378,6 +454,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                   }`}>
                     {format(day, 'd')}
                   </div>
+                  {hasConflict && (
+                    <div className="mb-1 p-0.5 bg-destructive/20 rounded text-xs text-destructive font-medium">
+                      ⚠️
+                    </div>
+                  )}
                   <div className="space-y-1">
                     {daySessions.slice(0, 2).map(session => (
                       <div
