@@ -38,8 +38,8 @@ export function usePushNotifications() {
     const now = new Date()
     const currentTime = now.getHours() * 60 + now.getMinutes()
     
-    const startTime = soundSettings?.quietHours?.startTime || '22:00'
-    const endTime = soundSettings?.quietHours?.endTime || '08:00'
+    const startTime = soundSettings.quietHours.startTime || '22:00'
+    const endTime = soundSettings.quietHours.endTime || '08:00'
     
     const [startHour, startMin] = startTime.split(':').map(Number)
     const [endHour, endMin] = endTime.split(':').map(Number)
