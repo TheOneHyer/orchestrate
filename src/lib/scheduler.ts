@@ -81,14 +81,41 @@ export class TrainerScheduler {
       matchReasons.push(`Has all required certifications: ${hasCertifications.matched.join(', ')}`)
     } else {
       conflicts.push(`Missing certifications: ${hasCertifications.missing.join(', ')}`)
+      return {
+        trainer,
+        score: 0,
+        matchReasons,
+        conflicts,
+        availability: 'unavailable'
+      }
     }
 
-    const hasShiftAlignment = this.checkShiftAlignment(trainer, constraints.shifts)
-    if (hasShiftAlignment.matches) {
+    const detailedShiftCheck = this.checkDetailedShiftOverlap(
+      trainer,
+      targetDate,
+      constraints.startTime,
+      constraints.endTime
+    )
+
+    if (detailedShiftCheck.hasOverlap) {
       score += 30
-      matchReasons.push(`Works matching shifts: ${hasShiftAlignment.matched.join(', ')}`)
+      matchReasons.push(`Working during session time: ${detailedShiftCheck.overlappingSchedules.join(', ')}`)
     } else {
-      conflicts.push(`Shift mismatch - trainer works: ${trainer.shifts.join(', ')}, need: ${constraints.shifts.join(', ')}`)
+      const hasShiftAlignment = this.checkShiftAlignment(trainer, constraints.shifts)
+      if (hasShiftAlignment.matches) {
+        score += 15
+        matchReasons.push(`Works matching shifts: ${hasShiftAlignment.matched.join(', ')}, but no detailed schedule configured`)
+        conflicts.push('Work schedule not configured - unable to verify actual time availability')
+      } else {
+        conflicts.push(`No shift overlap - trainer does not work on this day/time`)
+        return {
+          trainer,
+          score: 0,
+          matchReasons,
+          conflicts,
+          availability: 'unavailable'
+        }
+      }
     }
 
     const timeConflicts = this.checkTimeConflicts(trainer, targetDate, constraints)
@@ -146,6 +173,59 @@ export class TrainerScheduler {
     return {
       matches: matched.length > 0,
       matched
+    }
+  }
+
+  private checkDetailedShiftOverlap(
+    trainer: User,
+    targetDate: Date,
+    startTime: string,
+    endTime: string
+  ): { hasOverlap: boolean; overlappingSchedules: string[] } {
+    if (!trainer.trainerProfile?.shiftSchedules || trainer.trainerProfile.shiftSchedules.length === 0) {
+      return { hasOverlap: false, overlappingSchedules: [] }
+    }
+
+    const dayOfWeekMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    const targetDayOfWeek = dayOfWeekMap[targetDate.getDay()] as any
+
+    const [sessionStartHour, sessionStartMin] = startTime.split(':').map(Number)
+    const [sessionEndHour, sessionEndMin] = endTime.split(':').map(Number)
+
+    const sessionStartMinutes = sessionStartHour * 60 + sessionStartMin
+    const sessionEndMinutes = sessionEndHour * 60 + sessionEndMin
+
+    const overlappingSchedules: string[] = []
+
+    for (const schedule of trainer.trainerProfile.shiftSchedules) {
+      if (!schedule.daysWorked.includes(targetDayOfWeek)) {
+        continue
+      }
+
+      const [schedStartHour, schedStartMin] = schedule.startTime.split(':').map(Number)
+      const [schedEndHour, schedEndMin] = schedule.endTime.split(':').map(Number)
+
+      let schedStartMinutes = schedStartHour * 60 + schedStartMin
+      let schedEndMinutes = schedEndHour * 60 + schedEndMin
+
+      if (schedEndMinutes < schedStartMinutes) {
+        schedEndMinutes += 24 * 60
+      }
+
+      const hasOverlap = (
+        (sessionStartMinutes >= schedStartMinutes && sessionStartMinutes < schedEndMinutes) ||
+        (sessionEndMinutes > schedStartMinutes && sessionEndMinutes <= schedEndMinutes) ||
+        (sessionStartMinutes <= schedStartMinutes && sessionEndMinutes >= schedEndMinutes)
+      )
+
+      if (hasOverlap) {
+        overlappingSchedules.push(`${schedule.shiftCode} (${schedule.startTime}-${schedule.endTime})`)
+      }
+    }
+
+    return {
+      hasOverlap: overlappingSchedules.length > 0,
+      overlappingSchedules
     }
   }
 
