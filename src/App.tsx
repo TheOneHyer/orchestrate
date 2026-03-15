@@ -10,6 +10,7 @@ import { People } from '@/components/views/People'
 import { Analytics } from '@/components/views/Analytics'
 import { TrainerAvailability } from '@/components/views/TrainerAvailability'
 import { BurnoutDashboard } from '@/components/views/BurnoutDashboard'
+import { TrainerWellness } from '@/components/views/TrainerWellness'
 import { User, Session, Course, Enrollment, Notification } from '@/lib/types'
 import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
 
@@ -165,6 +166,15 @@ function App() {
             users={safeUsers}
             sessions={safeSessions}
             courses={safeCourses}
+            onNavigate={handleNavigate}
+          />
+        )
+      case 'trainer-wellness':
+        return (
+          <TrainerWellness
+            users={safeUsers}
+            sessions={safeSessions}
+            currentUser={currentUser}
             onNavigate={handleNavigate}
           />
         )

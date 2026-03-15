@@ -82,6 +82,20 @@ This is an enterprise-grade learning management and scheduling system that coord
 - **Progression**: System monitors utilization → Threshold exceeded → Notifications sent to trainer and admin → View balance score → Review overutilized/underutilized trainers → Read AI recommendations → Click trainer name → View redistribution opportunities → Apply suggestions → Workload normalized notification sent
 - **Success criteria**: Balance score calculation accurate, recommendations identify compatible trainers for redistribution, clear action steps provided, automatic notifications trigger at correct thresholds (85% and 95%), toast alerts appear for critical cases, resolved notifications sent when balance returns to normal
 
+### Trainer Wellness Check-Ins
+- **Functionality**: Structured wellness assessments capturing mood, stress, energy, workload satisfaction, sleep quality, physical wellbeing, mental clarity, and specific concerns. Tracks check-in history with analytics and trending data.
+- **Purpose**: Proactively monitor trainer wellbeing, identify early signs of burnout before they become critical, create documentation for intervention decisions, and establish wellbeing trends over time
+- **Trigger**: Admin initiates check-in for a trainer from Wellness & Recovery view, or scheduled periodic check-ins (weekly/monthly based on risk level)
+- **Progression**: Admin selects trainer → Opens check-in dialog → Trainer completes assessment (mood 1-5 scale, stress level, energy level, satisfaction ratings) → Selects applicable concerns from common list → Adds optional comments → Flags for follow-up if needed → Submit → System calculates wellness score (0-100) → Triggers recovery plan recommendation if thresholds exceeded → Stores in history with timestamp and utilization snapshot
+- **Success criteria**: Check-ins capture comprehensive wellness data, wellness score accurately reflects overall status (excellent >85, good 70-85, fair 55-70, poor 40-55, critical <40), trending shows wellness changes over time, automatic recovery plan recommendations when score < 50 or stress critical/high combined with high utilization, follow-up flags tracked until completed
+
+### Burnout Recovery Plans
+- **Functionality**: Structured intervention plans with specific recovery actions (workload reduction, time off, schedule adjustments, support sessions, training resources), target utilization goals, completion timelines, progress tracking, and action completion monitoring
+- **Purpose**: Provide systematic approach to trainer recovery, ensure accountability for wellness interventions, track recovery progress objectively, document interventions for compliance and effectiveness analysis
+- **Trigger**: Admin creates recovery plan from Wellness & Recovery view, triggered by low wellness scores, sustained high stress, follow-up requests, or manual intervention decision
+- **Progression**: Admin selects trainer → Opens recovery plan dialog → System pre-fills trigger reason from latest check-in data → Admin sets target utilization (default 70%) → Sets duration (default 4 weeks) → System suggests initial actions based on wellness data (e.g., workload reduction if >85% utilized, time off if critical stress, support session if follow-up flagged) → Admin adds/customizes recovery actions with descriptions and target dates → Adds plan notes → Submit → Plan created with "active" status → Actions tracked → Progress calculated based on action completion and utilization improvement → Plan marked "completed" when target utilization reached and all actions done
+- **Success criteria**: Recovery plans provide clear structured interventions, actions align with identified wellness issues, progress tracking shows measurable improvement, utilization trends down toward target, multiple check-ins during recovery period show wellness score improvement, plans can be reviewed for compliance and effectiveness analysis
+
 ## Edge Case Handling
 - **No available trainers**: Display warning with conflicting constraints, suggest alternative times/dates
 - **Overlapping sessions**: Prevent double-booking, show conflict warning before save

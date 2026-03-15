@@ -27,6 +27,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
     { id: 'schedule', label: 'Schedule', icon: CalendarDots, roles: ['admin', 'trainer', 'employee'] },
     { id: 'trainer-availability', label: 'Trainer Availability', icon: Calendar, roles: ['admin', 'trainer'] },
     { id: 'burnout-dashboard', label: 'Burnout Risk', icon: Heart, roles: ['admin'] },
+    { id: 'trainer-wellness', label: 'Wellness & Recovery', icon: Heart, roles: ['admin'] },
     { id: 'courses', label: 'Courses', icon: GraduationCap, roles: ['admin', 'trainer', 'employee'] },
     { id: 'people', label: 'People', icon: Users, roles: ['admin', 'trainer'] },
     { id: 'analytics', label: 'Analytics', icon: ChartBar, roles: ['admin', 'trainer'] },

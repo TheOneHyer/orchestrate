@@ -105,3 +105,71 @@ export interface ScheduleConflict {
 }
 
 export type ViewType = 'calendar' | 'gantt' | 'list' | 'board'
+
+export type MoodLevel = 1 | 2 | 3 | 4 | 5
+export type StressLevel = 'low' | 'moderate' | 'high' | 'critical'
+export type EnergyLevel = 'exhausted' | 'tired' | 'neutral' | 'energized' | 'excellent'
+
+export interface WellnessCheckIn {
+  id: string
+  trainerId: string
+  timestamp: string
+  mood: MoodLevel
+  stress: StressLevel
+  energy: EnergyLevel
+  workloadSatisfaction: MoodLevel
+  sleepQuality: MoodLevel
+  physicalWellbeing: MoodLevel
+  mentalClarity: MoodLevel
+  comments?: string
+  concerns?: string[]
+  adminNotes?: string
+  followUpRequired: boolean
+  followUpCompleted?: boolean
+  utilizationAtCheckIn?: number
+}
+
+export type RecoveryPlanStatus = 'active' | 'in-progress' | 'completed' | 'cancelled'
+export type RecoveryAction = 'workload-reduction' | 'time-off' | 'schedule-adjustment' | 'support-session' | 'training' | 'custom'
+
+export interface RecoveryPlan {
+  id: string
+  trainerId: string
+  createdBy: string
+  createdAt: string
+  status: RecoveryPlanStatus
+  triggerReason: string
+  targetUtilization: number
+  currentUtilization: number
+  startDate: string
+  targetCompletionDate: string
+  actualCompletionDate?: string
+  actions: RecoveryPlanAction[]
+  checkIns: string[]
+  notes?: string
+  outcomes?: string
+}
+
+export interface RecoveryPlanAction {
+  id: string
+  type: RecoveryAction
+  description: string
+  targetDate: string
+  completed: boolean
+  completedDate?: string
+  completedBy?: string
+  impact?: string
+  notes?: string
+}
+
+export interface WellnessTrend {
+  trainerId: string
+  period: string
+  averageMood: number
+  averageStress: number
+  averageEnergy: number
+  checkInCount: number
+  concernsRaised: number
+  followUpsRequired: number
+  recoveryPlansActive: number
+}
