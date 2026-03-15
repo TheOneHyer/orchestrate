@@ -17,7 +17,8 @@ import {
   Fire,
   Heart,
   WarningCircle,
-  CheckCircle
+  CheckCircle,
+  ClockCounterClockwise
 } from '@phosphor-icons/react'
 import { User, Session, Course, WellnessCheckIn } from '@/lib/types'
 import { 
@@ -31,6 +32,9 @@ import { UtilizationChart } from '@/components/charts/UtilizationChart'
 import { BurnoutRiskGauge } from '@/components/charts/BurnoutRiskGauge'
 import { TrendChart } from '@/components/charts/TrendChart'
 import { WorkloadDistribution } from '@/components/charts/WorkloadDistribution'
+import { RiskTrendChart } from '@/components/charts/RiskTrendChart'
+import { useRiskHistory } from '@/hooks/use-risk-history'
+import { aggregateSnapshotsByDay } from '@/lib/risk-history-tracker'
 
 interface BurnoutDashboardProps {
   users: User[]
@@ -44,6 +48,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
   const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null)
   
   const [checkIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
+  const { getTrainerHistory } = useRiskHistory(users, sessions, courses, checkIns || [])
 
   const trainers = useMemo(() => 
     users.filter(u => u.role === 'trainer'),
@@ -392,6 +397,43 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
                     data={selectedTrainerTrend.dataPoints}
                     trainerName={trainers.find(t => t.id === selectedTrainer)?.name || ''}
                   />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Risk Level Trend</CardTitle>
+                      <CardDescription>
+                        Historical burnout risk score tracking
+                      </CardDescription>
+                    </div>
+                    <ClockCounterClockwise className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {(() => {
+                    if (!selectedTrainer) return null
+                    
+                    const trainerHistory = getTrainerHistory(selectedTrainer)
+                    const aggregatedHistory = aggregateSnapshotsByDay(trainerHistory)
+                    
+                    return (
+                      <RiskTrendChart 
+                        data={aggregatedHistory.map(snap => ({
+                          date: snap.timestamp,
+                          riskScore: snap.riskScore,
+                          riskLevel: snap.riskLevel,
+                          utilizationRate: snap.utilizationRate,
+                          sessionCount: snap.sessionCount,
+                          hoursScheduled: snap.hoursScheduled
+                        }))}
+                        trainerName={trainers.find(t => t.id === selectedTrainer)?.name}
+                        showUtilization={true}
+                      />
+                    )
+                  })()}
                 </CardContent>
               </Card>
 
