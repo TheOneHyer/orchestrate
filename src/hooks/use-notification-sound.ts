@@ -8,7 +8,7 @@ export interface QuietHours {
   allowCritical: boolean
 }
 
-interface NotificationSoundSettings {
+export interface NotificationSoundSettings {
   enabled: boolean
   volume: number
   soundType: 'soft' | 'pleasant' | 'gentle' | 'musical' | 'minimal'
