@@ -30,7 +30,7 @@ import {
   BatteryCharging
 } from '@phosphor-icons/react'
 import { TrainerScheduler, SchedulingConstraints, TrainerMatch } from '@/lib/scheduler'
-import { User, Course, Session, ShiftType, WellnessCheckIn, RecoveryPlan } from '@/lib/types'
+import { User, Course, Session, WellnessCheckIn, RecoveryPlan } from '@/lib/types'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { calculateTrainerWorkload } from '@/lib/workload-balancer'
@@ -61,7 +61,6 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
   const initialDate = prefilledDate ? format(prefilledDate, 'yyyy-MM-dd') : ''
   
   const [selectedCourse, setSelectedCourse] = useState<string>('')
-  const [selectedShifts, setSelectedShifts] = useState<ShiftType[]>(['day'])
   const [startDate, setStartDate] = useState(initialDate)
   const [endDate, setEndDate] = useState('')
   const [startTime, setStartTime] = useState('09:00')
@@ -80,16 +79,8 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
   const selectedCourseData = courses.find(c => c.id === selectedCourse)
 
-  const handleShiftToggle = (shift: ShiftType) => {
-    setSelectedShifts(prev =>
-      prev.includes(shift)
-        ? prev.filter(s => s !== shift)
-        : [...prev, shift]
-    )
-  }
-
   const analyzeTrainers = () => {
-    if (!selectedCourse || !startDate || selectedShifts.length === 0) {
+    if (!selectedCourse || !startDate) {
       toast.error('Please fill in all required fields')
       return
     }
@@ -116,7 +107,6 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     const constraints: SchedulingConstraints = {
       courseId: selectedCourse,
       requiredCertifications: course.certifications,
-      shifts: selectedShifts,
       dates: [startDate],
       startTime,
       endTime,
@@ -223,15 +213,12 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
       const endDateTime = new Date(date)
       endDateTime.setHours(endHour, endMin, 0, 0)
 
-      const primaryShift = selectedShifts[0]
-
       return {
         courseId: selectedCourse,
         trainerId: selectedTrainerId,
         title: course.title,
         startTime: startDateTime.toISOString(),
         endTime: endDateTime.toISOString(),
-        shift: primaryShift,
         location: location || 'TBD',
         capacity,
         enrolledStudents: [],
@@ -286,27 +273,6 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
               </div>
             </div>
           )}
-        </div>
-
-        <div className="space-y-3">
-          <Label>Required Shifts *</Label>
-          <div className="flex gap-3">
-            {(['day', 'evening', 'night'] as ShiftType[]).map(shift => (
-              <div key={shift} className="flex items-center space-x-2">
-                <Checkbox
-                  id={shift}
-                  checked={selectedShifts.includes(shift)}
-                  onCheckedChange={() => handleShiftToggle(shift)}
-                />
-                <label
-                  htmlFor={shift}
-                  className="text-sm font-medium capitalize cursor-pointer"
-                >
-                  {shift}
-                </label>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -710,10 +676,6 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
               <div>
                 <span className="text-muted-foreground">Course:</span>
                 <div className="font-semibold mt-1 text-foreground">{selectedCourseData?.title}</div>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Shifts:</span>
-                <div className="font-semibold mt-1 text-foreground">{selectedShifts.join(', ')}</div>
               </div>
               <div>
                 <span className="text-muted-foreground">Time:</span>

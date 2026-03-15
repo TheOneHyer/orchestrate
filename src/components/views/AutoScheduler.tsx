@@ -94,7 +94,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
   }
 
   const executeAutoSchedule = () => {
-    if (!selectedCourse || !startDate || selectedShifts.length === 0) {
+    if (!selectedCourse || !startDate) {
       toast.error('Please fill in all required fields')
       return
     }
@@ -119,7 +119,6 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
     const constraints: SchedulingConstraints = {
       courseId: selectedCourse,
       requiredCertifications: course.certifications,
-      shifts: selectedShifts,
       dates,
       startTime,
       endTime,
@@ -195,27 +194,6 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
                 </div>
               </div>
             )}
-          </div>
-
-          <div className="space-y-3">
-            <Label>Required Shifts *</Label>
-            <div className="flex gap-3">
-              {(['day', 'evening', 'night'] as ShiftType[]).map(shift => (
-                <div key={shift} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={shift}
-                    checked={selectedShifts.includes(shift)}
-                    onCheckedChange={() => handleShiftToggle(shift)}
-                  />
-                  <label
-                    htmlFor={shift}
-                    className="text-sm font-medium capitalize cursor-pointer"
-                  >
-                    {shift}
-                  </label>
-                </div>
-              ))}
-            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
