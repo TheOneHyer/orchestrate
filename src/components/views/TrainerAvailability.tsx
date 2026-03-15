@@ -16,6 +16,7 @@ import { format, startOfWeek, addDays, isSameDay, addWeeks, isWithinInterval, st
 import { analyzeWorkloadBalance } from '@/lib/workload-balancer'
 import { WorkloadRecommendations } from '@/components/WorkloadRecommendations'
 import { UnconfiguredScheduleAlert } from '@/components/UnconfiguredScheduleAlert'
+import { TrainerCoverageHeatmap } from '@/components/TrainerCoverageHeatmap'
 
 interface TrainerAvailabilityProps {
   users: User[]
@@ -623,6 +624,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
         </TabsContent>
 
         <TabsContent value="work-schedule" className="space-y-6">
+          <TrainerCoverageHeatmap users={users} />
+          
           <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -654,8 +657,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                     size="icon"
                     onClick={() => {
                       setSearchTerm('')
-                      setSelectedCertification('all'
-)
+                      setSelectedCertification('all')
                     }}
                   >
                     <X size={18} />
