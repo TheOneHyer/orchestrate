@@ -33,13 +33,16 @@ export function usePushNotifications() {
   const { settings: soundSettings } = useNotificationSound()
 
   const isWithinQuietHours = useCallback(() => {
-    if (!soundSettings?.quietHours?.enabled) return false
+    if (!soundSettings || !soundSettings.quietHours || !soundSettings.quietHours.enabled) return false
 
     const now = new Date()
     const currentTime = now.getHours() * 60 + now.getMinutes()
     
-    const [startHour, startMin] = soundSettings.quietHours.startTime.split(':').map(Number)
-    const [endHour, endMin] = soundSettings.quietHours.endTime.split(':').map(Number)
+    const startTime = soundSettings.quietHours.startTime || '22:00'
+    const endTime = soundSettings.quietHours.endTime || '08:00'
+    
+    const [startHour, startMin] = startTime.split(':').map(Number)
+    const [endHour, endMin] = endTime.split(':').map(Number)
     
     const startMinutes = startHour * 60 + startMin
     const endMinutes = endHour * 60 + endMin
@@ -114,7 +117,8 @@ export function usePushNotifications() {
     }
 
     if (isWithinQuietHours()) {
-      if (priority !== 'critical' || !soundSettings?.quietHours?.allowCritical) {
+      const allowCritical = soundSettings?.quietHours?.allowCritical ?? true
+      if (priority !== 'critical' || !allowCritical) {
         return null
       }
     }
