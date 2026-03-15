@@ -17,6 +17,10 @@ export function NotificationSoundSettings() {
     await requestPermission()
   }
 
+  if (!soundSettings || !soundSettings.quietHours || !pushSettings || !pushSettings.showForPriorities) {
+    return null
+  }
+
   return (
     <div className="space-y-6">
       <Card>
