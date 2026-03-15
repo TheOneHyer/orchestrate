@@ -13,6 +13,18 @@ export interface ShiftSchedule {
   totalHoursPerWeek: number
 }
 
+export interface CertificationRecord {
+  certificationName: string
+  issuedDate: string
+  expirationDate: string
+  status: 'active' | 'expiring-soon' | 'expired'
+  renewalRequired: boolean
+  remindersSent: number
+  lastReminderDate?: string
+  renewalInProgress?: boolean
+  notes?: string
+}
+
 export interface TrainerProfile {
   authorizedRoles: string[]
   shiftSchedules: ShiftSchedule[]
@@ -25,6 +37,7 @@ export interface TrainerProfile {
   maxWeeklyHours?: number
   preferredLocation?: string
   notes?: string
+  certificationRecords?: CertificationRecord[]
 }
 
 export interface User {

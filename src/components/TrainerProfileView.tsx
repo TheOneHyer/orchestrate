@@ -4,10 +4,13 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { User, Session, Course, Enrollment, DayOfWeek } from '@/lib/types'
-import { Calendar, Clock, GraduationCap, MapPin, Briefcase, ChartBar, PencilSimple, Trash } from '@phosphor-icons/react'
-import { differenceInYears, differenceInMonths } from 'date-fns'
+import { User, Session, Course, Enrollment, DayOfWeek, CertificationRecord } from '@/lib/types'
+import { Calendar, Clock, GraduationCap, MapPin, Briefcase, ChartBar, PencilSimple, Trash, Certificate } from '@phosphor-icons/react'
+import { differenceInYears, differenceInMonths, format, parseISO } from 'date-fns'
 import { UnconfiguredScheduleAlert } from '@/components/UnconfiguredScheduleAlert'
+import { ManageCertificationsDialog } from '@/components/ManageCertificationsDialog'
+import { useState } from 'react'
+import { calculateCertificationStatus } from '@/lib/certification-tracker'
 
 interface TrainerProfileViewProps {
   user: User
@@ -16,6 +19,7 @@ interface TrainerProfileViewProps {
   enrollments: Enrollment[]
   onEdit?: () => void
   onDelete?: () => void
+  onUpdateUser?: (user: User) => void
 }
 
 const DAY_ORDER: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -29,7 +33,9 @@ const DAY_ABBREV: Record<DayOfWeek, string> = {
   saturday: 'Sat',
 }
 
-export function TrainerProfileView({ user, sessions, courses, enrollments, onEdit, onDelete }: TrainerProfileViewProps) {
+export function TrainerProfileView({ user, sessions, courses, enrollments, onEdit, onDelete, onUpdateUser }: TrainerProfileViewProps) {
+  const [certDialogOpen, setCertDialogOpen] = useState(false)
+  
   const trainerSessions = sessions.filter(s => s.trainerId === user.id)
   const upcomingSessions = trainerSessions.filter(s => new Date(s.startTime) > new Date())
   const completedSessions = trainerSessions.filter(s => s.status === 'completed')
@@ -160,23 +166,69 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <GraduationCap size={20} />
-              Certifications
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {user.certifications.length > 0 ? (
-                user.certifications.map(cert => (
-                  <Badge key={cert} variant="secondary" className="text-sm">
-                    {cert}
-                  </Badge>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground">No certifications</p>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Certificate size={20} />
+                Certifications
+              </CardTitle>
+              {user.role === 'trainer' && onUpdateUser && (
+                <Button variant="outline" size="sm" onClick={() => setCertDialogOpen(true)}>
+                  <PencilSimple size={16} weight="bold" className="mr-2" />
+                  Manage
+                </Button>
               )}
             </div>
+          </CardHeader>
+          <CardContent>
+            {user.role === 'trainer' && user.trainerProfile?.certificationRecords && user.trainerProfile.certificationRecords.length > 0 ? (
+              <div className="space-y-3">
+                {user.trainerProfile.certificationRecords.map((cert, idx) => {
+                  const status = calculateCertificationStatus(cert)
+                  const daysUntil = Math.floor(
+                    (new Date(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                  )
+                  
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{cert.certificationName}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Expires: {format(parseISO(cert.expirationDate), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {cert.renewalInProgress && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                            Renewal
+                          </Badge>
+                        )}
+                        <Badge className={
+                          status === 'expired' ? 'bg-red-100 text-red-800 border-red-200' :
+                          status === 'expiring-soon' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                          'bg-green-100 text-green-800 border-green-200'
+                        }>
+                          {status === 'expired' && 'Expired'}
+                          {status === 'expiring-soon' && `${daysUntil}d left`}
+                          {status === 'active' && 'Active'}
+                        </Badge>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {user.certifications.length > 0 ? (
+                  user.certifications.map(cert => (
+                    <Badge key={cert} variant="secondary" className="text-sm">
+                      {cert}
+                    </Badge>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">No certifications</p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -336,6 +388,25 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
             </Card>
           )}
         </>
+      )}
+      
+      {user.role === 'trainer' && onUpdateUser && (
+        <ManageCertificationsDialog
+          open={certDialogOpen}
+          onOpenChange={setCertDialogOpen}
+          certifications={user.trainerProfile?.certificationRecords || []}
+          onSave={(certifications) => {
+            const updatedUser = {
+              ...user,
+              trainerProfile: {
+                ...user.trainerProfile!,
+                certificationRecords: certifications
+              }
+            }
+            onUpdateUser(updatedUser)
+            setCertDialogOpen(false)
+          }}
+        />
       )}
     </div>
   )

@@ -12,8 +12,10 @@ import { Analytics } from '@/components/views/Analytics'
 import { TrainerAvailability } from '@/components/views/TrainerAvailability'
 import { BurnoutDashboard } from '@/components/views/BurnoutDashboard'
 import { TrainerWellness } from '@/components/views/TrainerWellness'
+import { CertificationDashboard } from '@/components/views/CertificationDashboard'
 import { User, Session, Course, Enrollment, Notification } from '@/lib/types'
 import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
+import { useCertificationNotifications } from '@/hooks/use-certification-notifications'
 import { ensureAllTrainersHaveProfiles } from '@/lib/trainer-profile-generator'
 
 function App() {
@@ -62,6 +64,8 @@ function App() {
   }, [setNotifications])
 
   useUtilizationNotifications(safeUsers, safeSessions, handleCreateNotification)
+
+  useCertificationNotifications(safeUsers, handleCreateNotification, setUsers)
 
   const currentUser: User = safeUsers[0] || {
     id: '1',
@@ -236,6 +240,13 @@ function App() {
             users={safeUsers}
             sessions={safeSessions}
             courses={safeCourses}
+            onNavigate={handleNavigate}
+          />
+        )
+      case 'certifications':
+        return (
+          <CertificationDashboard
+            users={safeUsers}
             onNavigate={handleNavigate}
           />
         )

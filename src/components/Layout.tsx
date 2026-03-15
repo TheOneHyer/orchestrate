@@ -11,7 +11,8 @@ import {
   Heart,
   Repeat,
   Moon,
-  Sun
+  Sun,
+  Certificate
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +35,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
     { id: 'schedule', label: 'Schedule', icon: CalendarDots, roles: ['admin', 'trainer', 'employee'] },
     { id: 'schedule-templates', label: 'Schedule Templates', icon: Repeat, roles: ['admin', 'trainer'] },
     { id: 'trainer-availability', label: 'Trainer Availability', icon: Calendar, roles: ['admin', 'trainer'] },
+    { id: 'certifications', label: 'Certifications', icon: Certificate, roles: ['admin'] },
     { id: 'burnout-dashboard', label: 'Burnout Risk', icon: Heart, roles: ['admin'] },
     { id: 'trainer-wellness', label: 'Wellness & Recovery', icon: Heart, roles: ['admin'] },
     { id: 'courses', label: 'Courses', icon: GraduationCap, roles: ['admin', 'trainer', 'employee'] },
