@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useKV } from '@github/spark/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,7 +19,7 @@ import {
   WarningCircle,
   CheckCircle
 } from '@phosphor-icons/react'
-import { User, Session, Course } from '@/lib/types'
+import { User, Session, Course, WellnessCheckIn } from '@/lib/types'
 import { 
   calculateTrainerUtilization,
   getUtilizationTrend,
@@ -41,17 +42,21 @@ interface BurnoutDashboardProps {
 export function BurnoutDashboard({ users, sessions, courses, onNavigate }: BurnoutDashboardProps) {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('month')
   const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null)
+  
+  const [checkIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
 
   const trainers = useMemo(() => 
     users.filter(u => u.role === 'trainer'),
     [users]
   )
 
+  const safeCheckIns = checkIns || []
+
   const trainerUtilization = useMemo(() => {
     return trainers.map(trainer => 
-      calculateTrainerUtilization(trainer, sessions, courses, timeRange)
+      calculateTrainerUtilization(trainer, sessions, courses, timeRange, safeCheckIns)
     ).sort((a, b) => b.riskScore - a.riskScore)
-  }, [trainers, sessions, courses, timeRange])
+  }, [trainers, sessions, courses, timeRange, safeCheckIns])
 
   const utilizationTrends = useMemo(() => {
     return trainers.map(trainer => 

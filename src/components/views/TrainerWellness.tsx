@@ -95,7 +95,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
       const wellnessScore = latestCheckIn ? calculateWellnessScore(latestCheckIn) : 0
       const wellnessStatus = getWellnessStatus(wellnessScore)
       const trend = analyzeWellnessTrend(safeCheckIns, trainer.id, timeRange)
-      const utilization = calculateTrainerUtilization(trainer, sessions, [], timeRange)
+      const utilization = calculateTrainerUtilization(trainer, sessions, [], timeRange, safeCheckIns)
       const insights = getWellnessInsights(safeCheckIns, trainer.id)
       const activeRecoveryPlans = safeRecoveryPlans.filter(
         p => p.trainerId === trainer.id && p.status === 'active'
@@ -150,7 +150,8 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
       trainer!,
       sessions,
       [],
-      timeRange
+      timeRange,
+      safeCheckIns
     )
 
     const { shouldTrigger } = shouldTriggerRecoveryPlan(
@@ -1019,7 +1020,8 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
                     trainers.find(t => t.id === selectedTrainer)!,
                     sessions,
                     [],
-                    timeRange
+                    timeRange,
+                    safeCheckIns
                   ).utilizationRate
                 : undefined
             }
@@ -1048,7 +1050,8 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
                     trainers.find(t => t.id === selectedTrainer)!,
                     sessions,
                     [],
-                    timeRange
+                    timeRange,
+                    safeCheckIns
                   ).utilizationRate
                 : undefined
             }

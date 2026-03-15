@@ -44,7 +44,8 @@ export function calculateTrainerUtilization(
   trainer: User,
   allSessions: Session[],
   courses: Course[],
-  timeRange: 'week' | 'month' | 'quarter'
+  timeRange: 'week' | 'month' | 'quarter',
+  wellnessCheckIns?: WellnessCheckIn[]
 ): TrainerUtilization {
   const now = new Date()
   const daysBack = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 90
@@ -126,8 +127,99 @@ export function calculateTrainerUtilization(
     })
   }
 
+  if (wellnessCheckIns && wellnessCheckIns.length > 0) {
+    const trainerCheckIns = wellnessCheckIns
+      .filter(c => c.trainerId === trainer.id)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 5)
+
+    if (trainerCheckIns.length > 0) {
+      const avgMood = trainerCheckIns.reduce((sum, c) => sum + c.mood, 0) / trainerCheckIns.length
+      const highStressCount = trainerCheckIns.filter(c => c.stress === 'high' || c.stress === 'critical').length
+      const lowEnergyCount = trainerCheckIns.filter(c => c.energy === 'exhausted' || c.energy === 'tired').length
+      const lowWorkloadSatisfaction = trainerCheckIns.filter(c => c.workloadSatisfaction <= 2).length
+
+      if (avgMood < 2.5) {
+        riskScore += 25
+        factors.push({
+          factor: 'Poor Wellbeing - Low Mood',
+          description: `Average mood score of ${avgMood.toFixed(1)}/5 in recent check-ins`,
+          impact: 'high'
+        })
+      } else if (avgMood < 3.5) {
+        riskScore += 15
+        factors.push({
+          factor: 'Below Average Mood',
+          description: `Average mood score of ${avgMood.toFixed(1)}/5 - monitor closely`,
+          impact: 'medium'
+        })
+      }
+
+      if (highStressCount >= 3) {
+        riskScore += 30
+        factors.push({
+          factor: 'Chronic High Stress',
+          description: `High/critical stress reported in ${highStressCount} of ${trainerCheckIns.length} recent check-ins`,
+          impact: 'high'
+        })
+      } else if (highStressCount >= 2) {
+        riskScore += 20
+        factors.push({
+          factor: 'Elevated Stress Levels',
+          description: `High stress reported in ${highStressCount} recent check-ins`,
+          impact: 'medium'
+        })
+      }
+
+      if (lowEnergyCount >= 3) {
+        riskScore += 20
+        factors.push({
+          factor: 'Persistent Fatigue',
+          description: `Low energy reported in ${lowEnergyCount} of ${trainerCheckIns.length} recent check-ins`,
+          impact: 'high'
+        })
+      } else if (lowEnergyCount >= 2) {
+        riskScore += 12
+        factors.push({
+          factor: 'Energy Depletion',
+          description: `Low energy reported in ${lowEnergyCount} recent check-ins`,
+          impact: 'medium'
+        })
+      }
+
+      if (lowWorkloadSatisfaction >= 2) {
+        riskScore += 18
+        factors.push({
+          factor: 'Workload Dissatisfaction',
+          description: `Poor workload satisfaction reported in ${lowWorkloadSatisfaction} recent check-ins`,
+          impact: 'high'
+        })
+      }
+
+      const concernsRaised = trainerCheckIns.filter(c => c.concerns && c.concerns.length > 0).length
+      if (concernsRaised >= 3) {
+        riskScore += 15
+        factors.push({
+          factor: 'Multiple Concerns Raised',
+          description: `Concerns raised in ${concernsRaised} of ${trainerCheckIns.length} check-ins`,
+          impact: 'medium'
+        })
+      }
+
+      const followUpsPending = trainerCheckIns.filter(c => c.followUpRequired && !c.followUpCompleted).length
+      if (followUpsPending > 0) {
+        riskScore += 10
+        factors.push({
+          factor: 'Pending Follow-ups',
+          description: `${followUpsPending} wellness follow-up${followUpsPending > 1 ? 's' : ''} pending`,
+          impact: 'medium'
+        })
+      }
+    }
+  }
+
   const riskLevel = getRiskLevel(riskScore)
-  const recommendations = generateRecommendations(factors, utilizationRate, consecutiveDays, trainer)
+  const recommendations = generateRecommendations(factors, utilizationRate, consecutiveDays, trainer, wellnessCheckIns)
 
   return {
     trainerId: trainer.id,
@@ -190,7 +282,8 @@ function generateRecommendations(
   factors: RiskFactor[],
   utilizationRate: number,
   consecutiveDays: number,
-  trainer: User
+  trainer: User,
+  wellnessCheckIns?: WellnessCheckIn[]
 ): string[] {
   const recommendations: string[] = []
 
@@ -219,6 +312,22 @@ function generateRecommendations(
   if (factors.some(f => f.factor.includes('Course Variety'))) {
     recommendations.push('Focus trainer on 3-4 core courses to reduce context switching')
     recommendations.push('Provide additional prep time when introducing new course material')
+  }
+
+  if (wellnessCheckIns && wellnessCheckIns.length > 0) {
+    const trainerCheckIns = wellnessCheckIns.filter(c => c.trainerId === trainer.id)
+    
+    if (trainerCheckIns.some(c => c.stress === 'critical' || c.stress === 'high')) {
+      recommendations.push('Schedule immediate stress management intervention or counseling')
+    }
+
+    if (trainerCheckIns.some(c => c.energy === 'exhausted')) {
+      recommendations.push('Consider flexible scheduling or reduced hours to address fatigue')
+    }
+
+    if (trainerCheckIns.some(c => c.followUpRequired && !c.followUpCompleted)) {
+      recommendations.push('Complete pending wellness follow-ups as high priority')
+    }
   }
 
   if (recommendations.length === 0) {
