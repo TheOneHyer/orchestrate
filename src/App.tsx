@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Layout } from '@/components/Layout'
 import { Dashboard } from '@/components/views/Dashboard'
 import { Schedule } from '@/components/views/Schedule'
+import { ScheduleTemplates } from '@/components/views/ScheduleTemplates'
 import { Courses } from '@/components/views/Courses'
 import { People } from '@/components/views/People'
 import { Analytics } from '@/components/views/Analytics'
@@ -90,6 +91,25 @@ function App() {
     setSessions((currentSessions) => [...(currentSessions || []), newSession])
   }
 
+  const handleCreateMultipleSessions = (sessions: Partial<Session>[]) => {
+    const newSessions: Session[] = sessions.map(session => ({
+      id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      courseId: session.courseId || '',
+      trainerId: session.trainerId || '',
+      title: session.title || 'Untitled Session',
+      startTime: session.startTime || new Date().toISOString(),
+      endTime: session.endTime || new Date().toISOString(),
+      shift: session.shift || 'day',
+      location: session.location || 'TBD',
+      capacity: session.capacity || 20,
+      enrolledStudents: session.enrolledStudents || [],
+      status: session.status || 'scheduled',
+      ...(session.recurrence && { recurrence: session.recurrence })
+    }))
+    
+    setSessions((currentSessions) => [...(currentSessions || []), ...newSessions])
+  }
+
   const handleUpdateSession = (id: string, updates: Partial<Session>) => {
     setSessions((currentSessions) =>
       (currentSessions || []).map(session =>
@@ -121,6 +141,14 @@ function App() {
             onCreateSession={handleCreateSession}
             onUpdateSession={handleUpdateSession}
             onNavigate={handleNavigate}
+          />
+        )
+      case 'schedule-templates':
+        return (
+          <ScheduleTemplates
+            courses={safeCourses}
+            onNavigate={handleNavigate}
+            onCreateSessions={handleCreateMultipleSessions}
           />
         )
       case 'courses':

@@ -196,3 +196,36 @@ export interface CheckInSchedule {
   completedCheckIns: number
   missedCheckIns: number
 }
+
+export type TemplateRecurrenceType = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'custom'
+
+export interface ScheduleTemplateSession {
+  dayOfWeek?: number
+  weekOfCycle?: number
+  time: string
+  duration: number
+  shift: ShiftType
+  location?: string
+  capacity: number
+  requiresCertifications: string[]
+  preferredTrainers?: string[]
+}
+
+export interface ScheduleTemplate {
+  id: string
+  name: string
+  description: string
+  courseId?: string
+  category: string
+  recurrenceType: TemplateRecurrenceType
+  cycleDays?: number
+  sessions: ScheduleTemplateSession[]
+  autoAssignTrainers: boolean
+  notifyParticipants: boolean
+  createdBy: string
+  createdAt: string
+  lastUsed?: string
+  usageCount: number
+  tags: string[]
+  isActive: boolean
+}

@@ -8,7 +8,8 @@ import {
   Bell,
   Gear,
   Calendar,
-  Heart
+  Heart,
+  Repeat
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +26,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: House, roles: ['admin', 'trainer', 'employee'] },
     { id: 'schedule', label: 'Schedule', icon: CalendarDots, roles: ['admin', 'trainer', 'employee'] },
+    { id: 'schedule-templates', label: 'Schedule Templates', icon: Repeat, roles: ['admin', 'trainer'] },
     { id: 'trainer-availability', label: 'Trainer Availability', icon: Calendar, roles: ['admin', 'trainer'] },
     { id: 'burnout-dashboard', label: 'Burnout Risk', icon: Heart, roles: ['admin'] },
     { id: 'trainer-wellness', label: 'Wellness & Recovery', icon: Heart, roles: ['admin'] },
