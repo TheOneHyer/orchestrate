@@ -13,7 +13,8 @@ import {
   Moon,
   Sun,
   Certificate,
-  SpeakerHigh
+  SpeakerHigh,
+  BookOpen
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +45,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
     { id: 'courses', label: 'Courses', icon: GraduationCap, roles: ['admin', 'trainer', 'employee'] },
     { id: 'people', label: 'People', icon: Users, roles: ['admin', 'trainer'] },
     { id: 'analytics', label: 'Analytics', icon: ChartBar, roles: ['admin', 'trainer'] },
+    { id: 'user-guide', label: 'User Guide', icon: BookOpen, roles: ['admin', 'trainer', 'employee'] },
   ]
 
   const filteredNavItems = navItems.filter(item => item.roles.includes(userRole))
