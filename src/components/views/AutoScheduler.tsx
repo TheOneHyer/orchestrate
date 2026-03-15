@@ -21,7 +21,7 @@ import {
   ArrowRight
 } from '@phosphor-icons/react'
 import { TrainerScheduler, SchedulingConstraints, TrainerMatch } from '@/lib/scheduler'
-import { User, Course, Session, ShiftType } from '@/lib/types'
+import { User, Course, Session } from '@/lib/types'
 import { toast } from 'sonner'
 
 interface AutoSchedulerProps {
@@ -35,7 +35,6 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
   const [sessions] = useKV<Session[]>('sessions', [])
   
   const [selectedCourse, setSelectedCourse] = useState<string>('')
-  const [selectedShifts, setSelectedShifts] = useState<ShiftType[]>(['day'])
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [startTime, setStartTime] = useState('09:00')
@@ -51,16 +50,8 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
 
   const selectedCourseData = courses.find(c => c.id === selectedCourse)
 
-  const handleShiftToggle = (shift: ShiftType) => {
-    setSelectedShifts(prev =>
-      prev.includes(shift)
-        ? prev.filter(s => s !== shift)
-        : [...prev, shift]
-    )
-  }
-
   const analyzeFeasibility = () => {
-    if (!selectedCourse || !startDate || selectedShifts.length === 0) {
+    if (!selectedCourse || !startDate) {
       toast.error('Please fill in all required fields')
       return
     }
@@ -80,7 +71,6 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
       const constraints: SchedulingConstraints = {
         courseId: selectedCourse,
         requiredCertifications: course.certifications,
-        shifts: selectedShifts,
         dates: [startDate],
         startTime,
         endTime,

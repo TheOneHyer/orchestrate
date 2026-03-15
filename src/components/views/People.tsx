@@ -14,7 +14,6 @@ import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
 import { AddPersonDialog } from '@/components/AddPersonDialog'
 import { DeletePersonDialog } from '@/components/DeletePersonDialog'
-import { getTrainerShifts } from '@/lib/helpers'
 import { format } from 'date-fns'
 
 interface PeopleProps {
@@ -231,14 +230,16 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
                                 <Badge variant="outline" className="text-amber-600 dark:text-amber-500 border-amber-300 dark:border-amber-700">
                                   Not configured
                                 </Badge>
-                              ) : (
+                              ) : user.role === 'trainer' && user.trainerProfile?.shiftSchedules ? (
                                 <div className="flex gap-1">
-                                  {getTrainerShifts(user).map(shift => (
-                                    <Badge key={shift} variant="secondary" className="text-xs">
-                                      {shift}
+                                  {user.trainerProfile.shiftSchedules.map((schedule, idx) => (
+                                    <Badge key={idx} variant="secondary" className="text-xs">
+                                      {schedule.shiftCode}
                                     </Badge>
                                   ))}
                                 </div>
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
                               )}
                             </TableCell>
                             <TableCell>

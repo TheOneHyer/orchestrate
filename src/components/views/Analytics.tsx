@@ -170,23 +170,39 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
 
         <Card>
           <CardHeader>
-            <CardTitle>Shift Coverage</CardTitle>
-            <CardDescription>Trainer availability by shift</CardDescription>
+            <CardTitle>Trainer Schedule Status</CardTitle>
+            <CardDescription>Work schedule configuration</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {(['day', 'evening', 'night'] as const).map(shift => {
-              const shiftTrainers = users.filter(u => u.role === 'trainer' && u.shifts.includes(shift))
-              const percentage = (shiftTrainers.length / trainerCount) * 100
-              return (
-                <div key={shift} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-foreground capitalize">{shift} Shift</span>
-                    <span className="text-sm text-muted-foreground">{shiftTrainers.length} trainers</span>
-                  </div>
-                  <Progress value={percentage} className="h-2" />
-                </div>
+            {(() => {
+              const trainersWithSchedules = users.filter(u => 
+                u.role === 'trainer' && 
+                u.trainerProfile?.shiftSchedules && 
+                u.trainerProfile.shiftSchedules.length > 0
               )
-            })}
+              const trainersWithoutSchedules = trainerCount - trainersWithSchedules.length
+              const configuredPercentage = (trainersWithSchedules.length / trainerCount) * 100
+              const unconfiguredPercentage = (trainersWithoutSchedules / trainerCount) * 100
+              
+              return (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-foreground">Configured</span>
+                      <span className="text-sm text-muted-foreground">{trainersWithSchedules.length} trainers</span>
+                    </div>
+                    <Progress value={configuredPercentage} className="h-2" />
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-foreground">Not Configured</span>
+                      <span className="text-sm text-muted-foreground">{trainersWithoutSchedules} trainers</span>
+                    </div>
+                    <Progress value={unconfiguredPercentage} className="h-2" />
+                  </div>
+                </>
+              )
+            })()}
           </CardContent>
         </Card>
       </div>

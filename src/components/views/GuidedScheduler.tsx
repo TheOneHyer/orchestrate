@@ -509,7 +509,10 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {insights.trainer.department} • Works: {insights.trainer.shifts.join(', ')}
+                        {insights.trainer.department}
+                        {hasSchedule && insights.trainer.trainerProfile?.shiftSchedules && (
+                          <> • {insights.trainer.trainerProfile.shiftSchedules.map(s => s.shiftCode).join(', ')}</>
+                        )}
                       </div>
                       {!hasSchedule && (
                         <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500 font-medium">
