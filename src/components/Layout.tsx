@@ -9,10 +9,14 @@ import {
   Gear,
   Calendar,
   Heart,
-  Repeat
+  Repeat,
+  Moon,
+  Sun
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { useTheme } from '@/hooks/use-theme'
 
 interface LayoutProps {
   children: ReactNode
@@ -23,6 +27,8 @@ interface LayoutProps {
 }
 
 export function Layout({ children, activeView, onNavigate, notificationCount = 0, userRole }: LayoutProps) {
+  const { theme, toggleTheme } = useTheme()
+  
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: House, roles: ['admin', 'trainer', 'employee'] },
     { id: 'schedule', label: 'Schedule', icon: CalendarDots, roles: ['admin', 'trainer', 'employee'] },
@@ -104,8 +110,24 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">
-        {children}
+      <main className="flex-1 overflow-auto flex flex-col">
+        <header className="border-b border-border bg-card px-6 py-4 flex items-center justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="rounded-lg"
+          >
+            {theme === 'dark' ? (
+              <Sun size={20} weight="regular" />
+            ) : (
+              <Moon size={20} weight="regular" />
+            )}
+          </Button>
+        </header>
+        <div className="flex-1">
+          {children}
+        </div>
       </main>
     </div>
   )
