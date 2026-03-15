@@ -143,6 +143,19 @@ function App() {
     setUsers((currentUsers) => [...(currentUsers || []), newUser])
   }
 
+  const handleDeleteUser = (userId: string) => {
+    setUsers((currentUsers) => (currentUsers || []).filter(user => user.id !== userId))
+    setSessions((currentSessions) => (currentSessions || []).map(session => {
+      if (session.trainerId === userId) {
+        return { ...session, trainerId: '', status: 'scheduled' as const }
+      }
+      if (session.enrolledStudents.includes(userId)) {
+        return { ...session, enrolledStudents: session.enrolledStudents.filter(id => id !== userId) }
+      }
+      return session
+    }))
+  }
+
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
@@ -196,6 +209,7 @@ function App() {
             onNavigate={handleNavigate}
             onUpdateUser={handleUpdateUser}
             onAddUser={handleAddUser}
+            onDeleteUser={handleDeleteUser}
           />
         )
       case 'analytics':

@@ -13,6 +13,7 @@ import { User, Enrollment, Course, Session } from '@/lib/types'
 import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
 import { AddPersonDialog } from '@/components/AddPersonDialog'
+import { DeletePersonDialog } from '@/components/DeletePersonDialog'
 import { getTrainerShifts } from '@/lib/helpers'
 import { format } from 'date-fns'
 
@@ -25,14 +26,17 @@ interface PeopleProps {
   onNavigate: (view: string, data?: any) => void
   onUpdateUser?: (user: User) => void
   onAddUser?: (user: User) => void
+  onDeleteUser?: (userId: string) => void
 }
 
-export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser, onAddUser }: PeopleProps) {
+export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser, onAddUser, onDeleteUser }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'trainer' | 'employee'>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null)
 
   useEffect(() => {
     if (selectedUser) {
@@ -85,6 +89,23 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     setAddDialogOpen(false)
   }
 
+  const handleDeleteClick = (user: User, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setUserToDelete(user)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = () => {
+    if (userToDelete && onDeleteUser) {
+      onDeleteUser(userToDelete.id)
+      if (selectedUser?.id === userToDelete.id) {
+        setSelectedUser(null)
+      }
+    }
+    setDeleteDialogOpen(false)
+    setUserToDelete(null)
+  }
+
   const existingEmails = users.map(u => u.email.toLowerCase())
 
   return (
@@ -101,6 +122,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
             courses={courses}
             enrollments={enrollments}
             onEdit={selectedUser.role === 'trainer' && currentUser.role === 'admin' ? handleEditProfile : undefined}
+            onDelete={currentUser.role === 'admin' ? () => handleDeleteClick(selectedUser, {} as React.MouseEvent) : undefined}
           />
           {selectedUser.role === 'trainer' && (
             <TrainerProfileDialog
@@ -255,6 +277,13 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
             onOpenChange={setAddDialogOpen}
             onSave={handleAddPerson}
             existingEmails={existingEmails}
+          />
+
+          <DeletePersonDialog
+            user={userToDelete}
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            onConfirm={handleConfirmDelete}
           />
         </>
       )}

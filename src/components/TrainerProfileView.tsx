@@ -5,7 +5,7 @@ import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { User, Session, Course, Enrollment, DayOfWeek } from '@/lib/types'
-import { Calendar, Clock, GraduationCap, MapPin, Briefcase, ChartBar, PencilSimple } from '@phosphor-icons/react'
+import { Calendar, Clock, GraduationCap, MapPin, Briefcase, ChartBar, PencilSimple, Trash } from '@phosphor-icons/react'
 import { differenceInYears, differenceInMonths } from 'date-fns'
 import { UnconfiguredScheduleAlert } from '@/components/UnconfiguredScheduleAlert'
 
@@ -15,6 +15,7 @@ interface TrainerProfileViewProps {
   courses: Course[]
   enrollments: Enrollment[]
   onEdit?: () => void
+  onDelete?: () => void
 }
 
 const DAY_ORDER: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
@@ -28,7 +29,7 @@ const DAY_ABBREV: Record<DayOfWeek, string> = {
   saturday: 'Sat',
 }
 
-export function TrainerProfileView({ user, sessions, courses, enrollments, onEdit }: TrainerProfileViewProps) {
+export function TrainerProfileView({ user, sessions, courses, enrollments, onEdit, onDelete }: TrainerProfileViewProps) {
   const trainerSessions = sessions.filter(s => s.trainerId === user.id)
   const upcomingSessions = trainerSessions.filter(s => new Date(s.startTime) > new Date())
   const completedSessions = trainerSessions.filter(s => s.status === 'completed')
@@ -65,12 +66,20 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
             </div>
           </div>
         </div>
-        {onEdit && (
-          <Button onClick={onEdit}>
-            <PencilSimple size={18} weight="bold" className="mr-2" />
-            Edit Profile
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {onEdit && (
+            <Button onClick={onEdit}>
+              <PencilSimple size={18} weight="bold" className="mr-2" />
+              Edit Profile
+            </Button>
+          )}
+          {onDelete && (
+            <Button variant="destructive" onClick={onDelete}>
+              <Trash size={18} weight="bold" className="mr-2" />
+              Delete Person
+            </Button>
+          )}
+        </div>
       </div>
 
       {user.role === 'trainer' && <UnconfiguredScheduleAlert user={user} onEdit={onEdit} />}
