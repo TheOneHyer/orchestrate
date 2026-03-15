@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useKV } from '@github/spark/hooks'
-import { useNotificationSound } from './use-notification-sound'
 
 interface PushNotificationSettings {
   enabled: boolean
@@ -30,31 +29,8 @@ export function usePushNotifications() {
     DEFAULT_SETTINGS
   )
   const [isSupported] = useState(() => 'Notification' in window)
-  const { settings: soundSettings } = useNotificationSound()
 
   const safeSettings = settings || DEFAULT_SETTINGS
-
-  const isWithinQuietHours = useCallback(() => {
-    if (!soundSettings?.quietHours?.enabled) return false
-
-    const now = new Date()
-    const currentTime = now.getHours() * 60 + now.getMinutes()
-    
-    const startTime = soundSettings.quietHours.startTime || '22:00'
-    const endTime = soundSettings.quietHours.endTime || '08:00'
-    
-    const [startHour, startMin] = startTime.split(':').map(Number)
-    const [endHour, endMin] = endTime.split(':').map(Number)
-    
-    const startMinutes = startHour * 60 + startMin
-    const endMinutes = endHour * 60 + endMin
-
-    if (startMinutes < endMinutes) {
-      return currentTime >= startMinutes && currentTime < endMinutes
-    } else {
-      return currentTime >= startMinutes || currentTime < endMinutes
-    }
-  }, [soundSettings])
 
   useEffect(() => {
     if (!isSupported) return
@@ -116,13 +92,6 @@ export function usePushNotifications() {
       return null
     }
 
-    if (isWithinQuietHours()) {
-      const allowCritical = soundSettings?.quietHours?.allowCritical ?? true
-      if (priority !== 'critical' || !allowCritical) {
-        return null
-      }
-    }
-
     try {
       const notification = new Notification(title, {
         body: options?.body,
@@ -157,7 +126,7 @@ export function usePushNotifications() {
       console.error('Failed to send notification:', error)
       return null
     }
-  }, [isSupported, safeSettings, isWithinQuietHours, soundSettings])
+  }, [isSupported, safeSettings])
 
   const updateSettings = useCallback((updates: Partial<PushNotificationSettings>) => {
     setSettings((current) => ({

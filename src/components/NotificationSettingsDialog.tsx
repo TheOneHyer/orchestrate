@@ -9,12 +9,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Slider } from '@/components/ui/slider'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { useNotificationSound } from '@/hooks/use-notification-sound'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
-import { SpeakerHigh, Bell, Play, Warning } from '@phosphor-icons/react'
+import { Bell, Warning } from '@phosphor-icons/react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
@@ -24,12 +21,6 @@ interface NotificationSettingsDialogProps {
 }
 
 export function NotificationSettingsDialog({ open, onOpenChange }: NotificationSettingsDialogProps) {
-  const {
-    settings: soundSettings,
-    updateSettings: updateSoundSettings,
-    testSound
-  } = useNotificationSound()
-
   const {
     isSupported,
     settings: pushSettings,
@@ -46,126 +37,17 @@ export function NotificationSettingsDialog({ open, onOpenChange }: NotificationS
     setIsRequestingPermission(false)
   }
 
-  const handleTestSound = (priority: 'low' | 'medium' | 'high' | 'critical') => {
-    testSound(priority)
-  }
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Notification Settings</DialogTitle>
           <DialogDescription>
-            Configure sound alerts and browser push notifications for TrainSync
+            Configure browser push notifications for TrainSync
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          <Card className="p-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <SpeakerHigh className="text-primary" weight="duotone" size={24} />
-              <h3 className="text-lg font-semibold">Sound Alerts</h3>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="sound-enabled">Enable Sound Alerts</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Play sounds when notifications arrive
-                  </p>
-                </div>
-                <Switch
-                  id="sound-enabled"
-                  checked={soundSettings.enabled}
-                  onCheckedChange={(enabled) => updateSoundSettings({ enabled })}
-                />
-              </div>
-
-              {soundSettings.enabled && (
-                <>
-                  <Separator />
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="sound-volume">Volume</Label>
-                      <span className="text-sm text-muted-foreground">
-                        {Math.round(soundSettings.volume * 100)}%
-                      </span>
-                    </div>
-                    <Slider
-                      id="sound-volume"
-                      min={0}
-                      max={1}
-                      step={0.1}
-                      value={[soundSettings.volume]}
-                      onValueChange={([volume]) => updateSoundSettings({ volume })}
-                      className="w-full"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="sound-type">Sound Type</Label>
-                    <Select
-                      value={soundSettings.soundType}
-                      onValueChange={(soundType: any) => updateSoundSettings({ soundType })}
-                    >
-                      <SelectTrigger id="sound-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">Default</SelectItem>
-                        <SelectItem value="chime">Chime</SelectItem>
-                        <SelectItem value="bell">Bell</SelectItem>
-                        <SelectItem value="alert">Alert</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-2">
-                    <Label>Test Sounds</Label>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleTestSound('low')}
-                      >
-                        <Play size={16} className="mr-1" />
-                        Low Priority
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleTestSound('medium')}
-                      >
-                        <Play size={16} className="mr-1" />
-                        Medium Priority
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleTestSound('high')}
-                      >
-                        <Play size={16} className="mr-1" />
-                        High Priority
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleTestSound('critical')}
-                      >
-                        <Play size={16} className="mr-1" />
-                        Critical Priority
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </Card>
-
           <Card className="p-4 space-y-4">
             <div className="flex items-center gap-2">
               <Bell className="text-primary" weight="duotone" size={24} />
