@@ -13,7 +13,7 @@ import { TrainerAvailability } from '@/components/views/TrainerAvailability'
 import { BurnoutDashboard } from '@/components/views/BurnoutDashboard'
 import { TrainerWellness } from '@/components/views/TrainerWellness'
 import { CertificationDashboard } from '@/components/views/CertificationDashboard'
-import { User, Session, Course, Enrollment, Notification } from '@/lib/types'
+import { User, Session, Course, Enrollment, Notification, CertificationRecord } from '@/lib/types'
 import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
 import { useCertificationNotifications } from '@/hooks/use-certification-notifications'
 import { ensureAllTrainersHaveProfiles } from '@/lib/trainer-profile-generator'
@@ -160,6 +160,33 @@ function App() {
     }))
   }
 
+  const handleAddCertification = useCallback((trainerIds: string[], certification: Omit<CertificationRecord, 'status' | 'renewalRequired' | 'remindersSent'>) => {
+    setUsers((currentUsers) =>
+      (currentUsers || []).map(user => {
+        if (!trainerIds.includes(user.id) || user.role !== 'trainer') {
+          return user
+        }
+
+        const newCertificationRecord: CertificationRecord = {
+          ...certification,
+          status: 'active',
+          renewalRequired: false,
+          remindersSent: 0
+        }
+
+        const existingRecords = user.trainerProfile?.certificationRecords || []
+
+        return {
+          ...user,
+          trainerProfile: {
+            ...user.trainerProfile!,
+            certificationRecords: [...existingRecords, newCertificationRecord]
+          }
+        }
+      })
+    )
+  }, [setUsers])
+
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
@@ -248,6 +275,7 @@ function App() {
           <CertificationDashboard
             users={safeUsers}
             onNavigate={handleNavigate}
+            onAddCertification={handleAddCertification}
           />
         )
       case 'trainer-wellness':

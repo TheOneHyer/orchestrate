@@ -1,6 +1,6 @@
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { User } from '@/lib/types'
+import { User, CertificationRecord } from '@/lib/types'
 import { 
   getExpiringCertifications, 
   getCertificationSummary,
@@ -8,13 +8,15 @@ import {
 } from '@/lib/certification-tracker'
 import { Certificate, Warning, CheckCircle, XCircle, Clock } from '@phosphor-icons/react'
 import { format, parseISO } from 'date-fns'
+import { AddCertificationDialog } from '@/components/AddCertificationDialog'
 
 interface CertificationDashboardProps {
   users: User[]
   onNavigate: (view: string, data?: any) => void
+  onAddCertification: (trainerIds: string[], certification: Omit<CertificationRecord, 'status' | 'renewalRequired' | 'remindersSent'>) => void
 }
 
-export function CertificationDashboard({ users, onNavigate }: CertificationDashboardProps) {
+export function CertificationDashboard({ users, onNavigate, onAddCertification }: CertificationDashboardProps) {
   const summary = getCertificationSummary(users)
   const expiringAlerts = getExpiringCertifications(users)
   
@@ -60,6 +62,7 @@ export function CertificationDashboard({ users, onNavigate }: CertificationDashb
             Track trainer certifications and manage renewal requirements
           </p>
         </div>
+        <AddCertificationDialog users={users} onAddCertification={onAddCertification} />
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
