@@ -173,3 +173,26 @@ export interface WellnessTrend {
   followUpsRequired: number
   recoveryPlansActive: number
 }
+
+export type CheckInFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'custom'
+export type CheckInScheduleStatus = 'active' | 'paused' | 'completed'
+
+export interface CheckInSchedule {
+  id: string
+  trainerId: string
+  frequency: CheckInFrequency
+  customDays?: number
+  startDate: string
+  endDate?: string
+  nextScheduledDate: string
+  lastCheckInDate?: string
+  status: CheckInScheduleStatus
+  notificationEnabled: boolean
+  autoReminders: boolean
+  reminderHoursBefore: number
+  createdBy: string
+  createdAt: string
+  notes?: string
+  completedCheckIns: number
+  missedCheckIns: number
+}
