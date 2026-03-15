@@ -136,10 +136,9 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
                 <Label htmlFor="template-course">Course (Optional)</Label>
                 <Select value={courseId} onValueChange={setCourseId}>
                   <SelectTrigger id="template-course">
-                    <SelectValue placeholder="Select course" />
+                    <SelectValue placeholder="Select course or leave unassigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No specific course</SelectItem>
                     {courses.map(course => (
                       <SelectItem key={course.id} value={course.id}>
                         {course.title}
