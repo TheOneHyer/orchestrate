@@ -9,6 +9,7 @@ import { Courses } from '@/components/views/Courses'
 import { People } from '@/components/views/People'
 import { Analytics } from '@/components/views/Analytics'
 import { TrainerAvailability } from '@/components/views/TrainerAvailability'
+import { BurnoutDashboard } from '@/components/views/BurnoutDashboard'
 import { User, Session, Course, Enrollment, Notification } from '@/lib/types'
 import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
 
@@ -152,6 +153,15 @@ function App() {
       case 'trainer-availability':
         return (
           <TrainerAvailability
+            users={safeUsers}
+            sessions={safeSessions}
+            courses={safeCourses}
+            onNavigate={handleNavigate}
+          />
+        )
+      case 'burnout-dashboard':
+        return (
+          <BurnoutDashboard
             users={safeUsers}
             sessions={safeSessions}
             courses={safeCourses}
