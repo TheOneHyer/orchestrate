@@ -7,10 +7,10 @@ interface BurnoutRiskGaugeProps {
 }
 
 const COLORS = {
-  low: 'hsl(var(--chart-2))',
-  medium: 'hsl(var(--chart-5))',
-  high: 'hsl(var(--accent))',
-  critical: 'hsl(var(--destructive))'
+  low: '#22c55e',
+  medium: '#eab308',
+  high: '#f97316',
+  critical: '#ef4444'
 }
 
 export function BurnoutRiskGauge({ data }: BurnoutRiskGaugeProps) {
