@@ -255,9 +255,6 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
                           <Badge variant="default" className="text-sm">
                             {schedule.shiftCode}
                           </Badge>
-                          <Badge variant="outline" className="capitalize">
-                            {schedule.shiftType}
-                          </Badge>
                         </div>
                         <div className="text-sm font-medium">
                           {schedule.startTime} - {schedule.endTime}

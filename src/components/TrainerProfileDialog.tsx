@@ -5,11 +5,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
-import { User, ShiftSchedule, DayOfWeek, ShiftType, CertificationRecord } from '@/lib/types'
+import { User, ShiftSchedule, DayOfWeek, CertificationRecord } from '@/lib/types'
 import { Plus, Trash, Clock, Calendar, Certificate } from '@phosphor-icons/react'
 import { differenceInMonths, differenceInYears, format, parseISO } from 'date-fns'
 import { ManageCertificationsDialog } from '@/components/ManageCertificationsDialog'
@@ -30,12 +29,6 @@ const DAYS_OF_WEEK: { value: DayOfWeek; label: string }[] = [
   { value: 'thursday', label: 'Thursday' },
   { value: 'friday', label: 'Friday' },
   { value: 'saturday', label: 'Saturday' },
-]
-
-const SHIFT_TYPES: { value: ShiftType; label: string }[] = [
-  { value: 'day', label: 'Day Shift' },
-  { value: 'evening', label: 'Evening Shift' },
-  { value: 'night', label: 'Night Shift' },
 ]
 
 export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: TrainerProfileDialogProps) {
@@ -88,7 +81,6 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
 
     const newSchedule: ShiftSchedule = {
       shiftCode: `SHIFT-${Date.now()}`,
-      shiftType: 'day',
       daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
       startTime: '09:00',
       endTime: '17:00',
@@ -298,36 +290,16 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                   <Card key={index} className="border-2">
                     <CardContent className="pt-4 space-y-4">
                       <div className="flex items-start justify-between">
-                        <div className="grid grid-cols-3 gap-4 flex-1">
+                        <div className="grid grid-cols-2 gap-4 flex-1">
                           <div>
                             <Label>Shift Code</Label>
                             <Input
                               value={schedule.shiftCode}
                               onChange={(e) => updateShiftSchedule(index, { shiftCode: e.target.value })}
-                              placeholder="e.g., DAY-A"
+                              placeholder="e.g., SHIFT-A"
                             />
                           </div>
-                          <div>
-                            <Label>Shift Type</Label>
-                            <Select
-                              value={schedule.shiftType}
-                              onValueChange={(value: ShiftType) =>
-                                updateShiftSchedule(index, { shiftType: value })
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {SHIFT_TYPES.map(type => (
-                                  <SelectItem key={type.value} value={type.value}>
-                                    {type.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="flex items-end">
+                          <div className="flex items-end justify-end">
                             <Button
                               variant="destructive"
                               size="sm"

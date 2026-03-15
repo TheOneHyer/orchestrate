@@ -1,4 +1,4 @@
-import { User, Session, ShiftType, UserRole } from './types'
+import { User, Session, UserRole } from './types'
 
 export const PERMISSIONS = {
   admin: ['view_all', 'create_course', 'edit_course', 'delete_course', 'manage_users', 'view_analytics', 'send_notifications', 'create_session', 'edit_session', 'delete_session'],
@@ -26,13 +26,11 @@ export function canAccessSession(user: User, session: Session): boolean {
 export function findAvailableTrainers(
   users: User[],
   requiredCertifications: string[],
-  shift: ShiftType,
   excludeUserIds: string[] = []
 ): User[] {
   return users.filter(user => {
     if (user.role !== 'trainer') return false
     if (excludeUserIds.includes(user.id)) return false
-    if (!user.shifts.includes(shift)) return false
     
     const hasCertifications = requiredCertifications.every(cert => 
       user.certifications.includes(cert)
@@ -72,15 +70,6 @@ export function calculateProgress(completedModules: number, totalModules: number
   return Math.round((completedModules / totalModules) * 100)
 }
 
-export function getShiftTimeRange(shift: ShiftType): { start: string; end: string } {
-  const ranges = {
-    day: { start: '06:00', end: '14:00' },
-    evening: { start: '14:00', end: '22:00' },
-    night: { start: '22:00', end: '06:00' }
-  }
-  return ranges[shift]
-}
-
 export function formatDuration(minutes: number): string {
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
@@ -108,17 +97,6 @@ export function calculateSessionDuration(startTime: Date, endTime: Date): number
   }
   
   return duration
-}
-
-export function getTrainerShifts(user: User): ShiftType[] {
-  if (user.role !== 'trainer') return []
-  
-  if (user.trainerProfile?.shiftSchedules && user.trainerProfile.shiftSchedules.length > 0) {
-    const uniqueShifts = new Set(user.trainerProfile.shiftSchedules.map(schedule => schedule.shiftType))
-    return Array.from(uniqueShifts).sort()
-  }
-  
-  return user.shifts || []
 }
 
 export function hasConfiguredSchedule(user: User): boolean {

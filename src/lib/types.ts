@@ -10,6 +10,20 @@ export interface ShiftSchedule {
   totalHoursPerWeek: number
 }
 
+export interface User {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  avatar?: string
+  badgeId?: string
+  department: string
+  certifications: string[]
+  hireDate: string
+  trainerProfile?: TrainerProfile
+  shifts?: never
+}
+
 export interface CertificationRecord {
   certificationName: string
   issuedDate: string
