@@ -1,11 +1,12 @@
 import { Session, User } from './types'
 
 export interface Conflict {
-  type: 'trainer' | 'room'
+  type: 'trainer' | 'room' | 'student'
   message: string
   severity: 'warning' | 'error'
   conflictingSessionId: string
   conflictingSessionTitle: string
+  affectedResourceIds?: string[]
 }
 
 export interface ConflictCheckResult {
@@ -54,6 +55,31 @@ export function checkSessionConflicts(
         conflictingSessionTitle: session.title
       })
     }
+
+    const conflictingStudents = draggedSession.enrolledStudents.filter(studentId =>
+      session.enrolledStudents.includes(studentId)
+    )
+
+    if (conflictingStudents.length > 0) {
+      const studentNames = conflictingStudents
+        .map(id => users.find(u => u.id === id)?.name || 'Unknown')
+        .slice(0, 3)
+        .join(', ')
+      
+      const remainingCount = conflictingStudents.length - 3
+      const displayNames = remainingCount > 0 
+        ? `${studentNames}, and ${remainingCount} more`
+        : studentNames
+
+      conflicts.push({
+        type: 'student',
+        message: `${conflictingStudents.length} student${conflictingStudents.length > 1 ? 's are' : ' is'} already enrolled in "${session.title}": ${displayNames}`,
+        severity: 'error',
+        conflictingSessionId: session.id,
+        conflictingSessionTitle: session.title,
+        affectedResourceIds: conflictingStudents
+      })
+    }
   }
 
   return {
@@ -86,4 +112,70 @@ export function formatConflictMessage(conflicts: Conflict[]): string {
   }
   
   return messages.join('\n')
+}
+
+export interface StudentEnrollmentConflict {
+  studentId: string
+  studentName: string
+  conflictingSession: Session
+  message: string
+}
+
+export interface EnrollmentConflictCheckResult {
+  hasConflicts: boolean
+  conflicts: StudentEnrollmentConflict[]
+  allowedStudents: string[]
+}
+
+export function checkStudentEnrollmentConflicts(
+  session: Session,
+  studentIds: string[],
+  allSessions: Session[],
+  users: User[]
+): EnrollmentConflictCheckResult {
+  const conflicts: StudentEnrollmentConflict[] = []
+  const allowedStudents: string[] = []
+
+  const sessionStart = new Date(session.startTime)
+  const sessionEnd = new Date(session.endTime)
+
+  for (const studentId of studentIds) {
+    let hasConflict = false
+    const student = users.find(u => u.id === studentId)
+    const studentName = student?.name || 'Unknown Student'
+
+    for (const otherSession of allSessions) {
+      if (otherSession.id === session.id) continue
+      if (!otherSession.enrolledStudents.includes(studentId)) continue
+
+      const otherStart = new Date(otherSession.startTime)
+      const otherEnd = new Date(otherSession.endTime)
+
+      const hasTimeOverlap =
+        (sessionStart >= otherStart && sessionStart < otherEnd) ||
+        (sessionEnd > otherStart && sessionEnd <= otherEnd) ||
+        (sessionStart <= otherStart && sessionEnd >= otherEnd)
+
+      if (hasTimeOverlap) {
+        conflicts.push({
+          studentId,
+          studentName,
+          conflictingSession: otherSession,
+          message: `${studentName} is already enrolled in "${otherSession.title}" at this time`
+        })
+        hasConflict = true
+        break
+      }
+    }
+
+    if (!hasConflict) {
+      allowedStudents.push(studentId)
+    }
+  }
+
+  return {
+    hasConflicts: conflicts.length > 0,
+    conflicts,
+    allowedStudents
+  }
 }

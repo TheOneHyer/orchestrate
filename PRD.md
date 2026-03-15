@@ -33,7 +33,21 @@ This is an enterprise-grade learning management and scheduling system that coord
 - **Progression**: Click create → Select content types → Add/arrange modules → Configure quiz questions → Preview → Publish
 - **Success criteria**: Modules can be reused across courses, all content types render properly, quiz scores calculate
 
-### Smart Scheduling Algorithm
+### Conflict Detection & Prevention
+- **Functionality**: Comprehensive conflict detection system that prevents double-booking of trainers, rooms, and students. Automatically checks for scheduling conflicts during drag-and-drop session rescheduling and student enrollment operations.
+- **Purpose**: Ensures scheduling integrity by preventing overlapping sessions for any resource (trainers, rooms, students), maintaining data quality and preventing operational chaos from double-bookings
+- **Trigger**: Automatically when dragging sessions to new time slots, or when enrolling students in sessions through the enrollment dialog
+- **Progression**: 
+  - **Drag-and-drop**: User drags session → Real-time conflict check on hover → Visual warning if conflicts detected → Drop prevented if conflicts exist → Toast error message with conflict details if attempted
+  - **Student enrollment**: User opens enrollment dialog → Selects students → Real-time conflict check → Students with conflicts highlighted in red with conflicting session name → Option to enroll only non-conflicting students → Confirmation with count of successfully enrolled students
+- **Success criteria**: No trainer, room, or student can be double-booked, conflicts display clear messages indicating the conflicting resource and session, partial enrollment succeeds for non-conflicting students, drag-and-drop blocks moves that would create conflicts
+
+### Student Enrollment Management  
+- **Functionality**: Add students to training sessions with intelligent conflict detection, search/filter capabilities, bulk selection, capacity management, and real-time validation
+- **Purpose**: Streamlines student enrollment while preventing scheduling conflicts and capacity overruns, provides clear feedback on enrollment status and conflicts
+- **Trigger**: Click "Enroll Students" button from session details panel in Schedule view
+- **Progression**: Click Enroll Students → Dialog opens with searchable student list → Search by name/email/department → Select students (individual or bulk) → Real-time conflict detection highlights students already enrolled in overlapping sessions → Shows capacity remaining → Displays warning if capacity exceeded → Shows conflict summary with affected students and conflicting sessions → Click Enroll → System enrolls only non-conflicting students within capacity → Success toast with enrollment count → Updated session enrollment count visible
+- **Success criteria**: Students can be searched and selected efficiently, conflicts detected before enrollment, clear visual indicators for conflicts (red highlight, warning icon, conflicting session name), capacity limits enforced, partial enrollment succeeds for eligible students, enrolled count updates immediately
 - **Functionality**: Automatically match trainers to sessions based on shift alignment, certifications, and availability
 - **Purpose**: Solves the complex problem of 24/7 scheduling across multiple shifts
 - **Trigger**: "Auto-assign trainer" or "Create recurring sessions"

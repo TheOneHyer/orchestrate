@@ -8,12 +8,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock, Robot, UserCircleGear } from '@phosphor-icons/react'
+import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock, Robot, UserCircleGear, UserPlus } from '@phosphor-icons/react'
 import { Session, Course, User } from '@/lib/types'
 import { format, startOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, isSameDay, isSameMonth, eachDayOfInterval, startOfDay, differenceInMinutes, setHours, setMinutes } from 'date-fns'
 import { formatDuration } from '@/lib/helpers'
 import { AutoScheduler } from './AutoScheduler'
 import { GuidedScheduler } from './GuidedScheduler'
+import { EnrollStudentsDialog } from '@/components/EnrollStudentsDialog'
 import { toast } from 'sonner'
 import { checkSessionConflicts, formatConflictMessage } from '@/lib/conflict-detection'
 
@@ -34,6 +35,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const [sheetOpen, setSheetOpen] = useState(false)
   const [autoSchedulerOpen, setAutoSchedulerOpen] = useState(false)
   const [guidedSchedulerOpen, setGuidedSchedulerOpen] = useState(false)
+  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [draggedSession, setDraggedSession] = useState<Session | null>(null)
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null)
@@ -53,6 +55,26 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     sessions.forEach(session => onCreateSession(session))
     setGuidedSchedulerOpen(false)
   }
+
+  const handleEnrollStudents = (studentIds: string[]) => {
+    if (!selectedSession) return
+
+    const updatedEnrolledStudents = [...selectedSession.enrolledStudents, ...studentIds]
+    onUpdateSession(selectedSession.id, {
+      enrolledStudents: updatedEnrolledStudents
+    })
+
+    setSelectedSession({
+      ...selectedSession,
+      enrolledStudents: updatedEnrolledStudents
+    })
+
+    toast.success('Students enrolled', {
+      description: `${studentIds.length} student${studentIds.length > 1 ? 's' : ''} enrolled successfully`
+    })
+  }
+
+  const availableStudents = users.filter(u => u.role === 'employee')
 
   const navigateDate = (direction: 'prev' | 'next' | 'today') => {
     if (direction === 'today') {
@@ -718,6 +740,17 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                 </div>
                 <div className="flex gap-2 pt-4">
                   <Button 
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => setEnrollDialogOpen(true)}
+                    disabled={selectedSession.enrolledStudents.length >= selectedSession.capacity}
+                  >
+                    <UserPlus size={18} className="mr-2" />
+                    Enroll Students
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
                     className="flex-1" 
                     onClick={() => {
                       onNavigate('courses', { courseId: selectedSession.courseId })
@@ -769,6 +802,17 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           />
         </DialogContent>
       </Dialog>
+
+      {selectedSession && (
+        <EnrollStudentsDialog
+          open={enrollDialogOpen}
+          onOpenChange={setEnrollDialogOpen}
+          session={selectedSession}
+          allSessions={sessions}
+          availableStudents={availableStudents}
+          onEnrollStudents={handleEnrollStudents}
+        />
+      )}
     </div>
   )
 }
