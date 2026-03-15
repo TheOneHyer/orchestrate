@@ -8,9 +8,12 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Separator } from '@/components/ui/separator'
-import { MagnifyingGlass, Users as UsersIcon, Certificate, Clock, CalendarBlank, X, ChartBar } from '@phosphor-icons/react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MagnifyingGlass, Users as UsersIcon, Certificate, Clock, CalendarBlank, X, ChartBar, Scales } from '@phosphor-icons/react'
 import { User, Session, Course, ShiftType } from '@/lib/types'
 import { format, startOfWeek, addDays, isSameDay, addWeeks, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
+import { analyzeWorkloadBalance } from '@/lib/workload-balancer'
+import { WorkloadRecommendations } from '@/components/WorkloadRecommendations'
 
 interface TrainerAvailabilityProps {
   users: User[]
@@ -344,6 +347,24 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
 
   const stats = calculateAggregateStats()
 
+  const workloadAnalysis = useMemo(() => {
+    return analyzeWorkloadBalance(
+      users,
+      sessions,
+      courses,
+      startOfDay(weekStart),
+      endOfDay(addDays(weekStart, 6))
+    )
+  }, [users, sessions, courses, weekStart])
+
+  const handleViewTrainer = (trainerId: string) => {
+    const trainer = users.find(u => u.id === trainerId)
+    if (trainer) {
+      setSelectedTrainer(trainer)
+      setSheetOpen(true)
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -403,129 +424,152 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
         </Card>
       </div>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
-              <Input
-                placeholder="Search trainers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+      <Tabs defaultValue="calendar" className="space-y-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="calendar" className="flex items-center gap-2">
+            <CalendarBlank size={16} />
+            Calendar View
+          </TabsTrigger>
+          <TabsTrigger value="recommendations" className="flex items-center gap-2">
+            <Scales size={16} />
+            Workload Balance
+          </TabsTrigger>
+        </TabsList>
 
-            <Select value={selectedShift} onValueChange={(v) => setSelectedShift(v as any)}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Filter by shift" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Shifts</SelectItem>
-                <SelectItem value="day">Day Shift</SelectItem>
-                <SelectItem value="evening">Evening Shift</SelectItem>
-                <SelectItem value="night">Night Shift</SelectItem>
-              </SelectContent>
-            </Select>
+        <TabsContent value="calendar" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <MagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
+                  <Input
+                    placeholder="Search trainers..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
 
-            <Select value={selectedCertification} onValueChange={setSelectedCertification}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Filter by certification" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Certifications</SelectItem>
-                {allCertifications.map(cert => (
-                  <SelectItem key={cert} value={cert}>{cert}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select value={selectedShift} onValueChange={(v) => setSelectedShift(v as any)}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Filter by shift" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Shifts</SelectItem>
+                    <SelectItem value="day">Day Shift</SelectItem>
+                    <SelectItem value="evening">Evening Shift</SelectItem>
+                    <SelectItem value="night">Night Shift</SelectItem>
+                  </SelectContent>
+                </Select>
 
-            {(searchTerm || selectedShift !== 'all' || selectedCertification !== 'all') && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  setSearchTerm('')
-                  setSelectedShift('all')
-                  setSelectedCertification('all')
-                }}
-              >
-                <X size={18} />
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-      </Card>
+                <Select value={selectedCertification} onValueChange={setSelectedCertification}>
+                  <SelectTrigger className="w-full sm:w-[200px]">
+                    <SelectValue placeholder="Filter by certification" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Certifications</SelectItem>
+                    {allCertifications.map(cert => (
+                      <SelectItem key={cert} value={cert}>{cert}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-      <Card>
-        <CardHeader className="border-b border-border pb-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setCurrentWeek(addWeeks(currentWeek, -1))}
-              >
-                Previous
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setCurrentWeek(new Date())}
-              >
-                This Week
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
-              >
-                Next
-              </Button>
-            </div>
-            <h3 className="text-lg font-medium">
-              {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
-            </h3>
-          </div>
-        </CardHeader>
-
-        <CardContent className="p-0">
-          <div className="grid grid-cols-[250px_1fr] divide-x divide-border border-b border-border">
-            <div className="p-3 bg-muted/50 font-medium text-sm">
-              Trainer
-            </div>
-            <div className="grid grid-cols-7 divide-x divide-border">
-              {weekDays.map(day => {
-                const isToday = isSameDay(day, new Date())
-                return (
-                  <div 
-                    key={day.toString()} 
-                    className={`p-3 text-center ${isToday ? 'bg-primary/10' : 'bg-muted/50'}`}
+                {(searchTerm || selectedShift !== 'all' || selectedCertification !== 'all') && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setSearchTerm('')
+                      setSelectedShift('all')
+                      setSelectedCertification('all')
+                    }}
                   >
-                    <div className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {format(day, 'EEE')}
-                    </div>
-                    <div className={`text-lg font-semibold ${isToday ? 'text-primary' : 'text-foreground'}`}>
-                      {format(day, 'd')}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+                    <X size={18} />
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+          </Card>
 
-          {filteredTrainers.length > 0 ? (
-            <div>
-              {trainerSchedules.map(schedule => renderTrainerRow(schedule))}
-            </div>
-          ) : (
-            <div className="p-12 text-center text-muted-foreground">
-              <UsersIcon size={48} className="mx-auto mb-3 opacity-50" />
-              <p>No trainers found matching your filters</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader className="border-b border-border pb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentWeek(addWeeks(currentWeek, -1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentWeek(new Date())}
+                  >
+                    This Week
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
+                <h3 className="text-lg font-medium">
+                  {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
+                </h3>
+              </div>
+            </CardHeader>
+
+            <CardContent className="p-0">
+              <div className="grid grid-cols-[250px_1fr] divide-x divide-border border-b border-border">
+                <div className="p-3 bg-muted/50 font-medium text-sm">
+                  Trainer
+                </div>
+                <div className="grid grid-cols-7 divide-x divide-border">
+                  {weekDays.map(day => {
+                    const isToday = isSameDay(day, new Date())
+                    return (
+                      <div 
+                        key={day.toString()} 
+                        className={`p-3 text-center ${isToday ? 'bg-primary/10' : 'bg-muted/50'}`}
+                      >
+                        <div className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
+                          {format(day, 'EEE')}
+                        </div>
+                        <div className={`text-lg font-semibold ${isToday ? 'text-primary' : 'text-foreground'}`}>
+                          {format(day, 'd')}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {filteredTrainers.length > 0 ? (
+                <div>
+                  {trainerSchedules.map(schedule => renderTrainerRow(schedule))}
+                </div>
+              ) : (
+                <div className="p-12 text-center text-muted-foreground">
+                  <UsersIcon size={48} className="mx-auto mb-3 opacity-50" />
+                  <p>No trainers found matching your filters</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="recommendations" className="space-y-6">
+          <WorkloadRecommendations
+            analysis={workloadAnalysis}
+            users={users}
+            onViewTrainer={handleViewTrainer}
+          />
+        </TabsContent>
+      </Tabs>
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         {renderTrainerDetailSheet()}

@@ -75,6 +75,13 @@ This is an enterprise-grade learning management and scheduling system that coord
 - **Progression**: Event occurs → Notification generated → Appears in dashboard → User clicks → Navigate to source
 - **Success criteria**: Notifications appear in real-time, dismissible, linked to source content
 
+### Trainer Workload Balancing
+- **Functionality**: Analyze trainer utilization rates and generate intelligent recommendations for redistributing workload
+- **Purpose**: Prevents trainer burnout, optimizes capacity utilization, and ensures balanced distribution of training sessions
+- **Trigger**: Navigate to Trainer Availability → Workload Balance tab
+- **Progression**: View balance score → Review overutilized/underutilized trainers → Read AI recommendations → Click trainer name → View redistribution opportunities → Apply suggestions
+- **Success criteria**: Balance score calculation accurate, recommendations identify compatible trainers for redistribution, clear action steps provided
+
 ## Edge Case Handling
 - **No available trainers**: Display warning with conflicting constraints, suggest alternative times/dates
 - **Overlapping sessions**: Prevent double-booking, show conflict warning before save
