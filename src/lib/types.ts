@@ -1,12 +1,9 @@
 export type UserRole = 'admin' | 'trainer' | 'employee'
 
-export type ShiftType = 'day' | 'evening' | 'night'
-
 export type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
 
 export interface ShiftSchedule {
   shiftCode: string
-  shiftType: ShiftType
   daysWorked: DayOfWeek[]
   startTime: string
   endTime: string
@@ -48,7 +45,6 @@ export interface User {
   avatar?: string
   badgeId?: string
   department: string
-  shifts: ShiftType[]
   certifications: string[]
   hireDate: string
   trainerProfile?: TrainerProfile
@@ -84,7 +80,6 @@ export interface Session {
   title: string
   startTime: string
   endTime: string
-  shift: ShiftType
   location: string
   capacity: number
   enrolledStudents: string[]
@@ -243,7 +238,6 @@ export interface ScheduleTemplateSession {
   weekOfCycle?: number
   time: string
   duration: number
-  shift: ShiftType
   location?: string
   capacity: number
   requiresCertifications: string[]

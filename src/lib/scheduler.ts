@@ -1,10 +1,9 @@
-import { User, Session, Course, ShiftType } from './types'
+import { User, Session, Course } from './types'
 import { addDays, isWithinInterval, setHours, setMinutes } from 'date-fns'
 
 export interface SchedulingConstraints {
   courseId: string
   requiredCertifications: string[]
-  shifts: ShiftType[]
   dates: string[]
   startTime: string
   endTime: string
@@ -101,20 +100,13 @@ export class TrainerScheduler {
       score += 30
       matchReasons.push(`Working during session time: ${detailedShiftCheck.overlappingSchedules.join(', ')}`)
     } else {
-      const hasShiftAlignment = this.checkShiftAlignment(trainer, constraints.shifts)
-      if (hasShiftAlignment.matches) {
-        score += 15
-        matchReasons.push(`Works matching shifts: ${hasShiftAlignment.matched.join(', ')}, but no detailed schedule configured`)
-        conflicts.push('Work schedule not configured - unable to verify actual time availability')
-      } else {
-        conflicts.push(`No shift overlap - trainer does not work on this day/time`)
-        return {
-          trainer,
-          score: 0,
-          matchReasons,
-          conflicts,
-          availability: 'unavailable'
-        }
+      conflicts.push(`Trainer does not work on this day/time`)
+      return {
+        trainer,
+        score: 0,
+        matchReasons,
+        conflicts,
+        availability: 'unavailable'
       }
     }
 
@@ -162,19 +154,7 @@ export class TrainerScheduler {
     }
   }
 
-  private checkShiftAlignment(
-    trainer: User,
-    requiredShifts: ShiftType[]
-  ): { matches: boolean; matched: ShiftType[] } {
-    const matched = requiredShifts.filter(shift => 
-      trainer.shifts.includes(shift)
-    )
-    
-    return {
-      matches: matched.length > 0,
-      matched
-    }
-  }
+
 
   private checkDetailedShiftOverlap(
     trainer: User,
@@ -388,15 +368,12 @@ export class TrainerScheduler {
     const startTime = setMinutes(setHours(date, startHour), startMin)
     const endTime = setMinutes(setHours(date, endHour), endMin)
 
-    const primaryShift = this.getPrimaryShift(constraints.shifts)
-
     return {
       courseId: constraints.courseId,
       trainerId: topTrainer.trainer.id,
       title: course?.title || 'Training Session',
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
-      shift: primaryShift,
       location: constraints.location,
       capacity: constraints.capacity,
       enrolledStudents: [],

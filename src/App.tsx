@@ -107,7 +107,6 @@ function App() {
     email: 'admin@company.com',
     role: 'admin',
     department: 'Administration',
-    shifts: ['day'],
     certifications: [],
     hireDate: new Date().toISOString()
   }
@@ -131,7 +130,6 @@ function App() {
       title: session.title || 'Untitled Session',
       startTime: session.startTime || new Date().toISOString(),
       endTime: session.endTime || new Date().toISOString(),
-      shift: session.shift || 'day',
       location: session.location || 'TBD',
       capacity: session.capacity || 20,
       enrolledStudents: session.enrolledStudents || [],
@@ -150,7 +148,6 @@ function App() {
       title: session.title || 'Untitled Session',
       startTime: session.startTime || new Date().toISOString(),
       endTime: session.endTime || new Date().toISOString(),
-      shift: session.shift || 'day',
       location: session.location || 'TBD',
       capacity: session.capacity || 20,
       enrolledStudents: session.enrolledStudents || [],
