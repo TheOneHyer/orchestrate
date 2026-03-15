@@ -72,7 +72,9 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
       )
 
       const totalHours = weekSessions.reduce((sum, session) => {
-        const duration = (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60)
+        const startTime = new Date(session.startTime).getTime()
+        const endTime = new Date(session.endTime).getTime()
+        const duration = Math.abs(endTime - startTime) / (1000 * 60 * 60)
         return sum + duration
       }, 0)
 

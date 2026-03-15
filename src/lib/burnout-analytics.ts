@@ -57,9 +57,10 @@ export function calculateTrainerUtilization(
   )
 
   const totalHours = trainerSessions.reduce((sum, session) => {
-    const start = new Date(session.startTime)
-    const end = new Date(session.endTime)
-    return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+    const startTime = new Date(session.startTime).getTime()
+    const endTime = new Date(session.endTime).getTime()
+    const duration = Math.abs(endTime - startTime) / (1000 * 60 * 60)
+    return sum + duration
   }, 0)
 
   const weeks = daysBack / 7
@@ -252,9 +253,10 @@ export function getUtilizationTrend(
     })
 
     const hours = weekSessions.reduce((sum, session) => {
-      const start = new Date(session.startTime)
-      const end = new Date(session.endTime)
-      return sum + (end.getTime() - start.getTime()) / (1000 * 60 * 60)
+      const startTime = new Date(session.startTime).getTime()
+      const endTime = new Date(session.endTime).getTime()
+      const duration = Math.abs(endTime - startTime) / (1000 * 60 * 60)
+      return sum + duration
     }, 0)
 
     const utilization = (hours / STANDARD_WORK_HOURS_PER_WEEK) * 100
