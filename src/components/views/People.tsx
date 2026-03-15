@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -11,7 +11,6 @@ import { MagnifyingGlass, Plus, UserCircle, ArrowLeft } from '@phosphor-icons/re
 import { User, Enrollment, Course, Session } from '@/lib/types'
 import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
-import { useKV } from '@github/spark/hooks'
 import { format } from 'date-fns'
 
 interface PeopleProps {
@@ -21,14 +20,23 @@ interface PeopleProps {
   sessions: Session[]
   currentUser: User
   onNavigate: (view: string, data?: any) => void
+  onUpdateUser?: (user: User) => void
 }
 
-export function People({ users, enrollments, courses, sessions, currentUser, onNavigate }: PeopleProps) {
+export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'trainer' | 'employee'>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
-  const [usersState, setUsersState] = useKV<User[]>('users', [])
+
+  useEffect(() => {
+    if (selectedUser) {
+      const updatedUser = users.find(u => u.id === selectedUser.id)
+      if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(selectedUser)) {
+        setSelectedUser(updatedUser)
+      }
+    }
+  }, [users])
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -58,9 +66,9 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
   }
 
   const handleSaveProfile = (updatedUser: User) => {
-    setUsersState((currentUsers) =>
-      (currentUsers || []).map(u => u.id === updatedUser.id ? updatedUser : u)
-    )
+    if (onUpdateUser) {
+      onUpdateUser(updatedUser)
+    }
     setSelectedUser(updatedUser)
     setEditDialogOpen(false)
   }

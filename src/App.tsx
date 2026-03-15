@@ -131,6 +131,14 @@ function App() {
     )
   }
 
+  const handleUpdateUser = (updatedUser: User) => {
+    setUsers((currentUsers) =>
+      (currentUsers || []).map(user =>
+        user.id === updatedUser.id ? updatedUser : user
+      )
+    )
+  }
+
   const renderView = () => {
     switch (activeView) {
       case 'dashboard':
@@ -182,6 +190,7 @@ function App() {
             sessions={safeSessions}
             currentUser={currentUser}
             onNavigate={handleNavigate}
+            onUpdateUser={handleUpdateUser}
           />
         )
       case 'analytics':
