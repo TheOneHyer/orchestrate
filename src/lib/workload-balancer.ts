@@ -1,5 +1,6 @@
 import { User, Session, Course } from './types'
 import { isWithinInterval, startOfDay, endOfDay, addDays, startOfWeek } from 'date-fns'
+import { calculateSessionDuration } from './helpers'
 
 export interface TrainerWorkload {
   trainer: User
@@ -51,9 +52,10 @@ export function calculateTrainerWorkload(
   )
 
   const totalHours = trainerSessions.reduce((sum, session) => {
-    const startTime = new Date(session.startTime).getTime()
-    const endTime = new Date(session.endTime).getTime()
-    const duration = Math.abs(endTime - startTime) / (1000 * 60 * 60)
+    const duration = calculateSessionDuration(
+      new Date(session.startTime),
+      new Date(session.endTime)
+    )
     return sum + duration
   }, 0)
 
@@ -281,9 +283,11 @@ export function findRedistributionOpportunities(
   for (const session of redistributable) {
     if (accumulatedHours >= targetHours) break
     
-    const startTime = new Date(session.startTime).getTime()
-    const endTime = new Date(session.endTime).getTime()
-    const duration = Math.abs(endTime - startTime) / (1000 * 60 * 60)
+    const duration = calculateSessionDuration(
+      new Date(session.startTime),
+      new Date(session.endTime)
+    )
+    
     if (underutilizedTrainer.availableHours >= duration) {
       sessionsToMove.push(session)
       accumulatedHours += duration

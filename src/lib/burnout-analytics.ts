@@ -1,5 +1,6 @@
 import { User, Session, Course, WellnessCheckIn } from './types'
 import { differenceInDays, startOfWeek, endOfWeek, eachWeekOfInterval, subDays } from 'date-fns'
+import { calculateSessionDuration } from './helpers'
 
 export interface TrainerUtilization {
   trainerId: string
@@ -57,9 +58,10 @@ export function calculateTrainerUtilization(
   )
 
   const totalHours = trainerSessions.reduce((sum, session) => {
-    const startTime = new Date(session.startTime).getTime()
-    const endTime = new Date(session.endTime).getTime()
-    const duration = Math.abs(endTime - startTime) / (1000 * 60 * 60)
+    const duration = calculateSessionDuration(
+      new Date(session.startTime),
+      new Date(session.endTime)
+    )
     return sum + duration
   }, 0)
 
@@ -253,9 +255,10 @@ export function getUtilizationTrend(
     })
 
     const hours = weekSessions.reduce((sum, session) => {
-      const startTime = new Date(session.startTime).getTime()
-      const endTime = new Date(session.endTime).getTime()
-      const duration = Math.abs(endTime - startTime) / (1000 * 60 * 60)
+      const duration = calculateSessionDuration(
+        new Date(session.startTime),
+        new Date(session.endTime)
+      )
       return sum + duration
     }, 0)
 

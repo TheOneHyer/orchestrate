@@ -99,3 +99,13 @@ export function sortByDate(a: { startTime?: string; createdAt?: string }, b: { s
   const dateB = new Date(b.startTime || b.createdAt || 0)
   return dateB.getTime() - dateA.getTime()
 }
+
+export function calculateSessionDuration(startTime: Date, endTime: Date): number {
+  const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
+  
+  if (duration < 0) {
+    return (24 * 60 * 60 * 1000 + endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)
+  }
+  
+  return duration
+}
