@@ -89,8 +89,10 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     setAddDialogOpen(false)
   }
 
-  const handleDeleteClick = (user: User, e: React.MouseEvent) => {
-    e.stopPropagation()
+  const handleDeleteClick = (user: User, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation()
+    }
     setUserToDelete(user)
     setDeleteDialogOpen(true)
   }
@@ -122,7 +124,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
             courses={courses}
             enrollments={enrollments}
             onEdit={selectedUser.role === 'trainer' && currentUser.role === 'admin' ? handleEditProfile : undefined}
-            onDelete={currentUser.role === 'admin' ? () => handleDeleteClick(selectedUser, {} as React.MouseEvent) : undefined}
+            onDelete={currentUser.role === 'admin' ? () => handleDeleteClick(selectedUser) : undefined}
           />
           {selectedUser.role === 'trainer' && (
             <TrainerProfileDialog
