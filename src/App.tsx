@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
@@ -14,15 +14,28 @@ import { BurnoutDashboard } from '@/components/views/BurnoutDashboard'
 import { TrainerWellness } from '@/components/views/TrainerWellness'
 import { User, Session, Course, Enrollment, Notification } from '@/lib/types'
 import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
+import { ensureAllTrainersHaveProfiles } from '@/lib/trainer-profile-generator'
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard')
   
-  const [users] = useKV<User[]>('users', [])
+  const [users, setUsers] = useKV<User[]>('users', [])
   const [sessions, setSessions] = useKV<Session[]>('sessions', [])
   const [courses] = useKV<Course[]>('courses', [])
   const [enrollments] = useKV<Enrollment[]>('enrollments', [])
   const [notifications, setNotifications] = useKV<Notification[]>('notifications', [])
+
+  useEffect(() => {
+    if (users && users.length > 0) {
+      const trainers = users.filter(u => u.role === 'trainer')
+      const trainersWithoutProfiles = trainers.filter(t => !t.trainerProfile)
+      
+      if (trainersWithoutProfiles.length > 0) {
+        const updatedUsers = ensureAllTrainersHaveProfiles(users)
+        setUsers(updatedUsers)
+      }
+    }
+  }, [])
 
   const safeUsers = users || []
   const safeSessions = sessions || []
@@ -166,6 +179,7 @@ function App() {
             users={safeUsers}
             enrollments={safeEnrollments}
             courses={safeCourses}
+            sessions={safeSessions}
             currentUser={currentUser}
             onNavigate={handleNavigate}
           />

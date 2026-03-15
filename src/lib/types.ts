@@ -2,6 +2,31 @@ export type UserRole = 'admin' | 'trainer' | 'employee'
 
 export type ShiftType = 'day' | 'evening' | 'night'
 
+export type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
+
+export interface ShiftSchedule {
+  shiftCode: string
+  shiftType: ShiftType
+  daysWorked: DayOfWeek[]
+  startTime: string
+  endTime: string
+  totalHoursPerWeek: number
+}
+
+export interface TrainerProfile {
+  authorizedRoles: string[]
+  shiftSchedules: ShiftSchedule[]
+  tenure: {
+    hireDate: string
+    yearsOfService: number
+    monthsOfService: number
+  }
+  specializations: string[]
+  maxWeeklyHours?: number
+  preferredLocation?: string
+  notes?: string
+}
+
 export interface User {
   id: string
   name: string
@@ -13,6 +38,7 @@ export interface User {
   shifts: ShiftType[]
   certifications: string[]
   hireDate: string
+  trainerProfile?: TrainerProfile
 }
 
 export interface Course {
