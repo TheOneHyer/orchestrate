@@ -274,7 +274,10 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                     draggable
                     onDragStart={(e) => handleDragStart(e, session)}
                     onDragEnd={handleDragEnd}
-                    onClick={() => handleSessionClick(session)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleSessionClick(session)
+                    }}
                     className="w-full text-left p-4 rounded-lg border border-border bg-card hover:bg-secondary transition-colors cursor-move"
                   >
                     <div className="flex items-start justify-between">
@@ -387,7 +390,10 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                         draggable
                         onDragStart={(e) => handleDragStart(e, session)}
                         onDragEnd={handleDragEnd}
-                        onClick={() => handleSessionClick(session)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleSessionClick(session)
+                        }}
                         className="w-full text-left p-2 rounded bg-primary text-primary-foreground text-xs hover:opacity-90 transition-opacity cursor-move"
                       >
                         <div className="font-medium truncate">{session.title}</div>
@@ -488,7 +494,10 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                         draggable
                         onDragStart={(e) => handleDragStart(e, session)}
                         onDragEnd={handleDragEnd}
-                        onClick={() => handleSessionClick(session)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleSessionClick(session)
+                        }}
                         className="w-full text-left px-1 py-0.5 rounded bg-primary text-primary-foreground text-xs hover:opacity-90 transition-opacity truncate cursor-move"
                       >
                         {format(new Date(session.startTime), 'h:mm a')} {session.title}
