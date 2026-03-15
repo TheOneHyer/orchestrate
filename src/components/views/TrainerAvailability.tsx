@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Checkbox } from '@/components/ui/checkbox'
 import { MagnifyingGlass, Users as UsersIcon, Certificate, Clock, CalendarBlank, X, ChartBar, Scales, CalendarCheck, WarningCircle } from '@phosphor-icons/react'
 import { User, Session, Course, ShiftType, DayOfWeek } from '@/lib/types'
 import { format, startOfWeek, addDays, isSameDay, addWeeks, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
@@ -38,6 +39,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   const [selectedCertification, setSelectedCertification] = useState<string>('all')
   const [selectedTrainer, setSelectedTrainer] = useState<User | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [hideUnconfigured, setHideUnconfigured] = useState(false)
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -60,9 +62,12 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
       const trainerShifts = getTrainerShifts(trainer)
       const matchesShift = selectedShift === 'all' || trainerShifts.includes(selectedShift)
       const matchesCert = selectedCertification === 'all' || trainer.certifications.includes(selectedCertification)
-      return matchesSearch && matchesShift && matchesCert
+      const hasSchedule = hideUnconfigured 
+        ? (trainer.trainerProfile?.shiftSchedules && trainer.trainerProfile.shiftSchedules.length > 0)
+        : true
+      return matchesSearch && matchesShift && matchesCert && hasSchedule
     })
-  }, [trainers, searchTerm, selectedShift, selectedCertification])
+  }, [trainers, searchTerm, selectedShift, selectedCertification, hideUnconfigured])
 
   const trainerSchedules = useMemo(() => {
     return filteredTrainers.map(trainer => {

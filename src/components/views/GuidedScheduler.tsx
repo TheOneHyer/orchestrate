@@ -76,6 +76,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
   const [selectedTrainerId, setSelectedTrainerId] = useState<string>('')
   const [trainerInsights, setTrainerInsights] = useState<TrainerInsights[]>([])
   const [sessionDates, setSessionDates] = useState<string[]>([])
+  const [hideUnconfigured, setHideUnconfigured] = useState(false)
 
   const selectedCourseData = courses.find(c => c.id === selectedCourse)
 
@@ -432,23 +433,46 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     }
   }
 
-  const renderTrainerSelectionStep = () => (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Users size={22} />
-            Select Trainer
-          </CardTitle>
-          <CardDescription>
-            Review data-driven insights and select the best trainer for this session
-          </CardDescription>
-        </CardHeader>
-      </Card>
+  const renderTrainerSelectionStep = () => {
+    const filteredInsights = hideUnconfigured 
+      ? trainerInsights.filter(insights => 
+          insights.trainer.trainerProfile?.shiftSchedules && 
+          insights.trainer.trainerProfile.shiftSchedules.length > 0
+        )
+      : trainerInsights
 
-      <ScrollArea className="h-[600px]">
-        <div className="space-y-3 pr-4">
-          {trainerInsights.map((insights, index) => {
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Users size={22} />
+              Select Trainer
+            </CardTitle>
+            <CardDescription>
+              Review data-driven insights and select the best trainer for this session
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="hide-unconfigured"
+                checked={hideUnconfigured}
+                onCheckedChange={(checked) => setHideUnconfigured(checked as boolean)}
+              />
+              <label
+                htmlFor="hide-unconfigured"
+                className="text-sm font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Hide trainers without configured schedules
+              </label>
+            </div>
+          </CardContent>
+        </Card>
+
+        <ScrollArea className="h-[600px]">
+          <div className="space-y-3 pr-4">
+            {filteredInsights.map((insights, index) => {
             const hasSchedule = insights.trainer.trainerProfile?.shiftSchedules && 
               insights.trainer.trainerProfile.shiftSchedules.length > 0
             
@@ -590,27 +614,38 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
                 )}
               </CardContent>
             </Card>
-          )})}
+            )})}
+          </div>
+        </ScrollArea>
+
+        {filteredInsights.length === 0 && trainerInsights.length > 0 && hideUnconfigured && (
+          <Alert>
+            <Info size={20} />
+            <AlertTitle>All trainers filtered out</AlertTitle>
+            <AlertDescription>
+              All available trainers have been hidden by the schedule filter. Uncheck the filter to see all trainers.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {trainerInsights.length === 0 && (
+          <Alert variant="destructive">
+            <WarningCircle size={20} />
+            <AlertTitle>No Available Trainers</AlertTitle>
+            <AlertDescription>
+              No trainers match the requirements. Consider adjusting shift requirements or required certifications.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => setStep('parameters')} className="flex-1">
+            Back to Parameters
+          </Button>
         </div>
-      </ScrollArea>
-
-      {trainerInsights.length === 0 && (
-        <Alert variant="destructive">
-          <WarningCircle size={20} />
-          <AlertTitle>No Available Trainers</AlertTitle>
-          <AlertDescription>
-            No trainers match the requirements. Consider adjusting shift requirements or required certifications.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={() => setStep('parameters')} className="flex-1">
-          Back to Parameters
-        </Button>
       </div>
-    </div>
-  )
+    )
+  }
 
   const renderConfirmationStep = () => (
     <div className="space-y-4">
