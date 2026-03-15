@@ -67,7 +67,6 @@ export function calculateTrainerWorkload(
 
   trainerSessions.forEach(session => {
     sessionsByCourse.set(session.courseId, (sessionsByCourse.get(session.courseId) || 0) + 1)
-    sessionsPerShift.set(session.shift, (sessionsPerShift.get(session.shift) || 0) + 1)
   })
 
   return {
@@ -144,9 +143,10 @@ function generateRecommendations(
     const criticallyOverloaded = overworked.utilizationRate >= CRITICAL_UTILIZATION
     
     const compatibleUnderutilized = underutilized.filter(under => {
-      const hasShiftOverlap = under.trainer.shifts.some(shift => 
-        overworked.trainer.shifts.includes(shift)
-      )
+      const overworkedShifts = overworked.trainer.trainerProfile?.shiftSchedules?.map(s => s.shiftCode) || []
+      const underShifts = under.trainer.trainerProfile?.shiftSchedules?.map(s => s.shiftCode) || []
+      const hasShiftOverlap = overworkedShifts.length > 0 && underShifts.length > 0 && 
+        overworkedShifts.some(shift => underShifts.includes(shift))
       const hasCertOverlap = under.trainer.certifications.some(cert => 
         overworked.trainer.certifications.includes(cert)
       )
@@ -166,11 +166,13 @@ function generateRecommendations(
         actionable: true
       })
     } else if (criticallyOverloaded) {
+      const shiftCodes = overworked.trainer.trainerProfile?.shiftSchedules?.map(s => s.shiftCode) || []
+      const shiftInfo = shiftCodes.length > 0 ? ` for ${shiftCodes.join(', ')} shifts` : ''
       recommendations.push({
         type: 'hire',
         priority: 'high',
         title: `Consider hiring trainers with ${overworked.trainer.certifications.join(', ')} certifications`,
-        description: `${overworked.trainer.name} is critically overloaded at ${overworked.utilizationRate.toFixed(0)}% with no available trainers to share the load. Consider hiring or certifying additional trainers for ${overworked.trainer.shifts.join(', ')} shifts.`,
+        description: `${overworked.trainer.name} is critically overloaded at ${overworked.utilizationRate.toFixed(0)}% with no available trainers to share the load. Consider hiring or certifying additional trainers${shiftInfo}.`,
         affectedTrainers: [overworked.trainer.id],
         actionable: false
       })
@@ -199,7 +201,10 @@ function generateRecommendations(
     if (duplicateCourses.length > 0) {
       const availableTrainers = workloads.filter(w => {
         const hasCapacity = w.availableHours >= 4
-        const hasShift = w.trainer.shifts.some(shift => overworked.trainer.shifts.includes(shift))
+        const wShifts = w.trainer.trainerProfile?.shiftSchedules?.map(s => s.shiftCode) || []
+        const overworkedShifts = overworked.trainer.trainerProfile?.shiftSchedules?.map(s => s.shiftCode) || []
+        const hasShift = wShifts.length > 0 && overworkedShifts.length > 0 && 
+          wShifts.some(shift => overworkedShifts.includes(shift))
         const canTeachCourse = duplicateCourses.some(([courseId, _]) => {
           const course = courses.find(c => c.id === courseId)
           return course?.certifications.every(cert => w.trainer.certifications.includes(cert))
@@ -224,7 +229,8 @@ function generateRecommendations(
     const imbalancedShifts = new Map<string, { over: number; under: number }>()
     
     workloads.forEach(w => {
-      w.trainer.shifts.forEach(shift => {
+      const shiftCodes = w.trainer.trainerProfile?.shiftSchedules?.map(s => s.shiftCode) || []
+      shiftCodes.forEach(shift => {
         if (!imbalancedShifts.has(shift)) {
           imbalancedShifts.set(shift, { over: 0, under: 0 })
         }
@@ -264,16 +270,17 @@ export function findRedistributionOpportunities(
 ): Session[] {
   const overloadedSessions = sessions.filter(s => s.trainerId === overutilizedTrainer.trainer.id)
   
+  const underShifts = underutilizedTrainer.trainer.trainerProfile?.shiftSchedules?.map(s => s.shiftCode) || []
+  
   const redistributable = overloadedSessions.filter(session => {
     const course = courses.find(c => c.id === session.courseId)
     if (!course) return false
     
-    const hasShift = underutilizedTrainer.trainer.shifts.includes(session.shift)
     const hasCerts = course.certifications.every(cert => 
       underutilizedTrainer.trainer.certifications.includes(cert)
     )
     
-    return hasShift && hasCerts
+    return hasCerts
   })
 
   const targetHours = overutilizedTrainer.totalHours - (MAX_HOURS_PER_WEEK * (OPTIMAL_UTILIZATION_MAX / 100))
