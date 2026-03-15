@@ -41,6 +41,7 @@ interface GuidedSchedulerProps {
   courses: Course[]
   onSessionsCreated: (sessions: Partial<Session>[]) => void
   onClose?: () => void
+  prefilledDate?: Date | null
 }
 
 interface TrainerInsights extends TrainerMatch {
@@ -52,14 +53,16 @@ interface TrainerInsights extends TrainerMatch {
   recommendationLevel: 'optimal' | 'good' | 'caution' | 'avoid'
 }
 
-export function GuidedScheduler({ users, courses, onSessionsCreated, onClose }: GuidedSchedulerProps) {
+export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, prefilledDate }: GuidedSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])
   const [wellnessCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const [recoveryPlans] = useKV<RecoveryPlan[]>('recovery-plans', [])
   
+  const initialDate = prefilledDate ? format(prefilledDate, 'yyyy-MM-dd') : ''
+  
   const [selectedCourse, setSelectedCourse] = useState<string>('')
   const [selectedShifts, setSelectedShifts] = useState<ShiftType[]>(['day'])
-  const [startDate, setStartDate] = useState('')
+  const [startDate, setStartDate] = useState(initialDate)
   const [endDate, setEndDate] = useState('')
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('17:00')

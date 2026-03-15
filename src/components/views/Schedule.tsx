@@ -35,6 +35,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const [sheetOpen, setSheetOpen] = useState(false)
   const [autoSchedulerOpen, setAutoSchedulerOpen] = useState(false)
   const [guidedSchedulerOpen, setGuidedSchedulerOpen] = useState(false)
+  const [guidedSchedulerPrefilledDate, setGuidedSchedulerPrefilledDate] = useState<Date | null>(null)
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [draggedSession, setDraggedSession] = useState<Session | null>(null)
@@ -54,6 +55,16 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const handleGuidedSchedule = (sessions: Partial<Session>[]) => {
     sessions.forEach(session => onCreateSession(session))
     setGuidedSchedulerOpen(false)
+    setGuidedSchedulerPrefilledDate(null)
+  }
+
+  const handleOpenGuidedScheduler = (prefilledDate?: Date) => {
+    if (prefilledDate) {
+      setGuidedSchedulerPrefilledDate(prefilledDate)
+    } else {
+      setGuidedSchedulerPrefilledDate(null)
+    }
+    setGuidedSchedulerOpen(true)
   }
 
   const handleEnrollStudents = (studentIds: string[]) => {
@@ -239,7 +250,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
         </div>
 
         <div 
-          className={`border rounded-lg p-6 min-h-[400px] transition-colors ${
+          className={`border rounded-lg p-6 min-h-[400px] transition-colors cursor-pointer hover:border-primary/50 ${
             isToday ? 'border-primary bg-primary/5' : 
             hasConflict ? 'border-destructive bg-destructive/10 border-2' :
             isDragOver ? 'border-accent bg-accent/10 border-2' : 
@@ -248,6 +259,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           onDragOver={(e) => handleDragOver(e, currentDate)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, currentDate)}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              handleOpenGuidedScheduler(currentDate)
+            }
+          }}
         >
           {hasConflict && (
             <div className="mb-4 p-3 bg-destructive/20 border border-destructive rounded-lg">
@@ -361,7 +377,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             return (
               <div 
                 key={day.toString()} 
-                className={`border rounded-lg p-3 min-h-[200px] transition-colors ${
+                className={`border rounded-lg p-3 min-h-[200px] transition-colors cursor-pointer hover:border-primary/50 ${
                   isToday ? 'border-primary bg-primary/5' : 
                   hasConflict ? 'border-destructive bg-destructive/10 border-2' :
                   isDragOver ? 'border-accent bg-accent/10 border-2' : 
@@ -370,6 +386,12 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                 onDragOver={(e) => handleDragOver(e, day)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, day)}
+                onClick={(e) => {
+                  const target = e.target as HTMLElement
+                  if (!target.closest('[draggable]') && (target.classList.contains('space-y-2') || target === e.currentTarget)) {
+                    handleOpenGuidedScheduler(day)
+                  }
+                }}
               >
                 <div className={`text-sm font-medium mb-2 ${isToday ? 'text-primary' : 'text-foreground'}`}>
                   {format(day, 'EEE')}
@@ -467,7 +489,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
               return (
                 <div 
                   key={day.toString()} 
-                  className={`border-r border-b last:border-r-0 p-2 min-h-[100px] transition-colors ${
+                  className={`border-r border-b last:border-r-0 p-2 min-h-[100px] transition-colors cursor-pointer hover:border-primary/50 ${
                     !isCurrentMonth ? 'bg-muted/30' : ''
                   } ${isToday ? 'bg-primary/5' : ''} ${
                     hasConflict ? 'bg-destructive/10 border-destructive border-2' : 
@@ -476,6 +498,12 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                   onDragOver={(e) => handleDragOver(e, day)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, day)}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement
+                    if (!target.closest('[draggable]') && (target.classList.contains('space-y-1') || target === e.currentTarget || target.classList.contains('text-xs'))) {
+                      handleOpenGuidedScheduler(day)
+                    }
+                  }}
                 >
                   <div className={`text-sm font-medium mb-1 ${
                     isToday ? 'text-primary font-bold' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
@@ -638,7 +666,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             <Robot size={18} weight="bold" className="mr-2" />
             Auto-Schedule
           </Button>
-          <Button variant="outline" onClick={() => setGuidedSchedulerOpen(true)}>
+          <Button variant="outline" onClick={() => handleOpenGuidedScheduler()}>
             <UserCircleGear size={18} weight="bold" className="mr-2" />
             Guided Schedule
           </Button>
@@ -807,7 +835,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             users={users}
             courses={courses}
             onSessionsCreated={handleGuidedSchedule}
-            onClose={() => setGuidedSchedulerOpen(false)}
+            onClose={() => {
+              setGuidedSchedulerOpen(false)
+              setGuidedSchedulerPrefilledDate(null)
+            }}
+            prefilledDate={guidedSchedulerPrefilledDate}
           />
         </DialogContent>
       </Dialog>
