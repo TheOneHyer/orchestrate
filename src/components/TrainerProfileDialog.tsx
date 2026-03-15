@@ -63,13 +63,19 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
   }, [])
 
   const calculateHoursPerWeek = (schedule: ShiftSchedule): number => {
-    const start = schedule.startTime.split(':').map(Number)
-    const end = schedule.endTime.split(':').map(Number)
-    let hoursPerDay = (end[0] + end[1] / 60) - (start[0] + start[1] / 60)
+    const [startHour, startMinute] = schedule.startTime.split(':').map(Number)
+    const [endHour, endMinute] = schedule.endTime.split(':').map(Number)
     
-    if (hoursPerDay < 0) {
-      hoursPerDay += 24
+    const startTotalMinutes = startHour * 60 + startMinute
+    const endTotalMinutes = endHour * 60 + endMinute
+    
+    let durationMinutes = endTotalMinutes - startTotalMinutes
+    
+    if (durationMinutes < 0) {
+      durationMinutes += 24 * 60
     }
+    
+    const hoursPerDay = durationMinutes / 60
     
     return hoursPerDay * schedule.daysWorked.length
   }
