@@ -165,4 +165,47 @@ describe('conflict-detection', () => {
         expect(result.conflicts).toEqual([])
         expect(result.allowedStudents).toEqual(['student-1', 'student-2'])
     })
+
+    it('does not treat exactly adjacent sessions as a conflict', () => {
+        const users = [createUser('student-1', 'Alex')]
+        const targetSession = createSession({ enrolledStudents: [] })
+        const adjacentSession = createSession({
+            id: 'session-existing',
+            title: 'Existing Session',
+            trainerId: 'trainer-2',
+            startTime: '2026-03-16T11:00:00.000Z',
+            endTime: '2026-03-16T12:00:00.000Z',
+            enrolledStudents: ['student-1']
+        })
+
+        const result = checkStudentEnrollmentConflicts(
+            targetSession,
+            ['student-1'],
+            [targetSession, adjacentSession],
+            users
+        )
+
+        expect(result.hasConflicts).toBe(false)
+        expect(result.allowedStudents).toEqual(['student-1'])
+    })
+
+    it('returns no conflicts when the requested student list is empty', () => {
+        const targetSession = createSession({ enrolledStudents: [] })
+
+        const result = checkStudentEnrollmentConflicts(targetSession, [], [targetSession], [])
+
+        expect(result.hasConflicts).toBe(false)
+        expect(result.conflicts).toEqual([])
+        expect(result.allowedStudents).toEqual([])
+    })
+
+    it('does not enforce capacity limits (handled elsewhere)', () => {
+        const users = [createUser('student-1', 'Alex')]
+        const fullSession = createSession({ enrolledStudents: ['student-2'], capacity: 1 })
+
+        const result = checkStudentEnrollmentConflicts(fullSession, ['student-1'], [fullSession], users)
+
+        expect(result.hasConflicts).toBe(false)
+        expect(result.allowedStudents).toEqual(['student-1'])
+    })
 })

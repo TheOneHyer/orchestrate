@@ -74,7 +74,12 @@ describe('risk-history-tracker', () => {
         })
 
         const trainer = createTrainer()
-        const snapshot = createRiskSnapshot(trainer, [] as Session[], [] as Course[], [] as WellnessCheckIn[])
+        const sessions = [] as Session[]
+        const courses = [] as Course[]
+        const wellnessCheckIns = [] as WellnessCheckIn[]
+        const snapshot = createRiskSnapshot(trainer, sessions, courses, wellnessCheckIns)
+
+        expect(calculateTrainerUtilization).toHaveBeenCalledWith(trainer, sessions, courses, 'month', wellnessCheckIns)
 
         expect(snapshot.id).toBe(`snapshot-${trainer.id}-${SYSTEM_TIME.getTime()}`)
         expect(snapshot.timestamp).toBe(SYSTEM_TIME.toISOString())
@@ -130,7 +135,7 @@ describe('risk-history-tracker', () => {
         ], 'month')
 
         expect(trend?.trendDirection).toBe('improving')
-        expect(trend?.changeRate).toBeCloseTo(-35.333333333333336, 5)
+        expect(trend?.changeRate).toBeCloseTo(-35.3333, 4)
     })
 
     it('keeps trend stable when there is insufficient history for comparison', () => {

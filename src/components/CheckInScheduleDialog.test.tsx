@@ -85,6 +85,7 @@ describe('CheckInScheduleDialog', () => {
 
     // Initially both notification and reminder switches are on – reminder hours visible
     expect(screen.getByLabelText(/reminder time/i)).toBeInTheDocument()
+    expect(screen.getByRole('switch', { name: /enable notifications/i })).toHaveAttribute('aria-checked', 'true')
 
     // Disable notifications
     await userEvent.click(screen.getByLabelText(/enable notifications/i))
@@ -122,7 +123,7 @@ describe('CheckInScheduleDialog', () => {
     expect(screen.getByRole('button', { name: /create schedule/i })).toBeDisabled()
   })
 
-  it('calls onSubmit with schedule data when a trainer is selected and form submitted', async () => {
+  it('submits edited schedule when existingSchedule is provided', async () => {
     const onSubmit = vi.fn()
     const existing = makeExistingSchedule()
 
@@ -137,10 +138,32 @@ describe('CheckInScheduleDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /update schedule/i }))
 
     expect(onSubmit).toHaveBeenCalledOnce()
-    const arg = onSubmit.mock.calls[0][0]
-    expect(arg.trainerId).toBe('t-1')
-    expect(arg.frequency).toBe('weekly')
-    expect(arg.createdBy).toBe('admin-1')
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trainerId: 't-1',
+        frequency: 'weekly',
+        createdBy: 'admin-1',
+      })
+    )
+  })
+
+  it('submits a new schedule when a trainer is selected in create mode', async () => {
+    const onSubmit = vi.fn()
+
+    render(<CheckInScheduleDialog {...makeProps({ onSubmit })} />)
+
+    await userEvent.click(screen.getByRole('combobox', { name: /trainer/i }))
+    await userEvent.click(await screen.findByRole('option', { name: /alex trainer/i }))
+    await userEvent.click(screen.getByRole('button', { name: /create schedule/i }))
+
+    expect(onSubmit).toHaveBeenCalledOnce()
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trainerId: 't-1',
+        frequency: 'weekly',
+        createdBy: 'admin-1',
+      })
+    )
   })
 
   it('calls onClose when cancel is clicked', async () => {

@@ -10,11 +10,13 @@ vi.mock('@github/spark/hooks', async () => {
     }
 })
 
-import { useTheme } from './use-theme'
+import { useTheme, type Theme } from './use-theme'
 
 describe('use-theme', () => {
     afterEach(() => {
         document.documentElement.classList.remove('light', 'dark')
+        vi.clearAllMocks()
+        vi.mocked(useKV).mockImplementation((_key, defaultValue) => useState(defaultValue as Theme))
     })
 
     it('defaults to "light" theme and applies the class to the document root', () => {
@@ -34,9 +36,10 @@ describe('use-theme', () => {
     })
 
     it('toggleTheme switches from dark to light', () => {
-        vi.mocked(useKV).mockImplementationOnce((_key, _defaultValue) => useState('dark' as any))
+        vi.mocked(useKV).mockImplementation((_key, _defaultValue) => useState<Theme>('dark'))
         const { result } = renderHook(() => useTheme())
         expect(result.current.theme).toBe('dark')
+        expect(document.documentElement.classList.contains('dark')).toBe(true)
 
         act(() => result.current.toggleTheme())
         expect(result.current.theme).toBe('light')

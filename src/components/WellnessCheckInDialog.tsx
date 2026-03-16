@@ -279,13 +279,14 @@ export function WellnessCheckInDialog({
               {COMMON_CONCERNS.map(concern => (
                 <div
                   key={concern}
-                  data-testid={`concern-row-${concern.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                  data-testid={`concern-row-${concern.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^[-]+|[-]+$/g, '')}`}
                   className="flex items-center space-x-2 border rounded p-2 hover:bg-muted/50 cursor-pointer"
                   onClick={() => toggleConcern(concern)}
                 >
                   <Checkbox
                     id={concern}
                     checked={selectedConcerns.includes(concern)}
+                    onClick={(e) => e.stopPropagation()}
                     onCheckedChange={() => toggleConcern(concern)}
                   />
                   <Label htmlFor={concern} className="text-sm cursor-pointer flex-1">

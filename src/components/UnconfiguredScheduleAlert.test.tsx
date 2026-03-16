@@ -81,4 +81,25 @@ describe('UnconfiguredScheduleAlert', () => {
         await userEvent.click(screen.getByRole('button', { name: /configure schedule now/i }))
         expect(onEdit).toHaveBeenCalledOnce()
     })
+
+    it('renders alert when trainer profile exists but shift schedules are empty', () => {
+        render(
+            <UnconfiguredScheduleAlert
+                user={createTrainer({
+                    trainerProfile: {
+                        authorizedRoles: [],
+                        shiftSchedules: [],
+                        tenure: {
+                            hireDate: '2020-01-01T00:00:00.000Z',
+                            yearsOfService: 6,
+                            monthsOfService: 72,
+                        },
+                        specializations: [],
+                    },
+                })}
+            />
+        )
+
+        expect(screen.getByText(/work schedule not configured/i)).toBeInTheDocument()
+    })
 })

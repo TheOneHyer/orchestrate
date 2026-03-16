@@ -8,7 +8,7 @@ describe('preview-mode', () => {
     })
 
     describe('getPreviewSeedMode', () => {
-        it('returns "off" when no query param or env var is set', () => {
+        it('returns "off" when no query param is set', () => {
             vi.stubGlobal('location', { search: '' })
             expect(getPreviewSeedMode()).toBe('off')
         })
@@ -23,11 +23,24 @@ describe('preview-mode', () => {
             expect(getPreviewSeedMode()).toBe('force')
         })
 
-        it('normalizes truthy aliases to "full"', () => {
-            for (const alias of ['true', '1', 'on', 'TRUE', 'ON']) {
-                vi.stubGlobal('location', { search: `?previewSeed=${alias}` })
-                expect(getPreviewSeedMode(), `alias "${alias}" should normalize to "full"`).toBe('full')
-            }
+        it.each([
+            ['full', 'full'],
+            ['FULL', 'full'],
+            ['force', 'force'],
+            ['FORCE', 'force'],
+        ])('normalizes explicit mode %s to %s', (input, expected) => {
+            vi.stubGlobal('location', { search: `?previewSeed=${input}` })
+            expect(getPreviewSeedMode()).toBe(expected)
+        })
+
+        it.each(['true', '1', 'on', 'TRUE', 'ON'])('normalizes %s to "full"', (alias) => {
+            vi.stubGlobal('location', { search: `?previewSeed=${alias}` })
+            expect(getPreviewSeedMode()).toBe('full')
+        })
+
+        it('returns "off" when location is unavailable (SSR-safe)', () => {
+            vi.stubGlobal('location', undefined)
+            expect(getPreviewSeedMode()).toBe('off')
         })
 
         it('returns "off" for unrecognized param values', () => {

@@ -62,11 +62,22 @@ export function TrendChart({ data, timeRange, showAll = false }: TrendChartProps
   return (
     <div data-testid="trend-chart" className="w-full h-[300px]">
       <div className="sr-only">
-        {trendsToShow.map(trend => (
-          <span key={trend.trainerId} data-testid={`trend-series-${trend.trainerId}`}>
-            {trend.trainerId}
-          </span>
-        ))}
+        {trendsToShow.map((trend, index) => {
+          const seriesLabel = `Trainer ${index + 1}`
+          const values = trend.dataPoints.map((point) => point.utilization)
+          const latestValue = values[values.length - 1] ?? 0
+          const averageValue = values.length > 0
+            ? values.reduce((sum, value) => sum + value, 0) / values.length
+            : 0
+          const firstValue = values[0] ?? 0
+          const trendDirection = latestValue > firstValue ? 'up' : latestValue < firstValue ? 'down' : 'flat'
+
+          return (
+            <span key={trend.trainerId} data-testid={`trend-series-${trend.trainerId}`}>
+              {`${seriesLabel}: latest ${latestValue.toFixed(1)}%, average ${averageValue.toFixed(1)}%, trend ${trendDirection}`}
+            </span>
+          )
+        })}
       </div>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>

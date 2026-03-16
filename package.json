@@ -5,7 +5,9 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "kill": "fuser -k 5000/tcp",
+        "kill": "fuser -k 5173/tcp",
+        "kill:unix": "fuser -k 5173/tcp",
+        "kill:win": "powershell -Command \"Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }\"",
         "build": "tsc -b --noCheck && vite build",
         "lint": "eslint .",
         "optimize": "vite optimize",
@@ -14,6 +16,7 @@
         "test:coverage": "vitest run --coverage",
         "test:watch": "vitest"
     },
+    "packageManager": "pnpm@9.15.4",
     "dependencies": {
         "@github/spark": ">=0.43.1 <1",
         "@heroicons/react": "^2.2.0",
@@ -89,6 +92,7 @@
         "@vitejs/plugin-react-swc": "^4.2.2",
         "@vitest/coverage-v8": "^4.0.0",
         "eslint": "^9.28.0",
+        "eslint-plugin-react": "^7.37.5",
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.19",
         "globals": "^16.0.0",
@@ -98,10 +102,5 @@
         "typescript-eslint": "^8.38.0",
         "vite": "^8.0.0",
         "vitest": "^4.1.0"
-    },
-    "workspaces": {
-        "packages": [
-            "packages/*"
-        ]
     }
 }

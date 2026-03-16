@@ -34,6 +34,13 @@ function createTrainer(id: string): User {
 // utilization = totalHours / 40 * 100
 // Sessions MUST fall within the current week: 2026-03-16 (Mon) – 2026-03-22 (Sun)
 function buildSessions(trainerId: string, hoursPerSession: number, count: number): Session[] {
+    if (count < 0 || count > 14) {
+        throw new Error('buildSessions supports between 0 and 14 sessions to avoid duplicate day/slot collisions')
+    }
+    if (hoursPerSession <= 0 || hoursPerSession > 10) {
+        throw new Error('buildSessions requires hoursPerSession > 0 and <= 10')
+    }
+
     return Array.from({ length: count }, (_, i) => {
         // Distribute across the 7 days of the week; use afternoon slot for overflow
         const dayOffset = i % 7
@@ -92,7 +99,8 @@ describe('use-utilization-notifications', () => {
         expect(onCreateNotification).toHaveBeenCalledTimes(2)
         const calls = vi.mocked(onCreateNotification).mock.calls.map(c => c[0] as Omit<Notification, 'id' | 'createdAt'>)
         expect(calls.some(n => n.priority === 'critical')).toBe(true)
-        expect(calls.some(n => n.title.includes('⚠️') || n.title.includes('🚨'))).toBe(true)
+        expect(calls.some(n => n.userId === trainer.id && n.priority === 'critical')).toBe(true)
+        expect(calls.some(n => n.userId === 'admin' && n.priority === 'critical')).toBe(true)
     })
 
     it('fires a "workload normalized" notification when utilization drops from over-threshold', () => {

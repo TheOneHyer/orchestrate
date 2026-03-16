@@ -5,6 +5,8 @@ import { afterEach, vi } from 'vitest'
 afterEach(() => {
     cleanup()
     vi.clearAllMocks()
+    ResizeObserverMock.clearInstances()
+    IntersectionObserverMock.clearInstances()
 })
 
 Object.defineProperty(window, 'matchMedia', {
@@ -22,11 +24,13 @@ Object.defineProperty(window, 'matchMedia', {
 })
 
 class ResizeObserverMock {
+    static instances: ResizeObserverMock[] = []
     private readonly callback: ResizeObserverCallback
     private readonly observedElements: Set<Element> = new Set()
 
     constructor(callback: ResizeObserverCallback) {
         this.callback = callback
+        ResizeObserverMock.instances.push(this)
     }
 
     observe(target: Element) {
@@ -45,9 +49,16 @@ class ResizeObserverMock {
     trigger(entries: ResizeObserverEntry[] = []) {
         this.callback(entries, this as unknown as ResizeObserver)
     }
+
+    static clearInstances() {
+        ResizeObserverMock.instances = []
+    }
 }
 
+vi.stubGlobal('__getResizeObservers', () => ResizeObserverMock.instances)
+
 class IntersectionObserverMock {
+    static instances: IntersectionObserverMock[] = []
     private readonly callback: IntersectionObserverCallback
     readonly root: Element | Document | null
     readonly rootMargin: string
@@ -61,6 +72,7 @@ class IntersectionObserverMock {
         this.thresholds = Array.isArray(options?.threshold)
             ? options.threshold
             : [options?.threshold ?? 0]
+        IntersectionObserverMock.instances.push(this)
     }
 
     observe(target: Element) {
@@ -83,21 +95,87 @@ class IntersectionObserverMock {
     trigger(entries: IntersectionObserverEntry[] = []) {
         this.callback(entries, this as unknown as IntersectionObserver)
     }
+
+    static clearInstances() {
+        IntersectionObserverMock.instances = []
+    }
 }
+
+vi.stubGlobal('__getIntersectionObservers', () => IntersectionObserverMock.instances)
 
 class NotificationMock {
     static permission: NotificationPermission = 'granted'
     static requestPermission = vi.fn(async () => 'granted' as NotificationPermission)
+    title: string
+    body?: string
+    icon?: string
+    tag?: string
+    badge?: string
+    data?: unknown
+    requireInteraction?: boolean
+    silent?: boolean
 
-    constructor(_title: string, _options?: NotificationOptions) { }
+    constructor(title: string, options?: NotificationOptions) {
+        this.title = title
+        this.body = options?.body
+        this.icon = options?.icon
+        this.tag = options?.tag
+        this.badge = options?.badge
+        this.data = options?.data
+        this.requireInteraction = options?.requireInteraction
+        this.silent = options?.silent
+    }
 
     close() { }
 }
 
 class AudioMock {
-    play = vi.fn(async () => undefined)
-    pause = vi.fn()
+    src = ''
+    volume = 1
+    paused = true
+    duration = 0
+    muted = false
+    loop = false
     currentTime = 0
+    private readonly listeners = new Map<string, Set<EventListenerOrEventListenerObject>>()
+
+    load = vi.fn(() => undefined)
+
+    addEventListener = vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
+        if (!this.listeners.has(type)) {
+            this.listeners.set(type, new Set())
+        }
+
+        this.listeners.get(type)?.add(listener)
+    })
+
+    removeEventListener = vi.fn((type: string, listener: EventListenerOrEventListenerObject) => {
+        this.listeners.get(type)?.delete(listener)
+    })
+
+    play = vi.fn(async () => {
+        this.paused = false
+    })
+
+    pause = vi.fn(() => {
+        this.paused = true
+    })
+
+    dispatchEvent = vi.fn((type: string, event?: Event | Record<string, unknown>) => {
+        const listeners = this.listeners.get(type)
+        if (!listeners || listeners.size === 0) {
+            return
+        }
+
+        const payload = event ?? new Event(type)
+        listeners.forEach((listener) => {
+            if (typeof listener === 'function') {
+                listener(payload as Event)
+            } else {
+                listener.handleEvent(payload as Event)
+            }
+        })
+    })
 }
 
 vi.stubGlobal('ResizeObserver', ResizeObserverMock)
@@ -115,4 +193,8 @@ if (!Element.prototype.setPointerCapture) {
 
 if (!Element.prototype.releasePointerCapture) {
     Element.prototype.releasePointerCapture = () => { }
+}
+
+if (!Element.prototype.scrollIntoView) {
+    Element.prototype.scrollIntoView = () => { }
 }

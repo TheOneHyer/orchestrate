@@ -9,10 +9,9 @@ import type { User } from './types'
 const SYSTEM_TIME = new Date('2026-03-16T12:00:00.000Z')
 
 type ShiftKind = 'day' | 'evening' | 'night'
-type TrainerWithShifts = Omit<User, 'role' | 'trainerProfile' | 'shifts'> & {
+type TrainerWithShifts = User & {
     role: 'trainer'
     shifts: ShiftKind[]
-    trainerProfile?: User['trainerProfile']
 }
 
 function createTrainer(overrides: Partial<TrainerWithShifts> = {}): TrainerWithShifts {
@@ -75,7 +74,7 @@ describe('trainer-profile-generator', () => {
             },
         })
 
-        const result = generateTrainerProfile(trainer as unknown as User)
+        const result = generateTrainerProfile(trainer)
 
         expect(result).toBe(trainer)
     })
@@ -83,7 +82,7 @@ describe('trainer-profile-generator', () => {
     it('generates a profile with tenure, shift schedules, and mapped specializations', () => {
         const trainer = createTrainer({ shifts: ['day', 'night'] })
 
-        const result = generateTrainerProfile(trainer as unknown as User)
+        const result = generateTrainerProfile(trainer)
 
         expect(result.trainerProfile).toBeDefined()
         expect(result.trainerProfile?.tenure).toEqual({
@@ -129,7 +128,7 @@ describe('trainer-profile-generator', () => {
     it('creates evening shift schedule with overnight time math', () => {
         const trainer = createTrainer({ shifts: ['evening'] })
 
-        const result = generateTrainerProfile(trainer as unknown as User)
+        const result = generateTrainerProfile(trainer)
 
         expect(result.trainerProfile?.shiftSchedules[0]).toMatchObject({
             shiftCode: 'EVE-B-1',
@@ -143,8 +142,8 @@ describe('trainer-profile-generator', () => {
     it('ensures all trainers in a user list get generated profiles', () => {
         const users: User[] = [
             createEmployee({ id: 'employee-1' }),
-            createTrainer({ id: 'trainer-a', shifts: ['day'] }) as unknown as User,
-            createTrainer({ id: 'trainer-b', shifts: ['night'] }) as unknown as User,
+            createTrainer({ id: 'trainer-a', shifts: ['day'] }),
+            createTrainer({ id: 'trainer-b', shifts: ['night'] }),
         ]
 
         const result = ensureAllTrainersHaveProfiles(users)

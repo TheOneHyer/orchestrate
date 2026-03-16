@@ -15,7 +15,7 @@ function createShiftSchedule(shiftCode: string): ShiftSchedule {
         shiftCode,
         daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         startTime: '08:00',
-        endTime: '17:00',
+        endTime: '16:00',
         totalHoursPerWeek: 40
     }
 }
@@ -72,6 +72,28 @@ function createSession(id: string, trainerId: string, courseId: string, startTim
     }
 }
 
+function generateSessions(
+    count: number,
+    trainerId: string,
+    courseId: string,
+    baseDayOffset: number,
+    idPrefix: string
+): Session[] {
+    return Array.from({ length: count }, (_, index) => {
+        const day = baseDayOffset + Math.floor(index / 2)
+        const startHour = index % 2 === 0 ? '08:00:00.000Z' : '13:00:00.000Z'
+        const endHour = index % 2 === 0 ? '12:00:00.000Z' : '17:00:00.000Z'
+
+        return createSession(
+            `${idPrefix}${index + 1}`,
+            trainerId,
+            courseId,
+            `2026-03-${String(day).padStart(2, '0')}T${startHour}`,
+            `2026-03-${String(day).padStart(2, '0')}T${endHour}`
+        )
+    })
+}
+
 describe('workload-balancer', () => {
     it('calculates trainer workload totals and per-course counts', () => {
         const trainer = createTrainer('trainer-a', 'Avery', ['Forklift'])
@@ -98,18 +120,7 @@ describe('workload-balancer', () => {
         const users = [overloaded, available, idle]
         const courses = [createCourse('course-a', ['Forklift'])]
 
-        const overloadedSessions = Array.from({ length: 10 }, (_, index) => {
-            const day = 9 + Math.floor(index / 2)
-            const startHour = index % 2 === 0 ? '08:00:00.000Z' : '13:00:00.000Z'
-            const endHour = index % 2 === 0 ? '12:00:00.000Z' : '17:00:00.000Z'
-            return createSession(
-                `overloaded-${index + 1}`,
-                overloaded.id,
-                'course-a',
-                `2026-03-${String(day).padStart(2, '0')}T${startHour}`,
-                `2026-03-${String(day).padStart(2, '0')}T${endHour}`
-            )
-        })
+        const overloadedSessions = generateSessions(10, overloaded.id, 'course-a', 9, 'overloaded-')
 
         const remainingSessions = [
             createSession('available-1', available.id, 'course-a', '2026-03-10T08:00:00.000Z', '2026-03-10T12:00:00.000Z'),
@@ -122,6 +133,7 @@ describe('workload-balancer', () => {
         expect(analysis.overutilizedTrainers).toHaveLength(1)
         expect(analysis.underutilizedTrainers).toHaveLength(2)
         expect(analysis.totalCapacity).toBe(120)
+        // totalUtilization here represents total scheduled hours, not a percentage.
         expect(analysis.totalUtilization).toBe(52)
         expect(analysis.balanceScore).toBeLessThan(100)
         expect(analysis.recommendations).toEqual(
@@ -143,18 +155,7 @@ describe('workload-balancer', () => {
     it('finds a bounded set of sessions to move to a compatible trainer', () => {
         const overloaded = createTrainer('trainer-overloaded', 'Olivia', ['Forklift'])
         const available = createTrainer('trainer-available', 'Parker', ['Forklift'])
-        const sessions = Array.from({ length: 10 }, (_, index) => {
-            const day = 9 + Math.floor(index / 2)
-            const startHour = index % 2 === 0 ? '08:00:00.000Z' : '13:00:00.000Z'
-            const endHour = index % 2 === 0 ? '12:00:00.000Z' : '17:00:00.000Z'
-            return createSession(
-                `session-${index + 1}`,
-                overloaded.id,
-                'course-a',
-                `2026-03-${String(day).padStart(2, '0')}T${startHour}`,
-                `2026-03-${String(day).padStart(2, '0')}T${endHour}`
-            )
-        })
+        const sessions = generateSessions(10, overloaded.id, 'course-a', 9, 'session-')
         const courses = [createCourse('course-a', ['Forklift'])]
 
         const overloadedWorkload = calculateTrainerWorkload(overloaded, sessions, WEEK_START, WEEK_END)

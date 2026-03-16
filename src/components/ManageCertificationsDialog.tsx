@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -42,15 +42,20 @@ export function ManageCertificationsDialog({
 }: ManageCertificationsDialogProps) {
   const [localCerts, setLocalCerts] = useState<CertificationRecord[]>(certifications)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  const prevOpenRef = useRef(open)
 
   const [formData, setFormData] = useState<Partial<CertificationRecord>>(EMPTY_FORM_DATA)
 
   useEffect(() => {
-    if (open) {
+    const wasOpen = prevOpenRef.current
+
+    if (open && !wasOpen) {
       setLocalCerts(certifications)
       setEditingIndex(null)
       setFormData(EMPTY_FORM_DATA)
     }
+
+    prevOpenRef.current = open
   }, [open, certifications])
 
   const handleAdd = () => {

@@ -85,6 +85,7 @@ describe('NotificationPermissionBanner', () => {
 
         render(<NotificationPermissionBanner />)
 
+        expect(mockUseKV).toHaveBeenCalledWith('notification-banner-dismissed', false)
         expect(await screen.findByText(/enable desktop notifications/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /enable/i }))
@@ -128,7 +129,9 @@ describe('NotificationPermissionBanner', () => {
 
         render(<NotificationPermissionBanner />)
 
-        await user.click(await screen.findByRole('button', { name: /enable/i }))
+        await expect(
+            user.click(await screen.findByRole('button', { name: /enable/i }))
+        ).resolves.not.toThrow()
 
         await waitFor(() => {
             expect(requestPermission).toHaveBeenCalledOnce()

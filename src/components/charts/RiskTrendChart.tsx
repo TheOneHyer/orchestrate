@@ -30,6 +30,23 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
     }))
   }, [data, showUtilization])
 
+  const utilizationSummary = useMemo(() => {
+    if (!showUtilization || chartData.length === 0) {
+      return ''
+    }
+
+    const values = chartData.map((point) => {
+      const value = point['Utilization %']
+      return typeof value === 'number' ? value : 0
+    })
+    const average = values.reduce((sum, value) => sum + value, 0) / values.length
+    const first = values[0]
+    const last = values[values.length - 1]
+    const trendDirection = last > first ? 'up' : last < first ? 'down' : 'flat'
+
+    return `Utilization average ${average.toFixed(1)}% trend ${trendDirection}`
+  }, [chartData, showUtilization])
+
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload
@@ -58,9 +75,9 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
             <div className="flex items-center justify-between gap-4 pt-1 border-t border-border mt-2">
               <span className="text-muted-foreground">Risk Level:</span>
               <span className={`font-bold uppercase text-xs px-2 py-0.5 rounded ${data.riskLevel === 'critical' ? 'bg-destructive/20 text-destructive' :
-                  data.riskLevel === 'high' ? 'bg-orange-500/20 text-orange-500' :
-                    data.riskLevel === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
-                      'bg-green-500/20 text-green-500'
+                data.riskLevel === 'high' ? 'bg-orange-500/20 text-orange-500' :
+                  data.riskLevel === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
+                    'bg-green-500/20 text-green-500'
                 }`}>
                 {data.riskLevel}
               </span>
@@ -90,7 +107,7 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
           Tracking {trainerName}'s risk level over time
         </p>
       )}
-      {showUtilization && <span data-testid="utilization-series" className="sr-only">Utilization series visible</span>}
+      {showUtilization && <span data-testid="utilization-series" className="sr-only">{utilizationSummary}</span>}
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           <defs>

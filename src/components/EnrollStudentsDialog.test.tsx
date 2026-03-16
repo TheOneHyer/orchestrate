@@ -44,10 +44,11 @@ const students = [
 
 describe('EnrollStudentsDialog', () => {
     beforeEach(() => {
+        mockCheckStudentEnrollmentConflicts.mockClear()
         mockCheckStudentEnrollmentConflicts.mockReturnValue({
             hasConflicts: false,
             conflicts: [],
-            allowedStudents: [],
+            allowedStudents: students.map(student => student.id),
         })
     })
 
@@ -147,11 +148,12 @@ describe('EnrollStudentsDialog', () => {
         })
 
         const onEnrollStudents = vi.fn()
+        const onOpenChange = vi.fn()
 
         render(
             <EnrollStudentsDialog
                 open={true}
-                onOpenChange={vi.fn()}
+                onOpenChange={onOpenChange}
                 session={session}
                 allSessions={[session]}
                 availableStudents={students}
@@ -174,6 +176,7 @@ describe('EnrollStudentsDialog', () => {
 
         await userEvent.click(screen.getByRole('button', { name: /enroll 1 student/i }))
         expect(onEnrollStudents).toHaveBeenCalledWith(['stu-1'])
+        expect(onOpenChange).toHaveBeenLastCalledWith(false)
     })
 
     it('disables enroll when selection exceeds remaining capacity', async () => {

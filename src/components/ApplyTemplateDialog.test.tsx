@@ -91,8 +91,11 @@ describe('ApplyTemplateDialog', () => {
         await user.type(screen.getByLabelText(/start date/i), '2026-03-17')
         await user.clear(screen.getByLabelText(/number of cycles/i))
         await user.type(screen.getByLabelText(/number of cycles/i), '2')
+        await user.clear(screen.getByLabelText(/course override/i))
         await user.type(screen.getByLabelText(/course override/i), 'course-override')
+        await user.clear(screen.getByLabelText(/location override/i))
         await user.type(screen.getByLabelText(/location override/i), 'Main Lab')
+        await user.clear(screen.getByLabelText(/capacity override/i))
         await user.type(screen.getByLabelText(/capacity override/i), '20')
 
         await user.click(screen.getByRole('button', { name: /create 4 sessions/i }))
@@ -111,10 +114,9 @@ describe('ApplyTemplateDialog', () => {
 
         const first = new Date(sessions[0].startTime)
         const firstEnd = new Date(sessions[0].endTime)
-        const expectedFirstStart = new Date('2026-03-17')
+        // Start date 2026-03-17 with first template session on Monday always lands on 2026-03-23.
+        const expectedFirstStart = new Date(2026, 2, 23)
         const firstSessionTemplate = template.sessions[0]
-        const weekdayDelta = firstSessionTemplate.dayOfWeek - expectedFirstStart.getDay()
-        expectedFirstStart.setDate(expectedFirstStart.getDate() + (weekdayDelta >= 0 ? weekdayDelta : weekdayDelta + 7))
         const [hours, minutes] = firstSessionTemplate.time.split(':').map(Number)
         expectedFirstStart.setHours(hours, minutes, 0, 0)
 

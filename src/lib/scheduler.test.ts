@@ -119,7 +119,9 @@ describe('scheduler', () => {
 
         expect(result.success).toBe(true)
         expect(result.sessions).toHaveLength(3)
-        expect(result.sessions.every(session => session.trainerId === trainer.id)).toBe(true)
+        result.sessions.forEach(session => {
+            expect(session.trainerId).toBe(trainer.id)
+        })
         expect(result.recommendations).toContain('Scheduled 3 session(s) for "Forklift Safety"')
     })
 
@@ -131,11 +133,71 @@ describe('scheduler', () => {
 
         expect(result.success).toBe(false)
         expect(result.sessions).toHaveLength(0)
+        expect(result.conflicts.length).toBeGreaterThan(0)
         expect(result.conflicts[0]).toEqual(
             expect.objectContaining({
                 type: 'no-trainers'
             })
         )
         expect(result.recommendations).toContain('Consider adjusting shift requirements or required certifications to find more trainers')
+    })
+
+    it('handles an empty trainer list gracefully for matching and auto-scheduling', () => {
+        const scheduler = new TrainerScheduler([], [], [createCourse()])
+        const constraints = createConstraints()
+
+        expect(scheduler.findAvailableTrainers(constraints, new Date('2026-03-16T00:00:00.000Z'))).toEqual([])
+
+        const result = scheduler.autoScheduleSessions(constraints)
+        expect(result.success).toBe(false)
+        expect(result.sessions).toHaveLength(0)
+        expect(result.conflicts.length).toBeGreaterThan(0)
+    })
+
+    it('treats adjacent sessions as non-overlapping', () => {
+        const trainer = createTrainer('trainer-available', 'Avery', ['Forklift'])
+        const adjacentExisting = createSession(
+            'existing-1',
+            trainer.id,
+            '2026-03-16T09:30:00.000Z',
+            '2026-03-16T11:30:00.000Z'
+        )
+        const scheduler = new TrainerScheduler([trainer], [adjacentExisting], [createCourse()])
+
+        const matches = scheduler.findAvailableTrainers(
+            createConstraints({ startTime: '11:30', endTime: '13:00' }),
+            new Date('2026-03-16T00:00:00.000Z')
+        )
+
+        expect(matches).toHaveLength(1)
+        expect(matches[0].availability).toBe('available')
+        expect(matches[0].conflicts).toEqual([])
+    })
+
+    it('keeps deterministic trainer ordering when availability is identical', () => {
+        const trainerA = createTrainer('trainer-a', 'Avery', ['Forklift'])
+        const trainerB = createTrainer('trainer-b', 'Blake', ['Forklift'])
+        const scheduler = new TrainerScheduler([trainerA, trainerB], [], [createCourse()])
+
+        const matches = scheduler.findAvailableTrainers(createConstraints(), new Date('2026-03-16T00:00:00.000Z'))
+
+        expect(matches).toHaveLength(2)
+        expect(matches.map(match => match.trainer.id)).toEqual(['trainer-a', 'trainer-b'])
+    })
+
+    it('returns a failure conflict when courseId is missing or invalid', () => {
+        const trainer = createTrainer('trainer-available', 'Avery', ['Forklift'])
+        const scheduler = new TrainerScheduler([trainer], [], [createCourse()])
+
+        const result = scheduler.autoScheduleSessions(createConstraints({ courseId: 'missing-course' }))
+
+        expect(result.success).toBe(false)
+        expect(result.sessions).toEqual([])
+        expect(result.conflicts).toContainEqual(
+            expect.objectContaining({
+                type: 'invalid-course',
+            })
+        )
+        expect(result.recommendations).toContain('Select a valid course before scheduling sessions')
     })
 })

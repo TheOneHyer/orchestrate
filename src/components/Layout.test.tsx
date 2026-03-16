@@ -28,11 +28,10 @@ describe('Layout', () => {
     beforeEach(() => {
         mockToggleTheme.mockReset()
         mockUseTheme.mockReset()
+        mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: mockToggleTheme })
     })
 
     it('filters navigation by role and shows admin settings', () => {
-        mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: mockToggleTheme })
-
         const onNavigate = vi.fn()
         render(
             <Layout activeView="dashboard" onNavigate={onNavigate} userRole="admin" notificationCount={3}>
@@ -48,8 +47,6 @@ describe('Layout', () => {
     })
 
     it('hides admin-only items for employees and navigates on click', async () => {
-        mockUseTheme.mockReturnValue({ theme: 'dark', toggleTheme: mockToggleTheme })
-
         const onNavigate = vi.fn()
         render(
             <Layout activeView="dashboard" onNavigate={onNavigate} userRole="employee" notificationCount={0}>
@@ -65,8 +62,6 @@ describe('Layout', () => {
     })
 
     it('opens notification settings dialog from header actions', async () => {
-        mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: mockToggleTheme })
-
         render(
             <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="trainer">
                 <div>Page Content</div>
@@ -84,8 +79,6 @@ describe('Layout', () => {
     })
 
     it('toggles theme from header action', async () => {
-        mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: mockToggleTheme })
-
         render(
             <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="trainer">
                 <div>Page Content</div>

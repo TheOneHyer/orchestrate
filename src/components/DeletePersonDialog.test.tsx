@@ -100,10 +100,9 @@ describe('DeletePersonDialog', () => {
             />
         )
 
-        const dialog = screen.getByRole('alertdialog')
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument()
         const overlay = screen.getByTestId('dialog-overlay')
 
-        expect(dialog).toBeInTheDocument()
         await user.click(overlay)
 
         expect(onOpenChange).not.toHaveBeenCalled()

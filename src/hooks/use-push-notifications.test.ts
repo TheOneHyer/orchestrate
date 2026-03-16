@@ -4,9 +4,8 @@ import { useKV } from '@github/spark/hooks'
 import { usePushNotifications } from './use-push-notifications'
 
 vi.mock('@github/spark/hooks', async () => {
-    const { useState } = await import('react')
     return {
-        useKV: vi.fn((_key: string, defaultValue: unknown) => useState(defaultValue))
+        useKV: vi.fn()
     }
 })
 
@@ -27,13 +26,23 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.unstubAllGlobals()
+    vi.clearAllMocks()
+    vi.restoreAllMocks()
 })
 
 describe('usePushNotifications', () => {
     it('reports isSupported=true when Notification API is available', () => {
         const { result } = renderHook(() => usePushNotifications())
-        // jsdom exposes a mocked Notification in setup.ts
+        // Notification is stubbed in this file's beforeEach.
         expect(result.current.isSupported).toBe(true)
+    })
+
+    it('reports isSupported=false when Notification API is unavailable', () => {
+        vi.unstubAllGlobals()
+
+        const { result } = renderHook(() => usePushNotifications())
+
+        expect(result.current.isSupported).toBe(false)
     })
 
     it('requestPermission returns "granted" and updates settings to enabled', async () => {
@@ -63,6 +72,35 @@ describe('usePushNotifications', () => {
         const updated = lastUpdater({ enabled: false, permission: 'granted', showForPriorities: {} })
         expect(updated.permission).toBe('granted')
         expect(updated.enabled).toBe(true)
+    })
+
+    it('requestPermission returns "denied" and keeps notifications disabled', async () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: false,
+                permission: 'default',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            setter,
+        ] as any)
+
+        const NotificationMock = globalThis.Notification as any
+        NotificationMock.requestPermission = vi.fn(async () => 'denied' as NotificationPermission)
+
+        const { result } = renderHook(() => usePushNotifications())
+        let permResult: NotificationPermission | undefined
+        await act(async () => {
+            permResult = await result.current.requestPermission()
+        })
+
+        expect(permResult).toBe('denied')
+        expect(setter).toHaveBeenCalledWith(expect.any(Function))
+        const calls = vi.mocked(setter).mock.calls
+        const lastUpdater = calls[calls.length - 1][0] as (prev: any) => any
+        const updated = lastUpdater({ enabled: false, permission: 'default', showForPriorities: {} })
+        expect(updated.permission).toBe('denied')
+        expect(updated.enabled).toBe(false)
     })
 
     it('sendNotification returns null when notifications are disabled (default)', () => {

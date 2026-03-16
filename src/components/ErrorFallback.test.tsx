@@ -4,7 +4,7 @@ import { ErrorFallback } from '../ErrorFallback'
 
 // Vitest runs with mode='test' (not 'production'), so import.meta.env.DEV defaults to true.
 // Override it so ErrorFallback renders its fallback UI instead of rethrowing.
-beforeAll(() => { vi.stubEnv('DEV', '') })
+beforeAll(() => { vi.stubEnv('DEV', false) })
 afterAll(() => { vi.unstubAllEnvs() })
 
 describe('ErrorFallback', () => {
@@ -12,7 +12,9 @@ describe('ErrorFallback', () => {
         const error = new Error('Something went terribly wrong')
         render(<ErrorFallback error={error} resetErrorBoundary={vi.fn()} />)
 
-        expect(screen.getByText('Something went terribly wrong')).toBeInTheDocument()
+        const message = screen.getByText('Something went terribly wrong')
+        expect(message).toBeInTheDocument()
+        expect(message.tagName).toBe('PRE')
     })
 
     it('calls resetErrorBoundary when the Try Again button is clicked', () => {

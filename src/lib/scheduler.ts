@@ -1,5 +1,5 @@
-import { User, Session, Course } from './types'
-import { addDays, isWithinInterval, setHours, setMinutes } from 'date-fns'
+import { User, Session, Course, ShiftType } from './types'
+import { addDays, isWithinInterval } from 'date-fns'
 
 export interface SchedulingConstraints {
   courseId: string
@@ -24,7 +24,7 @@ export interface TrainerMatch {
 }
 
 export interface ScheduleConflict {
-  type: 'trainer-overlap' | 'student-overlap' | 'capacity-exceeded' | 'no-trainers' | 'shift-mismatch'
+  type: 'trainer-overlap' | 'student-overlap' | 'capacity-exceeded' | 'no-trainers' | 'shift-mismatch' | 'invalid-course'
   resourceId?: string
   resourceName?: string
   sessionId?: string
@@ -42,6 +42,8 @@ export class TrainerScheduler {
   private trainers: User[]
   private existingSessions: Session[]
   private courses: Course[]
+
+  private readonly dayOfWeekMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
 
   constructor(trainers: User[], sessions: Session[], courses: Course[]) {
     this.trainers = trainers.filter(u => u.role === 'trainer')
@@ -140,13 +142,13 @@ export class TrainerScheduler {
     trainer: User,
     required: string[]
   ): { matches: boolean; matched: string[]; missing: string[] } {
-    const matched = required.filter(cert => 
-      trainer.certifications.some(tc => 
+    const matched = required.filter(cert =>
+      trainer.certifications.some(tc =>
         tc.toLowerCase() === cert.toLowerCase()
       )
     )
     const missing = required.filter(cert => !matched.includes(cert))
-    
+
     return {
       matches: missing.length === 0,
       matched,
@@ -166,8 +168,7 @@ export class TrainerScheduler {
       return { hasOverlap: false, overlappingSchedules: [] }
     }
 
-    const dayOfWeekMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-    const targetDayOfWeek = dayOfWeekMap[targetDate.getDay()] as any
+    const targetDayOfWeek = this.dayOfWeekMap[targetDate.getUTCDay()]
 
     const [sessionStartHour, sessionStartMin] = startTime.split(':').map(Number)
     const [sessionEndHour, sessionEndMin] = endTime.split(':').map(Number)
@@ -215,16 +216,13 @@ export class TrainerScheduler {
     constraints: SchedulingConstraints
   ): string[] {
     const conflicts: string[] = []
-    
-    const [startHour, startMin] = constraints.startTime.split(':').map(Number)
-    const [endHour, endMin] = constraints.endTime.split(':').map(Number)
-    
-    const proposedStart = setMinutes(setHours(targetDate, startHour), startMin)
-    const proposedEnd = setMinutes(setHours(targetDate, endHour), endMin)
+
+    const proposedStart = this.combineDateWithTimeUtc(targetDate, constraints.startTime)
+    const proposedEnd = this.combineDateWithTimeUtc(targetDate, constraints.endTime)
 
     const trainerSessions = this.existingSessions.filter(
       session => session.trainerId === trainer.id &&
-                 session.status !== 'cancelled'
+        session.status !== 'cancelled'
     )
 
     for (const session of trainerSessions) {
@@ -246,15 +244,15 @@ export class TrainerScheduler {
   }
 
   private calculateWorkloadScore(trainer: User, targetDate: Date): { score: number; message?: string } {
-    const weekStart = addDays(targetDate, -targetDate.getDay())
+    const weekStart = this.getUtcWeekStart(targetDate)
     const weekEnd = addDays(weekStart, 7)
 
     const weekSessions = this.existingSessions.filter(session => {
       const sessionDate = new Date(session.startTime)
       return session.trainerId === trainer.id &&
-             sessionDate >= weekStart &&
-             sessionDate < weekEnd &&
-             session.status !== 'cancelled'
+        sessionDate >= weekStart &&
+        sessionDate < weekEnd &&
+        session.status !== 'cancelled'
     })
 
     if (weekSessions.length === 0) {
@@ -285,6 +283,16 @@ export class TrainerScheduler {
     const conflicts: ScheduleConflict[] = []
     const recommendations: string[] = []
 
+    const course = this.courses.find(c => c.id === constraints.courseId)
+    if (!course) {
+      conflicts.push({
+        type: 'invalid-course',
+        message: `Course "${constraints.courseId}" does not exist`
+      })
+      recommendations.push('Select a valid course before scheduling sessions')
+      return { success: false, sessions, conflicts, recommendations }
+    }
+
     const dates = this.generateScheduleDates(constraints)
 
     if (dates.length === 0) {
@@ -302,7 +310,6 @@ export class TrainerScheduler {
       }
     }
 
-    const course = this.courses.find(c => c.id === constraints.courseId)
     if (course) {
       recommendations.push(
         `Scheduled ${sessions.length} session(s) for "${course.title}"`
@@ -361,12 +368,9 @@ export class TrainerScheduler {
     }
 
     const course = this.courses.find(c => c.id === constraints.courseId)
-    
-    const [startHour, startMin] = constraints.startTime.split(':').map(Number)
-    const [endHour, endMin] = constraints.endTime.split(':').map(Number)
-    
-    const startTime = setMinutes(setHours(date, startHour), startMin)
-    const endTime = setMinutes(setHours(date, endHour), endMin)
+
+    const startTime = this.combineDateWithTimeUtc(date, constraints.startTime)
+    const endTime = this.combineDateWithTimeUtc(date, constraints.endTime)
 
     return {
       courseId: constraints.courseId,
@@ -384,7 +388,7 @@ export class TrainerScheduler {
 
   private generateScheduleDates(constraints: SchedulingConstraints): Date[] {
     const dates: Date[] = []
-    
+
     for (const dateStr of constraints.dates) {
       const date = new Date(dateStr)
       dates.push(date)
@@ -399,6 +403,36 @@ export class TrainerScheduler {
     }
 
     return dates.sort((a, b) => a.getTime() - b.getTime())
+  }
+
+  private combineDateWithTimeUtc(date: Date, time: string): Date {
+    const timeMatch = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time)
+
+    if (!timeMatch) {
+      throw new Error(`Invalid time format: "${time}". Expected HH:MM in 24-hour format.`)
+    }
+
+    const hour = Number.parseInt(timeMatch[1], 10)
+    const minute = Number.parseInt(timeMatch[2], 10)
+
+    return new Date(
+      Date.UTC(
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        hour,
+        minute,
+        0,
+        0
+      )
+    )
+  }
+
+  private getUtcWeekStart(date: Date): Date {
+    const utcMidnight = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+    )
+    return addDays(utcMidnight, -utcMidnight.getUTCDay())
   }
 
   private generateRecurrenceDates(
@@ -432,15 +466,15 @@ export class TrainerScheduler {
   }
 
   private formatTime(date: Date): string {
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    return date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true
     })
   }
 
   private formatDate(date: Date): string {
-    return date.toLocaleDateString('en-US', { 
+    return date.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'short',
       day: 'numeric',
@@ -472,7 +506,7 @@ export class TrainerScheduler {
 
     const certifiedTrainers = this.trainers.filter(trainer =>
       constraints.requiredCertifications.every(cert =>
-        trainer.certifications.some(tc => 
+        trainer.certifications.some(tc =>
           tc.toLowerCase() === cert.toLowerCase()
         )
       )
@@ -518,8 +552,8 @@ export class TrainerScheduler {
   } {
     const trainerSessions = this.existingSessions.filter(
       session => session.trainerId === trainerId &&
-                 session.status !== 'cancelled' &&
-                 isWithinInterval(new Date(session.startTime), { start: startDate, end: endDate })
+        session.status !== 'cancelled' &&
+        isWithinInterval(new Date(session.startTime), { start: startDate, end: endDate })
     )
 
     const sessionsByShift: Record<ShiftType, number> = {

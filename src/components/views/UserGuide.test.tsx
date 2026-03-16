@@ -31,6 +31,6 @@ describe('UserGuide', () => {
     render(<UserGuide />)
 
     await user.click(screen.getByRole('button', { name: /certifications/i }))
-    expect(screen.getByText(/^admin$/i)).toBeInTheDocument()
+    expect(await screen.findByTestId('role-badge-admin')).toBeInTheDocument()
   })
 })

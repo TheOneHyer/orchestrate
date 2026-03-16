@@ -4,14 +4,6 @@ import { describe, expect, it } from 'vitest'
 import { RiskTrendChart } from './RiskTrendChart'
 
 describe('RiskTrendChart', () => {
-    it('shows fallback when no historical points are provided', () => {
-        render(<RiskTrendChart data={[]} />)
-
-        expect(screen.getByText(/no historical data available/i)).toBeInTheDocument()
-        expect(screen.getByText(/risk tracking will appear as data is collected/i)).toBeInTheDocument()
-        expect(screen.getByTestId('risk-trend-chart-empty')).toBeInTheDocument()
-    })
-
     const mockDataPoint = {
         date: '2026-03-10T00:00:00.000Z',
         riskScore: 32,
@@ -21,6 +13,24 @@ describe('RiskTrendChart', () => {
         hoursScheduled: 29,
     }
 
+    const highRiskDataPoint = {
+        ...mockDataPoint,
+        date: '2026-03-15T00:00:00.000Z',
+        riskScore: 58,
+        riskLevel: 'high' as const,
+        utilizationRate: 91,
+        sessionCount: 11,
+        hoursScheduled: 41,
+    }
+
+    it('shows fallback when no historical points are provided', () => {
+        render(<RiskTrendChart data={[]} />)
+
+        expect(screen.getByText(/no historical data available/i)).toBeInTheDocument()
+        expect(screen.getByText(/risk tracking will appear as data is collected/i)).toBeInTheDocument()
+        expect(screen.getByTestId('risk-trend-chart-empty')).toBeInTheDocument()
+    })
+
     it('renders chart shell and trainer context when data exists', () => {
         render(
             <RiskTrendChart
@@ -28,7 +38,7 @@ describe('RiskTrendChart', () => {
                 showUtilization={true}
                 data={[
                     mockDataPoint,
-                    { ...mockDataPoint, date: '2026-03-15T00:00:00.000Z', riskScore: 58, riskLevel: 'high' as const, utilizationRate: 91, sessionCount: 11, hoursScheduled: 41 },
+                    highRiskDataPoint,
                 ]}
             />
         )

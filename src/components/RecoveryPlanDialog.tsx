@@ -46,6 +46,8 @@ export function RecoveryPlanDialog({
   const [targetUtilization, setTargetUtilization] = useState(70)
   const [durationWeeks, setDurationWeeks] = useState(4)
   const [triggerReason, setTriggerReason] = useState('')
+  const [triggerReasonTouched, setTriggerReasonTouched] = useState(false)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const [notes, setNotes] = useState('')
   const [actions, setActions] = useState<Omit<RecoveryPlanAction, 'id'>[]>([])
 
@@ -71,6 +73,8 @@ export function RecoveryPlanDialog({
       }
 
       setTriggerReason(reason)
+      setTriggerReasonTouched(false)
+      setSubmitAttempted(false)
 
       const initialActions: Omit<RecoveryPlanAction, 'id'>[] = []
 
@@ -106,6 +110,12 @@ export function RecoveryPlanDialog({
   }, [open, latestCheckIn, currentUtilization])
 
   const handleSubmit = () => {
+    setSubmitAttempted(true)
+
+    if (!triggerReason.trim() || actions.length === 0) {
+      return
+    }
+
     const plan: Omit<RecoveryPlan, 'id' | 'createdAt'> = {
       trainerId,
       createdBy: currentUser.id,
@@ -131,6 +141,8 @@ export function RecoveryPlanDialog({
     setTargetUtilization(70)
     setDurationWeeks(4)
     setTriggerReason('')
+    setTriggerReasonTouched(false)
+    setSubmitAttempted(false)
     setNotes('')
     setActions([])
     onClose()
@@ -177,10 +189,17 @@ export function RecoveryPlanDialog({
             <Textarea
               id="trigger-reason"
               value={triggerReason}
-              onChange={(e) => setTriggerReason(e.target.value)}
+              onChange={(e) => {
+                setTriggerReason(e.target.value)
+                setTriggerReasonTouched(true)
+              }}
+              onBlur={() => setTriggerReasonTouched(true)}
               placeholder="Why is this recovery plan needed?"
               rows={3}
             />
+            {!triggerReason.trim() && (triggerReasonTouched || submitAttempted) && (
+              <p className="text-sm text-destructive">Trigger reason is required</p>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -258,6 +277,7 @@ export function RecoveryPlanDialog({
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label={`Remove action ${action.type.replace(/-/g, ' ')}`}
                         onClick={() => removeAction(idx)}
                       >
                         <Trash className="h-4 w-4 text-destructive" />
@@ -347,8 +367,8 @@ export function RecoveryPlanDialog({
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             disabled={!triggerReason.trim() || actions.length === 0}
           >
             Create Recovery Plan

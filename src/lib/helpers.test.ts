@@ -106,23 +106,23 @@ describe('helpers', () => {
     })
 
     describe('findAvailableTrainers', () => {
-        const trainers = [
+        const users = [
             createUser({ id: 't-1', role: 'trainer', certifications: ['Forklift', 'Safety'] }),
             createUser({ id: 't-2', role: 'trainer', certifications: ['Hazmat'] }),
             createUser({ id: 't-3', role: 'employee', certifications: ['Forklift'] }),
         ]
 
         it('returns trainers who hold all required certifications', () => {
-            const result = findAvailableTrainers(trainers, ['Forklift'])
+            const result = findAvailableTrainers(users, ['Forklift'])
             expect(result.map(u => u.id)).toEqual(['t-1'])
         })
 
         it('returns empty when no trainer satisfies multi-cert requirement', () => {
-            expect(findAvailableTrainers(trainers, ['Forklift', 'Hazmat'])).toHaveLength(0)
+            expect(findAvailableTrainers(users, ['Forklift', 'Hazmat'])).toHaveLength(0)
         })
 
         it('excludes explicitly listed trainer IDs', () => {
-            expect(findAvailableTrainers(trainers, ['Forklift'], ['t-1'])).toHaveLength(0)
+            expect(findAvailableTrainers(users, ['Forklift'], ['t-1'])).toHaveLength(0)
         })
     })
 
@@ -169,6 +169,13 @@ describe('helpers', () => {
             })).toBe(false)
         })
 
+        it('returns false when a new session ends exactly as an existing session starts', () => {
+            expect(checkScheduleConflict(user, [existing], {
+                startTime: '2026-03-16T07:00:00.000Z',
+                endTime: '2026-03-16T09:00:00.000Z'
+            })).toBe(false)
+        })
+
         it('returns false when there are no existing sessions', () => {
             expect(checkScheduleConflict(user, [], {
                 startTime: '2026-03-16T09:00:00.000Z',
@@ -188,6 +195,10 @@ describe('helpers', () => {
 
         it('rounds to nearest integer', () => {
             expect(calculateProgress(1, 3)).toBe(33)
+        })
+
+        it('rounds up when fractional progress is above .5', () => {
+            expect(calculateProgress(2, 3)).toBe(67)
         })
     })
 
@@ -252,6 +263,22 @@ describe('helpers', () => {
 
             const result = getTrainersWithoutSchedules([configured, unconfigured, admin])
             expect(result.map(u => u.id)).toEqual(['t-unconfigured'])
+        })
+
+        it('treats an empty shift schedule array as unconfigured', () => {
+            const trainer = createUser({
+                id: 't-empty',
+                role: 'trainer',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: { hireDate: '2020-01-01T00:00:00.000Z', yearsOfService: 6, monthsOfService: 72 },
+                    specializations: []
+                }
+            })
+
+            expect(hasConfiguredSchedule(trainer)).toBe(false)
+            expect(getTrainersWithoutSchedules([trainer]).map(u => u.id)).toEqual(['t-empty'])
         })
     })
 })

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { TrainerProfileView } from './TrainerProfileView'
-import type { User, Session, Course, Enrollment } from '@/lib/types'
+import type { User, Session, Course, Enrollment, CertificationRecord } from '@/lib/types'
 
 vi.mock('@/components/UnconfiguredScheduleAlert', () => ({
   UnconfiguredScheduleAlert: () => <div>UnconfiguredScheduleAlert Mock</div>,
@@ -14,7 +14,7 @@ vi.mock('@/lib/certification-tracker', () => ({
 }))
 
 vi.mock('@/components/ManageCertificationsDialog', () => ({
-  ManageCertificationsDialog: ({ open, certifications, onSave }: { open: boolean; certifications: any[]; onSave: (certs: any[]) => void }) => (
+  ManageCertificationsDialog: ({ open, certifications, onSave }: { open: boolean; certifications: CertificationRecord[]; onSave: (certs: CertificationRecord[]) => void }) => (
     open ? (
       <div>
         <button
@@ -122,9 +122,31 @@ const courses: Course[] = [
 ]
 
 describe('TrainerProfileView', () => {
-  it('renders profile details and action sections', async () => {
+  it('renders profile details and action sections', () => {
+    render(
+      <TrainerProfileView
+        user={trainerUser}
+        sessions={sessions}
+        courses={courses}
+        enrollments={[] as Enrollment[]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onUpdateUser={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/taylor trainer/i)).toBeInTheDocument()
+    expect(screen.getByText(/taylor@example.com/i)).toBeInTheDocument()
+    expect(screen.getByText(/shift schedules/i)).toBeInTheDocument()
+    expect(screen.getByText(/authorized teaching roles/i)).toBeInTheDocument()
+    expect(screen.getByText(/additional information/i)).toBeInTheDocument()
+    expect(screen.getByText(/unconfiguredschedulealert mock/i)).toBeInTheDocument()
+  })
+
+  it('calls edit and delete callbacks from action buttons', async () => {
     const onEdit = vi.fn()
     const onDelete = vi.fn()
+    const user = userEvent.setup()
 
     render(
       <TrainerProfileView
@@ -138,15 +160,8 @@ describe('TrainerProfileView', () => {
       />
     )
 
-    expect(screen.getByText(/taylor trainer/i)).toBeInTheDocument()
-    expect(screen.getByText(/taylor@example.com/i)).toBeInTheDocument()
-    expect(screen.getByText(/shift schedules/i)).toBeInTheDocument()
-    expect(screen.getByText(/authorized teaching roles/i)).toBeInTheDocument()
-    expect(screen.getByText(/additional information/i)).toBeInTheDocument()
-    expect(screen.getByText(/unconfiguredschedulealert mock/i)).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: /edit profile/i }))
-    await userEvent.click(screen.getByRole('button', { name: /delete person/i }))
+    await user.click(screen.getByRole('button', { name: /edit profile/i }))
+    await user.click(screen.getByRole('button', { name: /delete person/i }))
 
     expect(onEdit).toHaveBeenCalledOnce()
     expect(onDelete).toHaveBeenCalledOnce()
@@ -156,6 +171,8 @@ describe('TrainerProfileView', () => {
     const onUpdateUser = vi.fn()
     const onEdit = vi.fn()
     const onDelete = vi.fn()
+    const user = userEvent.setup()
+    const initialCount = trainerUser.trainerProfile?.certificationRecords?.length ?? 0
 
     render(
       <TrainerProfileView
@@ -169,11 +186,21 @@ describe('TrainerProfileView', () => {
       />
     )
 
-    await userEvent.click(screen.getByRole('button', { name: /manage/i }))
-    await userEvent.click(screen.getByRole('button', { name: /save certifications/i }))
+    await user.click(screen.getByRole('button', { name: /manage/i }))
+    await user.click(screen.getByRole('button', { name: /save certifications/i }))
 
     expect(onUpdateUser).toHaveBeenCalledOnce()
     const updatedUser = onUpdateUser.mock.calls[0][0]
-    expect(updatedUser.trainerProfile.certificationRecords).toHaveLength(2)
+    expect(updatedUser.trainerProfile.certificationRecords).toHaveLength(initialCount + 1)
+    const newRecord = updatedUser.trainerProfile.certificationRecords[initialCount]
+    expect(newRecord).toEqual(
+      expect.objectContaining({
+        certificationName: 'First Aid',
+        issuedDate: '2026-01-01',
+        expirationDate: '2027-01-01',
+        status: 'active',
+        renewalRequired: false,
+      })
+    )
   })
 })

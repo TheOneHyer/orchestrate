@@ -19,10 +19,10 @@ import { useCheckInScheduler } from './use-check-in-scheduler'
 
 const NOW = new Date('2026-03-16T10:00:00.000Z')
 
-function createTrainer(id: string): User {
+function createTrainer(id: string, name = `Trainer ${id}`): User {
     return {
         id,
-        name: `Trainer ${id}`,
+        name,
         email: `${id}@example.com`,
         role: 'trainer',
         department: 'Operations',
@@ -74,6 +74,10 @@ describe('use-check-in-scheduler', () => {
         )
 
         expect(onTriggerCheckIn).toHaveBeenCalledWith('trainer-1', 'Trainer trainer-1')
+        expect(toast.info).not.toHaveBeenCalled()
+        const setter = vi.mocked(useKV).mock.results[0]?.value?.[1]
+        expect(setter).toBeDefined()
+        expect(setter).not.toHaveBeenCalled()
     })
 
     it('shows a toast reminder when check-in is approaching within reminderHoursBefore window', () => {

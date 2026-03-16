@@ -179,11 +179,14 @@ describe('burnout-analytics', () => {
         expect(result.recommendations).toContain('Schedule immediate wellness intervention')
     })
 
-    it('applies burnout utilization thresholds consistently', () => {
-        expect(getBurnoutRiskLevel(69.9)).toBe('low')
-        expect(getBurnoutRiskLevel(70)).toBe('medium')
-        expect(getBurnoutRiskLevel(85)).toBe('high')
-        expect(getBurnoutRiskLevel(94.9)).toBe('high')
-        expect(getBurnoutRiskLevel(95)).toBe('critical')
+    it.each([
+        [69.9, 'low'],
+        [70, 'medium'],
+        [84.9, 'medium'],
+        [85, 'high'],
+        [94.9, 'high'],
+        [95, 'critical'],
+    ])('maps utilization %s to burnout risk %s', (input, expected) => {
+        expect(getBurnoutRiskLevel(input)).toBe(expected)
     })
 })

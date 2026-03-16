@@ -194,7 +194,9 @@ describe('certification-tracker', () => {
         ]
 
         const updated = updateCertificationRecords(users)
-        const statuses = updated[0].trainerProfile?.certificationRecords?.map(record => record.status)
+        expect(updated[0].trainerProfile).toBeDefined()
+        expect(updated[0].trainerProfile?.certificationRecords).toBeDefined()
+        const statuses = updated[0].trainerProfile!.certificationRecords!.map(record => record.status)
 
         expect(statuses).toEqual(['expired', 'expiring-soon', 'active'])
         expect(updated[1]).toEqual(users[1])

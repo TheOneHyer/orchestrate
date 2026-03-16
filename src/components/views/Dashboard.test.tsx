@@ -42,9 +42,9 @@ describe('Dashboard', () => {
     )
 
     expect(screen.getByText(/welcome back, alex/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/active courses/i).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/upcoming sessions/i).length).toBeGreaterThan(0)
-    expect(screen.getAllByText(/notifications/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/^active courses$/i)).toBeInTheDocument()
+    expect(screen.getByTestId('upcoming-sessions-heading')).toHaveTextContent(/^upcoming sessions$/i)
+    expect(screen.getByText(/^notifications$/i)).toBeInTheDocument()
     expect(screen.getByText(/no upcoming sessions/i)).toBeInTheDocument()
     expect(screen.getByText(/no notifications/i)).toBeInTheDocument()
   })
@@ -104,7 +104,7 @@ describe('Dashboard', () => {
       title: `Notice ${idx + 1}`,
       message: 'System update',
       read: idx > 0,
-      createdAt: `2026-03-${String(16 - Math.min(idx, 5)).padStart(2, '0')}T12:00:00.000Z`,
+      createdAt: `2026-03-${String(16 - idx).padStart(2, '0')}T12:00:00.000Z`,
     }))
 
     render(

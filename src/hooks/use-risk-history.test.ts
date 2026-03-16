@@ -1,7 +1,9 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useKV } from '@github/spark/hooks'
+import { calculateRiskLevel } from '@/lib/risk-history-tracker'
 import type { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
+import type { Course, Session, User, WellnessCheckIn } from '@/lib/types'
 
 type MockKVTuple<T> = readonly [T, (newValue: T | ((current: T) => T)) => void, () => void]
 
@@ -27,7 +29,7 @@ function createSnapshot(id: string, trainerId: string, riskScore: number, timest
         trainerId,
         timestamp,
         riskScore,
-        riskLevel: riskScore >= 70 ? 'critical' : riskScore >= 45 ? 'high' : 'low',
+        riskLevel: calculateRiskLevel(riskScore),
         utilizationRate: riskScore,
         hoursScheduled: 32,
         sessionCount: 8,
@@ -44,13 +46,18 @@ const SNAPSHOTS: RiskHistorySnapshot[] = [
 ]
 
 describe('use-risk-history (unit)', () => {
+    const emptyUsers: User[] = []
+    const emptySessions: Session[] = []
+    const emptyCourses: Course[] = []
+    const emptyWellnessCheckIns: WellnessCheckIn[] = []
+
     beforeEach(() => {
         vi.mocked(useKV).mockImplementation(<T,>(_key: string, defaultValue: T) => createKVMockTuple(defaultValue))
     })
 
     it('getTrainerHistory returns empty array when no snapshots exist', () => {
         const { result } = renderHook(() =>
-            useRiskHistory([], [], [], [])
+            useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns)
         )
         expect(result.current.getTrainerHistory('trainer-a')).toEqual([])
     })
@@ -59,7 +66,7 @@ describe('use-risk-history (unit)', () => {
         vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() =>
-            useRiskHistory([], [], [], [])
+            useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns)
         )
 
         const history = result.current.getTrainerHistory('trainer-a')
@@ -70,7 +77,7 @@ describe('use-risk-history (unit)', () => {
 
     it('getTrainerHistory with limit returns N most recent entries', () => {
         vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
-        const { result } = renderHook(() => useRiskHistory([], [], [], []))
+        const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
 
         const limited = result.current.getTrainerHistory('trainer-a', 2)
         expect(limited).toHaveLength(2)
@@ -78,11 +85,44 @@ describe('use-risk-history (unit)', () => {
         expect(limited[1].id).toBe('s-3')
     })
 
+    it('getTrainerHistory returns empty for a non-existent trainer when snapshots exist', () => {
+        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
+        const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
+
+        expect(result.current.getTrainerHistory('trainer-nonexistent')).toEqual([])
+    })
+
+    it('getTrainerHistory with limit=0 returns an empty array', () => {
+        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
+        const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
+
+        const limited = result.current.getTrainerHistory('trainer-a', 0)
+        expect(limited).toEqual([])
+    })
+
+    it('getTrainerHistory with a negative limit behaves like limit=0', () => {
+        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
+        const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
+
+        const limited = result.current.getTrainerHistory('trainer-a', -1)
+        expect(limited).toEqual([])
+    })
+
+    it('getTrainerHistory with a large limit returns all available entries', () => {
+        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
+        const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
+
+        const limited = result.current.getTrainerHistory('trainer-a', 100)
+        expect(limited).toHaveLength(3)
+        expect(limited[0].id).toBe('s-1')
+        expect(limited[2].id).toBe('s-3')
+    })
+
     it('clearHistory calls the setter with an empty array', () => {
         const setter = vi.fn() as unknown as (newValue: RiskHistorySnapshot[] | ((current: RiskHistorySnapshot[]) => RiskHistorySnapshot[])) => void
         vi.mocked(useKV).mockReturnValue([SNAPSHOTS, setter, vi.fn()] as unknown as ReturnType<typeof useKV>)
 
-        const { result } = renderHook(() => useRiskHistory([], [], [], []))
+        const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
         act(() => result.current.clearHistory())
 
         expect(setter).toHaveBeenCalledWith([])

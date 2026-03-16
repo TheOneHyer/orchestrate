@@ -5,11 +5,26 @@ import { useIsMobile } from './use-mobile'
 
 describe('use-mobile', () => {
     const originalInnerWidth = window.innerWidth
-    const listeners = new Set<() => void>()
+    const listeners = new Set<(event: MediaQueryListEvent) => void>()
     let matchMediaSpy: ReturnType<typeof vi.spyOn> | undefined
 
     const setWidth = (width: number) =>
         Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width })
+
+    const mockMatchMedia = (width: number) => {
+        setWidth(width)
+        matchMediaSpy?.mockRestore()
+        matchMediaSpy = vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+            matches: width < 768,
+            media: query,
+            onchange: null,
+            addListener: (listener: (event: MediaQueryListEvent) => void) => { listeners.add(listener) },
+            removeListener: (listener: (event: MediaQueryListEvent) => void) => { listeners.delete(listener) },
+            addEventListener: (_event: 'change', listener: (event: MediaQueryListEvent) => void) => { listeners.add(listener) },
+            removeEventListener: (_event: 'change', listener: (event: MediaQueryListEvent) => void) => { listeners.delete(listener) },
+            dispatchEvent: vi.fn(),
+        }) as any)
+    }
 
     afterEach(() => {
         setWidth(originalInnerWidth)
@@ -19,42 +34,36 @@ describe('use-mobile', () => {
     })
 
     it('returns true when viewport is narrower than 768px', () => {
-        setWidth(375)
+        mockMatchMedia(375)
         const { result } = renderHook(() => useIsMobile())
         expect(result.current).toBe(true)
     })
 
     it('returns false when viewport is exactly 768px', () => {
-        setWidth(768)
+        mockMatchMedia(768)
         const { result } = renderHook(() => useIsMobile())
         expect(result.current).toBe(false)
     })
 
     it('returns false when viewport is wider than 768px', () => {
-        setWidth(1440)
+        mockMatchMedia(1440)
         const { result } = renderHook(() => useIsMobile())
         expect(result.current).toBe(false)
     })
 
     it('updates when viewport width changes after mount', () => {
-        matchMediaSpy = vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
-            matches: window.innerWidth < 768,
-            media: query,
-            onchange: null,
-            addListener: (listener: () => void) => { listeners.add(listener) },
-            removeListener: (listener: () => void) => { listeners.delete(listener) },
-            addEventListener: (_event: string, listener: () => void) => { listeners.add(listener) },
-            removeEventListener: (_event: string, listener: () => void) => { listeners.delete(listener) },
-            dispatchEvent: vi.fn(),
-        }) as any)
+        const createMediaQueryEvent = (matches: boolean): MediaQueryListEvent => ({
+            matches,
+            media: '(max-width: 767px)',
+        } as MediaQueryListEvent)
 
-        setWidth(1440)
+        mockMatchMedia(1440)
         const { result } = renderHook(() => useIsMobile())
         expect(result.current).toBe(false)
 
         act(() => {
             setWidth(375)
-            listeners.forEach(listener => listener())
+            listeners.forEach(listener => listener(createMediaQueryEvent(true)))
         })
 
         expect(result.current).toBe(true)

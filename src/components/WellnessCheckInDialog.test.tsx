@@ -1,18 +1,30 @@
+import React from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { WellnessCheckInDialog } from './WellnessCheckInDialog'
 
-const defaultProps = {
-  open: true,
-  onClose: vi.fn(),
-  trainerId: 'trainer-1',
-  trainerName: 'Alex Trainer',
-  onSubmit: vi.fn(),
+let defaultProps: {
+  open: boolean
+  onClose: ReturnType<typeof vi.fn>
+  trainerId: string
+  trainerName: string
+  onSubmit: ReturnType<typeof vi.fn>
 }
 
 describe('WellnessCheckInDialog', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    defaultProps = {
+      open: true,
+      onClose: vi.fn(),
+      trainerId: 'trainer-1',
+      trainerName: 'Alex Trainer',
+      onSubmit: vi.fn(),
+    }
+  })
+
   it('renders trainer name in the dialog title', () => {
     render(<WellnessCheckInDialog {...defaultProps} />)
 
@@ -73,14 +85,12 @@ describe('WellnessCheckInDialog', () => {
     render(<WellnessCheckInDialog {...defaultProps} />)
 
     const checkbox = screen.getByRole('checkbox', { name: /too many sessions scheduled/i })
-    const concernRow = screen.getByText(/too many sessions scheduled/i).closest('div')
-    expect(concernRow).not.toBeNull()
     expect(checkbox).toHaveAttribute('aria-checked', 'false')
 
-    await userEvent.click(concernRow as Element)
+    await userEvent.click(checkbox)
     expect(checkbox).toHaveAttribute('aria-checked', 'true')
 
-    await userEvent.click(concernRow as Element)
+    await userEvent.click(checkbox)
     expect(checkbox).toHaveAttribute('aria-checked', 'false')
   })
 
@@ -103,10 +113,8 @@ describe('WellnessCheckInDialog', () => {
     const onSubmit = vi.fn()
     render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} />)
 
-    const concernRow = screen.getByText(/work-life balance/i).closest('div')
-    expect(concernRow).not.toBeNull()
-
-    await userEvent.click(concernRow as Element)
+    const concernRow = screen.getByTestId('concern-row-work-life-balance')
+    await userEvent.click(concernRow)
     await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
 
     const arg = onSubmit.mock.calls[0][0]
@@ -134,15 +142,43 @@ describe('WellnessCheckInDialog', () => {
   })
 
   it('resets form state after submit', async () => {
-    const onSubmit = vi.fn()
-    const onClose = vi.fn()
-    render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} onClose={onClose} />)
+    const Wrapper = () => {
+      const [open, setOpen] = React.useState(true)
 
+      return (
+        <>
+          <button onClick={() => setOpen(true)}>Reopen Dialog</button>
+          <WellnessCheckInDialog
+            {...defaultProps}
+            open={open}
+            onClose={() => {
+              defaultProps.onClose()
+              setOpen(false)
+            }}
+          />
+        </>
+      )
+    }
+
+    render(<Wrapper />)
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /too many sessions scheduled/i }))
     await userEvent.click(screen.getByRole('checkbox', { name: /i would like to discuss these concerns/i }))
+    await userEvent.click(screen.getByRole('radio', { name: /high - concerning/i }))
+    await userEvent.click(screen.getByRole('radio', { name: /^tired$/i }))
+    await userEvent.type(screen.getByLabelText(/additional comments/i), 'Need a break')
     await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
 
-    expect(onSubmit).toHaveBeenCalledOnce()
-    // onClose is called as part of handleClose after submit
-    expect(onClose).toHaveBeenCalledOnce()
+    expect(defaultProps.onSubmit).toHaveBeenCalledOnce()
+    expect(defaultProps.onClose).toHaveBeenCalledOnce()
+
+    await userEvent.click(screen.getByRole('button', { name: /reopen dialog/i }))
+
+    expect((await screen.findAllByRole('slider'))[0]).toHaveAttribute('aria-valuenow', '3')
+    expect(await screen.findByRole('radio', { name: /moderate/i })).toBeChecked()
+    expect(await screen.findByRole('radio', { name: /^neutral$/i })).toBeChecked()
+    expect(await screen.findByLabelText(/additional comments/i)).toHaveValue('')
+    expect(await screen.findByRole('checkbox', { name: /too many sessions scheduled/i })).toHaveAttribute('aria-checked', 'false')
+    expect(await screen.findByRole('checkbox', { name: /i would like to discuss these concerns/i })).toHaveAttribute('aria-checked', 'false')
   })
 })

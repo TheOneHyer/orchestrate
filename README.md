@@ -7,7 +7,7 @@
 ## ✨ Features
 
 | Feature | Description |
-|---|---|
+| --- | --- |
 | **Dashboard** | Role-specific home screen with key metrics, upcoming sessions, and live notifications |
 | **Multi-View Scheduling** | Calendar, Gantt, list, and Kanban views with drag-and-drop rescheduling and conflict detection |
 | **Schedule Templates** | Reusable recurring-session templates (daily / weekly / monthly / custom) |
@@ -29,7 +29,7 @@
 ### Prerequisites
 
 - **Node.js** ≥ 18
-- **npm** ≥ 9
+- **pnpm** 9.15.4 via Corepack
 
 ### Installation
 
@@ -39,29 +39,30 @@ git clone https://github.com/TheOneHyer/orchestrate.git
 cd orchestrate
 
 # Install dependencies
-npm install
+corepack enable
+pnpm install
 ```
 
 ### Running the App
 
 ```bash
 # Start the Vite development server (http://localhost:5173)
-npm run dev
+pnpm dev
 ```
 
 ### Production Build
 
 ```bash
-npm run build       # Type-check and bundle
-npm run preview     # Preview the production build locally
+pnpm build       # Type-check and bundle
+pnpm preview     # Preview the production build locally
 ```
 
 ### Running Unit Tests
 
 ```bash
-npm run test                # Run the unit test suite once
-npm run test:watch          # Run Vitest in watch mode
-npm run test:coverage       # Generate a coverage report
+pnpm test                # Run the unit test suite once
+pnpm test:watch          # Run Vitest in watch mode
+pnpm test:coverage       # Generate a coverage report
 ```
 
 The initial test rollout focuses on core business logic in `src/lib/burnout-analytics.ts`, `src/lib/workload-balancer.ts`, `src/lib/scheduler.ts`, and `src/lib/conflict-detection.ts`.
@@ -69,9 +70,10 @@ The initial test rollout focuses on core business logic in `src/lib/burnout-anal
 ### Other Scripts
 
 ```bash
-npm run lint        # Run ESLint
-npm run optimize    # Optimise the Vite bundle
-npm run kill        # Free port 5000 (fuser -k 5000/tcp)
+pnpm lint        # Run ESLint
+pnpm optimize    # Optimise the Vite bundle
+pnpm kill        # Free the Vite dev port (5173) on Linux/macOS
+pnpm kill:win    # Free port 5173 on Windows (PowerShell)
 ```
 
 ---
@@ -117,7 +119,7 @@ orchestrate/
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Framework | React 19, TypeScript 5.7 |
 | Build Tool | Vite 7 with SWC |
 | Styling | Tailwind CSS 4, shadcn/ui, Radix UI |
@@ -136,7 +138,7 @@ orchestrate/
 TrainSync supports three role levels that control which navigation items and actions are visible:
 
 | Role | Access |
-|---|---|
+| --- | --- |
 | **Admin** | Full access to all views, including Certifications, Burnout Risk, Wellness & Recovery, People, Settings, and all scheduling tools |
 | **Trainer** | Dashboard, Schedule, Schedule Templates, Trainer Availability, Courses, People, Analytics, Notifications |
 | **Employee** | Dashboard, Schedule (read-only), Courses, Notifications |

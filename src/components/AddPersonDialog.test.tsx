@@ -15,16 +15,22 @@ vi.mock('sonner', () => ({
 }))
 
 describe('AddPersonDialog', () => {
+    let baseProps: {
+        open: boolean
+        onOpenChange: ReturnType<typeof vi.fn>
+        onSave: ReturnType<typeof vi.fn>
+        existingEmails: string[]
+    }
+
     beforeEach(() => {
         vi.clearAllMocks()
+        baseProps = {
+            open: true,
+            onOpenChange: vi.fn(),
+            onSave: vi.fn(),
+            existingEmails: [],
+        }
     })
-
-    const baseProps = {
-        open: true,
-        onOpenChange: vi.fn(),
-        onSave: vi.fn(),
-        existingEmails: [] as string[],
-    }
 
     it('renders required form fields', () => {
         render(<AddPersonDialog {...baseProps} />)
@@ -45,6 +51,7 @@ describe('AddPersonDialog', () => {
         expect(screen.getByText(/department is required/i)).toBeInTheDocument()
         expect(screen.getByText(/at least one shift must be selected/i)).toBeInTheDocument()
         expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/please fix the errors/i))
+        expect(baseProps.onSave).not.toHaveBeenCalled()
     })
 
     it('validates duplicate email addresses case-insensitively', async () => {
@@ -57,6 +64,8 @@ describe('AddPersonDialog', () => {
         await userEvent.click(screen.getByRole('button', { name: /add person/i }))
 
         expect(screen.getByText(/email already exists/i)).toBeInTheDocument()
+        expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/please fix the errors/i))
+        expect(baseProps.onSave).not.toHaveBeenCalled()
     })
 
     it('adds and removes certifications from the badge list', async () => {
@@ -92,6 +101,7 @@ describe('AddPersonDialog', () => {
                 name: 'Jamie Doe',
                 email: 'jamie.doe@example.com',
                 department: 'Operations',
+                shifts: ['day'],
                 certifications: ['Forklift'],
             })
         )
@@ -101,11 +111,13 @@ describe('AddPersonDialog', () => {
 
     it('closes dialog when cancel is clicked', async () => {
         const onOpenChange = vi.fn()
+        const onSave = vi.fn()
 
-        render(<AddPersonDialog {...baseProps} onOpenChange={onOpenChange} />)
+        render(<AddPersonDialog {...baseProps} onOpenChange={onOpenChange} onSave={onSave} />)
 
         await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
 
         expect(onOpenChange).toHaveBeenCalledWith(false)
+        expect(onSave).not.toHaveBeenCalled()
     })
 })

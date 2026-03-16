@@ -33,6 +33,7 @@ function SectionBadge({ roles }: { roles: string[] }) {
       {roles.map(role => (
         <Badge
           key={role}
+          data-testid={`role-badge-${role}`}
           variant={role === 'admin' ? 'default' : role === 'trainer' ? 'secondary' : 'outline'}
           className="text-xs capitalize"
         >

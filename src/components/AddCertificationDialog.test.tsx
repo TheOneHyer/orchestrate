@@ -34,6 +34,11 @@ describe('AddCertificationDialog', () => {
     vi.clearAllMocks()
   })
 
+  // Native date inputs are most reliable in jsdom when updated via change events.
+  const setDateInput = (label: RegExp, value: string) => {
+    fireEvent.change(screen.getByLabelText(label), { target: { value } })
+  }
+
   it('renders the trigger button', () => {
     render(<AddCertificationDialog users={trainers} onAddCertification={vi.fn()} />)
 
@@ -105,11 +110,15 @@ describe('AddCertificationDialog', () => {
 
   it('submits successfully with valid data', async () => {
     const onAddCertification = vi.fn()
+    const issuedDate = '2027-12-15'
+    const expirationDate = '2028-01-01'
+
     render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
     await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
 
     await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Training')
-    fireEvent.change(screen.getByLabelText(/expiration date/i), { target: { value: '2028-01-01' } })
+    setDateInput(/issued date/i, issuedDate)
+    setDateInput(/expiration date/i, expirationDate)
     await userEvent.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
 
     await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
@@ -118,8 +127,34 @@ describe('AddCertificationDialog', () => {
     const [ids, cert] = onAddCertification.mock.calls[0]
     expect(ids).toEqual(['t-1'])
     expect(cert.certificationName).toBe('CPR Training')
-    expect(cert.expirationDate).toBe('2028-01-01')
+    expect(cert.issuedDate).toBe(issuedDate)
+    expect(cert.expirationDate).toBe(expirationDate)
     expect(toastSuccess).toHaveBeenCalledWith('Certification added to 1 trainer')
+    expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it('submits successfully with valid data for multiple trainers', async () => {
+    const onAddCertification = vi.fn()
+    const issuedDate = '2027-12-15'
+    const expirationDate = '2028-01-01'
+
+    render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
+    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+
+    await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Training')
+    setDateInput(/issued date/i, issuedDate)
+    setDateInput(/expiration date/i, expirationDate)
+    await userEvent.click(screen.getByRole('button', { name: /select all/i }))
+
+    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+
+    expect(onAddCertification).toHaveBeenCalledOnce()
+    const [ids, cert] = onAddCertification.mock.calls[0]
+    expect(ids).toEqual(['t-1', 't-2'])
+    expect(cert.certificationName).toBe('CPR Training')
+    expect(cert.issuedDate).toBe(issuedDate)
+    expect(cert.expirationDate).toBe(expirationDate)
+    expect(toastSuccess).toHaveBeenCalledWith('Certification added to 2 trainers')
     expect(toastError).not.toHaveBeenCalled()
   })
 
@@ -131,7 +166,23 @@ describe('AddCertificationDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
 
-    expect(toastError).toHaveBeenCalledWith('Please enter a certification name')
+    expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/please enter.*certification name/i))
+    expect(onAddCertification).not.toHaveBeenCalled()
+  })
+
+  it('shows validation error when no trainers are selected', async () => {
+    const onAddCertification = vi.fn()
+
+    render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
+    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+
+    await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Training')
+    setDateInput(/issued date/i, '2027-12-15')
+    setDateInput(/expiration date/i, '2028-01-01')
+
+    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+
+    expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/select.*trainer/i))
     expect(onAddCertification).not.toHaveBeenCalled()
   })
 
@@ -142,13 +193,13 @@ describe('AddCertificationDialog', () => {
     await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
 
     await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Training')
-    fireEvent.change(screen.getByLabelText(/issued date/i), { target: { value: '2028-01-02' } })
-    fireEvent.change(screen.getByLabelText(/expiration date/i), { target: { value: '2028-01-01' } })
+    setDateInput(/issued date/i, '2028-01-02')
+    setDateInput(/expiration date/i, '2028-01-01')
     await userEvent.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
 
     await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
 
-    expect(toastError).toHaveBeenCalledWith('Expiration date must be on or after issued date')
+    expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/expiration date.*issued date/i))
     expect(onAddCertification).not.toHaveBeenCalled()
   })
 })

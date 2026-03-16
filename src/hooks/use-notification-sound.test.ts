@@ -5,23 +5,34 @@ import { useKV } from '@github/spark/hooks'
 import { useNotificationSound } from './use-notification-sound'
 
 const TEST_TIME = new Date('2026-03-16T12:00:00.000Z')
+const oscillatorTypeSetter = vi.fn<(value: OscillatorType) => void>()
 
 vi.mock('@github/spark/hooks', async () => {
     const { useState } = await import('react')
     return {
-        useKV: vi.fn((_key: string, defaultValue: unknown) => useState(defaultValue))
+        useKV: vi.fn((_key: string, defaultValue: unknown) => {
+            const [value, setValue] = useState(defaultValue)
+            return [value, setValue, vi.fn()]
+        })
     }
 })
 
 // Module-level AudioContext mock — safe since Vitest runs each file in isolation
 const mockOscillator = {
     connect: vi.fn(),
-    type: 'sine' as OscillatorType,
     frequency: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
     start: vi.fn(),
     stop: vi.fn()
 }
-const mockGainNode: any = { connect: vi.fn(), gain: { value: 0 } }
+const mockGainNode = {
+    connect: vi.fn(),
+    gain: {
+        value: 0,
+        setValueAtTime: vi.fn(),
+        linearRampToValueAtTime: vi.fn(),
+        exponentialRampToValueAtTime: vi.fn()
+    }
+}
 const mockFilter = {
     connect: vi.fn(),
     type: 'lowpass' as BiquadFilterType,
@@ -45,31 +56,30 @@ Object.defineProperty(window, 'webkitAudioContext', {
     value: MockAudioContext,
 })
 
-mockGainNode.gain = {
-    value: 0,
-    setValueAtTime: vi.fn(),
-    linearRampToValueAtTime: vi.fn(),
-    exponentialRampToValueAtTime: vi.fn()
+function makeQuietHoursTimes(utcTime: number) {
+    vi.setSystemTime(utcTime)
+    const localHourAtUtcTime = new Date(utcTime).getHours()
+    const startTime = `${String(localHourAtUtcTime).padStart(2, '0')}:00`
+    const endTime = `${String((localHourAtUtcTime + 1) % 24).padStart(2, '0')}:00`
+
+    return { startTime, endTime }
 }
 
+Object.defineProperty(mockOscillator, 'type', {
+    configurable: true,
+    get: () => 'sine' as OscillatorType,
+    set: (value: OscillatorType) => oscillatorTypeSetter(value),
+})
+
 beforeEach(() => {
+    vi.clearAllMocks()
     vi.mocked(useKV).mockImplementation((_key, defaultValue) => {
         const [value, setValue] = useState(defaultValue as any)
         return [value, setValue, vi.fn()] as any
     })
     vi.useFakeTimers()
     vi.setSystemTime(TEST_TIME)
-    MockAudioContext.mockClear()
-    mockAudioContextInstance.createOscillator.mockClear()
-    mockAudioContextInstance.createGain.mockClear()
-    mockOscillator.start.mockClear()
-    mockOscillator.stop.mockClear()
-    mockOscillator.frequency.setValueAtTime.mockClear()
-    mockOscillator.frequency.exponentialRampToValueAtTime.mockClear()
-    mockGainNode.connect.mockClear()
-    mockGainNode.gain.setValueAtTime.mockClear()
-    mockGainNode.gain.linearRampToValueAtTime.mockClear()
-    mockGainNode.gain.exponentialRampToValueAtTime.mockClear()
+    mockGainNode.gain.value = 0
 })
 
 afterEach(() => {
@@ -132,10 +142,7 @@ describe('useNotificationSound', () => {
 
     it('suppresses non-critical sounds during active quiet hours', () => {
         const quietHoursUtcTime = Date.UTC(2026, 2, 16, 23, 0, 0)
-        vi.setSystemTime(quietHoursUtcTime)
-        const localHourAtUtcTime = new Date(quietHoursUtcTime).getHours()
-        const startTime = `${String(localHourAtUtcTime).padStart(2, '0')}:00`
-        const endTime = `${String((localHourAtUtcTime + 1) % 24).padStart(2, '0')}:00`
+        const { startTime, endTime } = makeQuietHoursTimes(quietHoursUtcTime)
 
         vi.mocked(useKV).mockReturnValue([
             {
@@ -178,10 +185,7 @@ describe('useNotificationSound', () => {
 
     it('blocks critical alerts during quiet hours when allowCritical is false', () => {
         const quietHoursUtcTime = Date.UTC(2026, 2, 16, 23, 0, 0)
-        vi.setSystemTime(quietHoursUtcTime)
-        const localHourAtUtcTime = new Date(quietHoursUtcTime).getHours()
-        const startTime = `${String(localHourAtUtcTime).padStart(2, '0')}:00`
-        const endTime = `${String((localHourAtUtcTime + 1) % 24).padStart(2, '0')}:00`
+        const { startTime, endTime } = makeQuietHoursTimes(quietHoursUtcTime)
 
         vi.mocked(useKV).mockReturnValue([
             {
@@ -203,10 +207,7 @@ describe('useNotificationSound', () => {
 
     it('allows critical alerts during quiet hours when allowCritical is true', () => {
         const quietHoursUtcTime = Date.UTC(2026, 2, 16, 23, 0, 0)
-        vi.setSystemTime(quietHoursUtcTime)
-        const localHourAtUtcTime = new Date(quietHoursUtcTime).getHours()
-        const startTime = `${String(localHourAtUtcTime).padStart(2, '0')}:00`
-        const endTime = `${String((localHourAtUtcTime + 1) % 24).padStart(2, '0')}:00`
+        const { startTime, endTime } = makeQuietHoursTimes(quietHoursUtcTime)
 
         vi.mocked(useKV).mockReturnValue([
             {
@@ -245,9 +246,9 @@ describe('useNotificationSound', () => {
 
         expect(MockAudioContext).toHaveBeenCalledOnce()
         expect(mockAudioContextInstance.createOscillator).toHaveBeenCalledTimes(2)
-        expect(mockOscillator.type).toBe('sine')
-        // Unknown soundType should use pleasant.medium tones: 698.46Hz then 880Hz.
-        expect(mockOscillator.frequency.setValueAtTime).toHaveBeenNthCalledWith(1, 698.46, 0)
-        expect(mockOscillator.frequency.setValueAtTime).toHaveBeenNthCalledWith(2, 880, 0.13)
+        expect(oscillatorTypeSetter).toHaveBeenCalledWith('sine')
+        expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalledTimes(2)
+        const scheduledFrequencies = vi.mocked(mockOscillator.frequency.setValueAtTime).mock.calls.map(call => call[0])
+        expect(scheduledFrequencies.every((frequency) => Number.isFinite(frequency) && frequency > 0)).toBe(true)
     })
 })

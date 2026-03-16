@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { RecoveryPlanDialog } from './RecoveryPlanDialog'
+import { calculateWellnessScore, getRecoveryPlanRecommendations } from '@/lib/wellness-analytics'
 import type { User, WellnessCheckIn } from '@/lib/types'
 
 vi.mock('@/lib/wellness-analytics', () => ({
@@ -36,6 +37,7 @@ const latestCheckIn: WellnessCheckIn = {
 }
 
 describe('RecoveryPlanDialog', () => {
+    let user: ReturnType<typeof userEvent.setup>
     let baseProps: {
         open: boolean
         onClose: ReturnType<typeof vi.fn>
@@ -47,6 +49,7 @@ describe('RecoveryPlanDialog', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
+        user = userEvent.setup()
         baseProps = {
             open: true,
             onClose: vi.fn(),
@@ -79,30 +82,32 @@ describe('RecoveryPlanDialog', () => {
         expect(screen.getByText(/workload reduction/i)).toBeInTheDocument()
         expect(screen.getByText(/provide 3-5 consecutive days of paid time off/i)).toBeInTheDocument()
         expect(screen.getByText(/support session/i)).toBeInTheDocument()
+        expect(vi.mocked(calculateWellnessScore)).toHaveBeenCalledWith(latestCheckIn)
+        expect(vi.mocked(getRecoveryPlanRecommendations)).toHaveBeenCalledWith(90, 42, 'high', 'tired')
     })
 
     it('submits plan payload with generated action ids when auto-filled data exists', async () => {
-        const onSubmit = vi.fn()
-
         render(
             <RecoveryPlanDialog
                 {...baseProps}
                 latestCheckIn={latestCheckIn}
                 currentUtilization={90}
-                onSubmit={onSubmit}
             />
         )
 
-        await userEvent.click(screen.getByRole('button', { name: /create recovery plan/i }))
+        await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
 
-        expect(onSubmit).toHaveBeenCalledOnce()
-        expect(onSubmit).toHaveBeenCalledWith(
+        expect(baseProps.onSubmit).toHaveBeenCalledOnce()
+        expect(baseProps.onSubmit).toHaveBeenCalledWith(
             expect.objectContaining({
                 trainerId: 'trainer-1',
                 createdBy: 'admin-1',
                 status: 'active',
+                triggerReason: expect.stringMatching(/wellness score/i),
                 targetUtilization: 70,
                 currentUtilization: 90,
+                startDate: expect.any(String),
+                targetCompletionDate: expect.any(String),
                 actions: expect.arrayContaining([
                     expect.objectContaining({
                         id: expect.stringMatching(/^action-/),
@@ -123,23 +128,92 @@ describe('RecoveryPlanDialog', () => {
 
         expect(screen.getByText(/latest check-in summary/i)).toBeInTheDocument()
         expect(screen.getByText(/mood:/i)).toBeInTheDocument()
-        expect(screen.getByText(/stress:/i)).toBeInTheDocument()
-        expect(screen.getByText(/concerns:/i)).toBeInTheDocument()
+        const stressSummary = screen.getByText(/stress:/i).closest('div')
+        expect(stressSummary).not.toBeNull()
+        expect(stressSummary as HTMLElement).toHaveTextContent(/stress:\s*high/i)
+        const concernsSummary = screen.getByText(/concerns:/i).closest('div')
+        expect(concernsSummary).not.toBeNull()
+        expect(screen.getAllByText('2/5')).toHaveLength(2)
+        expect(concernsSummary as HTMLElement).toHaveTextContent(/work-life balance, too many sessions scheduled/i)
     })
 
     it('calls onClose when cancel is clicked', async () => {
-        const onClose = vi.fn()
-
         render(
             <RecoveryPlanDialog
                 {...baseProps}
                 latestCheckIn={latestCheckIn}
-                onClose={onClose}
             />
         )
 
-        await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+        await user.click(screen.getByRole('button', { name: /cancel/i }))
 
-        expect(onClose).toHaveBeenCalledOnce()
+        expect(baseProps.onClose).toHaveBeenCalledOnce()
+    })
+
+    it('supports adding and removing actions before submit', async () => {
+        render(<RecoveryPlanDialog {...baseProps} currentUtilization={80} />)
+
+        await user.type(screen.getByLabelText(/trigger reason/i), 'Temporary capacity support needed')
+
+        await user.click(screen.getByRole('combobox'))
+        await user.click(await screen.findByRole('option', { name: /workload reduction/i }))
+        await user.click(screen.getByRole('combobox'))
+        await user.click(await screen.findByRole('option', { name: /support session/i }))
+
+        expect(screen.getByText(/workload reduction/i)).toBeInTheDocument()
+        expect(screen.getByText(/support session/i, { selector: 'span' })).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /remove action workload reduction/i }))
+
+        expect(screen.queryByText(/workload reduction/i)).not.toBeInTheDocument()
+        expect(screen.getByText(/support session/i, { selector: 'span' })).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
+
+        expect(baseProps.onSubmit).toHaveBeenCalledOnce()
+        const submittedPlan = baseProps.onSubmit.mock.calls[0][0]
+        expect(submittedPlan.actions).toHaveLength(1)
+        expect(submittedPlan.actions[0]).toEqual(
+            expect.objectContaining({
+                type: 'support-session',
+            })
+        )
+    })
+
+    it('disables submit and shows validation text when trigger reason is empty', async () => {
+        render(<RecoveryPlanDialog {...baseProps} />)
+
+        await user.type(screen.getByLabelText(/trigger reason/i), 'Initial reason')
+        await user.click(screen.getByRole('combobox'))
+        await user.click(await screen.findByRole('option', { name: /custom action/i }))
+        await user.clear(screen.getByLabelText(/trigger reason/i))
+
+        expect(screen.getByRole('button', { name: /create recovery plan/i })).toBeDisabled()
+        expect(screen.getByText(/trigger reason is required/i)).toBeInTheDocument()
+    })
+
+    it('renders boundary current utilization at 0 with stable target utilization default', () => {
+        render(<RecoveryPlanDialog {...baseProps} currentUtilization={0} />)
+
+        expect(screen.getByLabelText(/current utilization/i)).toHaveValue(0)
+        expect(screen.getByLabelText(/target utilization/i)).toHaveValue(70)
+    })
+
+    it('renders boundary current utilization at 100 with stable target utilization default', () => {
+        render(<RecoveryPlanDialog {...baseProps} currentUtilization={100} />)
+
+        expect(screen.getByLabelText(/current utilization/i)).toHaveValue(100)
+        expect(screen.getByLabelText(/target utilization/i)).toHaveValue(70)
+    })
+
+    it('keeps focus in dialog and closes on Escape', async () => {
+        render(<RecoveryPlanDialog {...baseProps} />)
+
+        const dialog = screen.getByRole('dialog')
+        await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+
+        await user.keyboard('{Escape}')
+
+        expect(baseProps.onClose).toHaveBeenCalled()
     })
 })

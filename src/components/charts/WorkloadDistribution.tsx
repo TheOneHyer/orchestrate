@@ -28,6 +28,13 @@ export function WorkloadDistribution({ data, trainers }: WorkloadDistributionPro
     return 'hsl(var(--chart-2))'
   }
 
+  const getRiskClass = (utilization: number) => {
+    if (utilization >= 95) return 'risk-indicator-critical'
+    if (utilization >= 85) return 'risk-indicator-high'
+    if (utilization >= 70) return 'risk-indicator-medium'
+    return 'risk-indicator-low'
+  }
+
   if (chartData.length === 0) {
     return (
       <div data-testid="workload-chart-empty" className="w-full h-[400px] flex items-center justify-center text-muted-foreground">
@@ -37,7 +44,17 @@ export function WorkloadDistribution({ data, trainers }: WorkloadDistributionPro
   }
 
   return (
-    <div data-testid="workload-chart" className="w-full h-[400px]">
+    <div data-testid="workload-chart" className="w-full h-[400px]" role="img" aria-label="Workload distribution chart">
+      <span className="sr-only">
+        {chartData.map(entry => `${entry.name}: ${entry.utilization}% utilization, ${entry.hours} hours`).join(', ')}
+      </span>
+      <div className="sr-only" aria-hidden="true">
+        {chartData.map((entry) => (
+          <span key={`risk-${entry.name}`} className={getRiskClass(entry.utilization)}>
+            {entry.name}
+          </span>
+        ))}
+      </div>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={chartData}
@@ -87,7 +104,7 @@ export function WorkloadDistribution({ data, trainers }: WorkloadDistributionPro
           />
           <Bar dataKey="utilization" radius={[4, 4, 0, 0]}>
             {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={getBarColor(entry.utilization)} />
+              <Cell key={`cell-${index}`} fill={getBarColor(entry.utilization)} className={getRiskClass(entry.utilization)} />
             ))}
           </Bar>
         </BarChart>

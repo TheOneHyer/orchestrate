@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import globals from 'globals'
+import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
@@ -7,15 +8,28 @@ import tseslint from 'typescript-eslint'
 export default tseslint.config(
     { ignores: ['dist', 'coverage'] },
     {
+        ...react.configs.flat.recommended,
+        files: ['**/*.{ts,tsx}'],
+    },
+    {
+        ...react.configs.flat['jsx-runtime'],
+        files: ['**/*.{ts,tsx}'],
+    },
+    {
         extends: [js.configs.recommended, ...tseslint.configs.recommended],
         files: ['**/*.{ts,tsx}'],
         languageOptions: {
-            ecmaVersion: 2020,
+            ecmaVersion: 'latest',
             globals: globals.browser,
             parserOptions: {
                 ecmaFeatures: {
                     jsx: true,
                 },
+            },
+        },
+        settings: {
+            react: {
+                version: 'detect',
             },
         },
         plugins: {
@@ -40,7 +54,10 @@ export default tseslint.config(
         files: ['**/*.test.{ts,tsx}', 'src/test/**/*.{ts,tsx}', 'src/lib/*-{generator,seed-data}.ts'],
         rules: {
             '@typescript-eslint/no-explicit-any': 'off',
-            '@typescript-eslint/no-unused-vars': 'off',
+            '@typescript-eslint/no-unused-vars': ['error', {
+                argsIgnorePattern: '^_',
+                varsIgnorePattern: '^_',
+            }],
         },
     },
 )

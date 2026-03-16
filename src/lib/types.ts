@@ -126,6 +126,7 @@ export interface Notification {
   read: boolean
   createdAt: string
   priority?: 'low' | 'medium' | 'high' | 'critical'
+  metadata?: Record<string, unknown>
 }
 
 export interface QuizQuestion {

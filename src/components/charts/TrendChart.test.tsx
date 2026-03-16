@@ -4,6 +4,27 @@ import { describe, expect, it } from 'vitest'
 import { TrendChart } from './TrendChart'
 
 describe('TrendChart', () => {
+    const TEST_DATA = [
+        {
+            trainerId: 'trainer-1',
+            trend: 'stable' as const,
+            changeRate: 1,
+            dataPoints: [
+                { date: '2026-03-10', utilization: 70, hours: 28, sessions: 7 },
+                { date: '2026-03-11', utilization: 72, hours: 29, sessions: 7 },
+            ],
+        },
+        {
+            trainerId: 'trainer-2',
+            trend: 'decreasing' as const,
+            changeRate: -4,
+            dataPoints: [
+                { date: '2026-03-10', utilization: 82, hours: 33, sessions: 9 },
+                { date: '2026-03-11', utilization: 79, hours: 32, sessions: 8 },
+            ],
+        },
+    ]
+
     it('shows fallback when trend data is empty', () => {
         render(<TrendChart data={[]} timeRange="month" />)
 
@@ -11,14 +32,14 @@ describe('TrendChart', () => {
         expect(screen.getByTestId('trend-chart-empty')).toBeInTheDocument()
     })
 
-    it('renders trend chart for single trainer by default', () => {
+    it('renders trend chart with single trainer data', () => {
         render(
             <TrendChart
                 timeRange="month"
                 data={[
                     {
                         trainerId: 'trainer-1',
-                        trend: 'increasing',
+                        trend: 'increasing' as const,
                         changeRate: 9,
                         dataPoints: [
                             { date: '2026-03-10', utilization: 70.25, hours: 28, sessions: 7 },
@@ -35,32 +56,11 @@ describe('TrendChart', () => {
     })
 
     it('renders all trainers when showAll is enabled', () => {
-        const data = [
-            {
-                trainerId: 'trainer-1',
-                trend: 'stable' as const,
-                changeRate: 1,
-                dataPoints: [
-                    { date: '2026-03-10', utilization: 70, hours: 28, sessions: 7 },
-                    { date: '2026-03-11', utilization: 72, hours: 29, sessions: 7 },
-                ],
-            },
-            {
-                trainerId: 'trainer-2',
-                trend: 'decreasing' as const,
-                changeRate: -4,
-                dataPoints: [
-                    { date: '2026-03-10', utilization: 82, hours: 33, sessions: 9 },
-                    { date: '2026-03-11', utilization: 79, hours: 32, sessions: 8 },
-                ],
-            },
-        ]
-
         render(
             <TrendChart
                 timeRange="week"
                 showAll={true}
-                data={data}
+                data={TEST_DATA}
             />
         )
 
@@ -69,34 +69,20 @@ describe('TrendChart', () => {
     })
 
     it('shows only the first trainer when showAll is disabled', () => {
-        const data = [
-            {
-                trainerId: 'trainer-1',
-                trend: 'stable' as const,
-                changeRate: 1,
-                dataPoints: [
-                    { date: '2026-03-10', utilization: 70, hours: 28, sessions: 7 },
-                    { date: '2026-03-11', utilization: 72, hours: 29, sessions: 7 },
-                ],
-            },
-            {
-                trainerId: 'trainer-2',
-                trend: 'decreasing' as const,
-                changeRate: -4,
-                dataPoints: [
-                    { date: '2026-03-10', utilization: 82, hours: 33, sessions: 9 },
-                    { date: '2026-03-11', utilization: 79, hours: 32, sessions: 8 },
-                ],
-            },
-        ]
-
         render(
             <TrendChart
                 timeRange="week"
                 showAll={false}
-                data={data}
+                data={TEST_DATA}
             />
         )
+
+        expect(screen.getByTestId('trend-series-trainer-1')).toBeInTheDocument()
+        expect(screen.queryByTestId('trend-series-trainer-2')).not.toBeInTheDocument()
+    })
+
+    it('defaults to a single trainer series when showAll is omitted', () => {
+        render(<TrendChart timeRange="week" data={TEST_DATA} />)
 
         expect(screen.getByTestId('trend-series-trainer-1')).toBeInTheDocument()
         expect(screen.queryByTestId('trend-series-trainer-2')).not.toBeInTheDocument()

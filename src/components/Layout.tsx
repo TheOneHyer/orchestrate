@@ -97,11 +97,10 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
               <Badge variant="destructive" className="ml-auto">
                 <span
                   data-testid="notification-count"
-                  aria-label={`${notificationCount} notifications`}
-                  aria-live="polite"
                   role="status"
                 >
                   {notificationCount}
+                  <span className="sr-only"> notifications</span>
                 </span>
               </Badge>
             )}

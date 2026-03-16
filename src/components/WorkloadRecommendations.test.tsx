@@ -136,6 +136,7 @@ describe('WorkloadRecommendations', () => {
   })
 
   it('calls onViewTrainer when an affected trainer button is clicked', async () => {
+    const user = userEvent.setup()
     const trainer = makeUser('t-1', 'Viewed Trainer')
     const onViewTrainer = vi.fn()
     const analysis = makeAnalysis({
@@ -151,7 +152,7 @@ describe('WorkloadRecommendations', () => {
       />
     )
 
-    await userEvent.click(screen.getByRole('button', { name: /viewed trainer/i }))
+    await user.click(screen.getByRole('button', { name: /viewed trainer/i }))
 
     expect(onViewTrainer).toHaveBeenCalledWith('t-1')
   })
@@ -170,16 +171,8 @@ describe('WorkloadRecommendations', () => {
 
     render(<WorkloadRecommendations analysis={analysis} users={[t1, t2, t3]} />)
 
-    const overutilizedTile = screen.getByText('Overutilized').parentElement
-    const balancedTile = screen.getByText('Balanced').parentElement
-    const underutilizedTile = screen.getByText('Underutilized').parentElement
-
-    expect(overutilizedTile).not.toBeNull()
-    expect(balancedTile).not.toBeNull()
-    expect(underutilizedTile).not.toBeNull()
-
-    expect(within(overutilizedTile as HTMLElement).getByText('1')).toBeInTheDocument()
-    expect(within(balancedTile as HTMLElement).getByText('1')).toBeInTheDocument()
-    expect(within(underutilizedTile as HTMLElement).getByText('1')).toBeInTheDocument()
+    expect(within(screen.getByTestId('overutilized-tile')).getByText('1')).toBeInTheDocument()
+    expect(within(screen.getByTestId('balanced-tile')).getByText('1')).toBeInTheDocument()
+    expect(within(screen.getByTestId('underutilized-tile')).getByText('1')).toBeInTheDocument()
   })
 })
