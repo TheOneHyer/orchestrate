@@ -16,6 +16,8 @@ import { CertificationDashboard } from '@/components/views/CertificationDashboar
 import { Notifications } from '@/components/views/Notifications'
 import { UserGuide } from '@/components/views/UserGuide'
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   User,
   Session,
@@ -33,7 +35,7 @@ import { useCertificationNotifications } from '@/hooks/use-certification-notific
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 import { ensureAllTrainersHaveProfiles } from '@/lib/trainer-profile-generator'
 import { createPreviewSeedData, PREVIEW_SEED_VERSION } from '@/lib/preview-seed-data'
-import { getPreviewSeedMode, isPreviewSeedEnabled } from '@/lib/preview-mode'
+import { getPreviewSeedMode, isPreviewSeedEnabled, PreviewSeedMode } from '@/lib/preview-mode'
 import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 
 function App() {
@@ -57,6 +59,113 @@ function App() {
 
   const { sendNotification } = usePushNotifications()
 
+  const applyPreviewSeedData = useCallback((seedMode: PreviewSeedMode | 'manual' = 'manual') => {
+    if (seedMode === 'off') {
+      return
+    }
+
+    const seedData = createPreviewSeedData()
+    const seedMarker = `${PREVIEW_SEED_VERSION}:${seedMode}`
+
+    setUsers(seedData.users)
+    setSessions(seedData.sessions)
+    setCourses(seedData.courses)
+    setEnrollments(seedData.enrollments)
+    setNotifications(seedData.notifications)
+    setWellnessCheckIns(seedData.wellnessCheckIns)
+    setRecoveryPlans(seedData.recoveryPlans)
+    setCheckInSchedules(seedData.checkInSchedules)
+    setScheduleTemplates(seedData.scheduleTemplates)
+    setRiskHistorySnapshots(seedData.riskHistorySnapshots)
+    setTargetTrainerCoverage(seedData.targetTrainerCoverage)
+    setPreviewSeedVersion(seedMarker)
+
+    toast.success('Preview test data loaded', {
+      description: `Seeded ${seedData.users.length} users, ${seedData.sessions.length} sessions, and related edge-case data.`
+    })
+  }, [
+    setUsers,
+    setSessions,
+    setCourses,
+    setEnrollments,
+    setNotifications,
+    setWellnessCheckIns,
+    setRecoveryPlans,
+    setCheckInSchedules,
+    setScheduleTemplates,
+    setRiskHistorySnapshots,
+    setTargetTrainerCoverage,
+    setPreviewSeedVersion
+  ])
+
+  const handleLoadPreviewSeedData = useCallback(() => {
+    const hasExistingCoreData =
+      (users?.length || 0) > 0 ||
+      (sessions?.length || 0) > 0 ||
+      (courses?.length || 0) > 0 ||
+      (enrollments?.length || 0) > 0
+
+    if (hasExistingCoreData) {
+      const shouldOverwrite = window.confirm(
+        'This will overwrite existing local data in preview storage. Continue?'
+      )
+
+      if (!shouldOverwrite) {
+        return
+      }
+    }
+
+    applyPreviewSeedData('manual')
+  }, [users, sessions, courses, enrollments, applyPreviewSeedData])
+
+  const handleResetPreviewData = useCallback(() => {
+    const confirmed = window.confirm(
+      'Reset all local preview data (users, sessions, courses, notifications, wellness, templates, and history)? This cannot be undone.'
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setUsers([])
+    setSessions([])
+    setCourses([])
+    setEnrollments([])
+    setNotifications([])
+    setWellnessCheckIns([])
+    setRecoveryPlans([])
+    setCheckInSchedules([])
+    setScheduleTemplates([])
+    setRiskHistorySnapshots([])
+    setTargetTrainerCoverage(4)
+    setPreviewSeedVersion('')
+
+    if (typeof window !== 'undefined') {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('reminder-')) {
+          localStorage.removeItem(key)
+        }
+      })
+    }
+
+    toast.success('Preview data reset complete', {
+      description: 'All local preview records have been cleared.'
+    })
+  }, [
+    setUsers,
+    setSessions,
+    setCourses,
+    setEnrollments,
+    setNotifications,
+    setWellnessCheckIns,
+    setRecoveryPlans,
+    setCheckInSchedules,
+    setScheduleTemplates,
+    setRiskHistorySnapshots,
+    setTargetTrainerCoverage,
+    setPreviewSeedVersion
+  ])
+
   useEffect(() => {
     if (!previewSeedEnabled) {
       return
@@ -78,24 +187,7 @@ function App() {
       return
     }
 
-    const seedData = createPreviewSeedData()
-
-    setUsers(seedData.users)
-    setSessions(seedData.sessions)
-    setCourses(seedData.courses)
-    setEnrollments(seedData.enrollments)
-    setNotifications(seedData.notifications)
-    setWellnessCheckIns(seedData.wellnessCheckIns)
-    setRecoveryPlans(seedData.recoveryPlans)
-    setCheckInSchedules(seedData.checkInSchedules)
-    setScheduleTemplates(seedData.scheduleTemplates)
-    setRiskHistorySnapshots(seedData.riskHistorySnapshots)
-    setTargetTrainerCoverage(seedData.targetTrainerCoverage)
-    setPreviewSeedVersion(seedMarker)
-
-    toast.success('Preview test data loaded', {
-      description: `Seeded ${seedData.users.length} users, ${seedData.sessions.length} sessions, and related edge-case data.`
-    })
+    applyPreviewSeedData(previewSeedMode)
   }, [
     previewSeedEnabled,
     previewSeedMode,
@@ -115,7 +207,8 @@ function App() {
     setScheduleTemplates,
     setRiskHistorySnapshots,
     setTargetTrainerCoverage,
-    setPreviewSeedVersion
+    setPreviewSeedVersion,
+    applyPreviewSeedData
   ])
 
   useEffect(() => {
@@ -464,8 +557,27 @@ function App() {
               <h1 className="text-3xl font-semibold">Settings</h1>
               <p className="text-muted-foreground mt-1">Configure system settings</p>
             </div>
-            <div className="max-w-4xl">
-              <div className="text-muted-foreground">Settings coming soon</div>
+            <div className="max-w-4xl space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Preview Test Data</CardTitle>
+                  <CardDescription>
+                    Load a deterministic fake dataset for testing all major workflows and edge cases.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="text-sm text-muted-foreground">
+                    Current preview mode: <span className="font-medium text-foreground">{previewSeedMode}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Button onClick={handleLoadPreviewSeedData}>Load Seed Data</Button>
+                    <Button variant="destructive" onClick={handleResetPreviewData}>Reset Preview Data</Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Load will overwrite existing local data after confirmation. Reset clears all local preview records.
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         )
