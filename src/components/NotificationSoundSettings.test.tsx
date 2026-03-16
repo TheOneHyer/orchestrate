@@ -111,44 +111,45 @@ describe('NotificationSoundSettings', () => {
         render(<NotificationSoundSettings />)
 
         await userEvent.click(screen.getByRole('button', { name: /send test notification/i }))
-
-        it('shows denied message and does not call requestPermission when permission is denied', () => {
-            const requestPermission = vi.fn()
-            mockUsePushNotifications.mockReturnValue({
-                settings: {
-                    permission: 'denied',
-                    enabled: false,
-                    showForPriorities: { low: true, medium: true, high: true, critical: true },
-                },
-                updateSettings: vi.fn(),
-                requestPermission,
-                testNotification: vi.fn(),
-                isSupported: true,
-            })
-
-            render(<NotificationSoundSettings />)
-            expect(screen.getByText(/notifications are blocked/i)).toBeInTheDocument()
-            expect(requestPermission).not.toHaveBeenCalled()
-        })
-
-        it('disables notifications when enabled is true and toggle is clicked', async () => {
-            const updateSettings = vi.fn()
-            mockUsePushNotifications.mockReturnValue({
-                settings: {
-                    permission: 'granted',
-                    enabled: true,
-                    showForPriorities: { low: true, medium: true, high: true, critical: true },
-                },
-                updateSettings,
-                requestPermission: vi.fn(),
-                testNotification: vi.fn(),
-                isSupported: true,
-            })
-
-            render(<NotificationSoundSettings />)
-            await userEvent.click(screen.getByRole('button', { name: /disable notifications/i }))
-            expect(updateSettings).toHaveBeenCalledWith({ enabled: false })
-        })
         expect(testNotification).toHaveBeenCalledOnce()
+    })
+
+    it('shows denied message and does not call requestPermission when permission is denied', () => {
+        const requestPermission = vi.fn()
+        mockUsePushNotifications.mockReturnValue({
+            settings: {
+                permission: 'denied',
+                enabled: false,
+                showForPriorities: { low: true, medium: true, high: true, critical: true },
+            },
+            updateSettings: vi.fn(),
+            requestPermission,
+            testNotification: vi.fn(),
+            isSupported: true,
+        })
+
+        render(<NotificationSoundSettings />)
+        expect(screen.getByText(/notifications are blocked/i)).toBeInTheDocument()
+        expect(requestPermission).not.toHaveBeenCalled()
+    })
+
+    it('disables notifications when enabled is true and toggle is clicked', async () => {
+        const updateSettings = vi.fn()
+        mockUsePushNotifications.mockReturnValue({
+            settings: {
+                permission: 'granted',
+                enabled: true,
+                showForPriorities: { low: true, medium: true, high: true, critical: true },
+            },
+            updateSettings,
+            requestPermission: vi.fn(),
+            testNotification: vi.fn(),
+            isSupported: true,
+        })
+
+        render(<NotificationSoundSettings />)
+        await userEvent.click(screen.getByRole('button', { name: /disable notifications/i }))
+        expect(updateSettings).toHaveBeenCalledWith({ enabled: false })
+    })
     })
 })

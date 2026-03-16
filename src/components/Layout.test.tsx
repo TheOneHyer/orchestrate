@@ -77,6 +77,10 @@ describe('Layout', () => {
         fireEvent.click(screen.getByRole('button', { name: /notification settings/i }))
         expect(screen.getByTestId('notification-settings-dialog')).toHaveAttribute('data-open', 'true')
 
+        // Close dialog via mock button
+        fireEvent.click(screen.getByTestId('notification-settings-dialog-toggle'))
+        expect(screen.getByTestId('notification-settings-dialog')).toHaveAttribute('data-open', 'false')
+
         fireEvent.click(screen.getByRole('button', { name: /toggle theme/i }))
         expect(mockToggleTheme).toHaveBeenCalledOnce()
     })

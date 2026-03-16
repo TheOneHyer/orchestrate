@@ -1,44 +1,56 @@
-it('calls onOpenChange(false) when Cancel is clicked', async () => {
-    const onOpenChange = vi.fn()
-    render(
-        <DeletePersonDialog
-            user={createUser({ role: 'trainer', name: 'Taylor' })}
-            open={true}
-            onOpenChange={onOpenChange}
-            onConfirm={vi.fn()}
-        />
-    )
-    const cancelBtn = screen.getByRole('button', { name: /cancel/i })
-    await userEvent.click(cancelBtn)
-    expect(onOpenChange).toHaveBeenCalledWith(false)
-})
-
 it('calls onOpenChange(false) when overlay is clicked', async () => {
-    const onOpenChange = vi.fn()
-    render(
-        <DeletePersonDialog
-            user={createUser({ role: 'trainer', name: 'Taylor' })}
-            open={true}
-            onOpenChange={onOpenChange}
-            onConfirm={vi.fn()}
-        />
-    )
-    // Simulate clicking the overlay/backdrop if possible
-    const overlay = screen.getByTestId('dialog-overlay')
-    await userEvent.click(overlay)
-    expect(onOpenChange).toHaveBeenCalledWith(false)
-})
-
 it('renders nothing when open is false', () => {
-    render(
-        <DeletePersonDialog
-            user={createUser({ role: 'trainer', name: 'Taylor' })}
-            open={false}
-            onOpenChange={vi.fn()}
-            onConfirm={vi.fn()}
-        />
-    )
-    expect(screen.queryByText(/delete/i)).not.toBeInTheDocument()
+describe('DeletePersonDialog', () => {
+    ...existing code...
+
+    it('calls onOpenChange(false) when Cancel is clicked', async () => {
+        const onOpenChange = vi.fn()
+        const onConfirm = vi.fn()
+        render(
+            <DeletePersonDialog
+                user={createUser({ role: 'trainer', name: 'Taylor' })}
+                open={true}
+                onOpenChange={onOpenChange}
+                onConfirm={onConfirm}
+            />
+        )
+        const cancelBtn = screen.getByRole('button', { name: /cancel/i })
+        await userEvent.click(cancelBtn)
+        expect(onOpenChange).toHaveBeenCalledTimes(1)
+        expect(onOpenChange).toHaveBeenCalledWith(false)
+        expect(onConfirm).not.toHaveBeenCalled()
+    })
+
+    it('calls onOpenChange(false) when overlay is clicked', async () => {
+        const onOpenChange = vi.fn()
+        const onConfirm = vi.fn()
+        render(
+            <DeletePersonDialog
+                user={createUser({ role: 'trainer', name: 'Taylor' })}
+                open={true}
+                onOpenChange={onOpenChange}
+                onConfirm={onConfirm}
+            />
+        )
+        // Simulate clicking the overlay/backdrop if possible
+        const overlay = screen.getByTestId('dialog-overlay')
+        await userEvent.click(overlay)
+        expect(onOpenChange).toHaveBeenCalledTimes(1)
+        expect(onOpenChange).toHaveBeenCalledWith(false)
+        expect(onConfirm).not.toHaveBeenCalled()
+    })
+
+    it('renders nothing when open is false', () => {
+        render(
+            <DeletePersonDialog
+                user={createUser({ role: 'trainer', name: 'Taylor' })}
+                open={false}
+                onOpenChange={vi.fn()}
+                onConfirm={vi.fn()}
+            />
+        )
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
 })
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
