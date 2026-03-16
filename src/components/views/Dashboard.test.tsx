@@ -2,8 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Dashboard } from './Dashboard'
+import type { User, Course, Session, Notification } from '@/lib/types'
 
-const baseUser = {
+const baseUser: User = {
   id: 'u-admin',
   name: 'Alex Admin',
   email: 'alex@example.com',
@@ -13,7 +14,7 @@ const baseUser = {
   hireDate: '2024-01-10T00:00:00.000Z',
 }
 
-const baseCourse = {
+const baseCourse: Course = {
   id: 'c-1',
   title: 'Safety Foundations',
   description: 'Core safety training',
@@ -30,11 +31,11 @@ describe('Dashboard', () => {
   it('renders summary metrics and empty states', () => {
     render(
       <Dashboard
-        currentUser={baseUser as any}
+        currentUser={baseUser}
         upcomingSessions={[]}
         notifications={[]}
         enrollments={[]}
-        courses={[baseCourse] as any}
+        courses={[baseCourse]}
         onNavigate={vi.fn()}
       />
     )
@@ -50,7 +51,7 @@ describe('Dashboard', () => {
   it('navigates to a session when a session card is clicked', () => {
     const onNavigate = vi.fn()
 
-    const session = {
+    const session: Session = {
       id: 's-1',
       courseId: baseCourse.id,
       trainerId: 'u-trainer',
@@ -65,11 +66,11 @@ describe('Dashboard', () => {
 
     render(
       <Dashboard
-        currentUser={baseUser as any}
-        upcomingSessions={[session] as any}
+        currentUser={baseUser}
+        upcomingSessions={[session]}
         notifications={[]}
         enrollments={[]}
-        courses={[baseCourse] as any}
+        courses={[baseCourse]}
         onNavigate={onNavigate}
       />
     )
@@ -82,7 +83,7 @@ describe('Dashboard', () => {
   it('shows and uses view-all actions when lists exceed five items', () => {
     const onNavigate = vi.fn()
 
-    const sessions = Array.from({ length: 6 }, (_, idx) => ({
+    const sessions: Session[] = Array.from({ length: 6 }, (_, idx) => ({
       id: `s-${idx}`,
       courseId: baseCourse.id,
       trainerId: 'u-trainer',
@@ -92,13 +93,13 @@ describe('Dashboard', () => {
       location: 'Room A',
       capacity: 10,
       enrolledStudents: [],
-      status: 'scheduled',
+      status: 'scheduled' as const,
     }))
 
-    const notifications = Array.from({ length: 6 }, (_, idx) => ({
+    const notifications: Notification[] = Array.from({ length: 6 }, (_, idx) => ({
       id: `n-${idx}`,
       userId: baseUser.id,
-      type: 'system',
+      type: 'system' as const,
       title: `Notice ${idx + 1}`,
       message: 'System update',
       read: idx > 0,
@@ -107,11 +108,11 @@ describe('Dashboard', () => {
 
     render(
       <Dashboard
-        currentUser={baseUser as any}
-        upcomingSessions={sessions as any}
-        notifications={notifications as any}
+        currentUser={baseUser}
+        upcomingSessions={sessions}
+        notifications={notifications}
         enrollments={[]}
-        courses={[baseCourse] as any}
+        courses={[baseCourse]}
         onNavigate={onNavigate}
       />
     )
@@ -119,7 +120,7 @@ describe('Dashboard', () => {
     fireEvent.click(screen.getByRole('button', { name: /view all sessions/i }))
     fireEvent.click(screen.getByRole('button', { name: /view all notifications/i }))
 
-    expect(onNavigate).toHaveBeenCalledWith('schedule')
-    expect(onNavigate).toHaveBeenCalledWith('notifications')
+    expect(onNavigate).toHaveBeenNthCalledWith(1, 'schedule')
+    expect(onNavigate).toHaveBeenNthCalledWith(2, 'notifications')
   })
 })

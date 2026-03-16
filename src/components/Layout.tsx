@@ -141,7 +141,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
             onClick={toggleTheme}
             className="rounded-lg"
             title="Toggle Theme"
-            aria-label="Toggle theme"
+            aria-label="Toggle Theme"
           >
             {theme === 'dark' ? (
               <Sun size={20} weight="regular" />

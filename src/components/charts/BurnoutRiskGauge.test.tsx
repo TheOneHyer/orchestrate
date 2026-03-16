@@ -42,8 +42,7 @@ describe('BurnoutRiskGauge', () => {
         )
 
         expect(screen.queryByText(/no data available/i)).not.toBeInTheDocument()
-        const chartRoot = screen.getByTestId('burnout-risk-gauge')
-        expect(chartRoot).toBeInTheDocument()
+        expect(screen.getByTestId('burnout-risk-gauge')).toBeInTheDocument()
         expect(screen.getByTestId('burnout-risk-gauge-chart')).toBeInTheDocument()
     })
 })

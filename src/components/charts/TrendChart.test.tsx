@@ -34,23 +34,29 @@ describe('TrendChart', () => {
         expect(screen.getByTestId('trend-series-trainer-1')).toBeInTheDocument()
     })
 
-    it('supports multi-trainer mode when showAll is enabled', () => {
+    it('renders all trainers when showAll is enabled', () => {
         const data = [
             {
                 trainerId: 'trainer-1',
                 trend: 'stable' as const,
                 changeRate: 1,
-                dataPoints: [{ date: '2026-03-10', utilization: 70, hours: 28, sessions: 7 }],
+                dataPoints: [
+                    { date: '2026-03-10', utilization: 70, hours: 28, sessions: 7 },
+                    { date: '2026-03-11', utilization: 72, hours: 29, sessions: 7 },
+                ],
             },
             {
                 trainerId: 'trainer-2',
                 trend: 'decreasing' as const,
                 changeRate: -4,
-                dataPoints: [{ date: '2026-03-10', utilization: 82, hours: 33, sessions: 9 }],
+                dataPoints: [
+                    { date: '2026-03-10', utilization: 82, hours: 33, sessions: 9 },
+                    { date: '2026-03-11', utilization: 79, hours: 32, sessions: 8 },
+                ],
             },
         ]
 
-        const { rerender } = render(
+        render(
             <TrendChart
                 timeRange="week"
                 showAll={true}
@@ -60,8 +66,31 @@ describe('TrendChart', () => {
 
         expect(screen.getByTestId('trend-series-trainer-1')).toBeInTheDocument()
         expect(screen.getByTestId('trend-series-trainer-2')).toBeInTheDocument()
+    })
 
-        rerender(
+    it('shows only the first trainer when showAll is disabled', () => {
+        const data = [
+            {
+                trainerId: 'trainer-1',
+                trend: 'stable' as const,
+                changeRate: 1,
+                dataPoints: [
+                    { date: '2026-03-10', utilization: 70, hours: 28, sessions: 7 },
+                    { date: '2026-03-11', utilization: 72, hours: 29, sessions: 7 },
+                ],
+            },
+            {
+                trainerId: 'trainer-2',
+                trend: 'decreasing' as const,
+                changeRate: -4,
+                dataPoints: [
+                    { date: '2026-03-10', utilization: 82, hours: 33, sessions: 9 },
+                    { date: '2026-03-11', utilization: 79, hours: 32, sessions: 8 },
+                ],
+            },
+        ]
+
+        render(
             <TrendChart
                 timeRange="week"
                 showAll={false}

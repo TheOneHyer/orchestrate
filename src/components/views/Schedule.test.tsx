@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Schedule } from './Schedule'
+import type { User, Course, Session } from '@/lib/types'
 
 vi.mock('./AutoScheduler', () => ({
   AutoScheduler: () => <div>AutoScheduler Mock</div>,
@@ -27,7 +28,7 @@ vi.mock('@/lib/conflict-detection', () => ({
   formatConflictMessage: vi.fn(() => 'Conflict message'),
 }))
 
-const baseTrainer = {
+const baseTrainer: User = {
   id: 'u-trainer',
   name: 'Taylor Trainer',
   email: 'taylor@example.com',
@@ -37,7 +38,7 @@ const baseTrainer = {
   hireDate: '2023-01-01',
 }
 
-const baseEmployee = {
+const baseEmployee: User = {
   id: 'u-employee',
   name: 'Evan Employee',
   email: 'evan@example.com',
@@ -47,7 +48,7 @@ const baseEmployee = {
   hireDate: '2024-01-01',
 }
 
-const baseCourse = {
+const baseCourse: Course = {
   id: 'c-1',
   title: 'Safety Foundations',
   description: 'Core safety training',
@@ -60,7 +61,7 @@ const baseCourse = {
   passScore: 80,
 }
 
-const baseSession = {
+const baseSession: Session = {
   id: 's-1',
   courseId: 'c-1',
   trainerId: 'u-trainer',
@@ -74,32 +75,56 @@ const baseSession = {
 }
 
 describe('Schedule', () => {
-  it('opens scheduler dialogs and triggers new session navigation', () => {
-    const onNavigate = vi.fn()
-
+  it('opens the Auto-Schedule dialog', () => {
     render(
       <Schedule
-        sessions={[baseSession] as any}
-        courses={[baseCourse] as any}
-        users={[baseTrainer, baseEmployee] as any}
-        currentUser={baseTrainer as any}
+        sessions={[baseSession]}
+        courses={[baseCourse]}
+        users={[baseTrainer, baseEmployee]}
+        currentUser={baseTrainer}
         onCreateSession={vi.fn()}
         onUpdateSession={vi.fn()}
-        onNavigate={onNavigate}
+        onNavigate={vi.fn()}
       />
     )
 
     fireEvent.click(screen.getByRole('button', { name: /auto-schedule/i }))
     expect(screen.getByText(/automatic trainer scheduler/i)).toBeInTheDocument()
     expect(screen.getByText(/autoscheduler mock/i)).toBeInTheDocument()
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+  it('opens the Guided Schedule dialog', () => {
+    render(
+      <Schedule
+        sessions={[baseSession]}
+        courses={[baseCourse]}
+        users={[baseTrainer, baseEmployee]}
+        currentUser={baseTrainer}
+        onCreateSession={vi.fn()}
+        onUpdateSession={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    )
 
     fireEvent.click(screen.getByRole('button', { name: /guided schedule/i }))
     expect(screen.getByText(/guided trainer scheduler/i)).toBeInTheDocument()
     expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
 
-    fireEvent.click(screen.getByRole('button', { name: /close/i }))
+  it('triggers new session navigation', () => {
+    const onNavigate = vi.fn()
+
+    render(
+      <Schedule
+        sessions={[baseSession]}
+        courses={[baseCourse]}
+        users={[baseTrainer, baseEmployee]}
+        currentUser={baseTrainer}
+        onCreateSession={vi.fn()}
+        onUpdateSession={vi.fn()}
+        onNavigate={onNavigate}
+      />
+    )
 
     fireEvent.click(screen.getByRole('button', { name: /new session/i }))
     expect(onNavigate).toHaveBeenCalledWith('schedule', { create: true })
@@ -108,10 +133,10 @@ describe('Schedule', () => {
   it('renders session data in the calendar view', () => {
     render(
       <Schedule
-        sessions={[baseSession, { ...baseSession, id: 's-2', status: 'completed', title: 'Evening Safety Session' }] as any}
-        courses={[baseCourse] as any}
-        users={[baseTrainer, baseEmployee] as any}
-        currentUser={baseTrainer as any}
+        sessions={[baseSession, { ...baseSession, id: 's-2', status: 'completed', title: 'Evening Safety Session' }]}
+        courses={[baseCourse]}
+        users={[baseTrainer, baseEmployee]}
+        currentUser={baseTrainer}
         onCreateSession={vi.fn()}
         onUpdateSession={vi.fn()}
         onNavigate={vi.fn()}
@@ -128,10 +153,10 @@ describe('Schedule', () => {
   it('supports calendar period switching controls', () => {
     render(
       <Schedule
-        sessions={[baseSession] as any}
-        courses={[baseCourse] as any}
-        users={[baseTrainer, baseEmployee] as any}
-        currentUser={baseTrainer as any}
+        sessions={[baseSession]}
+        courses={[baseCourse]}
+        users={[baseTrainer, baseEmployee]}
+        currentUser={baseTrainer}
         onCreateSession={vi.fn()}
         onUpdateSession={vi.fn()}
         onNavigate={vi.fn()}

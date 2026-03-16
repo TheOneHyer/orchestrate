@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { TrainerProfileView } from './TrainerProfileView'
+import type { User, Session, Course, Enrollment } from '@/lib/types'
 
 vi.mock('@/components/UnconfiguredScheduleAlert', () => ({
   UnconfiguredScheduleAlert: () => <div>UnconfiguredScheduleAlert Mock</div>,
@@ -35,7 +36,7 @@ vi.mock('@/components/ManageCertificationsDialog', () => ({
   ),
 }))
 
-const trainerUser = {
+const trainerUser: User = {
   id: 'u-trainer',
   name: 'Taylor Trainer',
   email: 'taylor@example.com',
@@ -77,7 +78,7 @@ const trainerUser = {
   },
 }
 
-const sessions = [
+const sessions: Session[] = [
   {
     id: 's-upcoming',
     courseId: 'c-1',
@@ -104,7 +105,7 @@ const sessions = [
   },
 ]
 
-const courses = [
+const courses: Course[] = [
   {
     id: 'c-1',
     title: 'Safety Foundations',
@@ -126,10 +127,10 @@ describe('TrainerProfileView', () => {
 
     render(
       <TrainerProfileView
-        user={trainerUser as any}
-        sessions={sessions as any}
-        courses={courses as any}
-        enrollments={[] as any}
+        user={trainerUser}
+        sessions={sessions}
+        courses={courses}
+        enrollments={[] as Enrollment[]}
         onEdit={onEdit}
         onDelete={onDelete}
         onUpdateUser={vi.fn()}
@@ -155,10 +156,12 @@ describe('TrainerProfileView', () => {
 
     render(
       <TrainerProfileView
-        user={trainerUser as any}
-        sessions={sessions as any}
-        courses={courses as any}
-        enrollments={[] as any}
+        user={trainerUser}
+        sessions={sessions}
+        courses={courses}
+        enrollments={[] as Enrollment[]}
+        onEdit={() => {}}
+        onDelete={() => {}}
         onUpdateUser={onUpdateUser}
       />
     )

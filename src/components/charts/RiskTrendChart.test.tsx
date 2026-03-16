@@ -12,28 +12,23 @@ describe('RiskTrendChart', () => {
         expect(screen.getByTestId('risk-trend-chart-empty')).toBeInTheDocument()
     })
 
+    const mockDataPoint = {
+        date: '2026-03-10T00:00:00.000Z',
+        riskScore: 32,
+        riskLevel: 'medium' as const,
+        utilizationRate: 78,
+        sessionCount: 7,
+        hoursScheduled: 29,
+    }
+
     it('renders chart shell and trainer context when data exists', () => {
         render(
             <RiskTrendChart
                 trainerName="Taylor"
                 showUtilization={true}
                 data={[
-                    {
-                        date: '2026-03-10T00:00:00.000Z',
-                        riskScore: 32,
-                        riskLevel: 'medium',
-                        utilizationRate: 78,
-                        sessionCount: 7,
-                        hoursScheduled: 29,
-                    },
-                    {
-                        date: '2026-03-15T00:00:00.000Z',
-                        riskScore: 58,
-                        riskLevel: 'high',
-                        utilizationRate: 91,
-                        sessionCount: 11,
-                        hoursScheduled: 41,
-                    },
+                    mockDataPoint,
+                    { ...mockDataPoint, date: '2026-03-15T00:00:00.000Z', riskScore: 58, riskLevel: 'high' as const, utilizationRate: 91, sessionCount: 11, hoursScheduled: 41 },
                 ]}
             />
         )
@@ -49,16 +44,7 @@ describe('RiskTrendChart', () => {
             <RiskTrendChart
                 trainerName="Taylor"
                 showUtilization={false}
-                data={[
-                    {
-                        date: '2026-03-10T00:00:00.000Z',
-                        riskScore: 32,
-                        riskLevel: 'medium',
-                        utilizationRate: 78,
-                        sessionCount: 7,
-                        hoursScheduled: 29,
-                    },
-                ]}
+                data={[mockDataPoint]}
             />
         )
 

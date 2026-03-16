@@ -1,9 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Notifications } from './Notifications'
+import type { Notification } from '@/lib/types'
 
-const baseNotification = {
+const baseNotification: Notification = {
   id: 'n-1',
   userId: 'u-1',
   type: 'session',
@@ -21,10 +22,14 @@ describe('Notifications', () => {
     vi.setSystemTime(new Date('2026-03-16T12:00:00.000Z'))
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('renders empty state when there are no notifications', () => {
     render(
       <Notifications
-        notifications={[] as any}
+        notifications={[]}
         onMarkAsRead={vi.fn()}
         onMarkAsUnread={vi.fn()}
         onMarkAllAsRead={vi.fn()}
@@ -44,7 +49,7 @@ describe('Notifications', () => {
 
     render(
       <Notifications
-        notifications={[baseNotification] as any}
+        notifications={[baseNotification]}
         onMarkAsRead={onMarkAsRead}
         onMarkAsUnread={vi.fn()}
         onMarkAllAsRead={vi.fn()}
@@ -64,7 +69,7 @@ describe('Notifications', () => {
     const onMarkAllAsRead = vi.fn()
     const onDismissAll = vi.fn()
 
-    const notifications = [
+    const notifications: Notification[] = [
       baseNotification,
       {
         ...baseNotification,
@@ -78,7 +83,7 @@ describe('Notifications', () => {
 
     render(
       <Notifications
-        notifications={notifications as any}
+        notifications={notifications}
         onMarkAsRead={vi.fn()}
         onMarkAsUnread={vi.fn()}
         onMarkAllAsRead={onMarkAllAsRead}
@@ -88,20 +93,23 @@ describe('Notifications', () => {
       />
     )
 
+    // Single click calls onMarkAllAsRead directly
     fireEvent.click(screen.getByRole('button', { name: /mark all read/i }))
     expect(onMarkAllAsRead).toHaveBeenCalledOnce()
 
+    // First click opens the confirmation, second click confirms the action
     fireEvent.click(screen.getByRole('button', { name: /clear read/i }))
     fireEvent.click(screen.getByRole('button', { name: /^clear read$/i }))
     expect(onDismissAll).toHaveBeenCalledWith('read')
 
+    // First click opens the confirmation, second click confirms the action
     fireEvent.click(screen.getByRole('button', { name: /^clear all$/i }))
     fireEvent.click(screen.getByRole('button', { name: /^clear all$/i }))
     expect(onDismissAll).toHaveBeenCalledWith('all')
   })
 
   it('renders category tabs and notification entries', () => {
-    const notifications = [
+    const notifications: Notification[] = [
       baseNotification,
       {
         ...baseNotification,
@@ -115,7 +123,7 @@ describe('Notifications', () => {
 
     render(
       <Notifications
-        notifications={notifications as any}
+        notifications={notifications}
         onMarkAsRead={vi.fn()}
         onMarkAsUnread={vi.fn()}
         onMarkAllAsRead={vi.fn()}

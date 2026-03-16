@@ -17,6 +17,6 @@ describe('UtilizationChart', () => {
 
         expect(screen.getByTestId('utilization-chart')).toBeInTheDocument()
         expect(screen.getByText(/utilization trend for taylor/i)).toBeInTheDocument()
-        expect(screen.getByText(/first utilization value: 71.4/i)).toBeInTheDocument()
+        expect(screen.getByText(/min 71.4%, max 75%/i)).toBeInTheDocument()
     })
 })

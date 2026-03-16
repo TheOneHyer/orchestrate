@@ -80,8 +80,8 @@ describe('wellness-analytics', () => {
         const checkIn = createCheckIn()
         const expected = Math.round(
             (checkIn.mood * 20 * 0.15) +
-            (70 * 0.2) +
-            (80 * 0.15) +
+            (70 * 0.2) +   // stress: 'moderate' maps to numeric score 70
+            (80 * 0.15) +  // energy: 'energized' maps to numeric score 80
             (checkIn.workloadSatisfaction * 20 * 0.2) +
             (checkIn.sleepQuality * 20 * 0.1) +
             (checkIn.physicalWellbeing * 20 * 0.1) +

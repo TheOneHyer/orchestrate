@@ -45,7 +45,7 @@ describe('NotificationPermissionBanner', () => {
         expect(container).toBeEmptyDOMElement()
     })
 
-    it('does not render once permission is already resolved', () => {
+    it('does not render when permission is granted', () => {
         mockUsePushNotifications.mockReturnValue({
             isSupported: true,
             settings: { permission: 'granted' },

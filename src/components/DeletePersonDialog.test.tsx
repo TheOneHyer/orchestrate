@@ -47,6 +47,7 @@ describe('DeletePersonDialog', () => {
     })
 
     it('renders employee-specific warning and confirms deletion', async () => {
+        const user = userEvent.setup()
         const onConfirm = vi.fn()
 
         render(
@@ -60,11 +61,12 @@ describe('DeletePersonDialog', () => {
 
         expect(screen.getByText(/remove them from all enrolled courses/i)).toBeInTheDocument()
 
-        await userEvent.click(screen.getByRole('button', { name: /delete/i }))
+        await user.click(screen.getByRole('button', { name: /delete/i }))
         expect(onConfirm).toHaveBeenCalledOnce()
     })
 
     it('calls onOpenChange(false) when Cancel is clicked', async () => {
+        const user = userEvent.setup()
         const onOpenChange = vi.fn()
         const onConfirm = vi.fn()
 
@@ -77,7 +79,7 @@ describe('DeletePersonDialog', () => {
             />
         )
 
-        await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+        await user.click(screen.getByRole('button', { name: /cancel/i }))
 
         expect(onOpenChange).toHaveBeenCalledTimes(1)
         expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -85,6 +87,7 @@ describe('DeletePersonDialog', () => {
     })
 
     it('does not close when overlay is clicked', async () => {
+        const user = userEvent.setup()
         const onOpenChange = vi.fn()
         const onConfirm = vi.fn()
 
@@ -99,7 +102,7 @@ describe('DeletePersonDialog', () => {
 
         const overlay = document.querySelector('[data-slot="alert-dialog-overlay"]')
         expect(overlay).toBeInTheDocument()
-        await userEvent.click(overlay!)
+        await user.click(overlay as Element)
 
         expect(onOpenChange).not.toHaveBeenCalled()
         expect(onConfirm).not.toHaveBeenCalled()

@@ -19,9 +19,21 @@ export function UtilizationChart({ data, trainerName }: UtilizationChartProps) {
   }, [data])
 
   return (
-    <div data-testid="utilization-chart" className="w-full h-[300px]">
-      <p className="text-sm text-muted-foreground mb-2">Utilization trend for {trainerName}</p>
-      {chartData[0] && <span className="sr-only">First utilization value: {chartData[0].utilization}</span>}
+    <div
+      data-testid="utilization-chart"
+      className="w-full h-[300px]"
+      aria-label={`Utilization trend chart for ${trainerName}`}
+    >
+      <h3 className="text-sm text-muted-foreground mb-2">Utilization trend for {trainerName}</h3>
+      {chartData.length > 0 && (
+        <span className="sr-only">
+          {`Utilization for ${trainerName}: ` +
+            `min ${Math.min(...chartData.map(d => d.utilization))}%, ` +
+            `max ${Math.max(...chartData.map(d => d.utilization))}%, ` +
+            `average ${Math.round(chartData.reduce((s, d) => s + d.utilization, 0) / chartData.length)}%. ` +
+            chartData.map(d => `${d.date}: ${d.utilization}%`).join(', ')}
+        </span>
+      )}
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
