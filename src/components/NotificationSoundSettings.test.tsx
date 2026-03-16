@@ -129,7 +129,7 @@ describe('NotificationSoundSettings', () => {
         })
 
         render(<NotificationSoundSettings />)
-        expect(screen.getByText(/notifications are blocked/i)).toBeInTheDocument()
+        expect(screen.getByText(/notifications blocked/i)).toBeInTheDocument()
         expect(requestPermission).not.toHaveBeenCalled()
     })
 
@@ -148,8 +148,7 @@ describe('NotificationSoundSettings', () => {
         })
 
         render(<NotificationSoundSettings />)
-        await userEvent.click(screen.getByRole('button', { name: /disable notifications/i }))
+        await userEvent.click(screen.getByRole('switch', { name: /browser notifications/i }))
         expect(updateSettings).toHaveBeenCalledWith({ enabled: false })
     })
-})
 })
