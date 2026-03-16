@@ -98,6 +98,7 @@ describe('NotificationPermissionBanner', () => {
         mockUsePushNotifications.mockReturnValue({
             isSupported: true,
             settings: { permission: 'default' },
+            requestPermission: vi.fn(),
         })
         mockUseKV.mockReturnValue([false, setDismissed])
 

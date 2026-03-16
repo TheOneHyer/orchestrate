@@ -11,9 +11,14 @@ vi.mock('@/hooks/use-theme', () => ({
 }))
 
 vi.mock('@/components/NotificationSettingsDialog', () => ({
-    NotificationSettingsDialog: ({ open }: { open: boolean }) => (
+    NotificationSettingsDialog: ({ open, onOpenChange }: { open: boolean, onOpenChange?: (open: boolean) => void }) => (
         <div data-testid="notification-settings-dialog" data-open={String(open)}>
             Notification Settings Dialog
+            {onOpenChange && (
+                <button data-testid="notification-settings-dialog-toggle" onClick={() => onOpenChange(false)}>
+                    Close Dialog
+                </button>
+            )}
         </div>
     ),
 }))
@@ -38,7 +43,7 @@ describe('Layout', () => {
         expect(screen.getByText(/burnout risk/i)).toBeInTheDocument()
         expect(screen.getByText(/wellness & recovery/i)).toBeInTheDocument()
         expect(screen.getByText(/^settings$/i)).toBeInTheDocument()
-        expect(screen.getByText('3')).toBeInTheDocument()
+        expect(screen.getByTestId('notification-count')).toHaveTextContent('3')
     })
 
     it('hides admin-only items for employees and navigates on click', () => {
@@ -69,7 +74,7 @@ describe('Layout', () => {
 
         expect(screen.getByTestId('notification-settings-dialog')).toHaveAttribute('data-open', 'false')
 
-        fireEvent.click(screen.getByTitle(/notification settings/i))
+        fireEvent.click(screen.getByRole('button', { name: /notification settings/i }))
         expect(screen.getByTestId('notification-settings-dialog')).toHaveAttribute('data-open', 'true')
 
         fireEvent.click(screen.getByRole('button', { name: /toggle theme/i }))

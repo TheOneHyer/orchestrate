@@ -95,7 +95,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
             <span className="font-medium">Notifications</span>
             {notificationCount > 0 && (
               <Badge variant="destructive" className="ml-auto">
-                {notificationCount}
+                <span data-testid="notification-count" aria-label="notifications">{notificationCount}</span>
               </Badge>
             )}
           </button>

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { NotificationSoundSettings } from './NotificationSoundSettings'
@@ -46,7 +47,7 @@ describe('NotificationSoundSettings', () => {
         expect(screen.getByText(/browser notifications are not supported/i)).toBeInTheDocument()
     })
 
-    it('requests permission when not granted', () => {
+    it('requests permission when not granted', async () => {
         const requestPermission = vi.fn()
         mockUsePushNotifications.mockReturnValue({
             settings: {
@@ -62,11 +63,11 @@ describe('NotificationSoundSettings', () => {
 
         render(<NotificationSoundSettings />)
 
-        fireEvent.click(screen.getByRole('button', { name: /enable notifications/i }))
+        await userEvent.click(screen.getByRole('button', { name: /enable notifications/i }))
         expect(requestPermission).toHaveBeenCalledOnce()
     })
 
-    it('updates granted notification priority toggles', () => {
+    it('updates granted notification priority toggles', async () => {
         const updateSettings = vi.fn()
         mockUsePushNotifications.mockReturnValue({
             settings: {
@@ -82,7 +83,7 @@ describe('NotificationSoundSettings', () => {
 
         render(<NotificationSoundSettings />)
 
-        fireEvent.click(screen.getByLabelText(/low priority/i))
+        await userEvent.click(screen.getByLabelText(/low priority/i))
         expect(updateSettings).toHaveBeenCalledWith({
             showForPriorities: {
                 low: false,
@@ -93,7 +94,7 @@ describe('NotificationSoundSettings', () => {
         })
     })
 
-    it('sends a test notification when the action button is clicked', () => {
+    it('sends a test notification when the action button is clicked', async () => {
         const testNotification = vi.fn()
         mockUsePushNotifications.mockReturnValue({
             settings: {
@@ -109,7 +110,45 @@ describe('NotificationSoundSettings', () => {
 
         render(<NotificationSoundSettings />)
 
-        fireEvent.click(screen.getByRole('button', { name: /send test notification/i }))
+        await userEvent.click(screen.getByRole('button', { name: /send test notification/i }))
+
+        it('shows denied message and does not call requestPermission when permission is denied', () => {
+            const requestPermission = vi.fn()
+            mockUsePushNotifications.mockReturnValue({
+                settings: {
+                    permission: 'denied',
+                    enabled: false,
+                    showForPriorities: { low: true, medium: true, high: true, critical: true },
+                },
+                updateSettings: vi.fn(),
+                requestPermission,
+                testNotification: vi.fn(),
+                isSupported: true,
+            })
+
+            render(<NotificationSoundSettings />)
+            expect(screen.getByText(/notifications are blocked/i)).toBeInTheDocument()
+            expect(requestPermission).not.toHaveBeenCalled()
+        })
+
+        it('disables notifications when enabled is true and toggle is clicked', async () => {
+            const updateSettings = vi.fn()
+            mockUsePushNotifications.mockReturnValue({
+                settings: {
+                    permission: 'granted',
+                    enabled: true,
+                    showForPriorities: { low: true, medium: true, high: true, critical: true },
+                },
+                updateSettings,
+                requestPermission: vi.fn(),
+                testNotification: vi.fn(),
+                isSupported: true,
+            })
+
+            render(<NotificationSoundSettings />)
+            await userEvent.click(screen.getByRole('button', { name: /disable notifications/i }))
+            expect(updateSettings).toHaveBeenCalledWith({ enabled: false })
+        })
         expect(testNotification).toHaveBeenCalledOnce()
     })
 })
