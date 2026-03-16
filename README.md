@@ -56,6 +56,16 @@ npm run build       # Type-check and bundle
 npm run preview     # Preview the production build locally
 ```
 
+### Running Unit Tests
+
+```bash
+npm run test                # Run the unit test suite once
+npm run test:watch          # Run Vitest in watch mode
+npm run test:coverage       # Generate a coverage report
+```
+
+The initial test rollout focuses on core business logic in `src/lib/burnout-analytics.ts`, `src/lib/workload-balancer.ts`, `src/lib/scheduler.ts`, and `src/lib/conflict-detection.ts`.
+
 ### Other Scripts
 
 ```bash
@@ -68,7 +78,7 @@ npm run kill        # Free port 5000 (fuser -k 5000/tcp)
 
 ## 🗂️ Project Structure
 
-```
+```text
 orchestrate/
 ├── src/
 │   ├── App.tsx                        # Root component & global state

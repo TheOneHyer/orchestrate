@@ -18,6 +18,10 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "types": [
+      "vitest/globals",
+      "@testing-library/jest-dom"
+    ],
     /* Linting */
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
@@ -28,6 +32,7 @@
     },
   },
   "include": [
-    "src"
+    "src",
+    "vite.config.ts"
   ]
 }
