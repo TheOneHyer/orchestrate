@@ -57,12 +57,11 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
             </div>
             <div className="flex items-center justify-between gap-4 pt-1 border-t border-border mt-2">
               <span className="text-muted-foreground">Risk Level:</span>
-              <span className={`font-bold uppercase text-xs px-2 py-0.5 rounded ${
-                data.riskLevel === 'critical' ? 'bg-destructive/20 text-destructive' :
-                data.riskLevel === 'high' ? 'bg-orange-500/20 text-orange-500' :
-                data.riskLevel === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
-                'bg-green-500/20 text-green-500'
-              }`}>
+              <span className={`font-bold uppercase text-xs px-2 py-0.5 rounded ${data.riskLevel === 'critical' ? 'bg-destructive/20 text-destructive' :
+                  data.riskLevel === 'high' ? 'bg-orange-500/20 text-orange-500' :
+                    data.riskLevel === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
+                      'bg-green-500/20 text-green-500'
+                }`}>
                 {data.riskLevel}
               </span>
             </div>
@@ -75,7 +74,7 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
 
   if (data.length === 0) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+      <div data-testid="risk-trend-chart-empty" className="h-[300px] flex items-center justify-center text-muted-foreground">
         <div className="text-center">
           <p className="font-medium">No historical data available</p>
           <p className="text-sm mt-1">Risk tracking will appear as data is collected</p>
@@ -85,82 +84,83 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
   }
 
   return (
-    <div className="space-y-3">
+    <div data-testid="risk-trend-chart" className="space-y-3">
       {trainerName && (
         <p className="text-sm text-muted-foreground">
           Tracking {trainerName}'s risk level over time
         </p>
       )}
+      {showUtilization && <span data-testid="utilization-series" className="sr-only">Utilization series visible</span>}
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           <defs>
             <linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="oklch(0.45 0.15 250)" stopOpacity={0.3}/>
-              <stop offset="95%" stopColor="oklch(0.45 0.15 250)" stopOpacity={0.05}/>
+              <stop offset="5%" stopColor="oklch(0.45 0.15 250)" stopOpacity={0.3} />
+              <stop offset="95%" stopColor="oklch(0.45 0.15 250)" stopOpacity={0.05} />
             </linearGradient>
             {showUtilization && (
               <linearGradient id="utilizationGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="oklch(0.68 0.18 45)" stopOpacity={0.3}/>
-                <stop offset="95%" stopColor="oklch(0.68 0.18 45)" stopOpacity={0.05}/>
+                <stop offset="5%" stopColor="oklch(0.68 0.18 45)" stopOpacity={0.3} />
+                <stop offset="95%" stopColor="oklch(0.68 0.18 45)" stopOpacity={0.05} />
               </linearGradient>
             )}
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.88 0.01 250)" opacity={0.3} />
-          <XAxis 
-            dataKey="date" 
+          <XAxis
+            dataKey="date"
             stroke="oklch(0.55 0.01 250)"
             style={{ fontSize: '12px' }}
             tickMargin={8}
           />
-          <YAxis 
+          <YAxis
             stroke="oklch(0.55 0.01 250)"
             style={{ fontSize: '12px' }}
             tickMargin={8}
             domain={[0, 100]}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Legend 
+          <Legend
             wrapperStyle={{ fontSize: '13px', paddingTop: '12px' }}
             iconType="circle"
           />
-          
-          <ReferenceLine 
-            y={25} 
-            stroke="oklch(0.828 0.189 84.429)" 
-            strokeDasharray="5 5" 
+
+          <ReferenceLine
+            y={25}
+            stroke="oklch(0.828 0.189 84.429)"
+            strokeDasharray="5 5"
             strokeOpacity={0.4}
             label={{ value: 'Low Risk', position: 'insideTopRight', fill: 'oklch(0.55 0.01 250)', fontSize: 11 }}
           />
-          <ReferenceLine 
-            y={45} 
-            stroke="oklch(0.769 0.188 70.08)" 
-            strokeDasharray="5 5" 
+          <ReferenceLine
+            y={45}
+            stroke="oklch(0.769 0.188 70.08)"
+            strokeDasharray="5 5"
             strokeOpacity={0.4}
             label={{ value: 'Medium Risk', position: 'insideTopRight', fill: 'oklch(0.55 0.01 250)', fontSize: 11 }}
           />
-          <ReferenceLine 
-            y={70} 
-            stroke="oklch(0.646 0.222 41.116)" 
-            strokeDasharray="5 5" 
+          <ReferenceLine
+            y={70}
+            stroke="oklch(0.646 0.222 41.116)"
+            strokeDasharray="5 5"
             strokeOpacity={0.4}
             label={{ value: 'High Risk', position: 'insideTopRight', fill: 'oklch(0.55 0.01 250)', fontSize: 11 }}
           />
-          
-          <Area 
-            type="monotone" 
-            dataKey="Risk Score" 
-            stroke="oklch(0.45 0.15 250)" 
+
+          <Area
+            type="monotone"
+            dataKey="Risk Score"
+            stroke="oklch(0.45 0.15 250)"
             fill="url(#riskGradient)"
             strokeWidth={3}
             dot={{ fill: 'oklch(0.45 0.15 250)', r: 4 }}
             activeDot={{ r: 6, fill: 'oklch(0.45 0.15 250)' }}
           />
-          
+
           {showUtilization && (
-            <Line 
-              type="monotone" 
-              dataKey="Utilization %" 
-              stroke="oklch(0.68 0.18 45)" 
+            <Line
+              type="monotone"
+              dataKey="Utilization %"
+              stroke="oklch(0.68 0.18 45)"
               strokeWidth={2}
               strokeDasharray="5 5"
               dot={{ fill: 'oklch(0.68 0.18 45)', r: 3 }}
@@ -169,7 +169,7 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
           )}
         </AreaChart>
       </ResponsiveContainer>
-      
+
       <div className="grid grid-cols-4 gap-4 pt-2 border-t border-border text-xs">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-green-500/30 border-2 border-green-500"></div>

@@ -33,4 +33,4 @@ pids
 
 .spark-workbench-id
 
-coverage/*
+coverage/

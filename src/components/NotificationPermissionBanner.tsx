@@ -30,8 +30,13 @@ export function NotificationPermissionBanner() {
   }, [isSupported, settings?.permission, dismissed])
 
   const handleEnableNotifications = async () => {
-    const permission = await requestPermission()
-    if (permission === 'granted' || permission === 'denied') {
+    try {
+      const permission = await requestPermission()
+      if (permission === 'granted' || permission === 'denied') {
+        setDismissed(true)
+      }
+    } catch (_error) {
+      // Dismiss the banner if permission flow fails so users can continue.
       setDismissed(true)
     }
   }

@@ -19,22 +19,24 @@ export function UtilizationChart({ data, trainerName }: UtilizationChartProps) {
   }, [data])
 
   return (
-    <div className="w-full h-[300px]">
+    <div data-testid="utilization-chart" className="w-full h-[300px]">
+      <p className="text-sm text-muted-foreground mb-2">Utilization trend for {trainerName}</p>
+      {chartData[0] && <span className="sr-only">First utilization value: {chartData[0].utilization}</span>}
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis 
-            dataKey="date" 
+          <XAxis
+            dataKey="date"
             stroke="hsl(var(--muted-foreground))"
             style={{ fontSize: '12px' }}
           />
-          <YAxis 
+          <YAxis
             stroke="hsl(var(--muted-foreground))"
             style={{ fontSize: '12px' }}
             label={{ value: 'Utilization %', angle: -90, position: 'insideLeft' }}
           />
-          <Tooltip 
-            contentStyle={{ 
+          <Tooltip
+            contentStyle={{
               backgroundColor: 'hsl(var(--popover))',
               border: '1px solid hsl(var(--border))',
               borderRadius: '8px'
@@ -42,19 +44,19 @@ export function UtilizationChart({ data, trainerName }: UtilizationChartProps) {
             labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
           />
           <Legend />
-          <Line 
-            type="monotone" 
-            dataKey="utilization" 
-            stroke="hsl(var(--primary))" 
+          <Line
+            type="monotone"
+            dataKey="utilization"
+            stroke="hsl(var(--primary))"
             strokeWidth={3}
             dot={{ fill: 'hsl(var(--primary))', r: 4 }}
             activeDot={{ r: 6 }}
             name="Utilization %"
           />
-          <Line 
-            type="monotone" 
-            dataKey="hours" 
-            stroke="hsl(var(--accent))" 
+          <Line
+            type="monotone"
+            dataKey="hours"
+            stroke="hsl(var(--accent))"
             strokeWidth={2}
             dot={{ fill: 'hsl(var(--accent))', r: 3 }}
             name="Hours"

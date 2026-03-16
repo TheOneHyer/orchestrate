@@ -32,14 +32,15 @@ export function BurnoutRiskGauge({ data }: BurnoutRiskGaugeProps) {
 
   if (chartData.length === 0) {
     return (
-      <div className="w-full h-[300px] flex items-center justify-center text-muted-foreground">
+      <div data-testid="burnout-risk-gauge-empty" className="w-full h-[300px] flex items-center justify-center text-muted-foreground">
         No data available
       </div>
     )
   }
 
   return (
-    <div className="w-full h-[300px]">
+    <div data-testid="burnout-risk-gauge" className="w-full h-[300px]">
+      <span data-testid="burnout-risk-gauge-chart" className="sr-only">Burnout risk gauge chart rendered</span>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -56,8 +57,8 @@ export function BurnoutRiskGauge({ data }: BurnoutRiskGaugeProps) {
               <Cell key={`cell-${index}`} fill={COLORS[entry.level as keyof typeof COLORS]} />
             ))}
           </Pie>
-          <Tooltip 
-            contentStyle={{ 
+          <Tooltip
+            contentStyle={{
               backgroundColor: 'hsl(var(--popover))',
               border: '1px solid hsl(var(--border))',
               borderRadius: '8px'

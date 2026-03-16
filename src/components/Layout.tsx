@@ -1,10 +1,10 @@
 import { ReactNode, useState } from 'react'
-import { 
-  House, 
-  CalendarDots, 
-  GraduationCap, 
-  Users, 
-  ChartBar, 
+import {
+  House,
+  CalendarDots,
+  GraduationCap,
+  Users,
+  ChartBar,
   Bell,
   Gear,
   Calendar,
@@ -33,7 +33,7 @@ interface LayoutProps {
 export function Layout({ children, activeView, onNavigate, notificationCount = 0, userRole }: LayoutProps) {
   const { theme, toggleTheme } = useTheme()
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
-  
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: House, roles: ['admin', 'trainer', 'employee'] },
     { id: 'schedule', label: 'Schedule', icon: CalendarDots, roles: ['admin', 'trainer', 'employee'] },
@@ -57,20 +57,20 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
           <h1 className="text-2xl font-semibold text-primary">TrainSync</h1>
           <p className="text-sm text-muted-foreground mt-1">Training Management</p>
         </div>
-        
+
         <nav className="flex-1 p-4 space-y-1">
           {filteredNavItems.map(item => {
             const Icon = item.icon
             const isActive = activeView === item.id
-            
+
             return (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
                 className={cn(
                   'w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200',
-                  isActive 
-                    ? 'bg-primary text-primary-foreground shadow-sm' 
+                  isActive
+                    ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'text-foreground hover:bg-secondary hover:text-foreground'
                 )}
               >
@@ -99,7 +99,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
               </Badge>
             )}
           </button>
-          
+
           {userRole === 'admin' && (
             <button
               onClick={() => onNavigate('settings')}
@@ -133,6 +133,8 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
             size="icon"
             onClick={toggleTheme}
             className="rounded-lg"
+            title="Toggle Theme"
+            aria-label="Toggle theme"
           >
             {theme === 'dark' ? (
               <Sun size={20} weight="regular" />
@@ -144,7 +146,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
         <div className="flex-1">
           {children}
         </div>
-        
+
         <NotificationSettingsDialog
           open={showNotificationSettings}
           onOpenChange={setShowNotificationSettings}

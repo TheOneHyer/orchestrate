@@ -53,29 +53,36 @@ export function TrendChart({ data, timeRange, showAll = false }: TrendChartProps
 
   if (chartData.length === 0) {
     return (
-      <div className="w-full h-[300px] flex items-center justify-center text-muted-foreground">
+      <div data-testid="trend-chart-empty" className="w-full h-[300px] flex items-center justify-center text-muted-foreground">
         No trend data available
       </div>
     )
   }
 
   return (
-    <div className="w-full h-[300px]">
+    <div data-testid="trend-chart" className="w-full h-[300px]">
+      <div className="sr-only">
+        {trendsToShow.map(trend => (
+          <span key={trend.trainerId} data-testid={`trend-series-${trend.trainerId}`}>
+            {trend.trainerId}
+          </span>
+        ))}
+      </div>
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-          <XAxis 
-            dataKey="date" 
+          <XAxis
+            dataKey="date"
             stroke="hsl(var(--muted-foreground))"
             style={{ fontSize: '12px' }}
           />
-          <YAxis 
+          <YAxis
             stroke="hsl(var(--muted-foreground))"
             style={{ fontSize: '12px' }}
             label={{ value: 'Utilization %', angle: -90, position: 'insideLeft' }}
           />
-          <Tooltip 
-            contentStyle={{ 
+          <Tooltip
+            contentStyle={{
               backgroundColor: 'hsl(var(--popover))',
               border: '1px solid hsl(var(--border))',
               borderRadius: '8px'
@@ -84,9 +91,9 @@ export function TrendChart({ data, timeRange, showAll = false }: TrendChartProps
           />
           {showAll && <Legend />}
           {trendsToShow.map((trend, index) => (
-            <Line 
+            <Line
               key={trend.trainerId}
-              type="monotone" 
+              type="monotone"
               dataKey={trend.trainerId}
               stroke={TREND_COLORS[index % TREND_COLORS.length]}
               strokeWidth={2}
