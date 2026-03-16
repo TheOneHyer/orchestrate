@@ -98,6 +98,10 @@ describe('RecoveryPlanDialog', () => {
         await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
 
         expect(baseProps.onSubmit).toHaveBeenCalledOnce()
+        const submittedPayload = baseProps.onSubmit.mock.calls[0][0]
+        expect(new Date(submittedPayload.targetCompletionDate).getTime()).toBeGreaterThan(
+            new Date(submittedPayload.startDate).getTime()
+        )
         expect(baseProps.onSubmit).toHaveBeenCalledWith(
             expect.objectContaining({
                 trainerId: 'trainer-1',
@@ -106,8 +110,8 @@ describe('RecoveryPlanDialog', () => {
                 triggerReason: expect.stringMatching(/wellness score/i),
                 targetUtilization: 70,
                 currentUtilization: 90,
-                startDate: expect.any(String),
-                targetCompletionDate: expect.any(String),
+                startDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/),
+                targetCompletionDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/),
                 actions: expect.arrayContaining([
                     expect.objectContaining({
                         id: expect.stringMatching(/^action-/),
@@ -129,13 +133,11 @@ describe('RecoveryPlanDialog', () => {
         expect(screen.getByText(/latest check-in summary/i)).toBeInTheDocument()
         expect(screen.getByText(/mood:/i)).toBeInTheDocument()
         const stressSummary = screen.getByText(/stress:/i).closest('div')
-        expect(stressSummary).not.toBeNull()
-        expect(stressSummary as HTMLElement).toHaveTextContent(/stress:\s*high/i)
+        expect(stressSummary).toHaveTextContent(/stress:\s*high/i)
         const concernsSummary = screen.getByText(/concerns:/i).closest('div')
-        expect(concernsSummary).not.toBeNull()
         // The summary shows 2/5 for both selected steps (2 out of 5 total) and selected concerns (2 out of 5 total)
         expect(screen.getAllByText('2/5')).toHaveLength(2)
-        expect(concernsSummary as HTMLElement).toHaveTextContent(/work-life balance, too many sessions scheduled/i)
+        expect(concernsSummary).toHaveTextContent(/work-life balance, too many sessions scheduled/i)
     })
 
     it('calls onClose when cancel is clicked', async () => {
@@ -191,6 +193,20 @@ describe('RecoveryPlanDialog', () => {
 
         expect(screen.getByRole('button', { name: /create recovery plan/i })).toBeDisabled()
         expect(screen.getByText(/trigger reason is required/i)).toBeInTheDocument()
+    })
+
+    it('handles below-minimum current utilization (-1) without crashing', () => {
+        render(<RecoveryPlanDialog {...baseProps} currentUtilization={-1} />)
+
+        expect(screen.getByLabelText(/current utilization/i)).toHaveValue(-1)
+        expect(screen.getByLabelText(/target utilization/i)).toHaveValue(70)
+    })
+
+    it('handles above-maximum current utilization (101) without crashing', () => {
+        render(<RecoveryPlanDialog {...baseProps} currentUtilization={101} />)
+
+        expect(screen.getByLabelText(/current utilization/i)).toHaveValue(101)
+        expect(screen.getByLabelText(/target utilization/i)).toHaveValue(70)
     })
 
     it('renders boundary current utilization at 0 with stable target utilization default', () => {

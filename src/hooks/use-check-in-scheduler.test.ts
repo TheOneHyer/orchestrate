@@ -3,12 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useKV } from '@github/spark/hooks'
 import type { CheckInSchedule, User } from '@/lib/types'
 
-vi.mock('@github/spark/hooks', async () => {
-    const { useState } = await import('react')
-    return {
-        useKV: vi.fn((_key: string, defaultValue: unknown) => useState(defaultValue))
-    }
-})
+vi.mock('@github/spark/hooks', () => ({
+    useKV: vi.fn()
+}))
 
 vi.mock('sonner', () => ({
     toast: { info: vi.fn(), success: vi.fn(), error: vi.fn() }
@@ -121,6 +118,7 @@ describe('use-check-in-scheduler', () => {
         const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: CheckInSchedule[]) => CheckInSchedule[]
         const updated = updaterFn([schedule])
         expect(updated[0].missedCheckIns).toBe(1)
+        expect(schedule.missedCheckIns).toBe(0)
     })
 
     it('increments only the overdue schedule when updater runs against mixed schedules', () => {

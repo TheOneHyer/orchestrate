@@ -228,7 +228,7 @@ export function ManageCertificationsDialog({
               <div className="space-y-2">
                 {localCerts.map((cert, index) => (
                   <div
-                    key={index}
+                    key={`${cert.certificationName}-${cert.issuedDate}`}
                     data-testid={`certification-item-${cert.certificationName.toLowerCase().replace(/\s+/g, '-')}`}
                     className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/30 transition-colors"
                   >

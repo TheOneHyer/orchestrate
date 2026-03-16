@@ -85,7 +85,7 @@ describe('CheckInScheduleDialog', () => {
 
     // Initially both notification and reminder switches are on – reminder hours visible
     expect(screen.getByLabelText(/reminder time/i)).toBeInTheDocument()
-    expect(screen.getByRole('switch', { name: /enable notifications/i })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('switch', { name: /enable notifications/i })).toBeChecked()
 
     // Disable notifications
     await userEvent.click(screen.getByLabelText(/enable notifications/i))

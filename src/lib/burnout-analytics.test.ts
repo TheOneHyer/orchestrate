@@ -57,15 +57,15 @@ function createCheckIn(id: string, overrides: Partial<WellnessCheckIn> = {}): We
         id,
         trainerId: 'trainer-1',
         timestamp: '2026-03-15T09:00:00.000Z',
-        mood: 2,
-        stress: 'high',
-        energy: 'tired',
-        workloadSatisfaction: 1,
-        sleepQuality: 2,
-        physicalWellbeing: 2,
-        mentalClarity: 2,
-        concerns: ['Fatigue'],
-        followUpRequired: true,
+        mood: 3,
+        stress: 'moderate',
+        energy: 'neutral',
+        workloadSatisfaction: 3,
+        sleepQuality: 3,
+        physicalWellbeing: 3,
+        mentalClarity: 3,
+        concerns: [],
+        followUpRequired: false,
         followUpCompleted: false,
         ...overrides
     }
@@ -108,10 +108,10 @@ describe('burnout-analytics', () => {
         })
 
         const checkIns = [
-            createCheckIn('check-in-1', { timestamp: '2026-03-15T09:00:00.000Z', energy: 'exhausted' }),
-            createCheckIn('check-in-2', { timestamp: '2026-03-14T09:00:00.000Z', energy: 'exhausted', concerns: ['Fatigue', 'Stress'] }),
-            createCheckIn('check-in-3', { timestamp: '2026-03-13T09:00:00.000Z', energy: 'exhausted', stress: 'critical' }),
-            createCheckIn('check-in-4', { timestamp: '2026-03-12T09:00:00.000Z', mood: 1, stress: 'critical' }),
+            createCheckIn('check-in-1', { timestamp: '2026-03-15T09:00:00.000Z', mood: 2, stress: 'high', energy: 'exhausted', workloadSatisfaction: 1, concerns: ['Fatigue'], followUpRequired: true }),
+            createCheckIn('check-in-2', { timestamp: '2026-03-14T09:00:00.000Z', mood: 2, stress: 'high', energy: 'exhausted', workloadSatisfaction: 1, concerns: ['Fatigue', 'Stress'], followUpRequired: true }),
+            createCheckIn('check-in-3', { timestamp: '2026-03-13T09:00:00.000Z', mood: 2, stress: 'critical', energy: 'exhausted', workloadSatisfaction: 1, concerns: ['Fatigue'], followUpRequired: true }),
+            createCheckIn('check-in-4', { timestamp: '2026-03-12T09:00:00.000Z', mood: 1, stress: 'critical', workloadSatisfaction: 1, followUpRequired: true }),
             createCheckIn('check-in-5', { timestamp: '2026-03-11T09:00:00.000Z', mood: 2 })
         ]
 

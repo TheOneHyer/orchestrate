@@ -20,7 +20,11 @@ function createCertRecord(daysUntilExpiry: number, remindersSent = 0): Certifica
     return {
         certificationName: 'Forklift Safety',
         issuedDate: '2025-01-01',
-        expirationDate: expiresIn(daysUntilExpiry),
+        expirationDate: (() => {
+            const d = new Date(SYSTEM_TIME)
+            d.setDate(d.getDate() + daysUntilExpiry)
+            return d.toISOString()
+        })(),
         status: daysUntilExpiry <= 30 ? 'expiring-soon' : 'active',
         renewalRequired: true,
         remindersSent,
@@ -248,10 +252,9 @@ describe('use-certification-notifications', () => {
         expect(onCreateNotification).toHaveBeenCalledTimes(2)
         const payloads = vi.mocked(onCreateNotification).mock.calls.map((call) => call[0] as Omit<Notification, 'id' | 'createdAt'>)
         expect(payloads).toHaveLength(2)
-        expect(payloads[0].message.includes(eligibleTrainer.name) || payloads[0].userId === eligibleTrainer.id || payloads[0].userId === 'admin').toBe(true)
-        expect(payloads[1].message.includes(eligibleTrainer.name) || payloads[1].userId === eligibleTrainer.id || payloads[1].userId === 'admin').toBe(true)
-        expect(payloads.some((payload) => payload.userId === eligibleTrainer.id)).toBe(true)
-        expect(payloads.some((payload) => payload.userId === 'admin')).toBe(true)
+        expect(payloads.some(p => p.userId === eligibleTrainer.id)).toBe(true)
+        expect(payloads.some(p => p.userId === 'admin')).toBe(true)
+        expect(payloads.some(p => p.message.includes(eligibleTrainer.name))).toBe(true)
 
         expect(onUpdateUsers).toHaveBeenCalledOnce()
         const updatedUsers = vi.mocked(onUpdateUsers).mock.calls[0][0] as User[]
@@ -406,4 +409,51 @@ describe('use-certification-notifications', () => {
         const updatedUsers = vi.mocked(onUpdateUsers).mock.calls[0][0] as User[]
         expect(updatedUsers[0].trainerProfile?.certificationRecords?.[0].remindersSent).toBe(1)
     })
+})
+
+it('emits no notifications when users array is empty', () => {
+    const onCreateNotification = vi.fn()
+    const onUpdateUsers = vi.fn()
+
+    renderHook(() => useCertificationNotifications([], onCreateNotification, onUpdateUsers))
+
+    expect(onCreateNotification).not.toHaveBeenCalled()
+    expect(onUpdateUsers).not.toHaveBeenCalled()
+})
+
+it('ignores users without a trainerProfile without crashing', () => {
+    const userWithoutProfile: User = {
+        id: 'no-profile',
+        name: 'No Profile User',
+        email: 'no-profile@example.com',
+        role: 'trainer',
+        department: 'Operations',
+        certifications: [],
+        hireDate: '2020-01-01T00:00:00.000Z',
+    }
+    const onCreateNotification = vi.fn()
+    const onUpdateUsers = vi.fn()
+
+    renderHook(() => useCertificationNotifications([userWithoutProfile], onCreateNotification, onUpdateUsers))
+
+    expect(onCreateNotification).not.toHaveBeenCalled()
+    expect(onUpdateUsers).not.toHaveBeenCalled()
+})
+
+it('updates notifications when users array is updated via rerender', () => {
+    const eligibleUser = createTrainer('trainer-eligible', createCertRecord(45, 0))
+    const onCreateNotification = vi.fn()
+    const onUpdateUsers = vi.fn()
+
+    const { rerender } = renderHook(
+        ({ users }: { users: User[] }) => useCertificationNotifications(users, onCreateNotification, onUpdateUsers),
+        { initialProps: { users: [] as User[] } }
+    )
+
+    expect(onCreateNotification).not.toHaveBeenCalled()
+
+    rerender({ users: [eligibleUser] })
+
+    expect(onCreateNotification).toHaveBeenCalledTimes(2)
+    expect(onUpdateUsers).toHaveBeenCalledOnce()
 })

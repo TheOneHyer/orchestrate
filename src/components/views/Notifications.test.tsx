@@ -108,6 +108,8 @@ describe('Notifications', () => {
       />
     )
 
+    // The Notifications component requires two clicks on "Clear Read" to confirm: the first click
+    // opens a confirmation dialog, and the second click (on the same button inside the dialog) confirms.
     await user.click(screen.getByRole('button', { name: /^clear read$/i }))
     expect(onDismissAll).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: /^clear read$/i }))
@@ -215,5 +217,26 @@ describe('Notifications', () => {
     expect(screen.getByRole('tab', { name: /^all/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /^unread/i })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /^read/i })).toBeInTheDocument()
+  })
+
+  it('filters notifications by selected tab', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <Notifications
+        notifications={twoNotifications}
+        onMarkAsRead={vi.fn()}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('tab', { name: /^unread/i }))
+
+    expect(screen.getByText(/session reminder/i)).toBeInTheDocument()
+    expect(screen.queryByText(/read message/i)).not.toBeInTheDocument()
   })
 })

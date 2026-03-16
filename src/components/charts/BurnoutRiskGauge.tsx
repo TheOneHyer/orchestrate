@@ -40,7 +40,7 @@ export function BurnoutRiskGauge({ data }: BurnoutRiskGaugeProps) {
 
   return (
     <div data-testid="burnout-risk-gauge" className="w-full h-[300px]">
-      <div data-testid="burnout-risk-gauge-chart">
+      <div data-testid="burnout-risk-gauge-chart" className="h-full">
         <span className="sr-only">
           Burnout risk distribution: {chartData.map(d => `${d.value} ${d.name}`).join(', ')}
         </span>

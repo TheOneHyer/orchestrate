@@ -43,6 +43,16 @@ describe('Layout', () => {
         expect(screen.getByText(/burnout risk/i)).toBeInTheDocument()
         expect(screen.getByText(/wellness & recovery/i)).toBeInTheDocument()
         expect(screen.getByText(/^settings$/i)).toBeInTheDocument()
+    })
+
+    it('shows notification count', () => {
+        const onNavigate = vi.fn()
+        render(
+            <Layout activeView="dashboard" onNavigate={onNavigate} userRole="admin" notificationCount={3}>
+                <div>Page Content</div>
+            </Layout>
+        )
+
         expect(screen.getByTestId('notification-count')).toHaveTextContent('3')
     })
 
@@ -70,7 +80,7 @@ describe('Layout', () => {
         expect(onNavigate).toHaveBeenCalledWith('notifications')
     })
 
-    it('opens notification settings dialog from header actions', async () => {
+    it('opens and closes notification settings dialog from header actions', async () => {
         render(
             <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="trainer">
                 <div>Page Content</div>

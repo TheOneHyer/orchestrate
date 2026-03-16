@@ -35,6 +35,13 @@ export function WorkloadDistribution({ data, trainers }: WorkloadDistributionPro
     return 'risk-indicator-low'
   }
 
+  const getRiskLabel = (utilization: number) => {
+    if (utilization >= 95) return 'Critical risk'
+    if (utilization >= 85) return 'High risk'
+    if (utilization >= 70) return 'Medium risk'
+    return 'Low risk'
+  }
+
   if (chartData.length === 0) {
     return (
       <div data-testid="workload-chart-empty" className="w-full h-[400px] flex items-center justify-center text-muted-foreground">
@@ -51,7 +58,7 @@ export function WorkloadDistribution({ data, trainers }: WorkloadDistributionPro
       <div className="sr-only">
         {chartData.map((entry) => (
           <span key={`risk-${entry.name}`} className={getRiskClass(entry.utilization)}>
-            {entry.name}
+            {entry.name}: {getRiskLabel(entry.utilization)}
           </span>
         ))}
       </div>

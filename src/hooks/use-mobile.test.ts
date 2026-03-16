@@ -14,16 +14,20 @@ describe('use-mobile', () => {
     const mockMatchMedia = (width: number) => {
         setWidth(width)
         matchMediaSpy?.mockRestore()
-        matchMediaSpy = vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
-            matches: width < 768,
-            media: query,
-            onchange: null,
-            addListener: (listener: (event: MediaQueryListEvent) => void) => { listeners.add(listener) },
-            removeListener: (listener: (event: MediaQueryListEvent) => void) => { listeners.delete(listener) },
-            addEventListener: (_event: 'change', listener: (event: MediaQueryListEvent) => void) => { listeners.add(listener) },
-            removeEventListener: (_event: 'change', listener: (event: MediaQueryListEvent) => void) => { listeners.delete(listener) },
-            dispatchEvent: vi.fn(),
-        }) as any)
+        matchMediaSpy = vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+            const match = query.match(/max-width:\s*(\d+)px/)
+            const breakpoint = match ? parseInt(match[1], 10) : 767
+            return ({
+                matches: width <= breakpoint,
+                media: query,
+                onchange: null,
+                addListener: (listener: (event: MediaQueryListEvent) => void) => { listeners.add(listener) },
+                removeListener: (listener: (event: MediaQueryListEvent) => void) => { listeners.delete(listener) },
+                addEventListener: (_event: 'change', listener: (event: MediaQueryListEvent) => void) => { listeners.add(listener) },
+                removeEventListener: (_event: 'change', listener: (event: MediaQueryListEvent) => void) => { listeners.delete(listener) },
+                dispatchEvent: vi.fn(),
+            }) as any
+        })
     }
 
     afterEach(() => {

@@ -29,7 +29,7 @@ interface WellnessCheckInDialogProps {
   currentUtilization?: number
 }
 
-const COMMON_CONCERNS = [
+export const COMMON_CONCERNS = [
   'Too many sessions scheduled',
   'Insufficient preparation time',
   'Challenging student behaviors',
@@ -138,7 +138,7 @@ export function WellnessCheckInDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          <div className="space-y-3">
+          <div className="space-y-3" data-testid="mood-slider">
             <div className="flex items-center justify-between">
               <Label className="text-base font-medium">Overall Mood</Label>
               {getMoodIcon(mood)}

@@ -113,7 +113,9 @@ describe('NotificationPermissionBanner', () => {
         await user.click(screen.getByRole('button', { name: /maybe later/i }))
 
         expect(requestPermission).not.toHaveBeenCalled()
-        expect(setDismissed).toHaveBeenCalledWith(true)
+        await waitFor(() => {
+            expect(setDismissed).toHaveBeenCalledWith(true)
+        })
     })
 
     it('dismisses banner when requestPermission rejects without propagating an error', async () => {

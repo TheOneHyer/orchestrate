@@ -29,7 +29,7 @@
 ### Prerequisites
 
 - **Node.js** ≥ 18
-- **pnpm** 9.15.4 via Corepack
+- **pnpm** 10.32.1 via Corepack
 
 ### Installation
 
@@ -65,7 +65,7 @@ pnpm test:watch          # Run Vitest in watch mode
 pnpm test:coverage       # Generate a coverage report
 ```
 
-The initial test rollout focuses on core business logic in `src/lib/burnout-analytics.ts`, `src/lib/workload-balancer.ts`, `src/lib/scheduler.ts`, and `src/lib/conflict-detection.ts`.
+The initial test rollout focuses on core business logic in `src/lib/`.
 
 ### Other Scripts
 

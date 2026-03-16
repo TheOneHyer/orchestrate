@@ -27,7 +27,6 @@ beforeEach(() => {
 afterEach(() => {
     vi.unstubAllGlobals()
     vi.clearAllMocks()
-    vi.restoreAllMocks()
 })
 
 describe('usePushNotifications', () => {
@@ -146,6 +145,31 @@ describe('usePushNotifications', () => {
         const NotificationMock = globalThis.Notification as unknown as ReturnType<typeof vi.fn>
         expect(NotificationMock).toHaveBeenCalledWith(
             'High alert',
+            expect.objectContaining({
+                icon: '/icon-192.png',
+                badge: '/badge-72.png',
+                requireInteraction: false,
+                silent: false,
+            })
+        )
+    })
+
+    it('sendNotification uses medium as default priority when no options are passed', () => {
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true, permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true }
+            },
+            vi.fn()
+        ] as any)
+
+        const { result } = renderHook(() => usePushNotifications())
+        const notif = result.current.sendNotification('message with default priority')
+        expect(notif).not.toBeNull()
+
+        const NotificationMock = globalThis.Notification as unknown as ReturnType<typeof vi.fn>
+        expect(NotificationMock).toHaveBeenCalledWith(
+            'message with default priority',
             expect.objectContaining({
                 icon: '/icon-192.png',
                 badge: '/badge-72.png',

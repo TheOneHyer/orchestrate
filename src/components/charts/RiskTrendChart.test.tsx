@@ -50,7 +50,7 @@ describe('RiskTrendChart', () => {
         expect(screen.getByTestId('utilization-summary')).toBeInTheDocument()
     })
 
-    it('hides utilization series marker when showUtilization is false', () => {
+    it('hides utilization summary when showUtilization is false', () => {
         render(
             <RiskTrendChart
                 trainerName="Taylor"

@@ -193,7 +193,8 @@ describe('AddCertificationDialog', () => {
     // Assert form is reset (certification name and expiration date are cleared, issued date reset to today)
     expect(screen.getByLabelText(/certification name/i)).toHaveValue('')
     const issuedDateInput = screen.getByLabelText(/^issued date$/i) as HTMLInputElement
-    expect(issuedDateInput.value).toBeTruthy() // Should have today's date, not empty
+    const today = new Date().toISOString().split('T')[0]
+    expect(issuedDateInput.value).toBe(today)
     expect(screen.getByLabelText(/^expiration date$/i)).toHaveValue('')
 
     // Assert no checkboxes remain checked
@@ -219,7 +220,7 @@ describe('AddCertificationDialog', () => {
     expect(onAddCertification).not.toHaveBeenCalled()
   })
 
-  it('submits successfully with optional expiration date omitted', async () => {
+  it('shows validation error when expiration date omitted', async () => {
     const onAddCertification = vi.fn()
     const issuedDate = '2027-12-15'
 

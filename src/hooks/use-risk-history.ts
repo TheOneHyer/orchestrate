@@ -24,20 +24,17 @@ export function useRiskHistory(
       const safeRiskHistory = current || []
       const newSnapshots: RiskHistorySnapshot[] = []
 
+      // Build a lookup map of the latest snapshot per trainerId in a single pass.
+      const latestSnapshotByTrainerId = safeRiskHistory.reduce<Map<string, RiskHistorySnapshot>>((map, snapshot) => {
+        const existing = map.get(snapshot.trainerId)
+        if (!existing || new Date(snapshot.timestamp).getTime() > new Date(existing.timestamp).getTime()) {
+          map.set(snapshot.trainerId, snapshot)
+        }
+        return map
+      }, new Map())
+
       trainers.forEach(trainer => {
-        const lastSnapshot = safeRiskHistory.reduce<RiskHistorySnapshot | undefined>((latest, snapshot) => {
-          if (snapshot.trainerId !== trainer.id) {
-            return latest
-          }
-
-          if (!latest) {
-            return snapshot
-          }
-
-          return new Date(snapshot.timestamp).getTime() > new Date(latest.timestamp).getTime()
-            ? snapshot
-            : latest
-        }, undefined)
+        const lastSnapshot = latestSnapshotByTrainerId.get(trainer.id)
 
         if (shouldTakeSnapshot(trainer.id, lastSnapshot, SNAPSHOT_FREQUENCY_HOURS)) {
           newSnapshots.push(createRiskSnapshot(trainer, sessions, courses, wellnessCheckIns))

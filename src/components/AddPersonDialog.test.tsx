@@ -80,10 +80,7 @@ describe('AddPersonDialog', () => {
     })
 
     it('submits a valid person and normalizes email casing', async () => {
-        const onSave = vi.fn()
-        const onOpenChange = vi.fn()
-
-        render(<AddPersonDialog {...baseProps} onSave={onSave} onOpenChange={onOpenChange} />)
+        render(<AddPersonDialog {...baseProps} />)
 
         await userEvent.type(screen.getByLabelText(/full name/i), 'Jamie Doe')
         await userEvent.type(screen.getByLabelText(/email address/i), 'JAMIE.DOE@EXAMPLE.COM')
@@ -95,8 +92,8 @@ describe('AddPersonDialog', () => {
 
         await userEvent.click(screen.getByRole('button', { name: /add person/i }))
 
-        expect(onSave).toHaveBeenCalledOnce()
-        expect(onSave).toHaveBeenCalledWith(
+        expect(baseProps.onSave).toHaveBeenCalledOnce()
+        expect(baseProps.onSave).toHaveBeenCalledWith(
             expect.objectContaining({
                 name: 'Jamie Doe',
                 email: 'jamie.doe@example.com',
@@ -105,7 +102,7 @@ describe('AddPersonDialog', () => {
                 certifications: ['Forklift'],
             })
         )
-        expect(onOpenChange).toHaveBeenCalledWith(false)
+        expect(baseProps.onOpenChange).toHaveBeenCalledWith(false)
         expect(toastSuccess).toHaveBeenCalledWith(expect.stringMatching(/added successfully/i))
     })
 

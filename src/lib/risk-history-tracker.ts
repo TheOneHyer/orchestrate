@@ -96,8 +96,16 @@ export function analyzeRiskTrend(
     }
   }
 
-  const snapshotsInHighRisk = relevantSnapshots.filter(s => s.riskLevel === 'high').length
-  const snapshotsInCriticalRisk = relevantSnapshots.filter(s => s.riskLevel === 'critical').length
+  const daysInHighRisk = new Set(
+    relevantSnapshots
+      .filter(s => s.riskLevel === 'high')
+      .map(s => new Date(s.timestamp).toISOString().slice(0, 10))
+  ).size
+  const daysInCriticalRisk = new Set(
+    relevantSnapshots
+      .filter(s => s.riskLevel === 'critical')
+      .map(s => new Date(s.timestamp).toISOString().slice(0, 10))
+  ).size
 
   const sortedByScore = [...relevantSnapshots].sort((a, b) => a.riskScore - b.riskScore)
   const lowestRisk = sortedByScore[0]
@@ -110,8 +118,8 @@ export function analyzeRiskTrend(
     historicalData: relevantSnapshots,
     trendDirection,
     changeRate,
-    daysInHighRisk: snapshotsInHighRisk,
-    daysInCriticalRisk: snapshotsInCriticalRisk,
+    daysInHighRisk,
+    daysInCriticalRisk,
     peakRiskScore: peakRisk.riskScore,
     peakRiskDate: peakRisk.timestamp,
     lowestRiskScore: lowestRisk.riskScore,

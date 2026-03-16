@@ -179,6 +179,8 @@ describe('Schedule', () => {
 
   it('calls onUpdateSession when enrolling students from session details', async () => {
     const onUpdateSession = vi.fn()
+    // pointerEventsCheck is disabled here because the session details panel renders over an overlay
+    // in the test environment, causing pointer-events checks to fail even though clicks reach the correct targets.
     const user = userEvent.setup({ pointerEventsCheck: 0 })
 
     renderSchedule({ sessions: [baseSession], onUpdateSession })

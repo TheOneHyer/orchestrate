@@ -87,6 +87,42 @@ describe('EnrollStudentsDialog', () => {
         expect(screen.queryByText('Ben Brown')).not.toBeInTheDocument()
     })
 
+    it('filters students by email', async () => {
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        await userEvent.type(screen.getByPlaceholderText(/search by name, email, or department/i), 'stu-1@example.com')
+
+        expect(screen.getByText('Alice Adams')).toBeInTheDocument()
+        expect(screen.queryByText('Ben Brown')).not.toBeInTheDocument()
+    })
+
+    it('filters students by department', async () => {
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        await userEvent.type(screen.getByPlaceholderText(/search by name, email, or department/i), 'HR')
+
+        expect(screen.getByText('Ben Brown')).toBeInTheDocument()
+        expect(screen.queryByText('Alice Adams')).not.toBeInTheDocument()
+    })
+
     it('supports select all and deselect all', async () => {
         render(
             <EnrollStudentsDialog

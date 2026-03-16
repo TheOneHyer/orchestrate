@@ -113,4 +113,19 @@ describe('UtilizationChart', () => {
         expect(screen.getByTestId('utilization-chart')).toBeInTheDocument()
         expect(screen.getByText(/min 0%, max 0%, average 0%/i)).toBeInTheDocument()
     })
+
+    it('handles NaN utilization and hours without crashing', () => {
+        render(
+            <UtilizationChart
+                trainerName="Taylor"
+                data={[
+                    // Intentional cast to simulate upstream division-by-zero producing NaN values.
+                    { date: '2026-03-10', utilization: NaN, hours: NaN, sessions: 0 } as UtilizationData,
+                ]}
+            />
+        )
+
+        expect(screen.getByTestId('utilization-chart')).toBeInTheDocument()
+        expect(screen.getByText(/min 0%, max 0%, average 0%/i)).toBeInTheDocument()
+    })
 })

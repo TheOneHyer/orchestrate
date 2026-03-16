@@ -122,7 +122,7 @@ describe('NotificationSettingsDialog', () => {
 
     render(<NotificationSettingsDialog open={true} onOpenChange={vi.fn()} />)
 
-    expect(screen.queryByText(/low priority notifications/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/low priority notifications/i)).not.toBeInTheDocument()
   })
 
   it('calls updateSettings when master switch is toggled', async () => {

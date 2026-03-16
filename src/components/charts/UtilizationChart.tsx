@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { format } from 'date-fns'
+import { format, parseISO, isValid } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { DataPoint } from '@/lib/burnout-analytics'
 
@@ -9,16 +9,16 @@ interface UtilizationChartProps {
 }
 
 function formatDate(dateValue: string) {
-  const d = new Date(dateValue)
-  return Number.isNaN(d.getTime()) ? 'Invalid date' : format(d, 'MMM d')
+  const d = parseISO(dateValue)
+  return isValid(d) ? format(d, 'MMM d') : 'Invalid date'
 }
 
 export function UtilizationChart({ data, trainerName }: UtilizationChartProps) {
   const chartData = useMemo(() => {
     return data.map(point => ({
       date: formatDate(point.date),
-      utilization: Math.min(100, Math.max(0, Math.round((point.utilization ?? 0) * 10) / 10)),
-      hours: Math.max(0, Math.round((point.hours ?? 0) * 10) / 10),
+      utilization: Math.min(100, Math.max(0, Math.round((point.utilization || 0) * 10) / 10)),
+      hours: Math.max(0, Math.round((point.hours || 0) * 10) / 10),
     }))
   }, [data])
 

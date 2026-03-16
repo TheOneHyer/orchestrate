@@ -119,7 +119,7 @@ describe('use-utilization-notifications', () => {
         rerender({ sessions: normalSessions })
 
         const calls = vi.mocked(onCreateNotification).mock.calls.map(c => c[0] as Omit<Notification, 'id' | 'createdAt'>)
-        expect(vi.mocked(onCreateNotification).mock.calls.length).toBe(2)
+        expect(calls.length).toBe(2)
 
         const trainerNormalizedCalls = calls.filter(n => n.title === 'Workload Normalized')
         expect(trainerNormalizedCalls).toHaveLength(1)

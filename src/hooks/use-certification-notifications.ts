@@ -43,6 +43,10 @@ export function useCertificationNotifications(
     onUpdateUsersRef.current = onUpdateUsers
   }, [onUpdateUsers])
 
+  // The dependency array is intentionally empty: all mutable external values used inside
+  // (onCreateNotificationRef, onUpdateUsersRef) are stable refs that are kept current via
+  // the useEffect syncs above. The list of users is provided via the usersToProcess parameter,
+  // so no state or prop dependencies need to be declared here.
   const checkAndNotify = useCallback((usersToProcess: User[]) => {
     const expiringCerts = getExpiringCertifications(usersToProcess)
     const updatedUsers = [...usersToProcess]

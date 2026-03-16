@@ -52,7 +52,11 @@ export function RecoveryPlanDialog({
   const [actions, setActions] = useState<Omit<RecoveryPlanAction, 'id'>[]>([])
 
   useEffect(() => {
-    if (open && latestCheckIn) {
+    if (!open) return
+    setTriggerReasonTouched(false)
+    setSubmitAttempted(false)
+
+    if (latestCheckIn) {
       const wellnessScore = calculateWellnessScore(latestCheckIn)
       const recommendations = getRecoveryPlanRecommendations(
         currentUtilization,
@@ -73,9 +77,6 @@ export function RecoveryPlanDialog({
       }
 
       setTriggerReason(reason)
-      setTriggerReasonTouched(false)
-      setSubmitAttempted(false)
-
       const initialActions: Omit<RecoveryPlanAction, 'id'>[] = []
 
       if (currentUtilization >= 85) {
@@ -200,7 +201,7 @@ export function RecoveryPlanDialog({
               rows={3}
             />
             {!triggerReason.trim() && (triggerReasonTouched || submitAttempted) && (
-              <p id="trigger-reason-error" className="text-sm text-destructive" role="alert" aria-live="assertive">Trigger reason is required</p>
+              <p id="trigger-reason-error" className="text-sm text-destructive" role="alert">Trigger reason is required</p>
             )}
           </div>
 
@@ -269,7 +270,7 @@ export function RecoveryPlanDialog({
                   <p className="font-medium">No actions added yet</p>
                   <p className="text-sm mt-1">Add recovery actions using the dropdown above</p>
                 </div>
-                {submitAttempted && actions.length === 0 && (
+                {submitAttempted && (
                   <p className="text-sm text-destructive" role="alert">At least one recovery action is required</p>
                 )}
               </>

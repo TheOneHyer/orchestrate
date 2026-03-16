@@ -1,9 +1,10 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { WellnessCheckInDialog } from './WellnessCheckInDialog'
+import { COMMON_CONCERNS } from './WellnessCheckInDialog'
 
 let defaultProps!: {
   open: boolean
@@ -113,12 +114,13 @@ describe('WellnessCheckInDialog', () => {
     const onSubmit = vi.fn()
     render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} />)
 
-    // Click the "Work-life balance" checkbox
-    await userEvent.click(screen.getByRole('checkbox', { name: /work-?life balance/i }))
+    const workLifeBalanceConcern = COMMON_CONCERNS.find(c => /work.?life balance/i.test(c))!
+    // Click the "Work-life balance" checkbox using the exported constant to avoid coupling to the label string
+    await userEvent.click(screen.getByRole('checkbox', { name: new RegExp(workLifeBalanceConcern, 'i') }))
     await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
 
     const arg = onSubmit.mock.calls[0][0]
-    expect(arg.concerns).toContain('Work-life balance')
+    expect(arg.concerns).toContain(workLifeBalanceConcern)
   })
 
   it('includes follow-up flag when checked', async () => {
@@ -194,7 +196,8 @@ describe('WellnessCheckInDialog', () => {
     // Note: The mood slider is the first slider on the page. The Radix UI Slider
     // component doesn't expose aria-label as the accessible name to role=slider.
     // Consider enhancing Slider API to support aria-labelledby for better accessibility.
-    const moodSlider = screen.getAllByRole('slider')[0]
+    const moodSliderContainer = screen.getByTestId('mood-slider')
+    const moodSlider = within(moodSliderContainer).getByRole('slider')
     expect(moodSlider).toHaveAttribute('aria-valuenow', '3')
     expect(await screen.findByRole('radio', { name: /moderate/i })).toBeChecked()
     expect(await screen.findByRole('radio', { name: /^neutral$/i })).toBeChecked()

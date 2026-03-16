@@ -182,6 +182,23 @@ describe('risk-history-tracker', () => {
         expect(report.averageRiskScore).toBe(45)
     })
 
+    it('generates an empty report when trainers are present but snapshots array is empty', () => {
+        const trainers = [
+            createTrainer({ id: 'trainer-1', name: 'Trainer One' }),
+            createTrainer({ id: 'trainer-2', name: 'Trainer Two' }),
+        ]
+
+        const report = generateRiskReport(trainers, [])
+
+        expect(report.totalTrainers).toBe(2)
+        expect(report.trends).toHaveLength(0)
+        expect(report.trainersInCriticalRisk).toBe(0)
+        expect(report.trainersInHighRisk).toBe(0)
+        expect(report.trainersWithWorseningTrends).toBe(0)
+        expect(report.trainersWithImprovingTrends).toBe(0)
+        expect(report.averageRiskScore).toBe(0)
+    })
+
     it('allows snapshot creation when no previous snapshot exists', () => {
         expect(shouldTakeSnapshot('trainer-1', undefined)).toBe(true)
     })

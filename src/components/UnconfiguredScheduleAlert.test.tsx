@@ -57,6 +57,7 @@ describe('UnconfiguredScheduleAlert', () => {
 
     it('renders compact variant and triggers onEdit when configure is clicked', async () => {
         const onEdit = vi.fn()
+        const user = userEvent.setup()
 
         render(
             <UnconfiguredScheduleAlert
@@ -66,19 +67,20 @@ describe('UnconfiguredScheduleAlert', () => {
             />
         )
 
-        await userEvent.click(screen.getByRole('button', { name: /configure/i }))
+        await user.click(screen.getByRole('button', { name: /configure/i }))
         expect(onEdit).toHaveBeenCalledOnce()
     })
 
     it('renders default variant content and configure action', async () => {
         const onEdit = vi.fn()
+        const user = userEvent.setup()
 
         render(<UnconfiguredScheduleAlert user={createTrainer()} onEdit={onEdit} />)
 
         expect(screen.getByText(/work schedule not configured/i)).toBeInTheDocument()
         expect(screen.getByText(/enable automatic scheduling and workload calculations/i)).toBeInTheDocument()
 
-        await userEvent.click(screen.getByRole('button', { name: /configure schedule now/i }))
+        await user.click(screen.getByRole('button', { name: /configure schedule now/i }))
         expect(onEdit).toHaveBeenCalledOnce()
     })
 

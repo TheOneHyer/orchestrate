@@ -64,7 +64,7 @@ Object.defineProperty(mockOscillator, 'type', {
 
 beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useKV).mockImplementation((_key, defaultValue) => [defaultValue as any, vi.fn(), vi.fn()] as any)
+    vi.mocked(useKV).mockImplementation((_key, defaultValue) => [defaultValue as any, vi.fn()] as any)
     vi.useFakeTimers()
     vi.setSystemTime(TEST_TIME)
     mockGainNode.gain.value = 0

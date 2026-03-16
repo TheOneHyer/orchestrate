@@ -72,7 +72,7 @@ describe('BurnoutRiskGauge', () => {
         expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('1 Critical Risk')
     })
 
-    it('processes and displays factors and recommendations in the gauge data', () => {
+    it('counts risk levels correctly for trainers with factors and recommendations', () => {
         render(
             <BurnoutRiskGauge
                 data={[

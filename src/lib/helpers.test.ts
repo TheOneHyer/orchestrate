@@ -78,9 +78,10 @@ describe('helpers', () => {
             expect(canAccessCourse(trainer, 'trainer-2')).toBe(false)
         })
 
-        it('denies employee access regardless', () => {
+        it('denies employee access regardless (matching and non-matching IDs)', () => {
             const employee = createUser({ role: 'employee' })
             expect(canAccessCourse(employee, 'employee-id')).toBe(false)
+            expect(canAccessCourse(employee, employee.id)).toBe(false)
         })
     })
 
@@ -127,6 +128,16 @@ describe('helpers', () => {
 
         it('excludes explicitly listed trainer IDs', () => {
             expect(findAvailableTrainers(users, ['Forklift'], ['t-1'])).toHaveLength(0)
+        })
+
+        it('returns all trainers when requiredCertifications is empty', () => {
+            const result = findAvailableTrainers(users, [])
+            expect(result.map(u => u.id)).toEqual(['t-1', 't-2'])
+        })
+
+        it('respects exclusions when requiredCertifications is empty', () => {
+            const result = findAvailableTrainers(users, [], ['t-1'])
+            expect(result.map(u => u.id)).toEqual(['t-2'])
         })
     })
 
@@ -186,6 +197,18 @@ describe('helpers', () => {
                 endTime: '2026-03-16T11:00:00.000Z'
             })).toBe(false)
         })
+
+        it('ignores sessions belonging to other trainers', () => {
+            const otherTrainerSession = createSession({
+                trainerId: 'trainer-2',
+                startTime: '2026-03-16T09:00:00.000Z',
+                endTime: '2026-03-16T11:00:00.000Z'
+            })
+            expect(checkScheduleConflict(user, [otherTrainerSession], {
+                startTime: '2026-03-16T09:30:00.000Z',
+                endTime: '2026-03-16T10:30:00.000Z'
+            })).toBe(false)
+        })
     })
 
     describe('calculateProgress', () => {
@@ -235,6 +258,17 @@ describe('helpers', () => {
             const start = new Date('2026-03-16T23:00:00.000Z')
             const end = new Date('2026-03-17T01:00:00.000Z')
             expect(calculateSessionDuration(start, end)).toBe(2)
+        })
+
+        it('returns 0 when start and end are identical', () => {
+            const start = new Date('2026-03-16T09:00:00.000Z')
+            expect(calculateSessionDuration(start, start)).toBe(0)
+        })
+
+        it('handles end before start by treating the gap as a next-day wraparound', () => {
+            const start = new Date('2026-03-16T11:00:00.000Z')
+            const end = new Date('2026-03-16T09:00:00.000Z')
+            expect(calculateSessionDuration(start, end)).toBe(22)
         })
     })
 

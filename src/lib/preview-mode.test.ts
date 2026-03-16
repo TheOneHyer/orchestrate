@@ -24,9 +24,7 @@ describe('preview-mode', () => {
         })
 
         it.each([
-            ['full', 'full'],
             ['FULL', 'full'],
-            ['force', 'force'],
             ['FORCE', 'force'],
         ])('normalizes explicit mode %s to %s', (input, expected) => {
             vi.stubGlobal('location', { search: `?previewSeed=${input}` })

@@ -7,6 +7,8 @@ afterEach(() => {
     vi.clearAllMocks()
     ResizeObserverMock.clearInstances()
     IntersectionObserverMock.clearInstances()
+    NotificationMock.permission = 'default'
+    NotificationMock.requestPermission = vi.fn(async () => 'granted' as NotificationPermission)
 })
 
 Object.defineProperty(window, 'matchMedia', {

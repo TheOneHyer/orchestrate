@@ -46,7 +46,20 @@ describe('DeletePersonDialog', () => {
         expect(screen.getByText(/remove them from all assigned training sessions/i)).toBeInTheDocument()
     })
 
-    it('renders employee-specific warning and confirms deletion', async () => {
+    it('renders employee-specific warning', () => {
+        render(
+            <DeletePersonDialog
+                user={createUser({ role: 'employee', name: 'Evan Employee' })}
+                open={true}
+                onOpenChange={vi.fn()}
+                onConfirm={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText(/remove them from all enrolled courses/i)).toBeInTheDocument()
+    })
+
+    it('confirms deletion when Delete clicked', async () => {
         const user = userEvent.setup()
         const onConfirm = vi.fn()
 
@@ -58,8 +71,6 @@ describe('DeletePersonDialog', () => {
                 onConfirm={onConfirm}
             />
         )
-
-        expect(screen.getByText(/remove them from all enrolled courses/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /delete/i }))
         expect(onConfirm).toHaveBeenCalledOnce()

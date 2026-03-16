@@ -83,7 +83,7 @@ describe('use-risk-history (unit)', () => {
         expect(history[2].id).toBe('s-3')
     })
 
-    it('getTrainerHistory with limit returns N most recent entries', () => {
+    it('getTrainerHistory returns the N most recent entries sorted oldest-first', () => {
         mockKVWithSnapshots(SNAPSHOTS)
         const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
 

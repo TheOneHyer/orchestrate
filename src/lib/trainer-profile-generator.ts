@@ -7,6 +7,8 @@ export type TrainerWithShifts = Omit<User, 'shifts'> & {
   shifts: ShiftType[]
 }
 
+export function generateTrainerProfile(user: TrainerWithShifts): TrainerWithShifts & { trainerProfile: TrainerProfile }
+export function generateTrainerProfile(user: User): User
 export function generateTrainerProfile(user: User): User {
   if (user.role !== 'trainer') return user
 
