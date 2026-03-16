@@ -15,28 +15,113 @@ import { TrainerWellness } from '@/components/views/TrainerWellness'
 import { CertificationDashboard } from '@/components/views/CertificationDashboard'
 import { Notifications } from '@/components/views/Notifications'
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner'
-import { User, Session, Course, Enrollment, Notification, CertificationRecord } from '@/lib/types'
+import {
+  User,
+  Session,
+  Course,
+  Enrollment,
+  Notification,
+  CertificationRecord,
+  CheckInSchedule,
+  RecoveryPlan,
+  ScheduleTemplate,
+  WellnessCheckIn
+} from '@/lib/types'
 import { useUtilizationNotifications } from '@/hooks/use-utilization-notifications'
 import { useCertificationNotifications } from '@/hooks/use-certification-notifications'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 import { ensureAllTrainersHaveProfiles } from '@/lib/trainer-profile-generator'
+import { createPreviewSeedData, PREVIEW_SEED_VERSION } from '@/lib/preview-seed-data'
+import { getPreviewSeedMode, isPreviewSeedEnabled } from '@/lib/preview-mode'
+import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 
 function App() {
   const [activeView, setActiveView] = useState('dashboard')
-  
+
+  const previewSeedMode = getPreviewSeedMode()
+  const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
+
   const [users, setUsers] = useKV<User[]>('users', [])
   const [sessions, setSessions] = useKV<Session[]>('sessions', [])
-  const [courses] = useKV<Course[]>('courses', [])
-  const [enrollments] = useKV<Enrollment[]>('enrollments', [])
+  const [courses, setCourses] = useKV<Course[]>('courses', [])
+  const [enrollments, setEnrollments] = useKV<Enrollment[]>('enrollments', [])
   const [notifications, setNotifications] = useKV<Notification[]>('notifications', [])
+  const [, setWellnessCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
+  const [, setRecoveryPlans] = useKV<RecoveryPlan[]>('recovery-plans', [])
+  const [, setCheckInSchedules] = useKV<CheckInSchedule[]>('check-in-schedules', [])
+  const [, setScheduleTemplates] = useKV<ScheduleTemplate[]>('schedule-templates', [])
+  const [, setRiskHistorySnapshots] = useKV<RiskHistorySnapshot[]>('risk-history-snapshots', [])
+  const [, setTargetTrainerCoverage] = useKV<number>('target-trainer-coverage', 4)
+  const [previewSeedVersion, setPreviewSeedVersion] = useKV<string>('preview-seed-version', '')
 
   const { sendNotification } = usePushNotifications()
+
+  useEffect(() => {
+    if (!previewSeedEnabled) {
+      return
+    }
+
+    const seedMarker = `${PREVIEW_SEED_VERSION}:${previewSeedMode}`
+    const alreadySeededForMode = previewSeedVersion === seedMarker
+    const hasExistingCoreData =
+      (users?.length || 0) > 0 ||
+      (sessions?.length || 0) > 0 ||
+      (courses?.length || 0) > 0 ||
+      (enrollments?.length || 0) > 0
+
+    if (alreadySeededForMode) {
+      return
+    }
+
+    if (previewSeedMode === 'full' && hasExistingCoreData) {
+      return
+    }
+
+    const seedData = createPreviewSeedData()
+
+    setUsers(seedData.users)
+    setSessions(seedData.sessions)
+    setCourses(seedData.courses)
+    setEnrollments(seedData.enrollments)
+    setNotifications(seedData.notifications)
+    setWellnessCheckIns(seedData.wellnessCheckIns)
+    setRecoveryPlans(seedData.recoveryPlans)
+    setCheckInSchedules(seedData.checkInSchedules)
+    setScheduleTemplates(seedData.scheduleTemplates)
+    setRiskHistorySnapshots(seedData.riskHistorySnapshots)
+    setTargetTrainerCoverage(seedData.targetTrainerCoverage)
+    setPreviewSeedVersion(seedMarker)
+
+    toast.success('Preview test data loaded', {
+      description: `Seeded ${seedData.users.length} users, ${seedData.sessions.length} sessions, and related edge-case data.`
+    })
+  }, [
+    previewSeedEnabled,
+    previewSeedMode,
+    previewSeedVersion,
+    users,
+    sessions,
+    courses,
+    enrollments,
+    setUsers,
+    setSessions,
+    setCourses,
+    setEnrollments,
+    setNotifications,
+    setWellnessCheckIns,
+    setRecoveryPlans,
+    setCheckInSchedules,
+    setScheduleTemplates,
+    setRiskHistorySnapshots,
+    setTargetTrainerCoverage,
+    setPreviewSeedVersion
+  ])
 
   useEffect(() => {
     if (users && users.length > 0) {
       const trainers = users.filter(u => u.role === 'trainer')
       const trainersWithoutProfiles = trainers.filter(t => !t.trainerProfile)
-      
+
       if (trainersWithoutProfiles.length > 0) {
         const updatedUsers = ensureAllTrainersHaveProfiles(users)
         setUsers(updatedUsers)
@@ -56,9 +141,9 @@ function App() {
       id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date().toISOString()
     }
-    
+
     setNotifications((current) => [newNotification, ...(current || [])])
-    
+
     const priorityMap = {
       low: 'low' as const,
       medium: 'medium' as const,
@@ -66,7 +151,7 @@ function App() {
       critical: 'critical' as const
     }
     const pushPriority = priorityMap[notification.priority || 'medium']
-    
+
     sendNotification(notification.title, {
       body: notification.message,
       priority: pushPriority,
@@ -87,7 +172,7 @@ function App() {
         }
       } : undefined
     })
-    
+
     if (notification.priority === 'critical' || notification.priority === 'high') {
       const icon = notification.priority === 'critical' ? '🚨' : '⚠️'
       toast.error(`${icon} ${notification.title}`, {
@@ -136,7 +221,7 @@ function App() {
       status: session.status || 'scheduled',
       ...(session.recurrence && { recurrence: session.recurrence })
     }
-    
+
     setSessions((currentSessions) => [...(currentSessions || []), newSession])
   }
 
@@ -154,7 +239,7 @@ function App() {
       status: session.status || 'scheduled',
       ...(session.recurrence && { recurrence: session.recurrence })
     }))
-    
+
     setSessions((currentSessions) => [...(currentSessions || []), ...newSessions])
   }
 
