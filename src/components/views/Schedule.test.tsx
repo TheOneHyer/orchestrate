@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Schedule } from './Schedule'
@@ -75,7 +76,7 @@ const baseSession: Session = {
 }
 
 describe('Schedule', () => {
-  it('opens the Auto-Schedule dialog', () => {
+  it('opens the Auto-Schedule dialog', async () => {
     render(
       <Schedule
         sessions={[baseSession]}
@@ -88,12 +89,12 @@ describe('Schedule', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /auto-schedule/i }))
+    await userEvent.click(screen.getByRole('button', { name: /auto-schedule/i }))
     expect(screen.getByText(/automatic trainer scheduler/i)).toBeInTheDocument()
     expect(screen.getByText(/autoscheduler mock/i)).toBeInTheDocument()
   })
 
-  it('opens the Guided Schedule dialog', () => {
+  it('opens the Guided Schedule dialog', async () => {
     render(
       <Schedule
         sessions={[baseSession]}
@@ -106,12 +107,12 @@ describe('Schedule', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /guided schedule/i }))
+    await userEvent.click(screen.getByRole('button', { name: /guided schedule/i }))
     expect(screen.getByText(/guided trainer scheduler/i)).toBeInTheDocument()
     expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
   })
 
-  it('triggers new session navigation', () => {
+  it('triggers new session navigation', async () => {
     const onNavigate = vi.fn()
 
     render(
@@ -126,7 +127,7 @@ describe('Schedule', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /new session/i }))
+    await userEvent.click(screen.getByRole('button', { name: /new session/i }))
     expect(onNavigate).toHaveBeenCalledWith('schedule', { create: true })
   })
 
@@ -150,7 +151,7 @@ describe('Schedule', () => {
     expect(screen.getByText(/evening safety session/i)).toBeInTheDocument()
   })
 
-  it('supports calendar period switching controls', () => {
+  it('supports calendar period switching controls', async () => {
     render(
       <Schedule
         sessions={[baseSession]}
@@ -163,13 +164,13 @@ describe('Schedule', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /^day$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^day$/i }))
     expect(screen.getByRole('button', { name: /previous day/i })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /^week$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^week$/i }))
     expect(screen.getByRole('button', { name: /previous week/i })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /^month$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /^month$/i }))
     expect(screen.getByRole('button', { name: /previous month/i })).toBeInTheDocument()
   })
 })

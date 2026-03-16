@@ -35,9 +35,9 @@ export function NotificationPermissionBanner() {
       if (permission === 'granted' || permission === 'denied') {
         setDismissed(true)
       }
-    } catch (_error) {
+    } catch (error) {
       // Dismiss the banner if permission flow fails so users can continue.
-      console.error(_error, 'notification permission request failed')
+      console.error('notification permission request failed', error)
       setDismissed(true)
     }
   }

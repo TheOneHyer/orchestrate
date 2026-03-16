@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { CheckInScheduleDialog } from './CheckInScheduleDialog'
@@ -19,12 +20,15 @@ function makeTrainer(id = 't-1', name = 'Alex Trainer'): User {
 
 const trainer = makeTrainer()
 
-const defaultProps = {
-  open: true,
-  onClose: vi.fn(),
-  trainers: [trainer],
-  onSubmit: vi.fn(),
-  currentUserId: 'admin-1',
+function makeProps(overrides: Partial<ComponentProps<typeof CheckInScheduleDialog>> = {}) {
+  return {
+    open: true,
+    onClose: vi.fn(),
+    trainers: [trainer],
+    onSubmit: vi.fn(),
+    currentUserId: 'admin-1',
+    ...overrides,
+  }
 }
 
 describe('CheckInScheduleDialog', () => {
@@ -48,7 +52,7 @@ describe('CheckInScheduleDialog', () => {
   }
 
   it('renders in create mode by default', () => {
-    render(<CheckInScheduleDialog {...defaultProps} />)
+    render(<CheckInScheduleDialog {...makeProps()} />)
 
     expect(screen.getByText(/create check-in schedule/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create schedule/i })).toBeInTheDocument()
@@ -60,16 +64,16 @@ describe('CheckInScheduleDialog', () => {
       nextScheduledDate: '2026-02-01T00:00:00.000Z',
     })
 
-    render(<CheckInScheduleDialog {...defaultProps} existingSchedule={existing} />)
+    render(<CheckInScheduleDialog {...makeProps({ existingSchedule: existing })} />)
 
     expect(screen.getByText(/edit check-in schedule/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /update schedule/i })).toBeInTheDocument()
   })
 
   it('disables the trainer selector in edit mode', () => {
-    const existing = makeExistingSchedule({ autoReminders: false })
+    const existing = makeExistingSchedule()
 
-    render(<CheckInScheduleDialog {...defaultProps} existingSchedule={existing} />)
+    render(<CheckInScheduleDialog {...makeProps({ existingSchedule: existing })} />)
 
     // In edit mode, the trainer select trigger should be disabled
     const triggerButton = screen.getByRole('combobox', { name: /trainer/i })
@@ -77,7 +81,7 @@ describe('CheckInScheduleDialog', () => {
   })
 
   it('hides reminder hours when notifications are disabled', async () => {
-    render(<CheckInScheduleDialog {...defaultProps} />)
+    render(<CheckInScheduleDialog {...makeProps()} />)
 
     // Initially both notification and reminder switches are on – reminder hours visible
     expect(screen.getByLabelText(/reminder time/i)).toBeInTheDocument()
@@ -89,7 +93,7 @@ describe('CheckInScheduleDialog', () => {
   })
 
   it('hides reminder hours when auto reminders are disabled', async () => {
-    render(<CheckInScheduleDialog {...defaultProps} />)
+    render(<CheckInScheduleDialog {...makeProps()} />)
 
     await userEvent.click(screen.getByLabelText(/automatic reminders/i))
 
@@ -99,19 +103,21 @@ describe('CheckInScheduleDialog', () => {
   it('shows custom days input when editing a custom schedule', () => {
     const existing = makeExistingSchedule({ frequency: 'custom', customDays: 10 })
 
-    render(<CheckInScheduleDialog {...defaultProps} existingSchedule={existing} />)
+    render(<CheckInScheduleDialog {...makeProps({ existingSchedule: existing })} />)
 
     expect(screen.getByLabelText(/custom days/i)).toBeInTheDocument()
   })
 
   it('hides custom days input in default weekly mode', () => {
-    render(<CheckInScheduleDialog {...defaultProps} />)
+    render(<CheckInScheduleDialog {...makeProps()} />)
 
     expect(screen.queryByLabelText(/custom days/i)).not.toBeInTheDocument()
   })
 
   it('submit button is disabled when no trainer is selected', () => {
-    render(<CheckInScheduleDialog {...defaultProps} />)
+    // In this test, makeProps provides a trainer option list but no default trainer selection,
+    // so the create action should remain disabled until a selection is made.
+    render(<CheckInScheduleDialog {...makeProps()} />)
 
     expect(screen.getByRole('button', { name: /create schedule/i })).toBeDisabled()
   })
@@ -122,7 +128,7 @@ describe('CheckInScheduleDialog', () => {
 
     render(
       <CheckInScheduleDialog
-        {...defaultProps}
+        {...makeProps()}
         existingSchedule={existing}
         onSubmit={onSubmit}
       />
@@ -139,7 +145,7 @@ describe('CheckInScheduleDialog', () => {
 
   it('calls onClose when cancel is clicked', async () => {
     const onClose = vi.fn()
-    render(<CheckInScheduleDialog {...defaultProps} onClose={onClose} />)
+    render(<CheckInScheduleDialog {...makeProps({ onClose })} />)
 
     await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
 

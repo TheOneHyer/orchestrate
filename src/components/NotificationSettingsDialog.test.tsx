@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { NotificationSettingsDialog } from './NotificationSettingsDialog'
 
@@ -10,7 +10,26 @@ vi.mock('@/hooks/use-push-notifications', () => ({
   usePushNotifications: () => mockUsePushNotifications(),
 }))
 
-function makeSettings(overrides: Record<string, unknown> = {}) {
+interface MockPushSettings {
+  enabled: boolean
+  permission: NotificationPermission
+  showForPriorities: {
+    low: boolean
+    medium: boolean
+    high: boolean
+    critical: boolean
+  }
+}
+
+interface MockPushHook {
+  isSupported: boolean
+  settings: MockPushSettings
+  requestPermission: ReturnType<typeof vi.fn>
+  updateSettings: ReturnType<typeof vi.fn>
+  testNotification: ReturnType<typeof vi.fn>
+}
+
+function makeSettings(overrides: Partial<MockPushSettings> = {}): MockPushSettings {
   return {
     enabled: true,
     permission: 'granted' as NotificationPermission,
@@ -19,7 +38,7 @@ function makeSettings(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function makeHook(overrides: Record<string, unknown> = {}) {
+function makeHook(overrides: Partial<MockPushHook> = {}): MockPushHook {
   return {
     isSupported: true,
     settings: makeSettings(),
@@ -31,6 +50,10 @@ function makeHook(overrides: Record<string, unknown> = {}) {
 }
 
 describe('NotificationSettingsDialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('shows unsupported message when notifications are not supported', () => {
     mockUsePushNotifications.mockReturnValue(makeHook({ isSupported: false }))
 
@@ -89,6 +112,7 @@ describe('NotificationSettingsDialog', () => {
     expect(screen.getByText(/low priority notifications/i)).toBeInTheDocument()
     expect(screen.getByText(/medium priority notifications/i)).toBeInTheDocument()
     expect(screen.getByText(/high priority notifications/i)).toBeInTheDocument()
+    expect(screen.getByText(/critical priority notifications/i)).toBeInTheDocument()
   })
 
   it('hides priority toggles when master notifications are disabled', () => {
@@ -119,14 +143,47 @@ describe('NotificationSettingsDialog', () => {
 
     render(<NotificationSettingsDialog open={true} onOpenChange={vi.fn()} />)
 
-    // Find the Low priority switch (last switch in the priority section)
-    const switches = screen.getAllByRole('switch')
-    // switches[0] = master enable, switches[1] = low, ...
-    await userEvent.click(switches[1])
+    await userEvent.click(screen.getByLabelText(/low priority notifications/i))
 
     expect(updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({ showForPriorities: expect.objectContaining({ low: false }) })
     )
+  })
+
+  it('calls testNotification when send test notification is clicked', async () => {
+    const testNotification = vi.fn()
+    mockUsePushNotifications.mockReturnValue(makeHook({ testNotification }))
+
+    render(<NotificationSettingsDialog open={true} onOpenChange={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /send test notification/i }))
+
+    expect(testNotification).toHaveBeenCalledOnce()
+  })
+
+  it('calls onOpenChange when Done is clicked', async () => {
+    const onOpenChange = vi.fn()
+    mockUsePushNotifications.mockReturnValue(makeHook())
+
+    render(<NotificationSettingsDialog open={true} onOpenChange={onOpenChange} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /^done$/i }))
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('handles requestPermission rejection without unhandled errors', async () => {
+    const requestPermission = vi.fn().mockRejectedValue(new Error('permission-failure'))
+    mockUsePushNotifications.mockReturnValue(
+      makeHook({ settings: makeSettings({ permission: 'default' }), requestPermission })
+    )
+
+    render(<NotificationSettingsDialog open={true} onOpenChange={vi.fn()} />)
+
+    await userEvent.click(screen.getByRole('button', { name: /enable browser notifications/i }))
+
+    expect(requestPermission).toHaveBeenCalledOnce()
+    expect(await screen.findByText(/unable to request notification permission/i)).toBeInTheDocument()
   })
 
   it('does not render dialog content when closed', () => {

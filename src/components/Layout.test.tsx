@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Layout } from './Layout'
@@ -25,8 +26,8 @@ vi.mock('@/components/NotificationSettingsDialog', () => ({
 
 describe('Layout', () => {
     beforeEach(() => {
-        mockToggleTheme.mockClear()
-        mockUseTheme.mockClear()
+        mockToggleTheme.mockReset()
+        mockUseTheme.mockReset()
     })
 
     it('filters navigation by role and shows admin settings', () => {
@@ -46,7 +47,7 @@ describe('Layout', () => {
         expect(screen.getByTestId('notification-count')).toHaveTextContent('3')
     })
 
-    it('hides admin-only items for employees and navigates on click', () => {
+    it('hides admin-only items for employees and navigates on click', async () => {
         mockUseTheme.mockReturnValue({ theme: 'dark', toggleTheme: mockToggleTheme })
 
         const onNavigate = vi.fn()
@@ -59,11 +60,11 @@ describe('Layout', () => {
         expect(screen.queryByText(/schedule templates/i)).not.toBeInTheDocument()
         expect(screen.queryByText(/^settings$/i)).not.toBeInTheDocument()
 
-        fireEvent.click(screen.getByRole('button', { name: /notifications/i }))
+        await userEvent.click(screen.getByRole('button', { name: /notifications/i }))
         expect(onNavigate).toHaveBeenCalledWith('notifications')
     })
 
-    it('opens notification settings dialog and toggles theme from header actions', () => {
+    it('opens notification settings dialog from header actions', async () => {
         mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: mockToggleTheme })
 
         render(
@@ -74,14 +75,24 @@ describe('Layout', () => {
 
         expect(screen.getByTestId('notification-settings-dialog')).toHaveAttribute('data-open', 'false')
 
-        fireEvent.click(screen.getByRole('button', { name: /notification settings/i }))
+        await userEvent.click(screen.getByRole('button', { name: /notification settings/i }))
         expect(screen.getByTestId('notification-settings-dialog')).toHaveAttribute('data-open', 'true')
 
         // Close dialog via mock button
-        fireEvent.click(screen.getByTestId('notification-settings-dialog-toggle'))
+        await userEvent.click(screen.getByTestId('notification-settings-dialog-toggle'))
         expect(screen.getByTestId('notification-settings-dialog')).toHaveAttribute('data-open', 'false')
+    })
 
-        fireEvent.click(screen.getByRole('button', { name: /toggle theme/i }))
+    it('toggles theme from header action', async () => {
+        mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: mockToggleTheme })
+
+        render(
+            <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="trainer">
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /toggle theme/i }))
         expect(mockToggleTheme).toHaveBeenCalledOnce()
     })
 })

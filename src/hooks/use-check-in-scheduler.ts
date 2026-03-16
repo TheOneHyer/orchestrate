@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { toast } from 'sonner'
 import { CheckInSchedule, User, WellnessCheckIn } from '@/lib/types'
-import { differenceInHours, addDays, addWeeks, addMonths, isAfter, isBefore, startOfDay } from 'date-fns'
+import { differenceInHours, addDays, addWeeks, addMonths, isAfter } from 'date-fns'
 
 export function useCheckInScheduler(
   users: User[],
@@ -12,7 +12,7 @@ export function useCheckInScheduler(
   const [schedules, setSchedules] = useKV<CheckInSchedule[]>('check-in-schedules', [])
 
   const getNextScheduledDate = useCallback((schedule: CheckInSchedule): Date => {
-    const baseDate = schedule.lastCheckInDate 
+    const baseDate = schedule.lastCheckInDate
       ? new Date(schedule.lastCheckInDate)
       : new Date(schedule.startDate)
 
@@ -33,7 +33,7 @@ export function useCheckInScheduler(
   }, [])
 
   const updateScheduleNextDate = useCallback((scheduleId: string, lastCheckInDate: string) => {
-    setSchedules((current) => 
+    setSchedules((current) =>
       (current || []).map(schedule => {
         if (schedule.id === scheduleId) {
           const updatedSchedule = {
@@ -42,7 +42,7 @@ export function useCheckInScheduler(
             completedCheckIns: schedule.completedCheckIns + 1
           }
           const nextDate = getNextScheduledDate(updatedSchedule)
-          
+
           if (schedule.endDate && isAfter(nextDate, new Date(schedule.endDate))) {
             return {
               ...updatedSchedule,
@@ -50,7 +50,7 @@ export function useCheckInScheduler(
               nextScheduledDate: schedule.endDate
             }
           }
-          
+
           return {
             ...updatedSchedule,
             nextScheduledDate: nextDate.toISOString()
@@ -90,9 +90,9 @@ export function useCheckInScheduler(
       }
 
       if (hoursDiff < -24) {
-        setSchedules((current) => 
-          (current || []).map(s => 
-            s.id === schedule.id 
+        setSchedules((current) =>
+          (current || []).map(s =>
+            s.id === schedule.id
               ? { ...s, missedCheckIns: s.missedCheckIns + 1, nextScheduledDate: getNextScheduledDate(s).toISOString() }
               : s
           )
@@ -103,7 +103,7 @@ export function useCheckInScheduler(
 
   useEffect(() => {
     checkForDueCheckIns()
-    
+
     const interval = setInterval(() => {
       checkForDueCheckIns()
     }, 1000 * 60 * 30)

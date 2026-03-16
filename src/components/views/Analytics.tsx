@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { TrendUp, TrendDown, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
+import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
 import { User, Enrollment, Session, Course } from '@/lib/types'
 
 interface AnalyticsProps {
@@ -14,10 +14,10 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
   const totalEnrollments = enrollments.length
   const completedEnrollments = enrollments.filter(e => e.status === 'completed').length
   const completionRate = totalEnrollments > 0 ? Math.round((completedEnrollments / totalEnrollments) * 100) : 0
-  
+
   const totalSessions = sessions.length
   const completedSessions = sessions.filter(s => s.status === 'completed').length
-  
+
   const averageScore = enrollments
     .filter(e => e.score !== undefined)
     .reduce((sum, e) => sum + (e.score || 0), 0) / enrollments.filter(e => e.score !== undefined).length || 0
@@ -32,7 +32,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
       const courseAvgScore = courseEnrollments
         .filter(e => e.score !== undefined)
         .reduce((sum, e) => sum + (e.score || 0), 0) / courseEnrollments.filter(e => e.score !== undefined).length || 0
-      
+
       return {
         course,
         enrollments: courseEnrollments.length,
@@ -175,15 +175,15 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
           </CardHeader>
           <CardContent className="space-y-3">
             {(() => {
-              const trainersWithSchedules = users.filter(u => 
-                u.role === 'trainer' && 
-                u.trainerProfile?.shiftSchedules && 
+              const trainersWithSchedules = users.filter(u =>
+                u.role === 'trainer' &&
+                u.trainerProfile?.shiftSchedules &&
                 u.trainerProfile.shiftSchedules.length > 0
               )
               const trainersWithoutSchedules = trainerCount - trainersWithSchedules.length
               const configuredPercentage = (trainersWithSchedules.length / trainerCount) * 100
               const unconfiguredPercentage = (trainersWithoutSchedules / trainerCount) * 100
-              
+
               return (
                 <>
                   <div className="space-y-2">

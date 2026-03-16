@@ -7,10 +7,10 @@ import { Slider } from '@/components/ui/slider'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { MoodLevel, StressLevel, EnergyLevel, WellnessCheckIn } from '@/lib/types'
-import { 
-  Smiley, 
-  SmileyMeh, 
-  SmileyNervous, 
+import {
+  Smiley,
+  SmileyMeh,
+  SmileyNervous,
   SmileySad,
   Lightning,
   BatteryHigh,
@@ -279,6 +279,7 @@ export function WellnessCheckInDialog({
               {COMMON_CONCERNS.map(concern => (
                 <div
                   key={concern}
+                  data-testid={`concern-row-${concern.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
                   className="flex items-center space-x-2 border rounded p-2 hover:bg-muted/50 cursor-pointer"
                   onClick={() => toggleConcern(concern)}
                 >

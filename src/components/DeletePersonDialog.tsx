@@ -22,7 +22,7 @@ export function DeletePersonDialog({ user, open, onOpenChange, onConfirm }: Dele
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
+      <AlertDialogContent overlayProps={{ 'data-testid': 'dialog-overlay' }}>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {user.name}?</AlertDialogTitle>
           <AlertDialogDescription>

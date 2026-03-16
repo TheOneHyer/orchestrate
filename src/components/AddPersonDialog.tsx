@@ -291,6 +291,7 @@ export function AddPersonDialog({ open, onOpenChange, onSave, existingEmails }: 
                     <button
                       type="button"
                       onClick={() => handleRemoveCertification(cert)}
+                      aria-label={`Remove certification ${cert}`}
                       className="ml-1 hover:bg-secondary-foreground/20 rounded-full p-0.5"
                     >
                       <X size={12} />

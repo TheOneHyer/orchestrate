@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { RecoveryPlanDialog } from './RecoveryPlanDialog'
 import type { User, WellnessCheckIn } from '@/lib/types'
@@ -36,14 +36,26 @@ const latestCheckIn: WellnessCheckIn = {
 }
 
 describe('RecoveryPlanDialog', () => {
-    const baseProps = {
-        open: true,
-        onClose: vi.fn(),
-        trainerId: 'trainer-1',
-        trainerName: 'Taylor Trainer',
-        currentUser,
-        onSubmit: vi.fn(),
+    let baseProps: {
+        open: boolean
+        onClose: ReturnType<typeof vi.fn>
+        trainerId: string
+        trainerName: string
+        currentUser: User
+        onSubmit: ReturnType<typeof vi.fn>
     }
+
+    beforeEach(() => {
+        vi.clearAllMocks()
+        baseProps = {
+            open: true,
+            onClose: vi.fn(),
+            trainerId: 'trainer-1',
+            trainerName: 'Taylor Trainer',
+            currentUser,
+            onSubmit: vi.fn(),
+        }
+    })
 
     it('starts with disabled submit when no trigger reason and no actions exist', () => {
         render(<RecoveryPlanDialog {...baseProps} />)

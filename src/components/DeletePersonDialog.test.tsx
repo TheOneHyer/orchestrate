@@ -100,9 +100,11 @@ describe('DeletePersonDialog', () => {
             />
         )
 
-        const overlay = document.querySelector('[data-slot="alert-dialog-overlay"]')
-        expect(overlay).toBeInTheDocument()
-        await user.click(overlay as Element)
+        const dialog = screen.getByRole('alertdialog')
+        const overlay = screen.getByTestId('dialog-overlay')
+
+        expect(dialog).toBeInTheDocument()
+        await user.click(overlay)
 
         expect(onOpenChange).not.toHaveBeenCalled()
         expect(onConfirm).not.toHaveBeenCalled()
@@ -118,6 +120,6 @@ describe('DeletePersonDialog', () => {
             />
         )
 
-        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     })
 })

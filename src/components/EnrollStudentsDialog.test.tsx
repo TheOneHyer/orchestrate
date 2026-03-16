@@ -162,6 +162,13 @@ describe('EnrollStudentsDialog', () => {
         await userEvent.click(screen.getByRole('checkbox', { name: /alice adams/i }))
         await userEvent.click(screen.getByRole('checkbox', { name: /ben brown/i }))
 
+        expect(mockCheckStudentEnrollmentConflicts).toHaveBeenLastCalledWith(
+            session,
+            ['stu-1', 'stu-2'],
+            [session],
+            students
+        )
+
         expect(screen.getByText(/scheduling conflicts/i)).toBeInTheDocument()
         expect(screen.getByText(/ben brown\s*→\s*conflicting session/i)).toBeInTheDocument()
 

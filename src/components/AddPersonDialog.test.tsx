@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AddPersonDialog } from './AddPersonDialog'
 
@@ -15,6 +15,10 @@ vi.mock('sonner', () => ({
 }))
 
 describe('AddPersonDialog', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+    })
+
     const baseProps = {
         open: true,
         onOpenChange: vi.fn(),
@@ -62,7 +66,7 @@ describe('AddPersonDialog', () => {
         await userEvent.click(screen.getByRole('button', { name: /^add$/i }))
         expect(screen.getByText('CPR')).toBeInTheDocument()
 
-        await userEvent.click(screen.getByRole('button', { name: '' }))
+        await userEvent.click(screen.getByRole('button', { name: /remove certification cpr/i }))
         expect(screen.queryByText('CPR')).not.toBeInTheDocument()
     })
 

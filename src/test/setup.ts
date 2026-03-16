@@ -7,38 +7,81 @@ afterEach(() => {
     vi.clearAllMocks()
 })
 
-if (!window.matchMedia) {
-    Object.defineProperty(window, 'matchMedia', {
-        writable: true,
-        value: vi.fn().mockImplementation((query: string) => ({
-            matches: false,
-            media: query,
-            onchange: null,
-            addListener: vi.fn(),
-            removeListener: vi.fn(),
-            addEventListener: vi.fn(),
-            removeEventListener: vi.fn(),
-            dispatchEvent: vi.fn()
-        }))
-    })
-}
+Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn()
+    }))
+})
 
 class ResizeObserverMock {
-    observe() { }
-    unobserve() { }
-    disconnect() { }
+    private readonly callback: ResizeObserverCallback
+    private readonly observedElements: Set<Element> = new Set()
+
+    constructor(callback: ResizeObserverCallback) {
+        this.callback = callback
+    }
+
+    observe(target: Element) {
+        this.observedElements.add(target)
+    }
+
+    unobserve(target: Element) {
+        this.observedElements.delete(target)
+    }
+
+    disconnect() {
+        this.observedElements.clear()
+    }
+
+    // Optional test helper for manually triggering observer callbacks.
+    trigger(entries: ResizeObserverEntry[] = []) {
+        this.callback(entries, this as unknown as ResizeObserver)
+    }
 }
 
 class IntersectionObserverMock {
-    readonly root: Element | Document | null = null
-    readonly rootMargin: string = '0px'
-    readonly thresholds: ReadonlyArray<number> = []
+    private readonly callback: IntersectionObserverCallback
+    readonly root: Element | Document | null
+    readonly rootMargin: string
+    readonly thresholds: ReadonlyArray<number>
+    private readonly observedElements: Set<Element> = new Set()
 
-    observe() { }
-    unobserve() { }
-    disconnect() { }
+    constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+        this.callback = callback
+        this.root = options?.root ?? null
+        this.rootMargin = options?.rootMargin ?? '0px'
+        this.thresholds = Array.isArray(options?.threshold)
+            ? options.threshold
+            : [options?.threshold ?? 0]
+    }
+
+    observe(target: Element) {
+        this.observedElements.add(target)
+    }
+
+    unobserve(target: Element) {
+        this.observedElements.delete(target)
+    }
+
+    disconnect() {
+        this.observedElements.clear()
+    }
+
     takeRecords() {
         return []
+    }
+
+    // Optional test helper for manually triggering observer callbacks.
+    trigger(entries: IntersectionObserverEntry[] = []) {
+        this.callback(entries, this as unknown as IntersectionObserver)
     }
 }
 
@@ -62,14 +105,14 @@ vi.stubGlobal('IntersectionObserver', IntersectionObserverMock)
 vi.stubGlobal('Notification', NotificationMock)
 vi.stubGlobal('Audio', AudioMock)
 
-if (!HTMLElement.prototype.hasPointerCapture) {
-    HTMLElement.prototype.hasPointerCapture = () => false
+if (!Element.prototype.hasPointerCapture) {
+    Element.prototype.hasPointerCapture = () => false
 }
 
-if (!HTMLElement.prototype.setPointerCapture) {
-    HTMLElement.prototype.setPointerCapture = () => { }
+if (!Element.prototype.setPointerCapture) {
+    Element.prototype.setPointerCapture = () => { }
 }
 
-if (!HTMLElement.prototype.releasePointerCapture) {
-    HTMLElement.prototype.releasePointerCapture = () => { }
+if (!Element.prototype.releasePointerCapture) {
+    Element.prototype.releasePointerCapture = () => { }
 }

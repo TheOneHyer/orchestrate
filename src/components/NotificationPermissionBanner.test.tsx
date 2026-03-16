@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { NotificationPermissionBanner } from './NotificationPermissionBanner'
@@ -72,6 +73,7 @@ describe('NotificationPermissionBanner', () => {
     })
 
     it('renders banner and enables notifications', async () => {
+        const user = userEvent.setup()
         const setDismissed = vi.fn()
         const requestPermission = vi.fn().mockResolvedValue('granted')
         mockUsePushNotifications.mockReturnValue({
@@ -85,7 +87,7 @@ describe('NotificationPermissionBanner', () => {
 
         expect(await screen.findByText(/enable desktop notifications/i)).toBeInTheDocument()
 
-        fireEvent.click(screen.getByRole('button', { name: /enable/i }))
+        await user.click(screen.getByRole('button', { name: /enable/i }))
 
         await waitFor(() => {
             expect(requestPermission).toHaveBeenCalledOnce()
@@ -94,23 +96,27 @@ describe('NotificationPermissionBanner', () => {
     })
 
     it('dismisses banner from maybe later action', async () => {
+        const user = userEvent.setup()
         const setDismissed = vi.fn()
+        const requestPermission = vi.fn()
         mockUsePushNotifications.mockReturnValue({
             isSupported: true,
             settings: { permission: 'default' },
-            requestPermission: vi.fn(),
+            requestPermission,
         })
         mockUseKV.mockReturnValue([false, setDismissed])
 
         render(<NotificationPermissionBanner />)
 
         expect(await screen.findByText(/enable desktop notifications/i)).toBeInTheDocument()
-        fireEvent.click(screen.getByRole('button', { name: /maybe later/i }))
+        await user.click(screen.getByRole('button', { name: /maybe later/i }))
 
+        expect(requestPermission).not.toHaveBeenCalled()
         expect(setDismissed).toHaveBeenCalledWith(true)
     })
 
     it('dismisses banner when requestPermission rejects without propagating an error', async () => {
+        const user = userEvent.setup()
         const setDismissed = vi.fn()
         const requestPermission = vi.fn().mockRejectedValue(new Error('permission-failure'))
         mockUsePushNotifications.mockReturnValue({
@@ -122,7 +128,7 @@ describe('NotificationPermissionBanner', () => {
 
         render(<NotificationPermissionBanner />)
 
-        fireEvent.click(await screen.findByRole('button', { name: /enable/i }))
+        await user.click(await screen.findByRole('button', { name: /enable/i }))
 
         await waitFor(() => {
             expect(requestPermission).toHaveBeenCalledOnce()
@@ -131,6 +137,7 @@ describe('NotificationPermissionBanner', () => {
     })
 
     it('dismisses banner when requestPermission resolves to denied', async () => {
+        const user = userEvent.setup()
         const setDismissed = vi.fn()
         const requestPermission = vi.fn().mockResolvedValue('denied')
         mockUsePushNotifications.mockReturnValue({
@@ -142,7 +149,7 @@ describe('NotificationPermissionBanner', () => {
 
         render(<NotificationPermissionBanner />)
 
-        fireEvent.click(await screen.findByRole('button', { name: /enable/i }))
+        await user.click(await screen.findByRole('button', { name: /enable/i }))
 
         await waitFor(() => {
             expect(requestPermission).toHaveBeenCalledOnce()

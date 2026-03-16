@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ManageCertificationsDialog } from './ManageCertificationsDialog'
 import type { CertificationRecord } from '@/lib/types'
@@ -27,6 +27,10 @@ const defaultProps = {
 }
 
 describe('ManageCertificationsDialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('renders empty state when no certifications exist', () => {
     render(<ManageCertificationsDialog {...defaultProps} />)
 
@@ -72,7 +76,7 @@ describe('ManageCertificationsDialog', () => {
     )
 
     expect(screen.getByText('First Aid')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: '' })) // X delete button
+    await userEvent.click(screen.getByRole('button', { name: /delete certification first aid/i }))
 
     expect(screen.queryByText('First Aid')).not.toBeInTheDocument()
     expect(screen.getByText(/no certifications added yet/i)).toBeInTheDocument()
@@ -141,6 +145,6 @@ describe('ManageCertificationsDialog', () => {
       />
     )
 
-    expect(screen.getAllByText(/renewal in progress/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/renewal in progress/i)).toBeInTheDocument()
   })
 })

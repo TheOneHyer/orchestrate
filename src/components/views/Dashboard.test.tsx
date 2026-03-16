@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Dashboard } from './Dashboard'
@@ -48,7 +49,7 @@ describe('Dashboard', () => {
     expect(screen.getByText(/no notifications/i)).toBeInTheDocument()
   })
 
-  it('navigates to a session when a session card is clicked', () => {
+  it('navigates to a session when a session card is clicked', async () => {
     const onNavigate = vi.fn()
 
     const session: Session = {
@@ -75,12 +76,12 @@ describe('Dashboard', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await userEvent.click(screen.getByRole('button', { name: /morning safety session/i }))
 
     expect(onNavigate).toHaveBeenCalledWith('schedule', { sessionId: 's-1' })
   })
 
-  it('shows and uses view-all actions when lists exceed five items', () => {
+  it('shows and uses view-all actions when lists exceed five items', async () => {
     const onNavigate = vi.fn()
 
     const sessions: Session[] = Array.from({ length: 6 }, (_, idx) => ({
@@ -117,8 +118,8 @@ describe('Dashboard', () => {
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /view all sessions/i }))
-    fireEvent.click(screen.getByRole('button', { name: /view all notifications/i }))
+    await userEvent.click(screen.getByRole('button', { name: /view all sessions/i }))
+    await userEvent.click(screen.getByRole('button', { name: /view all notifications/i }))
 
     expect(onNavigate).toHaveBeenNthCalledWith(1, 'schedule')
     expect(onNavigate).toHaveBeenNthCalledWith(2, 'notifications')

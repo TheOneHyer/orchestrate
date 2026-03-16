@@ -53,6 +53,11 @@ export function AddCertificationDialog({ users, onAddCertification }: AddCertifi
       return
     }
 
+    if (expirationDate < issuedDate) {
+      toast.error('Expiration date must be on or after issued date')
+      return
+    }
+
     if (selectedTrainers.length === 0) {
       toast.error('Please select at least one trainer')
       return

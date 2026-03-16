@@ -4,13 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import { 
-  Warning, 
-  CheckCircle, 
-  Info, 
-  TrendUp, 
-  TrendDown, 
-  Users as UsersIcon,
+import {
+  Warning,
+  CheckCircle,
+  Info,
+  TrendUp,
+  TrendDown,
   ArrowsLeftRight,
   UserPlus,
   Gauge
@@ -25,11 +24,11 @@ interface WorkloadRecommendationsProps {
   onApplyRecommendation?: (recommendation: WorkloadRecommendation) => void
 }
 
-export function WorkloadRecommendations({ 
-  analysis, 
+export function WorkloadRecommendations({
+  analysis,
   users,
   onViewTrainer,
-  onApplyRecommendation 
+  onApplyRecommendation
 }: WorkloadRecommendationsProps) {
   const { recommendations, balanceScore, overutilizedTrainers, underutilizedTrainers } = analysis
 

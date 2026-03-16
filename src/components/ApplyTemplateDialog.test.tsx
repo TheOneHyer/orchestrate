@@ -1,9 +1,30 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { ApplyTemplateDialog } from './ApplyTemplateDialog'
 import type { ScheduleTemplate } from '@/lib/types'
+
+const templateSessions: ScheduleTemplate['sessions'] = [
+    {
+        dayOfWeek: 1,
+        time: '09:30',
+        duration: 60,
+        location: 'Room A',
+        capacity: 12,
+        requiresCertifications: [],
+        shift: 'day',
+    },
+    {
+        dayOfWeek: 3,
+        time: '14:00',
+        duration: 90,
+        location: 'Room B',
+        capacity: 8,
+        requiresCertifications: [],
+        shift: 'evening',
+    },
+]
 
 const template: ScheduleTemplate = {
     id: 'tpl-1',
@@ -12,26 +33,7 @@ const template: ScheduleTemplate = {
     courseId: 'course-default',
     category: 'Safety',
     recurrenceType: 'weekly',
-    sessions: [
-        {
-            dayOfWeek: 1,
-            time: '09:30',
-            duration: 60,
-            location: 'Room A',
-            capacity: 12,
-            requiresCertifications: [],
-            shift: 'day',
-        } as ScheduleTemplate['sessions'][number],
-        {
-            dayOfWeek: 3,
-            time: '14:00',
-            duration: 90,
-            location: 'Room B',
-            capacity: 8,
-            requiresCertifications: [],
-            shift: 'evening',
-        } as ScheduleTemplate['sessions'][number],
-    ],
+    sessions: templateSessions,
     autoAssignTrainers: true,
     notifyParticipants: true,
     createdBy: 'admin-1',
@@ -74,6 +76,7 @@ describe('ApplyTemplateDialog', () => {
     it('creates generated sessions with override values', async () => {
         const onApply = vi.fn()
         const onOpenChange = vi.fn()
+        const user = userEvent.setup()
 
         render(
             <ApplyTemplateDialog
@@ -84,13 +87,15 @@ describe('ApplyTemplateDialog', () => {
             />
         )
 
-        fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: '2026-03-17' } })
-        fireEvent.change(screen.getByLabelText(/number of cycles/i), { target: { value: '2' } })
-        fireEvent.change(screen.getByLabelText(/course override/i), { target: { value: 'course-override' } })
-        fireEvent.change(screen.getByLabelText(/location override/i), { target: { value: 'Main Lab' } })
-        fireEvent.change(screen.getByLabelText(/capacity override/i), { target: { value: '20' } })
+        await user.clear(screen.getByLabelText(/start date/i))
+        await user.type(screen.getByLabelText(/start date/i), '2026-03-17')
+        await user.clear(screen.getByLabelText(/number of cycles/i))
+        await user.type(screen.getByLabelText(/number of cycles/i), '2')
+        await user.type(screen.getByLabelText(/course override/i), 'course-override')
+        await user.type(screen.getByLabelText(/location override/i), 'Main Lab')
+        await user.type(screen.getByLabelText(/capacity override/i), '20')
 
-        await userEvent.click(screen.getByRole('button', { name: /create 4 sessions/i }))
+        await user.click(screen.getByRole('button', { name: /create 4 sessions/i }))
 
         expect(onApply).toHaveBeenCalledOnce()
         const sessions = onApply.mock.calls[0][0]
@@ -106,11 +111,21 @@ describe('ApplyTemplateDialog', () => {
 
         const first = new Date(sessions[0].startTime)
         const firstEnd = new Date(sessions[0].endTime)
+        const expectedFirstStart = new Date('2026-03-17')
+        const firstSessionTemplate = template.sessions[0]
+        const weekdayDelta = firstSessionTemplate.dayOfWeek - expectedFirstStart.getDay()
+        expectedFirstStart.setDate(expectedFirstStart.getDate() + (weekdayDelta >= 0 ? weekdayDelta : weekdayDelta + 7))
+        const [hours, minutes] = firstSessionTemplate.time.split(':').map(Number)
+        expectedFirstStart.setHours(hours, minutes, 0, 0)
+
+        expect(first.getTime()).toBe(expectedFirstStart.getTime())
         expect(firstEnd.getTime() - first.getTime()).toBe(60 * 60 * 1000)
         expect(onOpenChange).toHaveBeenCalledWith(false)
     })
 
     it('shows overflow preview hint when total sessions exceed five', async () => {
+        const user = userEvent.setup()
+
         render(
             <ApplyTemplateDialog
                 open={true}
@@ -120,7 +135,8 @@ describe('ApplyTemplateDialog', () => {
             />
         )
 
-        fireEvent.change(screen.getByLabelText(/number of cycles/i), { target: { value: '3' } })
+        await user.clear(screen.getByLabelText(/number of cycles/i))
+        await user.type(screen.getByLabelText(/number of cycles/i), '3')
 
         expect(screen.getByText(/and 1 more session/i)).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /create 6 sessions/i })).toBeInTheDocument()

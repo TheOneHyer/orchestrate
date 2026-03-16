@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { TrainerProfileView } from './TrainerProfileView'
@@ -121,7 +122,7 @@ const courses: Course[] = [
 ]
 
 describe('TrainerProfileView', () => {
-  it('renders profile details and action sections', () => {
+  it('renders profile details and action sections', async () => {
     const onEdit = vi.fn()
     const onDelete = vi.fn()
 
@@ -144,15 +145,17 @@ describe('TrainerProfileView', () => {
     expect(screen.getByText(/additional information/i)).toBeInTheDocument()
     expect(screen.getByText(/unconfiguredschedulealert mock/i)).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /edit profile/i }))
-    fireEvent.click(screen.getByRole('button', { name: /delete person/i }))
+    await userEvent.click(screen.getByRole('button', { name: /edit profile/i }))
+    await userEvent.click(screen.getByRole('button', { name: /delete person/i }))
 
     expect(onEdit).toHaveBeenCalledOnce()
     expect(onDelete).toHaveBeenCalledOnce()
   })
 
-  it('updates certification records through manage dialog save callback', () => {
+  it('updates certification records through manage dialog save callback', async () => {
     const onUpdateUser = vi.fn()
+    const onEdit = vi.fn()
+    const onDelete = vi.fn()
 
     render(
       <TrainerProfileView
@@ -160,14 +163,14 @@ describe('TrainerProfileView', () => {
         sessions={sessions}
         courses={courses}
         enrollments={[] as Enrollment[]}
-        onEdit={() => {}}
-        onDelete={() => {}}
+        onEdit={onEdit}
+        onDelete={onDelete}
         onUpdateUser={onUpdateUser}
       />
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /manage/i }))
-    fireEvent.click(screen.getByRole('button', { name: /save certifications/i }))
+    await userEvent.click(screen.getByRole('button', { name: /manage/i }))
+    await userEvent.click(screen.getByRole('button', { name: /save certifications/i }))
 
     expect(onUpdateUser).toHaveBeenCalledOnce()
     const updatedUser = onUpdateUser.mock.calls[0][0]
