@@ -30,6 +30,10 @@ class ResizeObserverMock {
 }
 
 class IntersectionObserverMock {
+    readonly root: Element | Document | null = null
+    readonly rootMargin: string = '0px'
+    readonly thresholds: ReadonlyArray<number> = []
+
     observe() { }
     unobserve() { }
     disconnect() { }

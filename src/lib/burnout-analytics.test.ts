@@ -183,6 +183,7 @@ describe('burnout-analytics', () => {
         expect(getBurnoutRiskLevel(69.9)).toBe('low')
         expect(getBurnoutRiskLevel(70)).toBe('medium')
         expect(getBurnoutRiskLevel(85)).toBe('high')
+        expect(getBurnoutRiskLevel(94.9)).toBe('high')
         expect(getBurnoutRiskLevel(95)).toBe('critical')
     })
 })

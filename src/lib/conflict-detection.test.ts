@@ -66,7 +66,31 @@ describe('conflict-detection', () => {
                 expect.objectContaining({ type: 'student' })
             ])
         )
-        expect(result.conflicts.find(conflict => conflict.type === 'student')?.message).toContain('Alex, Bailey, Casey, and 1 more')
+        const studentConflict = result.conflicts.find(conflict => conflict.type === 'student')
+        expect(studentConflict).toBeDefined()
+        expect(studentConflict!.message).toContain('Alex, Bailey, Casey, and 1 more')
+    })
+
+    it('returns no conflicts when target time does not overlap existing sessions', () => {
+        const users = [createUser('student-1', 'Alex')]
+        const draggedSession = createSession()
+        const nonOverlappingSession = createSession({
+            id: 'session-existing',
+            title: 'Existing Session',
+            startTime: '2026-03-16T12:00:00.000Z',
+            endTime: '2026-03-16T14:00:00.000Z'
+        })
+
+        const result = checkSessionConflicts(
+            draggedSession,
+            new Date('2026-03-16T09:00:00.000Z'),
+            new Date('2026-03-16T11:00:00.000Z'),
+            [draggedSession, nonOverlappingSession],
+            users
+        )
+
+        expect(result.hasConflicts).toBe(false)
+        expect(result.conflicts).toEqual([])
     })
 
     it('formats mixed conflict severities into grouped text', () => {
@@ -116,5 +140,29 @@ describe('conflict-detection', () => {
         expect(result.allowedStudents).toEqual(['student-2'])
         expect(result.conflicts).toHaveLength(1)
         expect(result.conflicts[0].message).toContain('Alex is already enrolled in "Existing Session"')
+    })
+
+    it('returns all requested students as allowed when there are no enrollment conflicts', () => {
+        const users = [createUser('student-1', 'Alex'), createUser('student-2', 'Bailey')]
+        const targetSession = createSession({ enrolledStudents: [] })
+        const nonOverlappingSession = createSession({
+            id: 'session-existing',
+            title: 'Existing Session',
+            trainerId: 'trainer-2',
+            startTime: '2026-03-16T12:00:00.000Z',
+            endTime: '2026-03-16T14:00:00.000Z',
+            enrolledStudents: ['student-1']
+        })
+
+        const result = checkStudentEnrollmentConflicts(
+            targetSession,
+            ['student-1', 'student-2'],
+            [targetSession, nonOverlappingSession],
+            users
+        )
+
+        expect(result.hasConflicts).toBe(false)
+        expect(result.conflicts).toEqual([])
+        expect(result.allowedStudents).toEqual(['student-1', 'student-2'])
     })
 })

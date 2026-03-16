@@ -238,8 +238,13 @@ function calculateConsecutiveDays(sessions: Session[]): number {
   if (sessions.length === 0) return 0
 
   const uniqueDates = [...new Set(
-    sessions.map(session => new Date(session.startTime).toDateString())
-  )].sort((left, right) => new Date(left).getTime() - new Date(right).getTime())
+    sessions.map(session => {
+      const sessionDate = new Date(session.startTime)
+      return sessionDate.setHours(0, 0, 0, 0)
+    })
+  )]
+    .sort((left, right) => left - right)
+    .map(timestamp => new Date(timestamp))
 
   let maxStreak = 1
   let currentStreak = 1
