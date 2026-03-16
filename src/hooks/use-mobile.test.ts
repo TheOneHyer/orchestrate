@@ -5,13 +5,17 @@ import { useIsMobile } from './use-mobile'
 
 describe('use-mobile', () => {
     const originalInnerWidth = window.innerWidth
+    const listeners = new Set<() => void>()
+    let matchMediaSpy: ReturnType<typeof vi.spyOn> | undefined
 
     const setWidth = (width: number) =>
         Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width })
 
     afterEach(() => {
         setWidth(originalInnerWidth)
-        vi.restoreAllMocks()
+        listeners.clear()
+        matchMediaSpy?.mockRestore()
+        matchMediaSpy = undefined
     })
 
     it('returns true when viewport is narrower than 768px', () => {
@@ -33,13 +37,12 @@ describe('use-mobile', () => {
     })
 
     it('updates when viewport width changes after mount', () => {
-        const listeners = new Set<() => void>()
-        vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+        matchMediaSpy = vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
             matches: window.innerWidth < 768,
             media: query,
             onchange: null,
-            addListener: vi.fn(),
-            removeListener: vi.fn(),
+            addListener: (listener: () => void) => { listeners.add(listener) },
+            removeListener: (listener: () => void) => { listeners.delete(listener) },
             addEventListener: (_event: string, listener: () => void) => { listeners.add(listener) },
             removeEventListener: (_event: string, listener: () => void) => { listeners.delete(listener) },
             dispatchEvent: vi.fn(),
@@ -51,7 +54,6 @@ describe('use-mobile', () => {
 
         act(() => {
             setWidth(375)
-            window.dispatchEvent(new Event('resize'))
             listeners.forEach(listener => listener())
         })
 

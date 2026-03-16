@@ -3,10 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useKV } from '@github/spark/hooks'
 import type { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 
+type MockKVTuple<T> = readonly [T, (newValue: T | ((current: T) => T)) => void, () => void]
+
+function createKVMockTuple<T>(defaultValue: T): MockKVTuple<T> {
+    return [
+        defaultValue,
+        vi.fn() as (newValue: T | ((current: T) => T)) => void,
+        vi.fn()
+    ]
+}
+
 vi.mock('@github/spark/hooks', async () => {
-    const { useState } = await import('react')
     return {
-        useKV: vi.fn((_key: string, defaultValue: unknown) => useState(defaultValue))
+        useKV: vi.fn(<T,>(_key: string, defaultValue: T) => createKVMockTuple(defaultValue))
     }
 })
 
@@ -36,7 +45,7 @@ const SNAPSHOTS: RiskHistorySnapshot[] = [
 
 describe('use-risk-history (unit)', () => {
     beforeEach(() => {
-        vi.mocked(useKV).mockImplementation((_key, defaultValue) => [defaultValue as any, vi.fn()] as any)
+        vi.mocked(useKV).mockImplementation(<T,>(_key: string, defaultValue: T) => createKVMockTuple(defaultValue))
     })
 
     it('getTrainerHistory returns empty array when no snapshots exist', () => {
@@ -47,7 +56,7 @@ describe('use-risk-history (unit)', () => {
     })
 
     it('getTrainerHistory filters to a single trainer sorted oldest-first', () => {
-        vi.mocked(useKV).mockReturnValue([SNAPSHOTS, vi.fn()] as any)
+        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() =>
             useRiskHistory([], [], [], [])
@@ -60,7 +69,7 @@ describe('use-risk-history (unit)', () => {
     })
 
     it('getTrainerHistory with limit returns N most recent entries', () => {
-        vi.mocked(useKV).mockReturnValue([SNAPSHOTS, vi.fn()] as any)
+        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
         const { result } = renderHook(() => useRiskHistory([], [], [], []))
 
         const limited = result.current.getTrainerHistory('trainer-a', 2)
@@ -70,8 +79,8 @@ describe('use-risk-history (unit)', () => {
     })
 
     it('clearHistory calls the setter with an empty array', () => {
-        const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([SNAPSHOTS, setter] as any)
+        const setter = vi.fn() as unknown as (newValue: RiskHistorySnapshot[] | ((current: RiskHistorySnapshot[]) => RiskHistorySnapshot[])) => void
+        vi.mocked(useKV).mockReturnValue([SNAPSHOTS, setter, vi.fn()] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => useRiskHistory([], [], [], []))
         act(() => result.current.clearHistory())

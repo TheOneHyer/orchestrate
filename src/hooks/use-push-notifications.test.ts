@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useKV } from '@github/spark/hooks'
 import { usePushNotifications } from './use-push-notifications'
 
@@ -18,10 +18,15 @@ beforeEach(() => {
         this.close = vi.fn()
         this.onclick = null
         this.onerror = null
-    })
-    ; (NotificationCtor as any).permission = 'granted'
-    ; (NotificationCtor as any).requestPermission = vi.fn(async () => 'granted' as NotificationPermission)
+    });
+    const NotificationCtorWithStatics = NotificationCtor as any
+    NotificationCtorWithStatics.permission = 'granted'
+    NotificationCtorWithStatics.requestPermission = vi.fn(async () => 'granted' as NotificationPermission)
     vi.stubGlobal('Notification', NotificationCtor as unknown as typeof Notification)
+})
+
+afterEach(() => {
+    vi.unstubAllGlobals()
 })
 
 describe('usePushNotifications', () => {
@@ -53,7 +58,8 @@ describe('usePushNotifications', () => {
         expect(setter).toHaveBeenCalledWith(expect.any(Function))
 
         // Verify updater produces the correct merged settings
-        const lastUpdater = vi.mocked(setter).mock.calls.at(-1)![0] as (prev: any) => any
+        const calls = vi.mocked(setter).mock.calls
+        const lastUpdater = calls[calls.length - 1][0] as (prev: any) => any
         const updated = lastUpdater({ enabled: false, permission: 'granted', showForPriorities: {} })
         expect(updated.permission).toBe('granted')
         expect(updated.enabled).toBe(true)

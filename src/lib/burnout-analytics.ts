@@ -1,5 +1,5 @@
 import { User, Session, Course, WellnessCheckIn } from './types'
-import { differenceInDays, startOfWeek, endOfWeek, eachWeekOfInterval, subDays } from 'date-fns'
+import { differenceInDays, startOfDay, startOfWeek, endOfWeek, eachWeekOfInterval, subDays } from 'date-fns'
 import { calculateSessionDuration } from './helpers'
 
 export interface TrainerUtilization {
@@ -238,10 +238,7 @@ function calculateConsecutiveDays(sessions: Session[]): number {
   if (sessions.length === 0) return 0
 
   const uniqueDates = [...new Set(
-    sessions.map(session => {
-      const sessionDate = new Date(session.startTime)
-      return sessionDate.setHours(0, 0, 0, 0)
-    })
+    sessions.map(session => startOfDay(new Date(session.startTime)).getTime())
   )]
     .sort((left, right) => left - right)
     .map(timestamp => new Date(timestamp))

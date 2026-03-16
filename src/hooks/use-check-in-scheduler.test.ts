@@ -52,8 +52,8 @@ function createSchedule(overrides: Partial<CheckInSchedule> = {}): CheckInSchedu
 
 describe('use-check-in-scheduler', () => {
     beforeEach(() => {
-        vi.mocked(useKV).mockImplementation((_key, defaultValue) => [defaultValue as any, vi.fn()] as any)
         vi.clearAllMocks()
+        vi.mocked(useKV).mockImplementation((_key, defaultValue) => [defaultValue as any, vi.fn()] as any)
         vi.useFakeTimers()
         vi.setSystemTime(NOW)
         localStorage.clear()

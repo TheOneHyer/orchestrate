@@ -39,7 +39,10 @@ const MockAudioContext = vi.fn().mockImplementation(() => mockAudioContextInstan
 vi.stubGlobal('AudioContext', MockAudioContext)
 
 beforeEach(() => {
-    vi.mocked(useKV).mockImplementation((_key, defaultValue) => useState(defaultValue as any))
+    vi.mocked(useKV).mockImplementation((_key, defaultValue) => {
+        const [value, setValue] = useState(defaultValue as any)
+        return [value, setValue, vi.fn()] as any
+    })
     vi.useFakeTimers()
     vi.setSystemTime(TEST_TIME)
     MockAudioContext.mockClear()
@@ -48,6 +51,7 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.useRealTimers()
+    vi.restoreAllMocks()
 })
 
 describe('useNotificationSound', () => {
@@ -105,8 +109,7 @@ describe('useNotificationSound', () => {
     })
 
     it('suppresses non-critical sounds during active quiet hours', () => {
-        vi.spyOn(Date.prototype, 'getHours').mockReturnValue(23)
-        vi.spyOn(Date.prototype, 'getMinutes').mockReturnValue(0)
+        vi.setSystemTime(new Date(2026, 2, 16, 23, 0, 0).getTime())
 
         vi.mocked(useKV).mockReturnValue([
             {
