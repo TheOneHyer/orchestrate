@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { ErrorFallback } from './ErrorFallback'
+import { ErrorFallback } from '../ErrorFallback'
 
 // Vitest runs with mode='test' (not 'production'), so import.meta.env.DEV defaults to true.
 // Override it so ErrorFallback renders its fallback UI instead of rethrowing.

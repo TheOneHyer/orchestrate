@@ -35,8 +35,15 @@ const mockAudioContextInstance = {
     currentTime: 0,
     destination: {}
 }
-const MockAudioContext = vi.fn().mockImplementation(() => mockAudioContextInstance)
+const MockAudioContext = vi.fn(function MockAudioContext(this: unknown) {
+    return mockAudioContextInstance
+})
 vi.stubGlobal('AudioContext', MockAudioContext)
+Object.defineProperty(window, 'webkitAudioContext', {
+    configurable: true,
+    writable: true,
+    value: MockAudioContext,
+})
 
 mockGainNode.gain = {
     value: 0,
