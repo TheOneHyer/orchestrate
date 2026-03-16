@@ -14,6 +14,7 @@ import { BurnoutDashboard } from '@/components/views/BurnoutDashboard'
 import { TrainerWellness } from '@/components/views/TrainerWellness'
 import { CertificationDashboard } from '@/components/views/CertificationDashboard'
 import { Notifications } from '@/components/views/Notifications'
+import { UserGuide } from '@/components/views/UserGuide'
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner'
 import {
   User,
@@ -454,6 +455,8 @@ function App() {
             onNavigate={handleNavigate}
           />
         )
+      case 'user-guide':
+        return <UserGuide />
       case 'settings':
         return (
           <div className="p-6">
