@@ -318,7 +318,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
             endTime: iso(addHours(now, 2)),
             location: 'Plant C Training Room',
             capacity: 16,
-            enrolledStudents: ['employee-4', 'employee-5'],
+            enrolledStudents: ['employee-2', 'employee-4', 'employee-5'],
             status: 'in-progress'
         },
         {
@@ -330,7 +330,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
             endTime: iso(addHours(addDays(now, 1), 3)),
             location: 'Plant B Lab',
             capacity: 10,
-            enrolledStudents: ['employee-2', 'employee-6'],
+            enrolledStudents: ['employee-2', 'employee-3', 'employee-6'],
             status: 'scheduled'
         },
         {

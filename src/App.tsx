@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
@@ -98,13 +98,14 @@ function App() {
     setPreviewSeedVersion
   ])
 
-  const handleLoadPreviewSeedData = useCallback(() => {
-    const hasExistingCoreData =
-      (users?.length || 0) > 0 ||
+  const hasExistingCoreData = useMemo(() => {
+    return (users?.length || 0) > 0 ||
       (sessions?.length || 0) > 0 ||
       (courses?.length || 0) > 0 ||
       (enrollments?.length || 0) > 0
+  }, [users?.length, sessions?.length, courses?.length, enrollments?.length])
 
+  const handleLoadPreviewSeedData = useCallback(() => {
     if (hasExistingCoreData) {
       const shouldOverwrite = window.confirm(
         'This will overwrite existing local data in preview storage. Continue?'
@@ -116,7 +117,7 @@ function App() {
     }
 
     applyPreviewSeedData('manual')
-  }, [users, sessions, courses, enrollments, applyPreviewSeedData])
+  }, [hasExistingCoreData, applyPreviewSeedData])
 
   const handleResetPreviewData = useCallback(() => {
     const confirmed = window.confirm(
