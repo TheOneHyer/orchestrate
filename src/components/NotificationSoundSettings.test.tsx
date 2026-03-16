@@ -151,5 +151,5 @@ describe('NotificationSoundSettings', () => {
         await userEvent.click(screen.getByRole('button', { name: /disable notifications/i }))
         expect(updateSettings).toHaveBeenCalledWith({ enabled: false })
     })
-    })
+})
 })
