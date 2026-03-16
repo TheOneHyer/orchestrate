@@ -99,7 +99,7 @@ describe('DeletePersonDialog', () => {
 
         const overlay = document.querySelector('[data-slot="alert-dialog-overlay"]')
         expect(overlay).toBeInTheDocument()
-        await userEvent.click(overlay as Element)
+        await userEvent.click(overlay!)
 
         expect(onOpenChange).not.toHaveBeenCalled()
         expect(onConfirm).not.toHaveBeenCalled()
