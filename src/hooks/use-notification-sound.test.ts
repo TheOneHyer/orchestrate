@@ -109,12 +109,16 @@ describe('useNotificationSound', () => {
     })
 
     it('suppresses non-critical sounds during active quiet hours', () => {
-        vi.setSystemTime(new Date(2026, 2, 16, 23, 0, 0).getTime())
+        const quietHoursUtcTime = Date.UTC(2026, 2, 16, 23, 0, 0)
+        vi.setSystemTime(quietHoursUtcTime)
+        const localHourAtUtcTime = new Date(quietHoursUtcTime).getHours()
+        const startTime = `${String(localHourAtUtcTime).padStart(2, '0')}:00`
+        const endTime = `${String((localHourAtUtcTime + 1) % 24).padStart(2, '0')}:00`
 
         vi.mocked(useKV).mockReturnValue([
             {
                 enabled: true, volume: 0.4, soundType: 'pleasant',
-                quietHours: { enabled: true, startTime: '22:00', endTime: '08:00', allowCritical: true }
+                quietHours: { enabled: true, startTime, endTime, allowCritical: true }
             },
             vi.fn()
         ] as any)
