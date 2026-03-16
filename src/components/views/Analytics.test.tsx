@@ -213,6 +213,7 @@ describe('Analytics', () => {
     ]
 
     const enrollments: Enrollment[] = [
+      // Intentional duplicate user-course pair to verify analytics aggregation handles duplicate enrollments safely.
       { id: 'e1', userId: 'u1', courseId: 'c1', status: 'completed', progress: 100, score: 90, enrolledAt: '2026-02-01' },
       { id: 'e2', userId: 'u1', courseId: 'c1', status: 'completed', progress: 100, score: 85, enrolledAt: '2026-02-02' },
       { id: 'e3', userId: 'u2', courseId: 'c2', status: 'in-progress', progress: 75, score: 60, enrolledAt: '2026-02-03' },
@@ -329,7 +330,7 @@ describe('Analytics', () => {
     expect(screen.getByTestId('sessions-completed')).toHaveTextContent('2/2')
   })
 
-  it('handles extremely large enrollments list efficiently', () => {
+  it('handles large enrollments list correctly', () => {
     const enrollments: Enrollment[] = Array.from({ length: 100 }, (_, i) => ({
       id: `e${i}`,
       userId: `u${i}`,

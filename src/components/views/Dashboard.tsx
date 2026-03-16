@@ -84,7 +84,7 @@ export function Dashboard({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">
+            <div data-testid="unread-count" className="text-3xl font-semibold text-foreground">
               {unreadNotifications.length}
             </div>
             <p className="text-xs text-muted-foreground mt-1">

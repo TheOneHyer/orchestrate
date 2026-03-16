@@ -310,7 +310,10 @@ describe('Notifications', () => {
     expect(screen.queryByText(/^Low$/)).not.toBeInTheDocument()
   })
 
-  it('handles notifications without links', () => {
+  it('handles notifications without links', async () => {
+    const user = userEvent.setup()
+    const onNavigate = vi.fn()
+    const onMarkAsRead = vi.fn()
     const notifications: Notification[] = [
       { id: 'n-1', userId: 'u-1', type: 'system', title: 'No Link', message: 'This has no link', read: false, createdAt: '2026-03-16T12:00:00.000Z', priority: 'low' },
     ]
@@ -318,16 +321,21 @@ describe('Notifications', () => {
     render(
       <Notifications
         notifications={notifications}
-        onMarkAsRead={vi.fn()}
+        onMarkAsRead={onMarkAsRead}
         onMarkAsUnread={vi.fn()}
         onMarkAllAsRead={vi.fn()}
         onDismiss={vi.fn()}
         onDismissAll={vi.fn()}
-        onNavigate={vi.fn()}
+        onNavigate={onNavigate}
       />
     )
 
     expect(screen.getByText(/No Link/)).toBeInTheDocument()
+
+    await user.click(screen.getByText(/No Link/))
+
+    expect(onMarkAsRead).toHaveBeenCalledWith('n-1')
+    expect(onNavigate).not.toHaveBeenCalled()
   })
 
   it('handles long notification messages', () => {
@@ -349,6 +357,7 @@ describe('Notifications', () => {
     )
 
     expect(screen.getByText(/Long Message Title/)).toBeInTheDocument()
+    expect(screen.getByText(longMessage)).toBeInTheDocument()
   })
 
   it('handles large number of notifications', () => {

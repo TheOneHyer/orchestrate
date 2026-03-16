@@ -217,7 +217,8 @@ describe('Schedule', () => {
     expect(screen.getByText(/^cancelled$/i)).toBeInTheDocument()
   })
 
-  it('handles sessions with full capacity', () => {
+  it('handles sessions with full capacity', async () => {
+    const user = userEvent.setup()
     const fullCapacitySession: Session = {
       ...baseSession,
       id: 's-full',
@@ -228,9 +229,16 @@ describe('Schedule', () => {
     renderSchedule({ sessions: [fullCapacitySession] })
 
     expect(screen.getByText(/morning safety session/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+
+    expect(screen.getByText(/2 \/ 2 enrolled/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /enroll students/i })).toBeDisabled()
   })
 
-  it('handles sessions with zero enrollment', () => {
+  it('handles sessions with zero enrollment', async () => {
+    const user = userEvent.setup()
     const emptySession: Session = {
       ...baseSession,
       id: 's-empty',
@@ -240,12 +248,22 @@ describe('Schedule', () => {
     renderSchedule({ sessions: [emptySession] })
 
     expect(screen.getByText(/morning safety session/i)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+
+    expect(screen.getByText(/0 \/ 2 enrolled/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /enroll students/i })).toBeEnabled()
   })
 
-  it('renders with no sessions', () => {
+  it('renders with no sessions', async () => {
+    const user = userEvent.setup()
     renderSchedule({ sessions: [] })
 
     expect(screen.getByRole('tab', { name: /calendar/i })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^day$/i }))
+    expect(screen.getByText(/no sessions scheduled for this day/i)).toBeInTheDocument()
   })
 
   it('handles multiple courses in schedule', async () => {
@@ -270,7 +288,8 @@ describe('Schedule', () => {
     expect(screen.getByText('Emergency Response Session')).toBeInTheDocument()
   })
 
-  it('handles sessions with special characters in titles', () => {
+  it('handles sessions with special characters in titles', async () => {
+    const user = userEvent.setup()
     const specialSession: Session = {
       ...baseSession,
       id: 's-special',
@@ -279,7 +298,8 @@ describe('Schedule', () => {
 
     renderSchedule({ sessions: [specialSession] })
 
-    expect(screen.getByText(/o'brien's safety & health/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    expect(screen.getByText("O'Brien's Safety & Health (Advanced)")).toBeInTheDocument()
   })
 
   it('handles multiple sessions on the same day', async () => {
@@ -303,6 +323,8 @@ describe('Schedule', () => {
     renderSchedule({ currentUser: baseEmployee, sessions: [baseSession] })
 
     expect(screen.getByRole('tab', { name: /calendar/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /auto-schedule/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /new session/i })).not.toBeInTheDocument()
   })
 
   it('handles large number of sessions', async () => {

@@ -169,7 +169,7 @@ describe('Dashboard', () => {
       />
     )
 
-    expect(screen.getByText(/^2$/)).toBeInTheDocument()
+    expect(screen.getByTestId('unread-count')).toHaveTextContent('2')
     expect(screen.getByText(/unread messages/i)).toBeInTheDocument()
     expect(screen.getByText(/Notice 1/)).toBeInTheDocument()
     expect(screen.getByText(/Notice 2/)).toBeInTheDocument()
@@ -380,7 +380,7 @@ describe('Dashboard', () => {
     expect(onDismissNotification).toHaveBeenCalledWith('n1')
   })
 
-  it('handles large numbers of sessions efficiently', () => {
+  it('limits displayed sessions to five when many sessions exist', () => {
     const sessions: Session[] = Array.from({ length: 20 }, (_, idx) => ({
       id: `s-${idx}`,
       courseId: 'c1',

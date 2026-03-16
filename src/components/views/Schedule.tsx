@@ -86,6 +86,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   }
 
   const availableStudents = users.filter(u => u.role === 'employee')
+  const canManageSchedule = currentUser.role !== 'employee'
 
   const navigateDate = (direction: 'prev' | 'next' | 'today') => {
     if (direction === 'today') {
@@ -187,7 +188,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
     if (conflictCheck.hasConflicts) {
       const errorConflicts = conflictCheck.conflicts.filter(c => c.severity === 'error')
-      
+
       if (errorConflicts.length > 0) {
         toast.error('Cannot move session', {
           description: formatConflictMessage(conflictCheck.conflicts),
@@ -222,22 +223,22 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigateDate('prev')}
             >
               Previous Day
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigateDate('today')}
             >
               Today
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigateDate('next')}
             >
@@ -249,18 +250,17 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           </h3>
         </div>
 
-        <div 
-          className={`border rounded-lg p-6 min-h-[400px] transition-colors cursor-pointer hover:border-primary/50 ${
-            isToday ? 'border-primary bg-primary/5' : 
-            hasConflict ? 'border-destructive bg-destructive/10 border-2' :
-            isDragOver ? 'border-accent bg-accent/10 border-2' : 
-            'border-border'
-          }`}
+        <div
+          className={`border rounded-lg p-6 min-h-[400px] transition-colors cursor-pointer hover:border-primary/50 ${isToday ? 'border-primary bg-primary/5' :
+              hasConflict ? 'border-destructive bg-destructive/10 border-2' :
+                isDragOver ? 'border-accent bg-accent/10 border-2' :
+                  'border-border'
+            }`}
           onDragOver={(e) => handleDragOver(e, currentDate)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, currentDate)}
           onClick={(e) => {
-            if (e.target === e.currentTarget) {
+            if (canManageSchedule && e.target === e.currentTarget) {
               handleOpenGuidedScheduler(currentDate)
             }
           }}
@@ -340,22 +340,22 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigateDate('prev')}
             >
               Previous Week
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigateDate('today')}
             >
               Today
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigateDate('next')}
             >
@@ -375,20 +375,19 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             const hasConflict = isDragOver && dragConflicts.length > 0
 
             return (
-              <div 
-                key={day.toString()} 
-                className={`border rounded-lg p-3 min-h-[200px] transition-colors cursor-pointer hover:border-primary/50 ${
-                  isToday ? 'border-primary bg-primary/5' : 
-                  hasConflict ? 'border-destructive bg-destructive/10 border-2' :
-                  isDragOver ? 'border-accent bg-accent/10 border-2' : 
-                  'border-border'
-                }`}
+              <div
+                key={day.toString()}
+                className={`border rounded-lg p-3 min-h-[200px] transition-colors cursor-pointer hover:border-primary/50 ${isToday ? 'border-primary bg-primary/5' :
+                    hasConflict ? 'border-destructive bg-destructive/10 border-2' :
+                      isDragOver ? 'border-accent bg-accent/10 border-2' :
+                        'border-border'
+                  }`}
                 onDragOver={(e) => handleDragOver(e, day)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, day)}
                 onClick={(e) => {
                   const target = e.target as HTMLElement
-                  if (!target.closest('[draggable]') && (target.classList.contains('space-y-2') || target === e.currentTarget)) {
+                  if (canManageSchedule && !target.closest('[draggable]') && (target.classList.contains('space-y-2') || target === e.currentTarget)) {
                     handleOpenGuidedScheduler(day)
                   }
                 }}
@@ -443,22 +442,22 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigateDate('prev')}
             >
               Previous Month
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigateDate('today')}
             >
               Today
             </Button>
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => navigateDate('next')}
             >
@@ -487,27 +486,24 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
               const hasConflict = isDragOver && dragConflicts.length > 0
 
               return (
-                <div 
-                  key={day.toString()} 
-                  className={`border-r border-b last:border-r-0 p-2 min-h-[100px] transition-colors cursor-pointer hover:border-primary/50 ${
-                    !isCurrentMonth ? 'bg-muted/30' : ''
-                  } ${isToday ? 'bg-primary/5' : ''} ${
-                    hasConflict ? 'bg-destructive/10 border-destructive border-2' : 
-                    isDragOver ? 'bg-accent/10 border-accent border-2' : ''
-                  }`}
+                <div
+                  key={day.toString()}
+                  className={`border-r border-b last:border-r-0 p-2 min-h-[100px] transition-colors cursor-pointer hover:border-primary/50 ${!isCurrentMonth ? 'bg-muted/30' : ''
+                    } ${isToday ? 'bg-primary/5' : ''} ${hasConflict ? 'bg-destructive/10 border-destructive border-2' :
+                      isDragOver ? 'bg-accent/10 border-accent border-2' : ''
+                    }`}
                   onDragOver={(e) => handleDragOver(e, day)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, day)}
                   onClick={(e) => {
                     const target = e.target as HTMLElement
-                    if (!target.closest('[draggable]') && (target.classList.contains('space-y-1') || target === e.currentTarget || target.classList.contains('text-xs'))) {
+                    if (canManageSchedule && !target.closest('[draggable]') && (target.classList.contains('space-y-1') || target === e.currentTarget || target.classList.contains('text-xs'))) {
                       handleOpenGuidedScheduler(day)
                     }
                   }}
                 >
-                  <div className={`text-sm font-medium mb-1 ${
-                    isToday ? 'text-primary font-bold' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
-                  }`}>
+                  <div className={`text-sm font-medium mb-1 ${isToday ? 'text-primary font-bold' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
+                    }`}>
                     {format(day, 'd')}
                   </div>
                   {hasConflict && (
@@ -553,7 +549,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   }
 
   const renderListView = () => {
-    const sortedSessions = [...sessions].sort((a, b) => 
+    const sortedSessions = [...sessions].sort((a, b) =>
       new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
     )
 
@@ -562,7 +558,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
         {sortedSessions.map(session => {
           const course = courses.find(c => c.id === session.courseId)
           const trainer = users.find(u => u.id === session.trainerId)
-          
+
           return (
             <button
               key={session.id}
@@ -661,20 +657,22 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           <h1 className="text-3xl font-semibold text-foreground">Schedule</h1>
           <p className="text-muted-foreground mt-1">Manage training sessions and schedules</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setAutoSchedulerOpen(true)}>
-            <Robot size={18} weight="bold" className="mr-2" />
-            Auto-Schedule
-          </Button>
-          <Button variant="outline" onClick={() => handleOpenGuidedScheduler()}>
-            <UserCircleGear size={18} weight="bold" className="mr-2" />
-            Guided Schedule
-          </Button>
-          <Button onClick={() => onNavigate('schedule', { create: true })}>
-            <Plus size={18} weight="bold" className="mr-2" />
-            New Session
-          </Button>
-        </div>
+        {canManageSchedule && (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setAutoSchedulerOpen(true)}>
+              <Robot size={18} weight="bold" className="mr-2" />
+              Auto-Schedule
+            </Button>
+            <Button variant="outline" onClick={() => handleOpenGuidedScheduler()}>
+              <UserCircleGear size={18} weight="bold" className="mr-2" />
+              Guided Schedule
+            </Button>
+            <Button onClick={() => onNavigate('schedule', { create: true })}>
+              <Plus size={18} weight="bold" className="mr-2" />
+              New Session
+            </Button>
+          </div>
+        )}
       </div>
 
       <Tabs value={viewType} onValueChange={(v) => setViewType(v as any)}>
@@ -693,25 +691,25 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
               Board
             </TabsTrigger>
           </TabsList>
-          
+
           {viewType === 'calendar' && (
             <div className="flex items-center gap-2">
-              <Button 
-                variant={calendarPeriod === 'day' ? 'default' : 'outline'} 
+              <Button
+                variant={calendarPeriod === 'day' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setCalendarPeriod('day')}
               >
                 Day
               </Button>
-              <Button 
-                variant={calendarPeriod === 'week' ? 'default' : 'outline'} 
+              <Button
+                variant={calendarPeriod === 'week' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setCalendarPeriod('week')}
               >
                 Week
               </Button>
-              <Button 
-                variant={calendarPeriod === 'month' ? 'default' : 'outline'} 
+              <Button
+                variant={calendarPeriod === 'month' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setCalendarPeriod('month')}
               >
@@ -775,20 +773,22 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                     <Badge>{selectedSession.status}</Badge>
                   </div>
                 </div>
-                <div className="flex gap-2 pt-4">
-                  <Button 
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setEnrollDialogOpen(true)}
-                    disabled={selectedSession.enrolledStudents.length >= selectedSession.capacity}
-                  >
-                    <UserPlus size={18} className="mr-2" />
-                    Enroll Students
-                  </Button>
-                </div>
+                {canManageSchedule && (
+                  <div className="flex gap-2 pt-4">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setEnrollDialogOpen(true)}
+                      disabled={selectedSession.enrolledStudents.length >= selectedSession.capacity}
+                    >
+                      <UserPlus size={18} className="mr-2" />
+                      Enroll Students
+                    </Button>
+                  </div>
+                )}
                 <div className="flex gap-2">
-                  <Button 
-                    className="flex-1" 
+                  <Button
+                    className={canManageSchedule ? 'flex-1' : 'w-full'}
                     onClick={() => {
                       onNavigate('courses', { courseId: selectedSession.courseId })
                       setSheetOpen(false)
@@ -796,9 +796,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                   >
                     View Course
                   </Button>
-                  <Button variant="outline" className="flex-1">
-                    Edit
-                  </Button>
+                  {canManageSchedule && (
+                    <Button variant="outline" className="flex-1">
+                      Edit
+                    </Button>
+                  )}
                 </div>
               </div>
             </>
