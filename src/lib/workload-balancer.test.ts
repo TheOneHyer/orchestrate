@@ -171,6 +171,8 @@ describe('workload-balancer', () => {
         // 40h overloaded vs 85% target (34h) means 6h must move; with 4h sessions,
         // the redistribution loop selects two compatible sessions to reach/exceed that gap.
         expect(opportunities).toHaveLength(2)
-        expect(opportunities.every(session => session.courseId === 'course-a')).toBe(true)
+        for (const session of opportunities) {
+            expect(session).toHaveProperty('courseId', 'course-a')
+        }
     })
 })

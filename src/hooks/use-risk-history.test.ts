@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useKV } from '@github/spark/hooks'
 import { calculateRiskLevel } from '@/lib/risk-history-tracker'
 import type { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
@@ -13,6 +13,10 @@ function createKVMockTuple<T>(defaultValue: T): MockKVTuple<T> {
         vi.fn() as (newValue: T | ((current: T) => T)) => void,
         vi.fn()
     ]
+}
+
+function mockKVWithSnapshots(snapshots: RiskHistorySnapshot[]) {
+    vi.mocked(useKV).mockReturnValue(createKVMockTuple(snapshots) as unknown as ReturnType<typeof useKV>)
 }
 
 vi.mock('@github/spark/hooks', async () => {
@@ -55,6 +59,10 @@ describe('use-risk-history (unit)', () => {
         vi.mocked(useKV).mockImplementation(<T,>(_key: string, defaultValue: T) => createKVMockTuple(defaultValue))
     })
 
+    afterEach(() => {
+        vi.clearAllMocks()
+    })
+
     it('getTrainerHistory returns empty array when no snapshots exist', () => {
         const { result } = renderHook(() =>
             useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns)
@@ -63,7 +71,7 @@ describe('use-risk-history (unit)', () => {
     })
 
     it('getTrainerHistory filters to a single trainer sorted oldest-first', () => {
-        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
+        mockKVWithSnapshots(SNAPSHOTS)
 
         const { result } = renderHook(() =>
             useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns)
@@ -76,7 +84,7 @@ describe('use-risk-history (unit)', () => {
     })
 
     it('getTrainerHistory with limit returns N most recent entries', () => {
-        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
+        mockKVWithSnapshots(SNAPSHOTS)
         const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
 
         const limited = result.current.getTrainerHistory('trainer-a', 2)
@@ -86,14 +94,14 @@ describe('use-risk-history (unit)', () => {
     })
 
     it('getTrainerHistory returns empty for a non-existent trainer when snapshots exist', () => {
-        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
+        mockKVWithSnapshots(SNAPSHOTS)
         const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
 
         expect(result.current.getTrainerHistory('trainer-nonexistent')).toEqual([])
     })
 
     it('getTrainerHistory with limit=0 returns an empty array', () => {
-        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
+        mockKVWithSnapshots(SNAPSHOTS)
         const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
 
         const limited = result.current.getTrainerHistory('trainer-a', 0)
@@ -101,7 +109,7 @@ describe('use-risk-history (unit)', () => {
     })
 
     it('getTrainerHistory with a negative limit behaves like limit=0', () => {
-        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
+        mockKVWithSnapshots(SNAPSHOTS)
         const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
 
         const limited = result.current.getTrainerHistory('trainer-a', -1)
@@ -109,7 +117,7 @@ describe('use-risk-history (unit)', () => {
     })
 
     it('getTrainerHistory with a large limit returns all available entries', () => {
-        vi.mocked(useKV).mockReturnValue(createKVMockTuple(SNAPSHOTS) as unknown as ReturnType<typeof useKV>)
+        mockKVWithSnapshots(SNAPSHOTS)
         const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
 
         const limited = result.current.getTrainerHistory('trainer-a', 100)

@@ -2,6 +2,8 @@ export type UserRole = 'admin' | 'trainer' | 'employee'
 
 export type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
 
+export type ShiftType = 'day' | 'evening' | 'night'
+
 export interface ShiftSchedule {
   shiftCode: string
   daysWorked: DayOfWeek[]

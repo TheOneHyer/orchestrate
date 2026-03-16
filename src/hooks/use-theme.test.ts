@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { act, renderHook } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useKV } from '@github/spark/hooks'
 
 vi.mock('@github/spark/hooks', async () => {
@@ -13,10 +13,13 @@ vi.mock('@github/spark/hooks', async () => {
 import { useTheme, type Theme } from './use-theme'
 
 describe('use-theme', () => {
+    beforeEach(() => {
+        vi.mocked(useKV).mockImplementation((_key, defaultValue) => useState(defaultValue as Theme))
+    })
+
     afterEach(() => {
         document.documentElement.classList.remove('light', 'dark')
         vi.clearAllMocks()
-        vi.mocked(useKV).mockImplementation((_key, defaultValue) => useState(defaultValue as Theme))
     })
 
     it('defaults to "light" theme and applies the class to the document root', () => {

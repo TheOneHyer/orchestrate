@@ -62,10 +62,19 @@ describe('use-mobile', () => {
         expect(result.current).toBe(false)
 
         act(() => {
-            setWidth(375)
+            mockMatchMedia(375)
             listeners.forEach(listener => listener(createMediaQueryEvent(true)))
         })
 
         expect(result.current).toBe(true)
+    })
+
+    it('removes the media-query listener on unmount', () => {
+        mockMatchMedia(1440)
+        const { unmount } = renderHook(() => useIsMobile())
+
+        expect(listeners.size).toBe(1)
+        unmount()
+        expect(listeners.size).toBe(0)
     })
 })

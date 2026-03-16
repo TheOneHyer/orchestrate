@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { WellnessCheckInDialog } from './WellnessCheckInDialog'
 
-let defaultProps: {
+let defaultProps!: {
   open: boolean
   onClose: ReturnType<typeof vi.fn>
   trainerId: string
@@ -113,8 +113,8 @@ describe('WellnessCheckInDialog', () => {
     const onSubmit = vi.fn()
     render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} />)
 
-    const concernRow = screen.getByTestId('concern-row-work-life-balance')
-    await userEvent.click(concernRow)
+    // Click the "Work-life balance" checkbox
+    await userEvent.click(screen.getByRole('checkbox', { name: /work-?life balance/i }))
     await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
 
     const arg = onSubmit.mock.calls[0][0]
@@ -141,7 +141,23 @@ describe('WellnessCheckInDialog', () => {
     expect(onClose).toHaveBeenCalledOnce()
   })
 
-  it('resets form state after submit', async () => {
+  it('submits with selected concerns and close callbacks called', async () => {
+    const onSubmit = vi.fn()
+    const onClose = vi.fn()
+    render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} onClose={onClose} />)
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /too many sessions scheduled/i }))
+    await userEvent.click(screen.getByRole('checkbox', { name: /i would like to discuss these concerns/i }))
+    await userEvent.click(screen.getByRole('radio', { name: /high - concerning/i }))
+    await userEvent.click(screen.getByRole('radio', { name: /^tired$/i }))
+    await userEvent.type(screen.getByLabelText(/additional comments/i), 'Need a break')
+    await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
+
+    expect(onSubmit).toHaveBeenCalledOnce()
+    expect(onClose).toHaveBeenCalledOnce()
+  })
+
+  it('resets form state after closing and reopening', async () => {
     const Wrapper = () => {
       const [open, setOpen] = React.useState(true)
 
@@ -174,7 +190,12 @@ describe('WellnessCheckInDialog', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /reopen dialog/i }))
 
-    expect((await screen.findAllByRole('slider'))[0]).toHaveAttribute('aria-valuenow', '3')
+    // Mood slider should be reset to 3
+    // Note: The mood slider is the first slider on the page. The Radix UI Slider
+    // component doesn't expose aria-label as the accessible name to role=slider.
+    // Consider enhancing Slider API to support aria-labelledby for better accessibility.
+    const moodSlider = screen.getAllByRole('slider')[0]
+    expect(moodSlider).toHaveAttribute('aria-valuenow', '3')
     expect(await screen.findByRole('radio', { name: /moderate/i })).toBeChecked()
     expect(await screen.findByRole('radio', { name: /^neutral$/i })).toBeChecked()
     expect(await screen.findByLabelText(/additional comments/i)).toHaveValue('')

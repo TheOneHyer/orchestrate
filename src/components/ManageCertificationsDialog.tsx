@@ -229,6 +229,7 @@ export function ManageCertificationsDialog({
                 {localCerts.map((cert, index) => (
                   <div
                     key={index}
+                    data-testid={`certification-item-${cert.certificationName.toLowerCase().replace(/\s+/g, '-')}`}
                     className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/30 transition-colors"
                   >
                     <div className="flex-1">
@@ -253,6 +254,7 @@ export function ManageCertificationsDialog({
                       <Button
                         variant="outline"
                         size="sm"
+                        aria-label={`Edit certification ${cert.certificationName}`}
                         onClick={() => handleEdit(index)}
                       >
                         Edit

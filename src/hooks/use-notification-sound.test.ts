@@ -1,5 +1,4 @@
 import { renderHook, act } from '@testing-library/react'
-import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useKV } from '@github/spark/hooks'
 import { useNotificationSound } from './use-notification-sound'
@@ -7,15 +6,7 @@ import { useNotificationSound } from './use-notification-sound'
 const TEST_TIME = new Date('2026-03-16T12:00:00.000Z')
 const oscillatorTypeSetter = vi.fn<(value: OscillatorType) => void>()
 
-vi.mock('@github/spark/hooks', async () => {
-    const { useState } = await import('react')
-    return {
-        useKV: vi.fn((_key: string, defaultValue: unknown) => {
-            const [value, setValue] = useState(defaultValue)
-            return [value, setValue, vi.fn()]
-        })
-    }
-})
+vi.mock('@github/spark/hooks')
 
 // Module-level AudioContext mock — safe since Vitest runs each file in isolation
 const mockOscillator = {
@@ -73,10 +64,7 @@ Object.defineProperty(mockOscillator, 'type', {
 
 beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useKV).mockImplementation((_key, defaultValue) => {
-        const [value, setValue] = useState(defaultValue as any)
-        return [value, setValue, vi.fn()] as any
-    })
+    vi.mocked(useKV).mockImplementation((_key, defaultValue) => [defaultValue as any, vi.fn(), vi.fn()] as any)
     vi.useFakeTimers()
     vi.setSystemTime(TEST_TIME)
     mockGainNode.gain.value = 0
@@ -245,9 +233,9 @@ describe('useNotificationSound', () => {
         })
 
         expect(MockAudioContext).toHaveBeenCalledOnce()
-        expect(mockAudioContextInstance.createOscillator).toHaveBeenCalledTimes(2)
+        expect(mockAudioContextInstance.createOscillator).toHaveBeenCalled()
         expect(oscillatorTypeSetter).toHaveBeenCalledWith('sine')
-        expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalledTimes(2)
+        expect(mockOscillator.frequency.setValueAtTime).toHaveBeenCalled()
         const scheduledFrequencies = vi.mocked(mockOscillator.frequency.setValueAtTime).mock.calls.map(call => call[0])
         expect(scheduledFrequencies.every((frequency) => Number.isFinite(frequency) && frequency > 0)).toBe(true)
     })

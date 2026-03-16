@@ -29,6 +29,7 @@ describe('RiskTrendChart', () => {
         expect(screen.getByText(/no historical data available/i)).toBeInTheDocument()
         expect(screen.getByText(/risk tracking will appear as data is collected/i)).toBeInTheDocument()
         expect(screen.getByTestId('risk-trend-chart-empty')).toBeInTheDocument()
+        expect(screen.queryByTestId('risk-trend-chart')).not.toBeInTheDocument()
     })
 
     it('renders chart shell and trainer context when data exists', () => {
@@ -46,7 +47,7 @@ describe('RiskTrendChart', () => {
         expect(screen.getByText(/tracking taylor's risk level over time/i)).toBeInTheDocument()
         expect(screen.queryByText(/no historical data available/i)).not.toBeInTheDocument()
         expect(screen.getByTestId('risk-trend-chart')).toBeInTheDocument()
-        expect(screen.getByTestId('utilization-series')).toBeInTheDocument()
+        expect(screen.getByTestId('utilization-summary')).toBeInTheDocument()
     })
 
     it('hides utilization series marker when showUtilization is false', () => {
@@ -59,6 +60,6 @@ describe('RiskTrendChart', () => {
         )
 
         expect(screen.getByTestId('risk-trend-chart')).toBeInTheDocument()
-        expect(screen.queryByTestId('utilization-series')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('utilization-summary')).not.toBeInTheDocument()
     })
 })

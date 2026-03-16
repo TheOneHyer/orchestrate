@@ -164,8 +164,9 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
             {Array.from(new Set(users.map(u => u.department)))
               .map(dept => {
                 const deptUsers = users.filter(u => u.department === dept && u.role === 'employee')
-                const percentage = (deptUsers.length / employeeCount) * 100
-                return { dept, count: deptUsers.length, percentage }
+                const count = deptUsers.length
+                const percentage = employeeCount > 0 ? (count / employeeCount) * 100 : 0
+                return { dept, count, percentage }
               })
               .sort((a, b) => b.count - a.count)
               .map(({ dept, count, percentage }) => (

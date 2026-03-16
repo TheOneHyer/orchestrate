@@ -17,6 +17,18 @@ const baseNotification: Notification = {
   priority: 'high',
 }
 
+const twoNotifications: Notification[] = [
+  baseNotification,
+  {
+    ...baseNotification,
+    id: 'n-2',
+    title: 'Read message',
+    read: true,
+    type: 'system',
+    priority: 'low',
+  },
+]
+
 describe('Notifications', () => {
   it('renders empty state when there are no notifications', () => {
     render(
@@ -64,21 +76,9 @@ describe('Notifications', () => {
     const onMarkAllAsRead = vi.fn()
     const user = userEvent.setup()
 
-    const notifications: Notification[] = [
-      baseNotification,
-      {
-        ...baseNotification,
-        id: 'n-2',
-        title: 'Read message',
-        read: true,
-        type: 'system',
-        priority: 'low',
-      },
-    ]
-
     render(
       <Notifications
-        notifications={notifications}
+        notifications={twoNotifications}
         onMarkAsRead={vi.fn()}
         onMarkAsUnread={vi.fn()}
         onMarkAllAsRead={onMarkAllAsRead}
@@ -96,21 +96,9 @@ describe('Notifications', () => {
     const onDismissAll = vi.fn()
     const user = userEvent.setup()
 
-    const notifications: Notification[] = [
-      baseNotification,
-      {
-        ...baseNotification,
-        id: 'n-2',
-        title: 'Read message',
-        read: true,
-        type: 'system',
-        priority: 'low',
-      },
-    ]
-
     render(
       <Notifications
-        notifications={notifications}
+        notifications={twoNotifications}
         onMarkAsRead={vi.fn()}
         onMarkAsUnread={vi.fn()}
         onMarkAllAsRead={vi.fn()}
@@ -130,21 +118,9 @@ describe('Notifications', () => {
     const onDismissAll = vi.fn()
     const user = userEvent.setup()
 
-    const notifications: Notification[] = [
-      baseNotification,
-      {
-        ...baseNotification,
-        id: 'n-2',
-        title: 'Read message',
-        read: true,
-        type: 'system',
-        priority: 'low',
-      },
-    ]
-
     render(
       <Notifications
-        notifications={notifications}
+        notifications={twoNotifications}
         onMarkAsRead={vi.fn()}
         onMarkAsUnread={vi.fn()}
         onMarkAllAsRead={vi.fn()}

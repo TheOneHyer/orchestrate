@@ -107,7 +107,7 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
           Tracking {trainerName}'s risk level over time
         </p>
       )}
-      {showUtilization && <span data-testid="utilization-series" className="sr-only">{utilizationSummary}</span>}
+      {showUtilization && <span data-testid="utilization-summary" className="sr-only">{utilizationSummary}</span>}
       <ResponsiveContainer width="100%" height={300}>
         <AreaChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
           <defs>
@@ -146,21 +146,21 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
             stroke="oklch(0.828 0.189 84.429)"
             strokeDasharray="5 5"
             strokeOpacity={0.4}
-            label={{ value: 'Low Risk', position: 'insideTopRight', fill: 'oklch(0.55 0.01 250)', fontSize: 11 }}
+            label={{ value: 'Medium Risk', position: 'insideTopRight', fill: 'oklch(0.55 0.01 250)', fontSize: 11 }}
           />
           <ReferenceLine
             y={45}
             stroke="oklch(0.769 0.188 70.08)"
             strokeDasharray="5 5"
             strokeOpacity={0.4}
-            label={{ value: 'Medium Risk', position: 'insideTopRight', fill: 'oklch(0.55 0.01 250)', fontSize: 11 }}
+            label={{ value: 'High Risk', position: 'insideTopRight', fill: 'oklch(0.55 0.01 250)', fontSize: 11 }}
           />
           <ReferenceLine
             y={70}
             stroke="oklch(0.646 0.222 41.116)"
             strokeDasharray="5 5"
             strokeOpacity={0.4}
-            label={{ value: 'High Risk', position: 'insideTopRight', fill: 'oklch(0.55 0.01 250)', fontSize: 11 }}
+            label={{ value: 'Critical Risk', position: 'insideTopRight', fill: 'oklch(0.55 0.01 250)', fontSize: 11 }}
           />
 
           <Area

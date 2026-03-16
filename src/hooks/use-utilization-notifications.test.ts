@@ -46,16 +46,17 @@ function buildSessions(trainerId: string, hoursPerSession: number, count: number
         const dayOffset = i % 7
         const isAfternoon = i >= 7
         const day = 16 + dayOffset          // March 16–22
-        const startHour = isAfternoon ? 13 : 8
-        const endHour = startHour + hoursPerSession
-        const dateStr = `2026-03-${String(day).padStart(2, '0')}`
+        const morningEndHour = 8 + hoursPerSession
+        const startHour = isAfternoon ? Math.max(13, morningEndHour) : 8
+        const startDate = new Date(Date.UTC(2026, 2, day, startHour, 0, 0))
+        const endDate = new Date(startDate.getTime() + hoursPerSession * 60 * 60 * 1000)
         return {
             id: `session-${trainerId}-${i}`,
             courseId: 'course-1',
             trainerId,
             title: `Session ${i}`,
-            startTime: `${dateStr}T${String(startHour).padStart(2, '0')}:00:00.000Z`,
-            endTime: `${dateStr}T${String(endHour).padStart(2, '0')}:00:00.000Z`,
+            startTime: startDate.toISOString(),
+            endTime: endDate.toISOString(),
             location: 'Room A',
             capacity: 10,
             enrolledStudents: [],
@@ -98,7 +99,6 @@ describe('use-utilization-notifications', () => {
 
         expect(onCreateNotification).toHaveBeenCalledTimes(2)
         const calls = vi.mocked(onCreateNotification).mock.calls.map(c => c[0] as Omit<Notification, 'id' | 'createdAt'>)
-        expect(calls.some(n => n.priority === 'critical')).toBe(true)
         expect(calls.some(n => n.userId === trainer.id && n.priority === 'critical')).toBe(true)
         expect(calls.some(n => n.userId === 'admin' && n.priority === 'critical')).toBe(true)
     })
@@ -119,7 +119,17 @@ describe('use-utilization-notifications', () => {
         rerender({ sessions: normalSessions })
 
         const calls = vi.mocked(onCreateNotification).mock.calls.map(c => c[0] as Omit<Notification, 'id' | 'createdAt'>)
-        expect(calls.some(n => n.title === 'Workload Normalized')).toBe(true)
+        expect(vi.mocked(onCreateNotification).mock.calls.length).toBe(2)
+
+        const trainerNormalizedCalls = calls.filter(n => n.title === 'Workload Normalized')
+        expect(trainerNormalizedCalls).toHaveLength(1)
+        expect(trainerNormalizedCalls[0].userId).toBe(trainer.id)
+        expect(trainerNormalizedCalls[0].priority).toBe('low')
+
+        const adminNormalizedCalls = calls.filter(n => n.title === `Workload Balanced: ${trainer.name}`)
+        expect(adminNormalizedCalls).toHaveLength(1)
+        expect(adminNormalizedCalls[0].userId).toBe('admin')
+        expect(adminNormalizedCalls[0].priority).toBe('low')
     })
 
     it('does not fire notifications when there are no users or sessions', () => {

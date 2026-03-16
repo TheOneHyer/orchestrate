@@ -104,8 +104,16 @@ describe('usePushNotifications', () => {
     })
 
     it('sendNotification returns null when notifications are disabled (default)', () => {
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: false,
+                permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true }
+            },
+            vi.fn()
+        ] as any)
+
         const { result } = renderHook(() => usePushNotifications())
-        // default: enabled = false
         expect(result.current.sendNotification('Hello')).toBeNull()
     })
 

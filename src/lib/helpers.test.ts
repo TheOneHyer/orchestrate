@@ -58,6 +58,10 @@ describe('helpers', () => {
 
         it('denies unknown permissions for all roles', () => {
             expect(hasPermission('admin', 'nonexistent_permission')).toBe(false)
+            expect(hasPermission('employee', 'nonexistent_permission')).toBe(false)
+        })
+
+        it('denies known-but-unauthorized permissions for restricted roles', () => {
             expect(hasPermission('employee', 'view_all')).toBe(false)
         })
     })
@@ -203,6 +207,10 @@ describe('helpers', () => {
     })
 
     describe('formatDuration', () => {
+        it('formats zero duration', () => {
+            expect(formatDuration(0)).toBe('0m')
+        })
+
         it('formats minutes-only durations', () => {
             expect(formatDuration(45)).toBe('45m')
         })
@@ -223,7 +231,7 @@ describe('helpers', () => {
             expect(calculateSessionDuration(start, end)).toBe(2)
         })
 
-        it('handles overnight sessions by wrapping through midnight', () => {
+        it('handles sessions spanning midnight', () => {
             const start = new Date('2026-03-16T23:00:00.000Z')
             const end = new Date('2026-03-17T01:00:00.000Z')
             expect(calculateSessionDuration(start, end)).toBe(2)

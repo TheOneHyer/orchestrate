@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,12 @@ export function NotificationSettingsDialog({ open, onOpenChange }: NotificationS
 
   const [isRequestingPermission, setIsRequestingPermission] = useState(false)
   const [permissionError, setPermissionError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      setPermissionError(null)
+    }
+  }, [open])
 
   const handleRequestPermission = async () => {
     setPermissionError(null)

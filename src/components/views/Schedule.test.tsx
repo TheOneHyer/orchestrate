@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -179,14 +179,14 @@ describe('Schedule', () => {
 
   it('calls onUpdateSession when enrolling students from session details', async () => {
     const onUpdateSession = vi.fn()
-    const user = userEvent.setup()
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
 
     renderSchedule({ sessions: [baseSession], onUpdateSession })
 
     await user.click(screen.getByRole('tab', { name: /list/i }))
     await user.click(screen.getByRole('button', { name: /morning safety session/i }))
     await user.click(screen.getByRole('button', { name: /enroll students/i }))
-    fireEvent.click(screen.getByTestId('confirm-enroll'))
+    await user.click(screen.getByTestId('confirm-enroll'))
 
     expect(onUpdateSession).toHaveBeenCalledWith(
       's-1',

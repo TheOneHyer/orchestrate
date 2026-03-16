@@ -122,4 +122,36 @@ describe('use-check-in-scheduler', () => {
         const updated = updaterFn([schedule])
         expect(updated[0].missedCheckIns).toBe(1)
     })
+
+    it('increments only the overdue schedule when updater runs against mixed schedules', () => {
+        const overdueSchedule = createSchedule({
+            id: 'schedule-overdue',
+            trainerId: 'trainer-overdue',
+            nextScheduledDate: new Date(NOW.getTime() - 26 * 60 * 60 * 1000).toISOString(),
+            missedCheckIns: 0,
+        })
+        const activeSchedule = createSchedule({
+            id: 'schedule-active',
+            trainerId: 'trainer-active',
+            nextScheduledDate: new Date(NOW.getTime() + 2 * 60 * 60 * 1000).toISOString(),
+            missedCheckIns: 0,
+        })
+
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[overdueSchedule, activeSchedule], setter] as any)
+
+        renderHook(() =>
+            useCheckInScheduler([createTrainer('trainer-overdue'), createTrainer('trainer-active')], [], undefined)
+        )
+
+        expect(setter).toHaveBeenCalledWith(expect.any(Function))
+        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: CheckInSchedule[]) => CheckInSchedule[]
+        const updated = updaterFn([overdueSchedule, activeSchedule])
+
+        const updatedOverdue = updated.find((schedule) => schedule.id === 'schedule-overdue')
+        const updatedActive = updated.find((schedule) => schedule.id === 'schedule-active')
+
+        expect(updatedOverdue?.missedCheckIns).toBe(1)
+        expect(updatedActive?.missedCheckIns).toBe(0)
+    })
 })

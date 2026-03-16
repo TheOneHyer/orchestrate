@@ -3,16 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     ensureAllTrainersHaveProfiles,
     generateTrainerProfile,
+    type TrainerWithShifts,
 } from './trainer-profile-generator'
 import type { User } from './types'
 
 const SYSTEM_TIME = new Date('2026-03-16T12:00:00.000Z')
-
-type ShiftKind = 'day' | 'evening' | 'night'
-type TrainerWithShifts = User & {
-    role: 'trainer'
-    shifts: ShiftKind[]
-}
 
 function createTrainer(overrides: Partial<TrainerWithShifts> = {}): TrainerWithShifts {
     return {
@@ -140,7 +135,7 @@ describe('trainer-profile-generator', () => {
     })
 
     it('ensures all trainers in a user list get generated profiles', () => {
-        const users: User[] = [
+        const users: Array<User | TrainerWithShifts> = [
             createEmployee({ id: 'employee-1' }),
             createTrainer({ id: 'trainer-a', shifts: ['day'] }),
             createTrainer({ id: 'trainer-b', shifts: ['night'] }),

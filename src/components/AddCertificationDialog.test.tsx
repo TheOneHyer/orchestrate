@@ -106,6 +106,12 @@ describe('AddCertificationDialog', () => {
 
     expect(screen.queryByText(/trainers selected/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /select all/i })).toBeInTheDocument()
+
+    // Assert individual trainer checkboxes are unchecked
+    const checkboxes = screen.getAllByRole('checkbox')
+    checkboxes.forEach(checkbox => {
+      expect(checkbox).not.toBeChecked()
+    })
   })
 
   it('submits successfully with valid data', async () => {
@@ -131,6 +137,9 @@ describe('AddCertificationDialog', () => {
     expect(cert.expirationDate).toBe(expirationDate)
     expect(toastSuccess).toHaveBeenCalledWith('Certification added to 1 trainer')
     expect(toastError).not.toHaveBeenCalled()
+
+    // Assert the dialog closes after successful submit
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('submits successfully with valid data for multiple trainers', async () => {
@@ -156,6 +165,77 @@ describe('AddCertificationDialog', () => {
     expect(cert.expirationDate).toBe(expirationDate)
     expect(toastSuccess).toHaveBeenCalledWith('Certification added to 2 trainers')
     expect(toastError).not.toHaveBeenCalled()
+  })
+
+  it('resets form after successful submission', async () => {
+    const onAddCertification = vi.fn()
+    const issuedDate = '2027-12-15'
+    const expirationDate = '2028-01-01'
+
+    render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
+    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+
+    // Fill and submit the form
+    await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Training')
+    setDateInput(/issued date/i, issuedDate)
+    setDateInput(/expiration date/i, expirationDate)
+    await userEvent.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
+
+    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+
+    // Dialog should close
+    expect(onAddCertification).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+    // Reopen the dialog
+    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+
+    // Assert form is reset (certification name and expiration date are cleared, issued date reset to today)
+    expect(screen.getByLabelText(/certification name/i)).toHaveValue('')
+    const issuedDateInput = screen.getByLabelText(/^issued date$/i) as HTMLInputElement
+    expect(issuedDateInput.value).toBeTruthy() // Should have today's date, not empty
+    expect(screen.getByLabelText(/^expiration date$/i)).toHaveValue('')
+
+    // Assert no checkboxes remain checked
+    const checkboxes = screen.getAllByRole('checkbox')
+    checkboxes.forEach(checkbox => {
+      expect(checkbox).not.toBeChecked()
+    })
+  })
+
+  it('closes dialog when cancel button is clicked', async () => {
+    const onAddCertification = vi.fn()
+
+    render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
+    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+    // Click the close button (X button on the dialog)
+    const closeButton = screen.getByRole('button', { name: /close/i })
+    await userEvent.click(closeButton)
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(onAddCertification).not.toHaveBeenCalled()
+  })
+
+  it('submits successfully with optional expiration date omitted', async () => {
+    const onAddCertification = vi.fn()
+    const issuedDate = '2027-12-15'
+
+    render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
+    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+
+    await userEvent.type(screen.getByLabelText(/certification name/i), 'Ongoing Training')
+    setDateInput(/issued date/i, issuedDate)
+    // Leave expiration date empty
+    await userEvent.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
+
+    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+
+    // Should show validation error because expiration date is required in current implementation
+    expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/expiration date/i))
+    expect(onAddCertification).not.toHaveBeenCalled()
   })
 
   it('shows validation error when required fields are missing', async () => {

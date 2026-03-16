@@ -23,7 +23,7 @@ export function NotificationSoundSettings() {
   const handleUpdatePushSettings = async (updates: Parameters<typeof updatePushSettings>[0]) => {
     setErrorMessage(null)
     try {
-      await Promise.resolve(updatePushSettings(updates))
+      await updatePushSettings(updates)
     } catch (error) {
       console.error('Failed to update browser notification settings', error)
       setErrorMessage('Unable to update notification settings. Please try again.')

@@ -109,10 +109,10 @@ describe('NotificationSettingsDialog', () => {
 
     render(<NotificationSettingsDialog open={true} onOpenChange={vi.fn()} />)
 
-    expect(screen.getByText(/low priority notifications/i)).toBeInTheDocument()
-    expect(screen.getByText(/medium priority notifications/i)).toBeInTheDocument()
-    expect(screen.getByText(/high priority notifications/i)).toBeInTheDocument()
-    expect(screen.getByText(/critical priority notifications/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/low priority notifications/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/medium priority notifications/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/high priority notifications/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/critical priority notifications/i)).toBeInTheDocument()
   })
 
   it('hides priority toggles when master notifications are disabled', () => {

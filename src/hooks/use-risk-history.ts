@@ -25,10 +25,19 @@ export function useRiskHistory(
       const newSnapshots: RiskHistorySnapshot[] = []
 
       trainers.forEach(trainer => {
-        const trainerSnapshots = safeRiskHistory.filter(s => s.trainerId === trainer.id)
-        const lastSnapshot = trainerSnapshots.length > 0
-          ? trainerSnapshots.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
-          : undefined
+        const lastSnapshot = safeRiskHistory.reduce<RiskHistorySnapshot | undefined>((latest, snapshot) => {
+          if (snapshot.trainerId !== trainer.id) {
+            return latest
+          }
+
+          if (!latest) {
+            return snapshot
+          }
+
+          return new Date(snapshot.timestamp).getTime() > new Date(latest.timestamp).getTime()
+            ? snapshot
+            : latest
+        }, undefined)
 
         if (shouldTakeSnapshot(trainer.id, lastSnapshot, SNAPSHOT_FREQUENCY_HOURS)) {
           newSnapshots.push(createRiskSnapshot(trainer, sessions, courses, wellnessCheckIns))

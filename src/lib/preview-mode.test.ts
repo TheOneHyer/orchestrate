@@ -50,16 +50,12 @@ describe('preview-mode', () => {
     })
 
     describe('isPreviewSeedEnabled', () => {
-        it('returns false for "off"', () => {
-            expect(isPreviewSeedEnabled('off')).toBe(false)
-        })
-
-        it('returns true for "full"', () => {
-            expect(isPreviewSeedEnabled('full')).toBe(true)
-        })
-
-        it('returns true for "force"', () => {
-            expect(isPreviewSeedEnabled('force')).toBe(true)
+        it.each([
+            ['off', false],
+            ['full', true],
+            ['force', true],
+        ] as const)('returns %s -> %s', (mode, expected) => {
+            expect(isPreviewSeedEnabled(mode)).toBe(expected)
         })
     })
 })

@@ -55,6 +55,38 @@ describe('TrendChart', () => {
         expect(screen.getByTestId('trend-series-trainer-1')).toBeInTheDocument()
     })
 
+    it('applies timeRange filtering to trainer trend summary', () => {
+        const rangeSensitiveData = [
+            {
+                trainerId: 'trainer-1',
+                trend: 'increasing' as const,
+                changeRate: 4,
+                dataPoints: [
+                    { date: '2026-02-20', utilization: 40, hours: 16, sessions: 4 },
+                    { date: '2026-03-10', utilization: 80, hours: 32, sessions: 8 },
+                ],
+            },
+        ]
+
+        const { rerender } = render(
+            <TrendChart
+                timeRange="week"
+                data={rangeSensitiveData}
+            />
+        )
+
+        expect(screen.getByTestId('trend-series-trainer-1')).toHaveTextContent(/average 80.0%, trend flat/i)
+
+        rerender(
+            <TrendChart
+                timeRange="month"
+                data={rangeSensitiveData}
+            />
+        )
+
+        expect(screen.getByTestId('trend-series-trainer-1')).toHaveTextContent(/average 60.0%, trend up/i)
+    })
+
     it('renders all trainers when showAll is enabled', () => {
         render(
             <TrendChart

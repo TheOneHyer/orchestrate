@@ -48,7 +48,7 @@ export function WorkloadDistribution({ data, trainers }: WorkloadDistributionPro
       <span className="sr-only">
         {chartData.map(entry => `${entry.name}: ${entry.utilization}% utilization, ${entry.hours} hours`).join(', ')}
       </span>
-      <div className="sr-only" aria-hidden="true">
+      <div className="sr-only">
         {chartData.map((entry) => (
           <span key={`risk-${entry.name}`} className={getRiskClass(entry.utilization)}>
             {entry.name}

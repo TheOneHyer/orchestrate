@@ -48,6 +48,7 @@ describe('NotificationSoundSettings', () => {
     })
 
     it('requests permission when not granted', async () => {
+        const user = userEvent.setup()
         const requestPermission = vi.fn()
         mockUsePushNotifications.mockReturnValue({
             settings: {
@@ -63,11 +64,12 @@ describe('NotificationSoundSettings', () => {
 
         render(<NotificationSoundSettings />)
 
-        await userEvent.click(screen.getByRole('button', { name: /enable notifications/i }))
+        await user.click(screen.getByRole('button', { name: /enable notifications/i }))
         expect(requestPermission).toHaveBeenCalledOnce()
     })
 
     it('updates granted notification priority toggles', async () => {
+        const user = userEvent.setup()
         const updateSettings = vi.fn()
         mockUsePushNotifications.mockReturnValue({
             settings: {
@@ -83,7 +85,7 @@ describe('NotificationSoundSettings', () => {
 
         render(<NotificationSoundSettings />)
 
-        await userEvent.click(screen.getByLabelText(/low priority/i))
+        await user.click(screen.getByRole('switch', { name: /low priority/i }))
         expect(updateSettings).toHaveBeenCalledWith({
             showForPriorities: {
                 low: false,
@@ -95,6 +97,7 @@ describe('NotificationSoundSettings', () => {
     })
 
     it('sends a test notification when the action button is clicked', async () => {
+        const user = userEvent.setup()
         const testNotification = vi.fn()
         mockUsePushNotifications.mockReturnValue({
             settings: {
@@ -110,7 +113,7 @@ describe('NotificationSoundSettings', () => {
 
         render(<NotificationSoundSettings />)
 
-        await userEvent.click(screen.getByRole('button', { name: /send test notification/i }))
+        await user.click(screen.getByRole('button', { name: /send test notification/i }))
         expect(testNotification).toHaveBeenCalledOnce()
     })
 
@@ -134,6 +137,7 @@ describe('NotificationSoundSettings', () => {
     })
 
     it('disables notifications when enabled is true and toggle is clicked', async () => {
+        const user = userEvent.setup()
         const updateSettings = vi.fn()
         mockUsePushNotifications.mockReturnValue({
             settings: {
@@ -148,11 +152,12 @@ describe('NotificationSoundSettings', () => {
         })
 
         render(<NotificationSoundSettings />)
-        await userEvent.click(screen.getByRole('switch', { name: /browser notifications/i }))
+        await user.click(screen.getByRole('switch', { name: /browser notifications/i }))
         expect(updateSettings).toHaveBeenCalledWith({ enabled: false })
     })
 
     it('enables notifications when permission is granted and the switch is off', async () => {
+        const user = userEvent.setup()
         const updateSettings = vi.fn()
         mockUsePushNotifications.mockReturnValue({
             settings: {
@@ -168,7 +173,7 @@ describe('NotificationSoundSettings', () => {
 
         render(<NotificationSoundSettings />)
 
-        await userEvent.click(screen.getByRole('switch', { name: /browser notifications/i }))
+        await user.click(screen.getByRole('switch', { name: /browser notifications/i }))
         expect(updateSettings).toHaveBeenCalledWith({ enabled: true })
     })
 

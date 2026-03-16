@@ -129,9 +129,7 @@ describe('NotificationPermissionBanner', () => {
 
         render(<NotificationPermissionBanner />)
 
-        await expect(
-            user.click(await screen.findByRole('button', { name: /enable/i }))
-        ).resolves.not.toThrow()
+        await user.click(await screen.findByRole('button', { name: /enable/i }))
 
         await waitFor(() => {
             expect(requestPermission).toHaveBeenCalledOnce()

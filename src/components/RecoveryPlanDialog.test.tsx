@@ -133,6 +133,7 @@ describe('RecoveryPlanDialog', () => {
         expect(stressSummary as HTMLElement).toHaveTextContent(/stress:\s*high/i)
         const concernsSummary = screen.getByText(/concerns:/i).closest('div')
         expect(concernsSummary).not.toBeNull()
+        // The summary shows 2/5 for both selected steps (2 out of 5 total) and selected concerns (2 out of 5 total)
         expect(screen.getAllByText('2/5')).toHaveLength(2)
         expect(concernsSummary as HTMLElement).toHaveTextContent(/work-life balance, too many sessions scheduled/i)
     })
@@ -214,6 +215,6 @@ describe('RecoveryPlanDialog', () => {
 
         await user.keyboard('{Escape}')
 
-        expect(baseProps.onClose).toHaveBeenCalled()
+        expect(baseProps.onClose).toHaveBeenCalledOnce()
     })
 })

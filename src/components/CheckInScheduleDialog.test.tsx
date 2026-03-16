@@ -174,4 +174,22 @@ describe('CheckInScheduleDialog', () => {
 
     expect(onClose).toHaveBeenCalledOnce()
   })
+
+  it('shows custom days input when frequency is set to custom', async () => {
+    render(<CheckInScheduleDialog {...makeProps()} />)
+
+    // Select a trainer
+    await userEvent.click(screen.getByRole('combobox', { name: /trainer/i }))
+    await userEvent.click(await screen.findByRole('option', { name: /alex trainer/i }))
+
+    // Initially custom days input should not be visible
+    expect(screen.queryByLabelText(/custom days/i)).not.toBeInTheDocument()
+
+    // Open frequency combobox and select custom
+    await userEvent.click(screen.getByRole('combobox', { name: /Check-In Frequency/i }))
+    await userEvent.click(await screen.findByRole('option', { name: /custom interval/i }))
+
+    // Custom days input should now be visible
+    expect(screen.getByLabelText(/custom days/i)).toBeInTheDocument()
+  })
 })

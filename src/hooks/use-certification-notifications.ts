@@ -71,7 +71,7 @@ export function useCertificationNotifications(
       if (cert.renewalInProgress) return
 
       if (shouldSendRenewalReminder(cert)) {
-        const nextReminderCount = cert.remindersSent + 1
+        const nextReminderCount = (cert.remindersSent ?? 0) + 1
 
         onCreateNotificationRef.current({
           ...generateCertificationNotification(alert, false),

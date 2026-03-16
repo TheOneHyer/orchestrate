@@ -46,7 +46,7 @@ describe('Layout', () => {
         expect(screen.getByTestId('notification-count')).toHaveTextContent('3')
     })
 
-    it('hides admin-only items for employees and navigates on click', async () => {
+    it('hides admin-only items for employees', () => {
         const onNavigate = vi.fn()
         render(
             <Layout activeView="dashboard" onNavigate={onNavigate} userRole="employee" notificationCount={0}>
@@ -56,6 +56,15 @@ describe('Layout', () => {
 
         expect(screen.queryByText(/schedule templates/i)).not.toBeInTheDocument()
         expect(screen.queryByText(/^settings$/i)).not.toBeInTheDocument()
+    })
+
+    it('navigates on notifications button click', async () => {
+        const onNavigate = vi.fn()
+        render(
+            <Layout activeView="dashboard" onNavigate={onNavigate} userRole="employee" notificationCount={0}>
+                <div>Page Content</div>
+            </Layout>
+        )
 
         await userEvent.click(screen.getByRole('button', { name: /notifications/i }))
         expect(onNavigate).toHaveBeenCalledWith('notifications')

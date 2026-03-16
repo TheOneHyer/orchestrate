@@ -8,16 +8,17 @@ interface UtilizationChartProps {
   trainerName: string
 }
 
+function formatDate(dateValue: string) {
+  const d = new Date(dateValue)
+  return Number.isNaN(d.getTime()) ? 'Invalid date' : format(d, 'MMM d')
+}
+
 export function UtilizationChart({ data, trainerName }: UtilizationChartProps) {
   const chartData = useMemo(() => {
     return data.map(point => ({
-      date: (() => {
-        const d = new Date(point.date)
-        return Number.isNaN(d.getTime()) ? 'Invalid date' : format(d, 'MMM d')
-      })(),
+      date: formatDate(point.date),
       utilization: Math.min(100, Math.max(0, Math.round((point.utilization ?? 0) * 10) / 10)),
       hours: Math.max(0, Math.round((point.hours ?? 0) * 10) / 10),
-      sessions: Math.max(0, point.sessions ?? 0)
     }))
   }, [data])
 
@@ -32,18 +33,8 @@ export function UtilizationChart({ data, trainerName }: UtilizationChartProps) {
     }
 
     const utilizationValues = chartData.map(point => point.utilization)
-    let min = utilizationValues[0]
-    let max = utilizationValues[0]
-
-    for (let i = 1; i < utilizationValues.length; i += 1) {
-      const value = utilizationValues[i]
-      if (value < min) {
-        min = value
-      }
-      if (value > max) {
-        max = value
-      }
-    }
+    const min = Math.min(...utilizationValues)
+    const max = Math.max(...utilizationValues)
 
     return {
       min,

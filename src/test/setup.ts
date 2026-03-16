@@ -161,20 +161,21 @@ class AudioMock {
         this.paused = true
     })
 
-    dispatchEvent = vi.fn((type: string, event?: Event | Record<string, unknown>) => {
+    dispatchEvent = vi.fn((event: Event | Record<string, unknown>): boolean => {
+        const type = (event as Event).type
         const listeners = this.listeners.get(type)
-        if (!listeners || listeners.size === 0) {
-            return
+
+        if (listeners) {
+            listeners.forEach((listener) => {
+                if (typeof listener === 'function') {
+                    listener(event as Event)
+                } else {
+                    listener.handleEvent(event as Event)
+                }
+            })
         }
 
-        const payload = event ?? new Event(type)
-        listeners.forEach((listener) => {
-            if (typeof listener === 'function') {
-                listener(payload as Event)
-            } else {
-                listener.handleEvent(payload as Event)
-            }
-        })
+        return !((event as Event).defaultPrevented)
     })
 }
 

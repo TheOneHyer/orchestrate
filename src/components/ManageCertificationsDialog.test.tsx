@@ -100,7 +100,7 @@ describe('ManageCertificationsDialog', () => {
       />
     )
 
-    await userEvent.click(screen.getByRole('button', { name: /^edit$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /edit certification advanced training/i }))
 
     expect(screen.getByRole('button', { name: /update certification/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /cancel edit/i })).toBeInTheDocument()
@@ -114,7 +114,7 @@ describe('ManageCertificationsDialog', () => {
       />
     )
 
-    await userEvent.click(screen.getByRole('button', { name: /^edit$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /edit certification advanced training/i }))
     await userEvent.click(screen.getByRole('button', { name: /cancel edit/i }))
 
     expect(screen.getByRole('button', { name: /^add certification$/i })).toBeInTheDocument()
@@ -131,7 +131,7 @@ describe('ManageCertificationsDialog', () => {
       />
     )
 
-    await userEvent.click(screen.getByRole('button', { name: /^edit$/i }))
+    await userEvent.click(screen.getByRole('button', { name: /edit certification advanced training/i }))
     await userEvent.clear(screen.getByLabelText(/certification name/i))
     await userEvent.type(screen.getByLabelText(/certification name/i), 'Updated Training')
     await userEvent.click(screen.getByRole('button', { name: /update certification/i }))
@@ -196,7 +196,7 @@ describe('ManageCertificationsDialog', () => {
       />
     )
 
-    await userEvent.click(screen.getAllByRole('button', { name: /^edit$/i })[0])
+    await userEvent.click(screen.getByRole('button', { name: /edit certification cpr/i }))
     await userEvent.clear(screen.getByLabelText(/certification name/i))
     await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Updated')
     await userEvent.click(screen.getByRole('button', { name: /update certification/i }))
@@ -260,12 +260,12 @@ describe('ManageCertificationsDialog', () => {
     expect(renewingName).toBeInTheDocument()
     expect(screen.getByText(/renewal in progress/i, { selector: 'span' })).toBeInTheDocument()
 
-    const expiredContainer = expiredName.closest('.flex-1')
-    const renewingContainer = renewingName.closest('.flex-1')
+    const expiredContainer = screen.getByTestId('certification-item-expired-cert')
+    const renewingContainer = screen.getByTestId('certification-item-renewing-cert')
     expect(expiredContainer).not.toBeNull()
     expect(renewingContainer).not.toBeNull()
 
-    expect(within(renewingContainer as HTMLElement).getByText(/renewal required/i, { selector: 'span' })).toBeInTheDocument()
-    expect(within(expiredContainer as HTMLElement).queryByText(/renewal required/i, { selector: 'span' })).not.toBeInTheDocument()
+    expect(within(renewingContainer).getByText(/renewal required/i, { selector: 'span' })).toBeInTheDocument()
+    expect(within(expiredContainer).queryByText(/renewal required/i, { selector: 'span' })).not.toBeInTheDocument()
   })
 })

@@ -104,6 +104,7 @@ describe('UtilizationChart', () => {
             <UtilizationChart
                 trainerName="Taylor"
                 data={[
+                    // Intentional cast to simulate malformed runtime input and verify defensive handling.
                     { date: '2026-03-10', utilization: undefined, hours: undefined, sessions: 0 } as UtilizationData,
                 ]}
             />

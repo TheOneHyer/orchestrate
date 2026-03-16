@@ -118,6 +118,9 @@ describe('Dashboard', () => {
       />
     )
 
+    expect(screen.queryByText(/session 6/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/notice 6/i)).not.toBeInTheDocument()
+
     await userEvent.click(screen.getByRole('button', { name: /view all sessions/i }))
     await userEvent.click(screen.getByRole('button', { name: /view all notifications/i }))
 

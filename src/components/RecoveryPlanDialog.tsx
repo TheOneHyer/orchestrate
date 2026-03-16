@@ -188,6 +188,8 @@ export function RecoveryPlanDialog({
             </Label>
             <Textarea
               id="trigger-reason"
+              aria-invalid={!triggerReason.trim() && (triggerReasonTouched || submitAttempted)}
+              aria-describedby={!triggerReason.trim() && (triggerReasonTouched || submitAttempted) ? 'trigger-reason-error' : undefined}
               value={triggerReason}
               onChange={(e) => {
                 setTriggerReason(e.target.value)
@@ -198,7 +200,7 @@ export function RecoveryPlanDialog({
               rows={3}
             />
             {!triggerReason.trim() && (triggerReasonTouched || submitAttempted) && (
-              <p className="text-sm text-destructive">Trigger reason is required</p>
+              <p id="trigger-reason-error" className="text-sm text-destructive" role="alert" aria-live="assertive">Trigger reason is required</p>
             )}
           </div>
 
@@ -261,11 +263,16 @@ export function RecoveryPlanDialog({
             </div>
 
             {actions.length === 0 ? (
-              <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
-                <FirstAid className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="font-medium">No actions added yet</p>
-                <p className="text-sm mt-1">Add recovery actions using the dropdown above</p>
-              </div>
+              <>
+                <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
+                  <FirstAid className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="font-medium">No actions added yet</p>
+                  <p className="text-sm mt-1">Add recovery actions using the dropdown above</p>
+                </div>
+                {submitAttempted && actions.length === 0 && (
+                  <p className="text-sm text-destructive" role="alert">At least one recovery action is required</p>
+                )}
+              </>
             ) : (
               <div className="space-y-3">
                 {actions.map((action, idx) => (

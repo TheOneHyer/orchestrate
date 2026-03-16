@@ -186,6 +186,9 @@ describe('burnout-analytics', () => {
         [85, 'high'],
         [94.9, 'high'],
         [95, 'critical'],
+        [-1, 'low'],
+        [101, 'critical'],
+        [NaN, 'low'],
     ])('maps utilization %s to burnout risk %s', (input, expected) => {
         expect(getBurnoutRiskLevel(input)).toBe(expected)
     })

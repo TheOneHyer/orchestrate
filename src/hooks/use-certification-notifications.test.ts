@@ -12,6 +12,10 @@ function expiresIn(days: number): string {
     return d.toISOString().split('T')[0]
 }
 
+function daysAgoIso(days: number): string {
+    return new Date(SYSTEM_TIME.getTime() - days * 24 * 60 * 60 * 1000).toISOString()
+}
+
 function createCertRecord(daysUntilExpiry: number, remindersSent = 0): CertificationRecord {
     return {
         certificationName: 'Forklift Safety',
@@ -21,6 +25,16 @@ function createCertRecord(daysUntilExpiry: number, remindersSent = 0): Certifica
         renewalRequired: true,
         remindersSent,
         renewalInProgress: false
+    }
+}
+
+function createExactCertRecord(daysUntilExpiry: number, remindersSent = 0): CertificationRecord {
+    const expirationDate = new Date(SYSTEM_TIME)
+    expirationDate.setDate(expirationDate.getDate() + daysUntilExpiry)
+
+    return {
+        ...createCertRecord(daysUntilExpiry, remindersSent),
+        expirationDate: expirationDate.toISOString(),
     }
 }
 
@@ -173,7 +187,7 @@ describe('use-certification-notifications', () => {
     it('skips notification when a reminder was already sent within 7 days', () => {
         const cert: CertificationRecord = {
             ...createCertRecord(45, 1),
-            lastReminderDate: new Date(SYSTEM_TIME.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString() // 3 days ago
+            lastReminderDate: daysAgoIso(3)
         }
         const trainer = createTrainer('trainer-1', cert)
         const onCreateNotification = vi.fn()
@@ -188,7 +202,7 @@ describe('use-certification-notifications', () => {
     it('skips notification when last reminder was exactly 7 days ago', () => {
         const cert: CertificationRecord = {
             ...createCertRecord(45, 1),
-            lastReminderDate: new Date(SYSTEM_TIME.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+            lastReminderDate: daysAgoIso(7)
         }
         const trainer = createTrainer('trainer-1', cert)
         const onCreateNotification = vi.fn()
@@ -203,7 +217,7 @@ describe('use-certification-notifications', () => {
     it('sends notification when last reminder was 8 days ago', () => {
         const cert: CertificationRecord = {
             ...createCertRecord(45, 1),
-            lastReminderDate: new Date(SYSTEM_TIME.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString()
+            lastReminderDate: daysAgoIso(8)
         }
         const trainer = createTrainer('trainer-1', cert)
         const onCreateNotification = vi.fn()
@@ -220,7 +234,7 @@ describe('use-certification-notifications', () => {
         const farExpiryTrainer = createTrainer('trainer-far', createCertRecord(120, 0))
         const recentReminderTrainer = createTrainer('trainer-recent', {
             ...createCertRecord(45, 1),
-            lastReminderDate: new Date(SYSTEM_TIME.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+            lastReminderDate: daysAgoIso(2),
         })
         const onCreateNotification = vi.fn()
         const onUpdateUsers = vi.fn()
@@ -233,7 +247,11 @@ describe('use-certification-notifications', () => {
 
         expect(onCreateNotification).toHaveBeenCalledTimes(2)
         const payloads = vi.mocked(onCreateNotification).mock.calls.map((call) => call[0] as Omit<Notification, 'id' | 'createdAt'>)
-        expect(payloads.every((payload) => payload.message.includes(eligibleTrainer.name) || payload.userId === eligibleTrainer.id || payload.userId === 'admin')).toBe(true)
+        expect(payloads).toHaveLength(2)
+        expect(payloads[0].message.includes(eligibleTrainer.name) || payloads[0].userId === eligibleTrainer.id || payloads[0].userId === 'admin').toBe(true)
+        expect(payloads[1].message.includes(eligibleTrainer.name) || payloads[1].userId === eligibleTrainer.id || payloads[1].userId === 'admin').toBe(true)
+        expect(payloads.some((payload) => payload.userId === eligibleTrainer.id)).toBe(true)
+        expect(payloads.some((payload) => payload.userId === 'admin')).toBe(true)
 
         expect(onUpdateUsers).toHaveBeenCalledOnce()
         const updatedUsers = vi.mocked(onUpdateUsers).mock.calls[0][0] as User[]
@@ -280,5 +298,112 @@ describe('use-certification-notifications', () => {
 
         expect(onCreateNotification).not.toHaveBeenCalled()
         expect(onUpdateUsers).not.toHaveBeenCalled()
+    })
+
+    it('uses reminder thresholds correctly between the 60-day and 30-day windows', () => {
+        const sixtyOneDaysTrainer = createTrainer('trainer-61-days', createExactCertRecord(61, 1))
+        const fiftyNineDaysTrainer = createTrainer('trainer-59-days', createExactCertRecord(59, 1))
+        const thirtyOneDaysTrainer = createTrainer('trainer-31-days', createExactCertRecord(31, 2))
+        const twentyNineDaysTrainer = createTrainer('trainer-29-days', createExactCertRecord(29, 2))
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications(
+            [sixtyOneDaysTrainer, fiftyNineDaysTrainer, thirtyOneDaysTrainer, twentyNineDaysTrainer],
+            onCreateNotification,
+            onUpdateUsers
+        ))
+
+        expect(onCreateNotification).toHaveBeenCalledTimes(4)
+        const payloads = vi.mocked(onCreateNotification).mock.calls.map((call) => call[0] as Omit<Notification, 'id' | 'createdAt'>)
+        expect(payloads.some((payload) => payload.userId === fiftyNineDaysTrainer.id)).toBe(true)
+        expect(payloads.some((payload) => payload.userId === twentyNineDaysTrainer.id)).toBe(true)
+        expect(payloads.some((payload) => payload.userId === sixtyOneDaysTrainer.id)).toBe(false)
+        expect(payloads.some((payload) => payload.userId === thirtyOneDaysTrainer.id)).toBe(false)
+
+        expect(onUpdateUsers).toHaveBeenCalledOnce()
+        const updatedUsers = vi.mocked(onUpdateUsers).mock.calls[0][0] as User[]
+        const updated61 = updatedUsers.find((user) => user.id === sixtyOneDaysTrainer.id)
+        const updated59 = updatedUsers.find((user) => user.id === fiftyNineDaysTrainer.id)
+        const updated31 = updatedUsers.find((user) => user.id === thirtyOneDaysTrainer.id)
+        const updated29 = updatedUsers.find((user) => user.id === twentyNineDaysTrainer.id)
+        expect(updated61?.trainerProfile?.certificationRecords?.[0].remindersSent).toBe(1)
+        expect(updated59?.trainerProfile?.certificationRecords?.[0].remindersSent).toBe(2)
+        expect(updated31?.trainerProfile?.certificationRecords?.[0].remindersSent).toBe(2)
+        expect(updated29?.trainerProfile?.certificationRecords?.[0].remindersSent).toBe(3)
+    })
+
+    it('skips expired certifications even when they are included in the expiring list', () => {
+        const expiredTrainer = createTrainer('trainer-expired', createCertRecord(-2, 0))
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications([expiredTrainer], onCreateNotification, onUpdateUsers))
+
+        expect(onCreateNotification).not.toHaveBeenCalled()
+        expect(onUpdateUsers).not.toHaveBeenCalled()
+    })
+
+    it('notifies at 90 days and skips at 91 and 92 days', () => {
+        const trainer90 = createTrainer('trainer-90-days', createExactCertRecord(90, 0))
+        const trainer91 = createTrainer('trainer-91-days', createExactCertRecord(91, 0))
+        const trainer92 = createTrainer('trainer-92-days', createExactCertRecord(92, 0))
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications(
+            [trainer90, trainer91, trainer92],
+            onCreateNotification,
+            onUpdateUsers
+        ))
+
+        expect(onCreateNotification).toHaveBeenCalledTimes(2)
+        const payloads = vi.mocked(onCreateNotification).mock.calls.map((call) => call[0] as Omit<Notification, 'id' | 'createdAt'>)
+        expect(payloads.some((payload) => payload.userId === trainer90.id)).toBe(true)
+        expect(payloads.some((payload) => payload.userId === trainer91.id)).toBe(false)
+        expect(payloads.some((payload) => payload.userId === trainer92.id)).toBe(false)
+
+        expect(onUpdateUsers).toHaveBeenCalledOnce()
+        const updatedUsers = vi.mocked(onUpdateUsers).mock.calls[0][0] as User[]
+        const updated90 = updatedUsers.find((user) => user.id === trainer90.id)
+        const updated91 = updatedUsers.find((user) => user.id === trainer91.id)
+        const updated92 = updatedUsers.find((user) => user.id === trainer92.id)
+        expect(updated90?.trainerProfile?.certificationRecords?.[0].remindersSent).toBe(1)
+        expect(updated91?.trainerProfile?.certificationRecords?.[0].remindersSent).toBe(0)
+        expect(updated92?.trainerProfile?.certificationRecords?.[0].remindersSent).toBe(0)
+    })
+
+    it('skips otherwise eligible certifications when renewal is already in progress', () => {
+        const inProgressTrainer = createTrainer('trainer-renewal-in-progress', {
+            ...createCertRecord(59, 1),
+            renewalInProgress: true,
+        })
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications([inProgressTrainer], onCreateNotification, onUpdateUsers))
+
+        expect(onCreateNotification).not.toHaveBeenCalled()
+        expect(onUpdateUsers).not.toHaveBeenCalled()
+    })
+
+    it('defaults missing remindersSent to zero when calculating the next reminder count', () => {
+        const missingRemindersSentRecord = {
+            ...createExactCertRecord(5, 0),
+            remindersSent: undefined,
+        } as CertificationRecord
+        const trainer = createTrainer('trainer-undefined-reminders', missingRemindersSentRecord)
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications([trainer], onCreateNotification, onUpdateUsers))
+
+        expect(onCreateNotification).toHaveBeenCalledTimes(2)
+        const payloads = vi.mocked(onCreateNotification).mock.calls.map((call) => call[0] as Omit<Notification, 'id' | 'createdAt'>)
+        expect(payloads.every((payload) => payload.metadata?.remindersSent === 1)).toBe(true)
+
+        expect(onUpdateUsers).toHaveBeenCalledOnce()
+        const updatedUsers = vi.mocked(onUpdateUsers).mock.calls[0][0] as User[]
+        expect(updatedUsers[0].trainerProfile?.certificationRecords?.[0].remindersSent).toBe(1)
     })
 })

@@ -115,10 +115,10 @@ describe('ApplyTemplateDialog', () => {
         const first = new Date(sessions[0].startTime)
         const firstEnd = new Date(sessions[0].endTime)
         // Start date 2026-03-17 with first template session on Monday always lands on 2026-03-23.
-        const expectedFirstStart = new Date(2026, 2, 23)
+        // Compare dates by normalizing to the same timezone (using getTime())
         const firstSessionTemplate = template.sessions[0]
         const [hours, minutes] = firstSessionTemplate.time.split(':').map(Number)
-        expectedFirstStart.setHours(hours, minutes, 0, 0)
+        const expectedFirstStart = new Date(2026, 2, 23, hours, minutes, 0, 0)
 
         expect(first.getTime()).toBe(expectedFirstStart.getTime())
         expect(firstEnd.getTime() - first.getTime()).toBe(60 * 60 * 1000)
@@ -140,7 +140,7 @@ describe('ApplyTemplateDialog', () => {
         await user.clear(screen.getByLabelText(/number of cycles/i))
         await user.type(screen.getByLabelText(/number of cycles/i), '3')
 
-        expect(screen.getByText(/and 1 more session/i)).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: /create 6 sessions/i })).toBeInTheDocument()
+        expect(await screen.findByText(/and 1 more session/i)).toBeInTheDocument()
+        expect(await screen.findByRole('button', { name: /create 6 sessions/i })).toBeInTheDocument()
     })
 })

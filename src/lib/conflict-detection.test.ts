@@ -47,7 +47,6 @@ describe('conflict-detection', () => {
         const conflictingSession = createSession({
             id: 'session-existing',
             title: 'Existing Session',
-            enrolledStudents: ['student-1', 'student-2', 'student-3', 'student-4']
         })
 
         const result = checkSessionConflicts(

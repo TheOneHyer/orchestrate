@@ -19,27 +19,58 @@ const TREND_COLORS = [
 ]
 
 export function TrendChart({ data, timeRange, showAll = false }: TrendChartProps) {
+  const filteredData = useMemo(() => {
+    if (data.length === 0) {
+      return []
+    }
+
+    const rangeDays = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 90
+    const allTimestamps = data
+      .flatMap((trend) => trend.dataPoints.map((point) => new Date(point.date).getTime()))
+      .filter((timestamp) => !Number.isNaN(timestamp))
+
+    if (allTimestamps.length === 0) {
+      return data.map((trend) => ({ ...trend, dataPoints: [] }))
+    }
+
+    const latestTimestamp = Math.max(...allTimestamps)
+    const startTimestamp = latestTimestamp - (rangeDays - 1) * 24 * 60 * 60 * 1000
+
+    return data.map((trend) => ({
+      ...trend,
+      dataPoints: trend.dataPoints.filter((point) => {
+        const timestamp = new Date(point.date).getTime()
+        return !Number.isNaN(timestamp) && timestamp >= startTimestamp && timestamp <= latestTimestamp
+      }),
+    }))
+  }, [data, timeRange])
+
+  const trendsToShow = useMemo(
+    () => (showAll ? filteredData.slice(0, 6) : filteredData.slice(0, 1)),
+    [filteredData, showAll]
+  )
+
   const chartData = useMemo(() => {
-    if (data.length === 0) return []
+    if (trendsToShow.length === 0) {
+      return []
+    }
 
     const allDates = new Set<string>()
-    data.forEach(trend => {
-      trend.dataPoints.forEach(point => {
+    trendsToShow.forEach((trend) => {
+      trend.dataPoints.forEach((point) => {
         allDates.add(point.date)
       })
     })
 
     const sortedDates = Array.from(allDates).sort()
 
-    return sortedDates.map(date => {
+    return sortedDates.map((date) => {
       const dataPoint: any = {
-        date: format(new Date(date), 'MMM d')
+        date: format(new Date(date), 'MMM d'),
       }
 
-      const trendsToShow = showAll ? data : data.slice(0, 6)
-
-      trendsToShow.forEach(trend => {
-        const point = trend.dataPoints.find(p => p.date === date)
+      trendsToShow.forEach((trend) => {
+        const point = trend.dataPoints.find((entry) => entry.date === date)
         if (point) {
           dataPoint[trend.trainerId] = Math.round(point.utilization * 10) / 10
         }
@@ -47,9 +78,7 @@ export function TrendChart({ data, timeRange, showAll = false }: TrendChartProps
 
       return dataPoint
     })
-  }, [data, showAll])
-
-  const trendsToShow = showAll ? data.slice(0, 6) : data.slice(0, 1)
+  }, [trendsToShow])
 
   if (chartData.length === 0) {
     return (

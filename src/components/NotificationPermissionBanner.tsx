@@ -92,10 +92,10 @@ export function NotificationPermissionBanner() {
               Stay updated with important alerts about trainer schedules, certifications, and system notifications.
             </p>
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleEnableNotifications} disabled={isRequesting}>
-                Enable
+              <Button size="sm" onClick={handleEnableNotifications} disabled={isRequesting} aria-busy={isRequesting}>
+                {isRequesting ? 'Enabling...' : 'Enable'}
               </Button>
-              <Button size="sm" variant="ghost" onClick={handleDismiss} disabled={isRequesting}>
+              <Button size="sm" variant="ghost" onClick={handleDismiss} disabled={isRequesting} aria-disabled={isRequesting}>
                 Maybe Later
               </Button>
             </div>
