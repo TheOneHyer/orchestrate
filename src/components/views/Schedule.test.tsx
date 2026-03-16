@@ -197,4 +197,147 @@ describe('Schedule', () => {
       })
     )
   })
+  it('displays sessions with various statuses', async () => {
+    const user = userEvent.setup()
+    const sessions: Session[] = [
+      { ...baseSession, title: 'Scheduled Session', status: 'scheduled' },
+      { ...baseSession, id: 's-2', title: 'Completed Session', status: 'completed', startTime: '2026-03-21T09:00:00.000Z', endTime: '2026-03-21T10:30:00.000Z' },
+      { ...baseSession, id: 's-3', title: 'Cancelled Session', status: 'cancelled', startTime: '2026-03-22T09:00:00.000Z', endTime: '2026-03-22T10:30:00.000Z' },
+    ]
+
+    renderSchedule({ sessions })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+
+    expect(screen.getByText('Scheduled Session')).toBeInTheDocument()
+    expect(screen.getByText('Completed Session')).toBeInTheDocument()
+    expect(screen.getByText('Cancelled Session')).toBeInTheDocument()
+    expect(screen.getByText(/^scheduled$/i)).toBeInTheDocument()
+    expect(screen.getByText(/^completed$/i)).toBeInTheDocument()
+    expect(screen.getByText(/^cancelled$/i)).toBeInTheDocument()
+  })
+
+  it('handles sessions with full capacity', () => {
+    const fullCapacitySession: Session = {
+      ...baseSession,
+      id: 's-full',
+      capacity: 2,
+      enrolledStudents: ['u-employee', 'u-trainer'],
+    }
+
+    renderSchedule({ sessions: [fullCapacitySession] })
+
+    expect(screen.getByText(/morning safety session/i)).toBeInTheDocument()
+  })
+
+  it('handles sessions with zero enrollment', () => {
+    const emptySession: Session = {
+      ...baseSession,
+      id: 's-empty',
+      enrolledStudents: [],
+    }
+
+    renderSchedule({ sessions: [emptySession] })
+
+    expect(screen.getByText(/morning safety session/i)).toBeInTheDocument()
+  })
+
+  it('renders with no sessions', () => {
+    renderSchedule({ sessions: [] })
+
+    expect(screen.getByRole('tab', { name: /calendar/i })).toBeInTheDocument()
+  })
+
+  it('handles multiple courses in schedule', async () => {
+    const user = userEvent.setup()
+    const courses: Course[] = [
+      baseCourse,
+      { ...baseCourse, id: 'c-2', title: 'Advanced Safety' },
+      { ...baseCourse, id: 'c-3', title: 'Emergency Response' },
+    ]
+    const sessions: Session[] = [
+      { ...baseSession, title: 'Safety Foundations Session', courseId: 'c-1' },
+      { ...baseSession, id: 's-2', title: 'Advanced Safety Session', courseId: 'c-2', startTime: '2026-03-21T09:00:00.000Z', endTime: '2026-03-21T10:30:00.000Z' },
+      { ...baseSession, id: 's-3', title: 'Emergency Response Session', courseId: 'c-3', startTime: '2026-03-22T09:00:00.000Z', endTime: '2026-03-22T10:30:00.000Z' },
+    ]
+
+    renderSchedule({ courses, sessions })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+
+    expect(screen.getByText('Safety Foundations Session')).toBeInTheDocument()
+    expect(screen.getByText('Advanced Safety Session')).toBeInTheDocument()
+    expect(screen.getByText('Emergency Response Session')).toBeInTheDocument()
+  })
+
+  it('handles sessions with special characters in titles', () => {
+    const specialSession: Session = {
+      ...baseSession,
+      id: 's-special',
+      title: "O'Brien's Safety & Health (Advanced)",
+    }
+
+    renderSchedule({ sessions: [specialSession] })
+
+    expect(screen.getByText(/o'brien's safety & health/i)).toBeInTheDocument()
+  })
+
+  it('handles multiple sessions on the same day', async () => {
+    const user = userEvent.setup()
+    const sessions: Session[] = [
+      baseSession,
+      { ...baseSession, id: 's-2', startTime: '2026-03-20T12:00:00.000Z', endTime: '2026-03-20T13:00:00.000Z', title: 'Afternoon Session' },
+      { ...baseSession, id: 's-3', startTime: '2026-03-20T15:00:00.000Z', endTime: '2026-03-20T16:00:00.000Z', title: 'Late Session' },
+    ]
+
+    renderSchedule({ sessions })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+
+    expect(screen.getByText(/morning safety session/i)).toBeInTheDocument()
+    expect(screen.getByText('Afternoon Session')).toBeInTheDocument()
+    expect(screen.getByText('Late Session')).toBeInTheDocument()
+  })
+
+  it('handles employee role viewing schedule', () => {
+    renderSchedule({ currentUser: baseEmployee, sessions: [baseSession] })
+
+    expect(screen.getByRole('tab', { name: /calendar/i })).toBeInTheDocument()
+  })
+
+  it('handles large number of sessions', async () => {
+    const user = userEvent.setup()
+    const sessions: Session[] = Array.from({ length: 15 }, (_, idx) => ({
+      ...baseSession,
+      id: `s-${idx}`,
+      title: `Session ${idx + 1}`,
+      startTime: `2026-03-${String(20 + Math.floor(idx / 5)).padStart(2, '0')}T${String(9 + (idx % 5)).padStart(2, '0')}:00:00.000Z`,
+      endTime: `2026-03-${String(20 + Math.floor(idx / 5)).padStart(2, '0')}T${String(10 + (idx % 5)).padStart(2, '0')}:00:00.000Z`,
+    }))
+
+    renderSchedule({ sessions })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+
+    expect(screen.getByText('Session 1')).toBeInTheDocument()
+    expect(screen.getByText('Session 8')).toBeInTheDocument()
+    expect(screen.getByText('Session 15')).toBeInTheDocument()
+  })
+
+  it('handles sessions with various location names', async () => {
+    const user = userEvent.setup()
+    const sessions: Session[] = [
+      { ...baseSession, id: 's-1', location: 'Building A, Room 101' },
+      { ...baseSession, id: 's-2', location: 'Virtual Meeting', startTime: '2026-03-21T09:00:00.000Z', endTime: '2026-03-21T10:30:00.000Z' },
+      { ...baseSession, id: 's-3', location: 'Outdoor Training Area', startTime: '2026-03-22T09:00:00.000Z', endTime: '2026-03-22T10:30:00.000Z' },
+    ]
+
+    renderSchedule({ sessions })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+
+    expect(screen.getByText('Building A, Room 101')).toBeInTheDocument()
+    expect(screen.getByText('Virtual Meeting')).toBeInTheDocument()
+    expect(screen.getByText('Outdoor Training Area')).toBeInTheDocument()
+  })
 })

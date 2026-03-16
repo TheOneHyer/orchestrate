@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Dashboard } from './Dashboard'
-import type { User, Course, Session, Notification } from '@/lib/types'
+import type { User, Course, Session, Notification, Enrollment } from '@/lib/types'
 
 const baseUser: User = {
   id: 'u-admin',
@@ -126,5 +126,293 @@ describe('Dashboard', () => {
 
     expect(onNavigate).toHaveBeenNthCalledWith(1, 'schedule')
     expect(onNavigate).toHaveBeenNthCalledWith(2, 'notifications')
+  })
+  it('displays different notification types appropriately', () => {
+    const notifications: Notification[] = [
+      { id: 'n1', userId: baseUser.id, type: 'system', title: 'System Update', message: 'Maintenance scheduled', read: false, createdAt: '2026-03-16T09:00:00.000Z' },
+      { id: 'n2', userId: baseUser.id, type: 'reminder', title: 'Certification Expiring', message: 'CPR expires in 30 days', read: false, createdAt: '2026-03-16T10:00:00.000Z' },
+      { id: 'n3', userId: baseUser.id, type: 'completion', title: 'Course Available', message: 'New course added', read: true, createdAt: '2026-03-16T11:00:00.000Z' },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={notifications}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/System Update/)).toBeInTheDocument()
+    expect(screen.getByText(/Certification Expiring/)).toBeInTheDocument()
+    expect(screen.getByText(/Course Available/)).toBeInTheDocument()
+  })
+
+  it('shows only unread notification count correctly', () => {
+    const notifications: Notification[] = [
+      { id: 'n1', userId: baseUser.id, type: 'system', title: 'Notice 1', message: 'Message', read: false, createdAt: '2026-03-16T09:00:00.000Z' },
+      { id: 'n2', userId: baseUser.id, type: 'system', title: 'Notice 2', message: 'Message', read: false, createdAt: '2026-03-16T10:00:00.000Z' },
+      { id: 'n3', userId: baseUser.id, type: 'system', title: 'Notice 3', message: 'Message', read: true, createdAt: '2026-03-16T11:00:00.000Z' },
+      { id: 'n4', userId: baseUser.id, type: 'system', title: 'Notice 4', message: 'Message', read: true, createdAt: '2026-03-16T12:00:00.000Z' },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={notifications}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/^2$/)).toBeInTheDocument()
+    expect(screen.getByText(/unread messages/i)).toBeInTheDocument()
+    expect(screen.getByText(/Notice 1/)).toBeInTheDocument()
+    expect(screen.getByText(/Notice 2/)).toBeInTheDocument()
+  })
+
+  it('handles multiple courses in dashboard', () => {
+    const courses: Course[] = [
+      { id: 'c1', title: 'Course 1', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 'u1', createdAt: '2026-01-01T00:00:00.000Z', published: true, passScore: 80 },
+      { id: 'c2', title: 'Course 2', description: 'Desc', modules: [], duration: 90, certifications: [], createdBy: 'u1', createdAt: '2026-01-02T00:00:00.000Z', published: true, passScore: 75 },
+      { id: 'c3', title: 'Course 3', description: 'Desc', modules: [], duration: 120, certifications: [], createdBy: 'u1', createdAt: '2026-01-03T00:00:00.000Z', published: false, passScore: 70 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      { id: 'e1', userId: baseUser.id, courseId: 'c1', status: 'in-progress', progress: 40, score: 0, enrolledAt: '2026-02-01T00:00:00.000Z' },
+      { id: 'e2', userId: baseUser.id, courseId: 'c2', status: 'in-progress', progress: 65, score: 0, enrolledAt: '2026-02-02T00:00:00.000Z' },
+      { id: 'e3', userId: baseUser.id, courseId: 'c3', status: 'completed', progress: 100, score: 88, enrolledAt: '2026-02-03T00:00:00.000Z' },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={courses}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/^active courses$/i)).toBeInTheDocument()
+    expect(screen.getByText(/^2$/)).toBeInTheDocument()
+    expect(screen.getByText(/1 completed/i)).toBeInTheDocument()
+    expect(screen.getByText(/^in progress$/i)).toBeInTheDocument()
+    expect(screen.getByText('Course 1')).toBeInTheDocument()
+    expect(screen.getByText('Course 2')).toBeInTheDocument()
+    expect(screen.queryByText('Course 3')).not.toBeInTheDocument()
+  })
+
+  it('displays active vs completed enrollments appropriately', () => {
+    const courses: Course[] = [
+      { ...baseCourse, id: 'c1', title: 'Active Course 1' },
+      { ...baseCourse, id: 'c2', title: 'Active Course 2' },
+      { ...baseCourse, id: 'c3', title: 'Completed Course' },
+      { ...baseCourse, id: 'c4', title: 'Failed Course' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      { id: 'e1', userId: baseUser.id, courseId: 'c1', status: 'in-progress', progress: 50, score: 0, enrolledAt: '2026-02-01T00:00:00.000Z' },
+      { id: 'e2', userId: baseUser.id, courseId: 'c2', status: 'in-progress', progress: 75, score: 0, enrolledAt: '2026-02-02T00:00:00.000Z' },
+      { id: 'e3', userId: baseUser.id, courseId: 'c3', status: 'completed', progress: 100, score: 85, enrolledAt: '2026-02-03T00:00:00.000Z' },
+      { id: 'e4', userId: baseUser.id, courseId: 'c4', status: 'failed', progress: 100, score: 60, enrolledAt: '2026-02-04T00:00:00.000Z' },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={courses}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/^active courses$/i)).toBeInTheDocument()
+    expect(screen.getByText(/^2$/)).toBeInTheDocument()
+    expect(screen.getByText(/1 completed/i)).toBeInTheDocument()
+    expect(screen.getByText('Active Course 1')).toBeInTheDocument()
+    expect(screen.getByText('Active Course 2')).toBeInTheDocument()
+    expect(screen.queryByText('Completed Course')).not.toBeInTheDocument()
+    expect(screen.queryByText('Failed Course')).not.toBeInTheDocument()
+  })
+
+  it('handles sessions with various status types', () => {
+    const sessions: Session[] = [
+      { id: 's1', courseId: 'c1', trainerId: 'u1', title: 'Scheduled Session', startTime: '2026-03-20T09:00:00.000Z', endTime: '2026-03-20T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: [], status: 'scheduled' },
+      { id: 's2', courseId: 'c2', trainerId: 'u2', title: 'Completed Session', startTime: '2026-03-15T09:00:00.000Z', endTime: '2026-03-15T10:00:00.000Z', location: 'Room B', capacity: 15, enrolledStudents: ['u1', 'u2'], status: 'completed' },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={sessions}
+        notifications={[]}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/Scheduled Session/i)).toBeInTheDocument()
+    expect(screen.getByText(/Completed Session/i)).toBeInTheDocument()
+  })
+
+  it('handles trainer roles in dashboard', () => {
+    const trainerUser: User = {
+      ...baseUser,
+      id: 'u-trainer',
+      name: 'Jane Trainer',
+      role: 'trainer',
+      trainerProfile: {
+        authorizedRoles: [],
+        shiftSchedules: [{ shiftCode: 'DAY', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8 }],
+        tenure: { hireDate: '2024-01-01', yearsOfService: 2, monthsOfService: 24 },
+        specializations: [],
+      },
+    }
+
+    render(
+      <Dashboard
+        currentUser={trainerUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/welcome back, jane/i)).toBeInTheDocument()
+  })
+
+  it('handles employee roles in dashboard', () => {
+    const employeeUser: User = {
+      ...baseUser,
+      id: 'u-emp',
+      name: 'Bob Employee',
+      role: 'employee',
+    }
+
+    render(
+      <Dashboard
+        currentUser={employeeUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/welcome back, bob/i)).toBeInTheDocument()
+  })
+
+  it('renders with all empty lists', () => {
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={[]}
+        courses={[]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/welcome back/i)).toBeInTheDocument()
+    expect(screen.getByText(/no upcoming sessions/i)).toBeInTheDocument()
+    expect(screen.getByText(/no notifications/i)).toBeInTheDocument()
+  })
+
+  it('handles special characters in user names and titles', () => {
+    const specialCharUser: User = {
+      ...baseUser,
+      name: "O'Brien-Smith's Co.",
+    }
+
+    render(
+      <Dashboard
+        currentUser={specialCharUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/welcome back, o'brien-smith's/i)).toBeInTheDocument()
+  })
+
+  it('handles dismissing and marking notifications', async () => {
+    const onDismissNotification = vi.fn()
+    const onMarkNotificationAsRead = vi.fn()
+    const user = userEvent.setup()
+
+    const notifications: Notification[] = [
+      { id: 'n1', userId: baseUser.id, type: 'system', title: 'Notice', message: 'Message', read: false, createdAt: '2026-03-16T09:00:00.000Z' },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={notifications}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+        onDismissNotification={onDismissNotification}
+        onMarkNotificationAsRead={onMarkNotificationAsRead}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /mark notice as read/i }))
+    await user.click(screen.getByRole('button', { name: /dismiss notice/i }))
+
+    expect(onMarkNotificationAsRead).toHaveBeenCalledWith('n1')
+    expect(onDismissNotification).toHaveBeenCalledWith('n1')
+  })
+
+  it('handles large numbers of sessions efficiently', () => {
+    const sessions: Session[] = Array.from({ length: 20 }, (_, idx) => ({
+      id: `s-${idx}`,
+      courseId: 'c1',
+      trainerId: 'u1',
+      title: `Session ${idx + 1}`,
+      startTime: `2026-03-${String(17 + Math.floor(idx / 5)).padStart(2, '0')}T${String(9 + (idx % 5)).padStart(2, '0')}:00:00.000Z`,
+      endTime: `2026-03-${String(17 + Math.floor(idx / 5)).padStart(2, '0')}T${String(10 + (idx % 5)).padStart(2, '0')}:00:00.000Z`,
+      location: `Room ${String.fromCharCode(65 + (idx % 5))}`,
+      capacity: 10,
+      enrolledStudents: [],
+      status: 'scheduled' as const,
+    }))
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={sessions}
+        notifications={[]}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByTestId('upcoming-sessions-heading')).toBeInTheDocument()
+    expect(screen.getByText(/^20$/)).toBeInTheDocument()
+    expect(screen.getByText('Session 1')).toBeInTheDocument()
+    expect(screen.getByText('Session 2')).toBeInTheDocument()
+    expect(screen.getByText('Session 3')).toBeInTheDocument()
+    expect(screen.getByText('Session 4')).toBeInTheDocument()
+    expect(screen.getByText('Session 5')).toBeInTheDocument()
+    expect(screen.queryByText('Session 6')).not.toBeInTheDocument()
+    expect(screen.queryByText('Session 20')).not.toBeInTheDocument()
   })
 })

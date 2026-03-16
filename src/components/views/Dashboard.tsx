@@ -175,13 +175,13 @@ export function Dashboard({
                       if (notification.link) onNavigate(notification.link)
                     }}
                     className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-colors text-left ${notification.read
-                        ? 'border-border bg-background'
-                        : 'border-accent/30 bg-accent/5'
+                      ? 'border-border bg-background'
+                      : 'border-accent/30 bg-accent/5'
                       }`}
                   >
                     <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${notification.type === 'reminder' || notification.type === 'system'
-                        ? 'bg-accent/10'
-                        : 'bg-primary/10'
+                      ? 'bg-accent/10'
+                      : 'bg-primary/10'
                       }`}>
                       {notification.type === 'reminder' || notification.type === 'system' ? (
                         <Warning size={20} className="text-accent" />
@@ -207,6 +207,7 @@ export function Dashboard({
                       <Button
                         size="sm"
                         variant="ghost"
+                        aria-label={`Mark ${notification.title} as read`}
                         onClick={(e) => {
                           e.stopPropagation()
                           onMarkNotificationAsRead(notification.id)
@@ -220,6 +221,7 @@ export function Dashboard({
                       <Button
                         size="sm"
                         variant="ghost"
+                        aria-label={`Dismiss ${notification.title}`}
                         onClick={(e) => {
                           e.stopPropagation()
                           onDismissNotification(notification.id)
