@@ -210,11 +210,12 @@ describe('WellnessCheckInDialog', () => {
     const onSubmit = vi.fn()
     render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} />)
 
+    const tooManyConcern = COMMON_CONCERNS.find(c => c === 'Too many sessions scheduled')!
     await userEvent.click(screen.getByTestId('concern-row-too-many-sessions-scheduled'))
     await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
 
     expect(onSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({ concerns: ['Too many sessions scheduled'] })
+      expect.objectContaining({ concerns: [tooManyConcern] })
     )
   })
 
@@ -222,17 +223,20 @@ describe('WellnessCheckInDialog', () => {
     const onSubmit = vi.fn()
     render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} />)
 
-    // mood slider — line 148
+    // mood slider
     const moodSlider = within(screen.getByTestId('mood-slider')).getByRole('slider')
     fireEvent.keyDown(moodSlider, { key: 'ArrowRight' })
 
-    // sub-metric sliders — lines 223, 237, 251, 265
-    // order: [mood, workloadSatisfaction, sleepQuality, physicalWellbeing, mentalClarity]
-    const allSliders = screen.getAllByRole('slider')
-    fireEvent.keyDown(allSliders[1], { key: 'ArrowRight' })
-    fireEvent.keyDown(allSliders[2], { key: 'ArrowRight' })
-    fireEvent.keyDown(allSliders[3], { key: 'ArrowRight' })
-    fireEvent.keyDown(allSliders[4], { key: 'ArrowRight' })
+    // sub-metric sliders
+    const workloadSlider = within(screen.getByTestId('workload-slider')).getByRole('slider')
+    const sleepSlider = within(screen.getByTestId('sleep-slider')).getByRole('slider')
+    const physicalSlider = within(screen.getByTestId('physical-wellbeing-slider')).getByRole('slider')
+    const mentalSlider = within(screen.getByTestId('mental-clarity-slider')).getByRole('slider')
+
+    fireEvent.keyDown(workloadSlider, { key: 'ArrowRight' })
+    fireEvent.keyDown(sleepSlider, { key: 'ArrowRight' })
+    fireEvent.keyDown(physicalSlider, { key: 'ArrowRight' })
+    fireEvent.keyDown(mentalSlider, { key: 'ArrowRight' })
 
     await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
 
@@ -254,14 +258,17 @@ describe('WellnessCheckInDialog', () => {
     // cover getMoodIcon case 5
     fireEvent.keyDown(moodSlider, { key: 'End' })
     expect(moodSlider).toHaveAttribute('aria-valuenow', '5')
+    expect(screen.getByTestId('mood-icon-excellent')).toBeInTheDocument()
 
     // cover getMoodIcon case 1
     fireEvent.keyDown(moodSlider, { key: 'Home' })
     expect(moodSlider).toHaveAttribute('aria-valuenow', '1')
+    expect(screen.getByTestId('mood-icon-sad')).toBeInTheDocument()
 
     // cover getMoodIcon case 2
     fireEvent.keyDown(moodSlider, { key: 'ArrowRight' })
     expect(moodSlider).toHaveAttribute('aria-valuenow', '2')
+    expect(screen.getByTestId('mood-icon-nervous')).toBeInTheDocument()
   })
 
   it('renders energy icon variants for excellent, energized, and exhausted levels', async () => {
@@ -269,9 +276,14 @@ describe('WellnessCheckInDialog', () => {
 
     // cover getEnergyIcon case 'excellent'
     await userEvent.click(screen.getByRole('radio', { name: /^excellent$/i }))
+    expect(screen.getByTestId('energy-icon-excellent')).toBeInTheDocument()
+
     // cover getEnergyIcon case 'energized'
     await userEvent.click(screen.getByRole('radio', { name: /^energized$/i }))
+    expect(screen.getByTestId('energy-icon-energized')).toBeInTheDocument()
+
     // cover getEnergyIcon case 'exhausted'
     await userEvent.click(screen.getByRole('radio', { name: /^exhausted$/i }))
+    expect(screen.getByTestId('energy-icon-exhausted')).toBeInTheDocument()
   })
 })

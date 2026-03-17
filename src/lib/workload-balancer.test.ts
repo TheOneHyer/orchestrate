@@ -212,7 +212,9 @@ describe('workload-balancer', () => {
 
         const analysis = analyzeWorkloadBalance(users, sessions, courses, WEEK_START, WEEK_END)
 
-        expect(analysis.recommendations.some((entry) => entry.title.includes('Share Olivia\'s recurring sessions'))).toBe(true)
+        expect(analysis.recommendations.some(
+            (rec) => rec.type === 'redistribute' && rec.affectedTrainers.includes(overloaded.id)
+        )).toBe(true)
     })
 
     it('returns no redistribution opportunities when sessions are incompatible or missing course metadata', () => {

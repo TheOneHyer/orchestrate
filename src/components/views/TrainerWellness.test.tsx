@@ -503,7 +503,6 @@ describe('TrainerWellness', () => {
         const now = new Date()
         const yesterday = new Date(now)
         yesterday.setDate(now.getDate() - 1)
-        const today = new Date(now)
 
         schedulesState = [
             {
@@ -515,7 +514,7 @@ describe('TrainerWellness', () => {
             {
                 ...schedulesState[0],
                 id: 'schedule-due-soon',
-                nextScheduledDate: today.toISOString(),
+                nextScheduledDate: now.toISOString(),
                 status: 'paused',
             },
         ]
@@ -560,7 +559,7 @@ describe('TrainerWellness', () => {
 
         expect(screen.getByText(/concerns:/i)).toBeInTheDocument()
         expect(screen.getByText('Fatigue')).toBeInTheDocument()
-        expect(screen.getAllByText('Workload').length).toBeGreaterThan(1)
+        expect(screen.getAllByText('Workload')).toHaveLength(2)
         expect(screen.getByText(/comments:/i)).toBeInTheDocument()
         expect(screen.getByText(/need lighter assignment next week/i)).toBeInTheDocument()
     })
@@ -653,10 +652,10 @@ describe('TrainerWellness', () => {
             .mockImplementation((_checkIns, trainerId) =>
                 trainerId === 't1'
                     ? [
-                          { severity: 'critical', insight: 'Immediate schedule reduction needed' },
-                          { severity: 'warning', insight: 'Fatigue trend increasing this week' },
-                          { severity: 'info', insight: 'Sleep quality improved recently' },
-                      ]
+                        { severity: 'critical', insight: 'Immediate schedule reduction needed' },
+                        { severity: 'warning', insight: 'Fatigue trend increasing this week' },
+                        { severity: 'info', insight: 'Sleep quality improved recently' },
+                    ]
                     : [{ severity: 'info', insight: 'Stable wellbeing profile' }]
             )
 

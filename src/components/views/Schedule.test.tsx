@@ -286,8 +286,7 @@ describe('Schedule', () => {
     renderSchedule({ sessions: [] })
 
     fireEvent.click(screen.getByRole('button', { name: /^day$/i }))
-    const emptyState = screen.getByText(/no sessions scheduled for this day/i)
-    const dropZone = emptyState.closest('div[class*="min-h"]')
+    const dropZone = document.querySelector('[data-day-dropzone]')
     if (!(dropZone instanceof HTMLElement)) {
       throw new Error('Unable to find day drop-zone')
     }
@@ -302,8 +301,7 @@ describe('Schedule', () => {
     renderSchedule({ currentUser: baseEmployee, sessions: [] })
 
     fireEvent.click(screen.getByRole('button', { name: /^day$/i }))
-    const emptyState = screen.getByText(/no sessions scheduled for this day/i)
-    const dropZone = emptyState.closest('div[class*="min-h"]')
+    const dropZone = document.querySelector('[data-day-dropzone]')
     if (!(dropZone instanceof HTMLElement)) {
       throw new Error('Unable to find day drop-zone')
     }
@@ -494,7 +492,7 @@ describe('Schedule', () => {
     await user.click(screen.getByRole('button', { name: /morning safety session/i }))
 
     const viewCourseButton = screen.getByRole('button', { name: /view course/i })
-    expect(viewCourseButton).toHaveClass('w-full')
+    expect(viewCourseButton).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /enroll students/i })).not.toBeInTheDocument()
   })
@@ -562,34 +560,36 @@ describe('Schedule', () => {
       ],
     })
 
-    const today = new Date()
-    const startTime = new Date(today)
-    startTime.setHours(9, 0, 0, 0)
-    const endTime = new Date(today)
-    endTime.setHours(10, 30, 0, 0)
+    try {
+      const today = new Date()
+      const startTime = new Date(today)
+      startTime.setHours(9, 0, 0, 0)
+      const endTime = new Date(today)
+      endTime.setHours(10, 30, 0, 0)
 
-    const todaySession: Session = {
-      ...baseSession,
-      id: 's-today',
-      title: 'Today Drag Session',
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
+      const todaySession: Session = {
+        ...baseSession,
+        id: 's-today',
+        title: 'Today Drag Session',
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      }
+
+      renderSchedule({ sessions: [todaySession] })
+
+      await user.click(screen.getByRole('button', { name: /^day$/i }))
+
+      const { sessionCard, dropZone } = getDropZoneForSessionTitle(/today drag session/i)
+      const dataTransfer = createDragDataTransfer()
+
+      fireEvent.dragStart(sessionCard, { dataTransfer })
+      fireEvent.dragOver(dropZone, { dataTransfer })
+
+      expect(screen.getByText(/scheduling conflicts/i)).toBeInTheDocument()
+      expect(screen.getByText(/drag conflict in daily view/i)).toBeInTheDocument()
+    } finally {
+      conflictSpy.mockRestore()
     }
-
-    renderSchedule({ sessions: [todaySession] })
-
-    await user.click(screen.getByRole('button', { name: /^day$/i }))
-
-    const { sessionCard, dropZone } = getDropZoneForSessionTitle(/today drag session/i)
-    const dataTransfer = createDragDataTransfer()
-
-    fireEvent.dragStart(sessionCard, { dataTransfer })
-    fireEvent.dragOver(dropZone, { dataTransfer })
-
-    expect(screen.getByText(/scheduling conflicts/i)).toBeInTheDocument()
-    expect(screen.getByText(/drag conflict in daily view/i)).toBeInTheDocument()
-
-    conflictSpy.mockRestore()
   })
 
   it('shows conflict indicator in weekly view while dragging over a conflicting day', async () => {
@@ -607,33 +607,35 @@ describe('Schedule', () => {
       ],
     })
 
-    const today = new Date()
-    const startTime = new Date(today)
-    startTime.setHours(11, 0, 0, 0)
-    const endTime = new Date(today)
-    endTime.setHours(12, 0, 0, 0)
+    try {
+      const today = new Date()
+      const startTime = new Date(today)
+      startTime.setHours(11, 0, 0, 0)
+      const endTime = new Date(today)
+      endTime.setHours(12, 0, 0, 0)
 
-    const weekSession: Session = {
-      ...baseSession,
-      id: 's-week',
-      title: 'Weekly Drag Session',
-      startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
+      const weekSession: Session = {
+        ...baseSession,
+        id: 's-week',
+        title: 'Weekly Drag Session',
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      }
+
+      renderSchedule({ sessions: [weekSession] })
+
+      await user.click(screen.getByRole('button', { name: /^week$/i }))
+
+      const { sessionCard, dropZone } = getDropZoneForSessionTitle(/weekly drag session/i)
+      const dataTransfer = createDragDataTransfer()
+
+      fireEvent.dragStart(sessionCard, { dataTransfer })
+      fireEvent.dragOver(dropZone, { dataTransfer })
+
+      expect(screen.getByText(/conflict/i)).toBeInTheDocument()
+    } finally {
+      conflictSpy.mockRestore()
     }
-
-    renderSchedule({ sessions: [weekSession] })
-
-    await user.click(screen.getByRole('button', { name: /^week$/i }))
-
-    const { sessionCard, dropZone } = getDropZoneForSessionTitle(/weekly drag session/i)
-    const dataTransfer = createDragDataTransfer()
-
-    fireEvent.dragStart(sessionCard, { dataTransfer })
-    fireEvent.dragOver(dropZone, { dataTransfer })
-
-    expect(screen.getByText(/conflict/i)).toBeInTheDocument()
-
-    conflictSpy.mockRestore()
   })
 
   it('shows conflict icon in monthly view while dragging over a conflicting day', () => {
@@ -650,17 +652,19 @@ describe('Schedule', () => {
       ],
     })
 
-    renderSchedule({ sessions: [baseSession] })
+    try {
+      renderSchedule({ sessions: [baseSession] })
 
-    const { sessionCard, dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
-    const dataTransfer = createDragDataTransfer()
+      const { sessionCard, dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
+      const dataTransfer = createDragDataTransfer()
 
-    fireEvent.dragStart(sessionCard, { dataTransfer })
-    fireEvent.dragOver(dropZone, { dataTransfer })
+      fireEvent.dragStart(sessionCard, { dataTransfer })
+      fireEvent.dragOver(dropZone, { dataTransfer })
 
-    expect(screen.getAllByText('⚠️').length).toBeGreaterThan(0)
-
-    conflictSpy.mockRestore()
+      expect(screen.getAllByText('⚠️').length).toBeGreaterThan(0)
+    } finally {
+      conflictSpy.mockRestore()
+    }
   })
 
   it('prevents drop when conflict detection returns errors', () => {
@@ -678,18 +682,20 @@ describe('Schedule', () => {
       ],
     })
 
-    renderSchedule({ sessions: [baseSession], onUpdateSession })
+    try {
+      renderSchedule({ sessions: [baseSession], onUpdateSession })
 
-    const { sessionCard, dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
-    const dataTransfer = createDragDataTransfer()
+      const { sessionCard, dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
+      const dataTransfer = createDragDataTransfer()
 
-    fireEvent.dragStart(sessionCard, { dataTransfer })
-    fireEvent.drop(dropZone, { dataTransfer })
+      fireEvent.dragStart(sessionCard, { dataTransfer })
+      fireEvent.drop(dropZone, { dataTransfer })
 
-    expect(toastError).toHaveBeenCalledWith('Cannot move session', expect.any(Object))
-    expect(onUpdateSession).not.toHaveBeenCalled()
-
-    conflictSpy.mockRestore()
+      expect(toastError).toHaveBeenCalledWith('Cannot move session', expect.any(Object))
+      expect(onUpdateSession).not.toHaveBeenCalled()
+    } finally {
+      conflictSpy.mockRestore()
+    }
   })
 
   it('allows drop when only warning conflicts are returned', () => {
@@ -707,24 +713,26 @@ describe('Schedule', () => {
       ],
     })
 
-    renderSchedule({ sessions: [baseSession], onUpdateSession })
+    try {
+      renderSchedule({ sessions: [baseSession], onUpdateSession })
 
-    const { sessionCard, dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
-    const dataTransfer = createDragDataTransfer()
+      const { sessionCard, dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
+      const dataTransfer = createDragDataTransfer()
 
-    fireEvent.dragStart(sessionCard, { dataTransfer })
-    fireEvent.drop(dropZone, { dataTransfer })
+      fireEvent.dragStart(sessionCard, { dataTransfer })
+      fireEvent.drop(dropZone, { dataTransfer })
 
-    expect(onUpdateSession).toHaveBeenCalledWith(
-      's-1',
-      expect.objectContaining({
-        startTime: expect.any(String),
-        endTime: expect.any(String),
-      })
-    )
-    expect(toastSuccess).toHaveBeenCalledWith('Session rescheduled', expect.any(Object))
-
-    conflictSpy.mockRestore()
+      expect(onUpdateSession).toHaveBeenCalledWith(
+        's-1',
+        expect.objectContaining({
+          startTime: expect.any(String),
+          endTime: expect.any(String),
+        })
+      )
+      expect(toastSuccess).toHaveBeenCalledWith('Session rescheduled', expect.any(Object))
+    } finally {
+      conflictSpy.mockRestore()
+    }
   })
 
   it('handles sessions with various location names', async () => {
@@ -880,32 +888,34 @@ describe('Schedule', () => {
       capacity: 10,
     }
 
-    renderSchedule({ sessions: [baseSession, conflictSession], onUpdateSession })
+    try {
+      renderSchedule({ sessions: [baseSession, conflictSession], onUpdateSession })
 
-    await user.click(screen.getByRole('tab', { name: /list/i }))
-    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
-    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+      await user.click(screen.getByRole('tab', { name: /list/i }))
+      await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+      await user.click(screen.getByRole('button', { name: /^edit$/i }))
 
-    setDateTimeInput(/start time/i, '2026-03-20T11:15')
-    setDateTimeInput(/end time/i, '2026-03-20T11:45')
-    await user.click(screen.getByRole('button', { name: /save changes/i }))
+      setDateTimeInput(/start time/i, '2026-03-20T11:15')
+      setDateTimeInput(/end time/i, '2026-03-20T11:45')
+      await user.click(screen.getByRole('button', { name: /save changes/i }))
 
-    expect(conflictSpy).toHaveBeenCalled()
-    const [editedSession, targetStartTime, targetEndTime, allSessions] = conflictSpy.mock.calls[0]
-    expect(editedSession).toEqual(
-      expect.objectContaining({
-        id: baseSession.id,
-        startTime: new Date('2026-03-20T11:15').toISOString(),
-        endTime: new Date('2026-03-20T11:45').toISOString(),
-      })
-    )
-    expect(targetStartTime).toEqual(new Date('2026-03-20T11:15'))
-    expect(targetEndTime).toEqual(new Date('2026-03-20T11:45'))
-    expect(allSessions).toEqual(expect.arrayContaining([expect.objectContaining({ id: 's-2' })]))
+      expect(conflictSpy).toHaveBeenCalled()
+      const [editedSession, targetStartTime, targetEndTime, allSessions] = conflictSpy.mock.calls[0]
+      expect(editedSession).toEqual(
+        expect.objectContaining({
+          id: baseSession.id,
+          startTime: new Date('2026-03-20T11:15').toISOString(),
+          endTime: new Date('2026-03-20T11:45').toISOString(),
+        })
+      )
+      expect(targetStartTime).toEqual(new Date('2026-03-20T11:15'))
+      expect(targetEndTime).toEqual(new Date('2026-03-20T11:45'))
+      expect(allSessions).toEqual(expect.arrayContaining([expect.objectContaining({ id: 's-2' })]))
 
-    expect(toastError).toHaveBeenCalledWith('Cannot save session changes', expect.any(Object))
-    expect(onUpdateSession).not.toHaveBeenCalled()
-
-    conflictSpy.mockRestore()
+      expect(toastError).toHaveBeenCalledWith('Cannot save session changes', expect.any(Object))
+      expect(onUpdateSession).not.toHaveBeenCalled()
+    } finally {
+      conflictSpy.mockRestore()
+    }
   })
 })

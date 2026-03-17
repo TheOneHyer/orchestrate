@@ -213,7 +213,7 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleApplyTemplate(template)}>
+                      <DropdownMenuItem onClick={() => handleApplyTemplate(template)} data-testid="dropdown-apply-template">
                         <Play size={16} className="mr-2" />
                         Apply Template
                       </DropdownMenuItem>

@@ -74,7 +74,11 @@ describe('RiskTrendChart', () => {
         render(
             <RiskTrendChart
                 showUtilization={true}
-                data={[{ ...mockDataPoint, utilizationRate: 80 }]}
+                data={[
+                    { ...mockDataPoint, utilizationRate: 80 },
+                    { ...mockDataPoint, utilizationRate: 80 },
+                    { ...mockDataPoint, utilizationRate: 80 },
+                ]}
             />
         )
 
@@ -86,8 +90,8 @@ describe('RiskTrendChart', () => {
             <RiskTrendChart
                 showUtilization={true}
                 data={[
-                    { ...mockDataPoint, date: '2026-03-10T00:00:00.000Z', utilizationRate: 91 },
-                    { ...highRiskDataPoint, date: '2026-03-15T00:00:00.000Z', utilizationRate: 75 },
+                    { ...mockDataPoint, utilizationRate: 91 },
+                    { ...highRiskDataPoint, utilizationRate: 75 },
                 ]}
             />
         )

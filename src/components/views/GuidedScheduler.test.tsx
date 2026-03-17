@@ -315,7 +315,7 @@ describe('GuidedScheduler', () => {
 
         const noScheduleUsers = [
             { ...users[0], trainerProfile: undefined },
-            { ...users[1], trainerProfile: undefined },
+            users[1],
         ]
 
         findAvailableTrainersMock.mockReturnValueOnce([

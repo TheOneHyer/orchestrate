@@ -384,6 +384,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
         </div>
 
         <div
+          data-day-dropzone
           className={`border rounded-lg p-6 min-h-[400px] transition-colors cursor-pointer hover:border-primary/50 ${isToday ? 'border-primary bg-primary/5' :
             hasConflict ? 'border-destructive bg-destructive/10 border-2' :
               isDragOver ? 'border-accent bg-accent/10 border-2' :

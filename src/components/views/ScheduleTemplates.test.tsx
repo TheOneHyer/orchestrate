@@ -333,8 +333,8 @@ describe('ScheduleTemplates', () => {
         render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
 
         const card = screen.getByTestId('template-card-template-1')
-        const applyButtons = within(card).getAllByRole('button', { name: /apply template/i })
-        await user.click(applyButtons[0])
+        const applyButton = within(card).getByTestId('dropdown-apply-template')
+        await user.click(applyButton)
 
         expect(screen.getByText(/applying ops rotation/i)).toBeInTheDocument()
     })
@@ -399,34 +399,34 @@ describe('ScheduleTemplates', () => {
         expect(screen.getByText('Creating Template')).toBeInTheDocument()
     })
 
-        it('renders plural session badge, singular used badge, overflow tags badge, and last-used date', () => {
-            const richTemplate = createTemplate({
-                id: 'template-rich',
-                name: 'Rich Template',
-                sessions: [
-                    { dayOfWeek: 1, time: '09:00', duration: 60, capacity: 10, requiresCertifications: [] },
-                    { dayOfWeek: 2, time: '10:00', duration: 60, capacity: 10, requiresCertifications: [] },
-                    { dayOfWeek: 3, time: '11:00', duration: 60, capacity: 10, requiresCertifications: [] },
-                ],
-                usageCount: 1,
-                tags: ['ops', 'safety', 'morning', 'beginner'],
-                lastUsed: '2026-03-01T00:00:00.000Z',
-            })
-
-            useKVMock.mockImplementation((key: string, initial: unknown[]) => {
-                if (key === 'schedule-templates') return [[richTemplate], setTemplatesMock]
-                return [initial, vi.fn()]
-            })
-
-            render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
-
-            // sessions.length !== 1 → plural "sessions"
-            expect(screen.getByText(/3 sessions/i)).toBeInTheDocument()
-            // usageCount !== 1 is false (usageCount = 1) → singular "time"
-            expect(screen.getByText(/used 1 time\b/i)).toBeInTheDocument()
-            // tags.length > 3 → overflow badge (+1)
-            expect(screen.getByText('+1')).toBeInTheDocument()
-            // lastUsed is set → "Last: Mar 1" rendered
-            expect(screen.getByText(/last:/i)).toBeInTheDocument()
+    it('renders plural session badge, singular used badge, overflow tags badge, and last-used date', () => {
+        const richTemplate = createTemplate({
+            id: 'template-rich',
+            name: 'Rich Template',
+            sessions: [
+                { dayOfWeek: 1, time: '09:00', duration: 60, capacity: 10, requiresCertifications: [] },
+                { dayOfWeek: 2, time: '10:00', duration: 60, capacity: 10, requiresCertifications: [] },
+                { dayOfWeek: 3, time: '11:00', duration: 60, capacity: 10, requiresCertifications: [] },
+            ],
+            usageCount: 1,
+            tags: ['ops', 'safety', 'morning', 'beginner'],
+            lastUsed: '2026-03-01T00:00:00.000Z',
         })
+
+        useKVMock.mockImplementation((key: string, initial: unknown[]) => {
+            if (key === 'schedule-templates') return [[richTemplate], setTemplatesMock]
+            return [initial, vi.fn()]
+        })
+
+        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+
+        // sessions.length !== 1 → plural "sessions"
+        expect(screen.getByText(/3 sessions/i)).toBeInTheDocument()
+        // usageCount !== 1 is false (usageCount = 1) → singular "time"
+        expect(screen.getByText(/used 1 time\b/i)).toBeInTheDocument()
+        // tags.length > 3 → overflow badge (+1)
+        expect(screen.getByText('+1')).toBeInTheDocument()
+        // lastUsed is set → "Last: Mar 1" rendered
+        expect(screen.getByText(/last:/i)).toBeInTheDocument()
+    })
 })

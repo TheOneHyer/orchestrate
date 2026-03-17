@@ -502,9 +502,11 @@ describe('BurnoutDashboard', () => {
 
         const underutilizedCard = screen
             .getByText(/underutilized trainers/i)
-            .closest('[data-slot="card"]') as HTMLElement
+            .closest('[data-slot="card"]')
 
-        expect(within(underutilizedCard).getByText(/uma trainer/i)).toBeInTheDocument()
-        expect(within(underutilizedCard).getByText('42%')).toBeInTheDocument()
+        expect(underutilizedCard).not.toBeNull()
+
+        expect(within(underutilizedCard as HTMLElement).getByText(/uma trainer/i)).toBeInTheDocument()
+        expect(within(underutilizedCard as HTMLElement).getByText('42%')).toBeInTheDocument()
     })
 })

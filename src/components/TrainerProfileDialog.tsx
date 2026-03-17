@@ -303,6 +303,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                             <Button
                               variant="destructive"
                               size="sm"
+                              aria-label={`Remove schedule ${index + 1}`}
                               onClick={() => removeShiftSchedule(index)}
                             >
                               <Trash size={16} weight="bold" />
@@ -495,7 +496,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                             Expires: {format(parseISO(cert.expirationDate), 'MMM d, yyyy')}
                           </p>
                         </div>
-                        <Badge className={getStatusColor(status)}>
+                        <Badge className={getStatusColor(status)} data-status={status}>
                           {status === 'expired' && 'Expired'}
                           {status === 'expiring-soon' && `${daysUntil}d left`}
                           {status === 'active' && 'Active'}

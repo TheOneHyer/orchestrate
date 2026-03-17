@@ -324,42 +324,40 @@ describe('use-check-in-scheduler', () => {
         expect(setter).not.toHaveBeenCalled()
     })
 
-    it('computes next date using daily, biweekly, monthly, and custom frequencies', () => {
-        const baseDate = '2026-03-10T00:00:00.000Z'
-        const daily = createSchedule({ id: 'daily', frequency: 'daily', lastCheckInDate: baseDate })
-        const biweekly = createSchedule({ id: 'biweekly', frequency: 'biweekly', lastCheckInDate: baseDate })
-        const monthly = createSchedule({ id: 'monthly', frequency: 'monthly', lastCheckInDate: baseDate })
-        const customWithDays = createSchedule({ id: 'custom-3', frequency: 'custom', customDays: 3, lastCheckInDate: baseDate })
-        const customDefault = createSchedule({ id: 'custom-default', frequency: 'custom', customDays: undefined, lastCheckInDate: baseDate })
+    it.each([
+        ['daily', 'daily', undefined, '2026-03-11T00:00:00.000Z'],
+        ['biweekly', 'biweekly', undefined, '2026-03-24T00:00:00.000Z'],
+        ['monthly', 'monthly', undefined, '2026-04-10T00:00:00.000Z'],
+        ['custom-3', 'custom', 3, '2026-03-13T00:00:00.000Z'],
+        ['custom-default', 'custom', undefined, '2026-03-17T00:00:00.000Z'],
+    ] as const)(
+        'computes next date for $1 frequency (schedule id: $0)',
+        (scheduleId, frequency, customDays, expectedDate) => {
+            const baseDate = '2026-03-10T00:00:00.000Z'
+            const schedule = createSchedule({
+                id: scheduleId,
+                frequency: frequency as 'daily' | 'biweekly' | 'monthly' | 'custom',
+                customDays,
+                lastCheckInDate: baseDate,
+            })
 
-        const schedules = [daily, biweekly, monthly, customWithDays, customDefault]
-        const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([schedules, setter] as any)
+            const schedules = [schedule]
+            const setter = vi.fn()
+            vi.mocked(useKV).mockReturnValue([schedules, setter] as any)
 
-        const { result } = renderHook(() => useCheckInScheduler([createTrainer('trainer-1')], [], undefined))
+            const { result } = renderHook(() => useCheckInScheduler([createTrainer('trainer-1')], [], undefined))
 
-        result.current.updateScheduleNextDate('daily', baseDate)
-        result.current.updateScheduleNextDate('biweekly', baseDate)
-        result.current.updateScheduleNextDate('monthly', baseDate)
-        result.current.updateScheduleNextDate('custom-3', baseDate)
-        result.current.updateScheduleNextDate('custom-default', baseDate)
+            result.current.updateScheduleNextDate(scheduleId, baseDate)
 
-        const updaterCalls = vi.mocked(setter).mock.calls
-            .map((call) => call[0])
-            .filter((arg): arg is (prev: CheckInSchedule[]) => CheckInSchedule[] => typeof arg === 'function')
+            const updaterCalls = vi.mocked(setter).mock.calls
+                .map((call) => call[0])
+                .filter((arg): arg is (prev: CheckInSchedule[]) => CheckInSchedule[] => typeof arg === 'function')
 
-        const updatedDaily = updaterCalls[0](schedules).find((s) => s.id === 'daily')
-        const updatedBiweekly = updaterCalls[1](schedules).find((s) => s.id === 'biweekly')
-        const updatedMonthly = updaterCalls[2](schedules).find((s) => s.id === 'monthly')
-        const updatedCustom3 = updaterCalls[3](schedules).find((s) => s.id === 'custom-3')
-        const updatedCustomDefault = updaterCalls[4](schedules).find((s) => s.id === 'custom-default')
+            const updated = updaterCalls[0](schedules).find((s) => s.id === scheduleId)
 
-        expect(updatedDaily?.nextScheduledDate).toBe('2026-03-11T00:00:00.000Z')
-        expect(updatedBiweekly?.nextScheduledDate).toBe('2026-03-24T00:00:00.000Z')
-        expect(updatedMonthly?.nextScheduledDate).toBe('2026-04-10T00:00:00.000Z')
-        expect(updatedCustom3?.nextScheduledDate).toBe('2026-03-13T00:00:00.000Z')
-        expect(updatedCustomDefault?.nextScheduledDate).toBe('2026-03-17T00:00:00.000Z')
-    })
+            expect(updated?.nextScheduledDate).toBe(expectedDate)
+        }
+    )
 
     it('keeps schedules unchanged when updateScheduleNextDate is called with an unknown schedule id', () => {
         const schedule = createSchedule({ id: 'existing', completedCheckIns: 2 })

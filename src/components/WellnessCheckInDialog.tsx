@@ -105,21 +105,21 @@ export function WellnessCheckInDialog({
 
   const getMoodIcon = (value: MoodLevel) => {
     switch (value) {
-      case 5: return <Smiley size={32} weight="fill" className="text-green-500" />
-      case 4: return <Smiley size={32} weight="regular" className="text-green-400" />
-      case 3: return <SmileyMeh size={32} weight="regular" className="text-yellow-500" />
-      case 2: return <SmileyNervous size={32} weight="regular" className="text-orange-500" />
-      case 1: return <SmileySad size={32} weight="fill" className="text-destructive" />
+      case 5: return <Smiley size={32} weight="fill" className="text-green-500" data-testid="mood-icon-excellent" />
+      case 4: return <Smiley size={32} weight="regular" className="text-green-400" data-testid="mood-icon-good" />
+      case 3: return <SmileyMeh size={32} weight="regular" className="text-yellow-500" data-testid="mood-icon-neutral" />
+      case 2: return <SmileyNervous size={32} weight="regular" className="text-orange-500" data-testid="mood-icon-nervous" />
+      case 1: return <SmileySad size={32} weight="fill" className="text-destructive" data-testid="mood-icon-sad" />
     }
   }
 
   const getEnergyIcon = () => {
     switch (energy) {
-      case 'excellent': return <Lightning size={24} weight="fill" className="text-green-500" />
-      case 'energized': return <BatteryHigh size={24} weight="fill" className="text-green-400" />
-      case 'neutral': return <BatteryMedium size={24} weight="regular" className="text-yellow-500" />
-      case 'tired': return <BatteryLow size={24} weight="regular" className="text-orange-500" />
-      case 'exhausted': return <BatteryWarning size={24} weight="fill" className="text-destructive" />
+      case 'excellent': return <Lightning size={24} weight="fill" className="text-green-500" data-testid="energy-icon-excellent" />
+      case 'energized': return <BatteryHigh size={24} weight="fill" className="text-green-400" data-testid="energy-icon-energized" />
+      case 'neutral': return <BatteryMedium size={24} weight="regular" className="text-yellow-500" data-testid="energy-icon-neutral" />
+      case 'tired': return <BatteryLow size={24} weight="regular" className="text-orange-500" data-testid="energy-icon-tired" />
+      case 'exhausted': return <BatteryWarning size={24} weight="fill" className="text-destructive" data-testid="energy-icon-exhausted" />
     }
   }
 
@@ -216,7 +216,7 @@ export function WellnessCheckInDialog({
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
+            <div className="space-y-2" data-testid="workload-slider">
               <Label>Workload Satisfaction</Label>
               <Slider
                 value={[workloadSatisfaction]}
@@ -230,7 +230,7 @@ export function WellnessCheckInDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2" data-testid="sleep-slider">
               <Label>Sleep Quality</Label>
               <Slider
                 value={[sleepQuality]}
@@ -244,7 +244,7 @@ export function WellnessCheckInDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2" data-testid="physical-wellbeing-slider">
               <Label>Physical Wellbeing</Label>
               <Slider
                 value={[physicalWellbeing]}
@@ -258,7 +258,7 @@ export function WellnessCheckInDialog({
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2" data-testid="mental-clarity-slider">
               <Label>Mental Clarity</Label>
               <Slider
                 value={[mentalClarity]}

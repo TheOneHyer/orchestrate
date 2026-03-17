@@ -143,9 +143,9 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
             aria-label="Toggle Theme"
           >
             {theme === 'dark' ? (
-              <Sun size={20} weight="regular" />
+              <Sun size={20} weight="regular" data-testid="theme-icon-sun" />
             ) : (
-              <Moon size={20} weight="regular" />
+              <Moon size={20} weight="regular" data-testid="theme-icon-moon" />
             )}
           </Button>
         </header>

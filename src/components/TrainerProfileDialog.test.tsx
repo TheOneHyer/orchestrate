@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -288,7 +288,7 @@ describe('TrainerProfileDialog', () => {
         // Saturday starts unchecked (default daysWorked = Mon–Fri); toggle it on
         const saturdayCheckbox = await screen.findByRole('checkbox', { name: /^sat$/i })
         expect(saturdayCheckbox).toHaveAttribute('aria-checked', 'false')
-        await userEvent.click(saturdayCheckbox)
+        await user.click(saturdayCheckbox)
         expect(saturdayCheckbox).toHaveAttribute('aria-checked', 'true')
     })
 
@@ -307,8 +307,8 @@ describe('TrainerProfileDialog', () => {
         await user.click(await screen.findByRole('button', { name: /add schedule/i }))
         expect(screen.getByPlaceholderText(/e\.g\., SHIFT-A/i)).toBeInTheDocument()
 
-        // The remove (trash) button is the only button with the bg-destructive class token
-        const removeBtn = document.querySelector('button.bg-destructive') as HTMLElement
+        // The remove (trash) button uses an accessible aria-label
+        const removeBtn = screen.getByRole('button', { name: /^remove schedule/i })
         await user.click(removeBtn)
 
         expect(screen.queryByPlaceholderText(/e\.g\., SHIFT-A/i)).not.toBeInTheDocument()
@@ -331,7 +331,7 @@ describe('TrainerProfileDialog', () => {
 
         const mondayCheckbox = await screen.findByRole('checkbox', { name: /^mon$/i })
         expect(mondayCheckbox).toHaveAttribute('aria-checked', 'true')
-        await userEvent.click(mondayCheckbox)
+        await user.click(mondayCheckbox)
         expect(mondayCheckbox).toHaveAttribute('aria-checked', 'false')
     })
 
@@ -359,7 +359,8 @@ describe('TrainerProfileDialog', () => {
             />
         )
 
-        expect(screen.getByText(/d left/i).className).toContain('bg-amber-100')
+        const expiringBadge = screen.getByText(/d left/i)
+        expect(expiringBadge).toHaveAttribute('data-status', 'expiring-soon')
 
         rerender(
             <TrainerProfileDialog
@@ -369,7 +370,8 @@ describe('TrainerProfileDialog', () => {
                 onSave={vi.fn()}
             />
         )
-        expect(screen.getByText(/expired/i).className).toContain('bg-red-100')
+        const expiredBadge = screen.getByText(/^expired$/i)
+        expect(expiredBadge).toHaveAttribute('data-status', 'expired')
 
         rerender(
             <TrainerProfileDialog
@@ -379,7 +381,7 @@ describe('TrainerProfileDialog', () => {
                 onSave={vi.fn()}
             />
         )
-        const unknownStatusBadge = document.querySelector('.bg-gray-100')
-        expect(unknownStatusBadge).toBeTruthy()
+        const unknownBadge = screen.getByText(/^Active$|^Expired$|^.*d left$|^Unknown$/)
+        expect(unknownBadge).toHaveAttribute('data-status', 'unknown')
     })
 })

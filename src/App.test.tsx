@@ -418,12 +418,13 @@ describe('App', () => {
 
     afterEach(() => {
         vi.unstubAllGlobals()
+        localStorage.clear()
     })
 
     it('renders dashboard by default and supports navigation across views', async () => {
         const user = userEvent.setup()
 
-        const { unmount } = render(<App />)
+        render(<App />)
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
 
@@ -652,7 +653,7 @@ describe('App', () => {
         )
     })
 
-    it('auto-seeds preview data in empty mode when enabled', () => {
+    it('auto-seeds preview data in empty mode when enabled', async () => {
         getPreviewSeedModeMock.mockReturnValue('empty')
         isPreviewSeedEnabledMock.mockReturnValue(true)
         kvSeed['users'] = []
@@ -663,24 +664,28 @@ describe('App', () => {
 
         render(<App />)
 
-        expect(createPreviewSeedDataMock).toHaveBeenCalled()
-        expect(toastSuccess).toHaveBeenCalledWith(
-            'Preview test data loaded',
-            expect.objectContaining({ description: expect.stringMatching(/seeded/i) })
-        )
+        await waitFor(() => {
+            expect(createPreviewSeedDataMock).toHaveBeenCalled()
+            expect(toastSuccess).toHaveBeenCalledWith(
+                'Preview test data loaded',
+                expect.objectContaining({ description: expect.stringMatching(/seeded/i) })
+            )
+        })
     })
 
-    it('skips auto-seeding in full mode when core data already exists', () => {
+    it('skips auto-seeding in full mode when core data already exists', async () => {
         getPreviewSeedModeMock.mockReturnValue('full')
         isPreviewSeedEnabledMock.mockReturnValue(true)
         kvSeed['preview-seed-version'] = ''
 
         render(<App />)
 
-        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+        await waitFor(() => {
+            expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+        })
     })
 
-    it('skips auto-seeding when current mode is already seeded', () => {
+    it('skips auto-seeding when current mode is already seeded', async () => {
         getPreviewSeedModeMock.mockReturnValue('empty')
         isPreviewSeedEnabledMock.mockReturnValue(true)
         kvSeed['users'] = []
@@ -691,7 +696,9 @@ describe('App', () => {
 
         render(<App />)
 
-        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+        await waitFor(() => {
+            expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+        })
     })
 
     it('calls auto-seed path with off mode and exits before creating preview seed data', () => {

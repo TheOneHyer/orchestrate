@@ -67,30 +67,32 @@ describe('RiskTrendChart custom tooltip', () => {
         expect(screen.getByText('critical')).toBeInTheDocument()
     })
 
-    it('renders tooltip risk-level chip for non-critical values', async () => {
+    it.each([
+        { level: 'high' as const },
+        { level: 'medium' as const },
+        { level: 'low' as const },
+    ])('renders tooltip risk-level chip for non-critical values - $level', async ({ level }) => {
         const { RiskTrendChart } = await import('./RiskTrendChart')
 
-        for (const level of ['high', 'medium', 'low'] as const) {
-            tooltipRiskLevel = level
+        tooltipRiskLevel = level
 
-            const { unmount } = render(
-                <RiskTrendChart
-                    showUtilization={false}
-                    data={[
-                        {
-                            date: '2026-03-10T00:00:00.000Z',
-                            riskScore: 32,
-                            riskLevel: 'medium',
-                            utilizationRate: 78,
-                            sessionCount: 7,
-                            hoursScheduled: 29,
-                        },
-                    ]}
-                />
-            )
+        const { unmount } = render(
+            <RiskTrendChart
+                showUtilization={false}
+                data={[
+                    {
+                        date: '2026-03-10T00:00:00.000Z',
+                        riskScore: 32,
+                        riskLevel: 'medium',
+                        utilizationRate: 78,
+                        sessionCount: 7,
+                        hoursScheduled: 29,
+                    },
+                ]}
+            />
+        )
 
-            expect(screen.getByText(level)).toBeInTheDocument()
-            unmount()
-        }
+        expect(screen.getByText(level)).toBeInTheDocument()
+        unmount()
     })
 })

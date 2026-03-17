@@ -178,7 +178,7 @@ describe('scheduler', () => {
         const trainerWithoutProfile = {
             ...createTrainer('trainer-no-profile', 'No Profile', ['Forklift']),
             trainerProfile: undefined,
-        } as unknown as User
+        } as User
         const scheduler = new TrainerScheduler([trainerWithoutProfile], [], [createCourse()])
 
         const matches = scheduler.findAvailableTrainers(createConstraints(), new Date('2026-03-16T00:00:00.000Z'))
@@ -314,7 +314,7 @@ describe('scheduler', () => {
         const dayShiftTrainer = {
             ...createTrainer('trainer-a', 'Avery', ['Forklift']),
             shifts: ['day']
-        } as unknown as User
+        } as User
         const scheduler = new TrainerScheduler([dayShiftTrainer], [], [createCourse()])
 
         const feasibility = scheduler.analyzeSchedulingFeasibility({
@@ -328,7 +328,7 @@ describe('scheduler', () => {
                 ]
             }),
             shifts: ['evening']
-        } as unknown as SchedulingConstraints)
+        } as SchedulingConstraints)
 
         expect(feasibility.feasible).toBe(false)
         expect(feasibility.issues).toContain('No trainers have the required certifications')
@@ -339,13 +339,13 @@ describe('scheduler', () => {
         const dayShiftTrainer = {
             ...createTrainer('trainer-a', 'Avery', ['Forklift']),
             shifts: ['day']
-        } as unknown as User
+        } as User
         const scheduler = new TrainerScheduler([dayShiftTrainer], [], [createCourse()])
 
         const feasibility = scheduler.analyzeSchedulingFeasibility({
             ...createConstraints({ requiredCertifications: ['Forklift'] }),
             shifts: ['night']
-        } as unknown as SchedulingConstraints)
+        } as SchedulingConstraints)
 
         expect(feasibility.feasible).toBe(false)
         expect(feasibility.availableTrainerCount).toBe(0)
@@ -357,7 +357,7 @@ describe('scheduler', () => {
         const dayShiftTrainer = {
             ...createTrainer('trainer-a', 'Avery', ['Forklift']),
             shifts: ['day']
-        } as unknown as User
+        } as User
         const scheduler = new TrainerScheduler([dayShiftTrainer], [], [createCourse()])
 
         const feasibility = scheduler.analyzeSchedulingFeasibility({
@@ -366,7 +366,7 @@ describe('scheduler', () => {
                 dates: ['2026-03-16T00:00:00.000Z']
             }),
             shifts: ['day']
-        } as unknown as SchedulingConstraints)
+        } as SchedulingConstraints)
 
         expect(feasibility.feasible).toBe(true)
         expect(feasibility.availableTrainerCount).toBe(1)
@@ -381,7 +381,7 @@ describe('scheduler', () => {
             { ...createSession('session-3', trainer.id, '2026-03-18T23:00:00.000Z', '2026-03-19T01:00:00.000Z'), shift: 'night' },
             { ...createSession('session-4', trainer.id, '2026-03-20T09:00:00.000Z', '2026-03-20T11:00:00.000Z'), status: 'cancelled', shift: 'day' },
             { ...createSession('session-5', trainer.id, '2026-04-01T09:00:00.000Z', '2026-04-01T11:00:00.000Z'), shift: 'day' }
-        ] as unknown as Session[]
+        ] as Session[]
         const scheduler = new TrainerScheduler([trainer], sessions, [createCourse()])
 
         const workload = scheduler.getTrainerWorkload(
@@ -402,6 +402,7 @@ describe('scheduler', () => {
     it('returns evening or night as the primary shift when day is not present', () => {
         const scheduler = new TrainerScheduler([], [], [createCourse()])
 
+        // Test private method to verify shift ordering logic
         expect((scheduler as any).getPrimaryShift(['evening'])).toBe('evening')
         expect((scheduler as any).getPrimaryShift(['night'])).toBe('night')
     })
@@ -436,6 +437,7 @@ describe('scheduler', () => {
     it('classifies missing-certification conflicts as unavailable in determineAvailability', () => {
         const scheduler = new TrainerScheduler([], [], [createCourse()])
 
+        // Test private method to verify availability classification logic
         const availability = (scheduler as any).determineAvailability(100, ['Missing certifications: CPR'])
 
         expect(availability).toBe('unavailable')
@@ -457,6 +459,7 @@ describe('scheduler', () => {
         }
         const scheduler = new TrainerScheduler([overnightTrainer], [], [createCourse()])
 
+        // Test private method to verify overnight shift overlap detection
         const detailed = (scheduler as any).checkDetailedShiftOverlap(
             overnightTrainer,
             new Date('2026-03-16T00:00:00.000Z'),

@@ -37,9 +37,11 @@ describe('ErrorFallback', () => {
     it('rethrows the error in DEV mode instead of rendering the fallback UI', () => {
         vi.stubEnv('DEV', true)
 
-        const error = new Error('dev-mode error')
-        expect(() => render(<ErrorFallback error={error} resetErrorBoundary={vi.fn()} />)).toThrow('dev-mode error')
-
-        vi.stubEnv('DEV', false)
+        try {
+            const error = new Error('dev-mode error')
+            expect(() => render(<ErrorFallback error={error} resetErrorBoundary={vi.fn()} />)).toThrow('dev-mode error')
+        } finally {
+            vi.stubEnv('DEV', false)
+        }
     })
 })

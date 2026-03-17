@@ -140,7 +140,7 @@ describe('Layout', () => {
         )
 
         const notificationsButton = screen.getByRole('button', { name: /notifications/i })
-        expect(notificationsButton.className).toContain('bg-primary')
+        expect(notificationsButton).toHaveClass('bg-primary')
 
         rerender(
             <Layout activeView="settings" onNavigate={vi.fn()} userRole="admin" notificationCount={2}>
@@ -149,10 +149,11 @@ describe('Layout', () => {
         )
 
         const settingsButton = screen.getByRole('button', { name: /^settings$/i })
-        expect(settingsButton.className).toContain('bg-primary')
+        expect(settingsButton).toHaveClass('bg-primary')
+        expect(notificationsButton).not.toHaveClass('bg-primary')
     })
 
-    it('renders the dark-theme icon variant when theme is dark', () => {
+    it('renders different theme icons for dark and light themes', () => {
         mockUseTheme.mockReturnValue({ theme: 'dark', toggleTheme: mockToggleTheme })
 
         const { rerender } = render(
@@ -161,9 +162,7 @@ describe('Layout', () => {
             </Layout>
         )
 
-        const darkIconPath = screen.getByRole('button', { name: /toggle theme/i })
-            .querySelector('path')
-            ?.getAttribute('d')
+        expect(screen.getByTestId('theme-icon-sun')).toBeInTheDocument()
 
         mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: mockToggleTheme })
         rerender(
@@ -172,12 +171,6 @@ describe('Layout', () => {
             </Layout>
         )
 
-        const lightIconPath = screen.getByRole('button', { name: /toggle theme/i })
-            .querySelector('path')
-            ?.getAttribute('d')
-
-        expect(darkIconPath).toBeTruthy()
-        expect(lightIconPath).toBeTruthy()
-        expect(darkIconPath).not.toBe(lightIconPath)
+        expect(screen.getByTestId('theme-icon-moon')).toBeInTheDocument()
     })
 })
