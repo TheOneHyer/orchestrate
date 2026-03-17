@@ -17,8 +17,8 @@ function normalizeMode(rawMode: string | null | undefined): PreviewSeedMode {
 }
 
 export function getPreviewSeedMode(): PreviewSeedMode {
-    if (typeof window !== 'undefined' && window.location && typeof window.location.search === 'string') {
-        const queryMode = new URLSearchParams(window.location.search).get(PREVIEW_SEED_QUERY_KEY)
+    if (typeof globalThis !== 'undefined' && globalThis.location && typeof globalThis.location.search === 'string') {
+        const queryMode = new URLSearchParams(globalThis.location.search).get(PREVIEW_SEED_QUERY_KEY)
         const normalizedQueryMode = normalizeMode(queryMode)
 
         if (normalizedQueryMode !== 'off') {
