@@ -219,13 +219,13 @@ describe('ScheduleTemplateDialog', () => {
         )
 
         await user.type(screen.getByLabelText(/template name/i), 'Toggled Template')
-        
+
         const autoAssignSwitch = screen.getByRole('switch', { name: /auto-assign trainers/i })
         const notifySwitch = screen.getByRole('switch', { name: /notify participants/i })
-        
+
         expect(autoAssignSwitch).toBeChecked()
         expect(notifySwitch).toBeChecked()
-        
+
         await user.click(autoAssignSwitch)
         await user.click(notifySwitch)
         await user.click(screen.getByRole('button', { name: /create template/i }))
