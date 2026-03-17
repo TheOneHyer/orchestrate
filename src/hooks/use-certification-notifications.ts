@@ -104,7 +104,7 @@ export function useCertificationNotifications(
     if (hasUpdates) {
       onUpdateUsersRef.current(updatedUsers)
     }
-  }, [])
+  }, [getExpiringCertifications, shouldSendRenewalReminder, generateCertificationNotification])
 
   useEffect(() => {
     checkAndNotify(users)
