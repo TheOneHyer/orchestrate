@@ -18,6 +18,7 @@ export default defineConfig({
     // DO NOT REMOVE (excluded in test mode to prevent react-swc preamble conflicts)
     ...(isTest ? [] : [createIconImportProxy() as PluginOption, sparkPlugin() as PluginOption]),
   ],
+  base: '/orchestrate/',
   resolve: {
     alias: {
       "@": resolve(projectRoot, "src"),
