@@ -29,20 +29,27 @@ export function shouldSendRenewalReminder(cert: CertificationRecord): boolean {
 
   if (cert.lastReminderDate) {
     const daysSinceLastReminder = differenceInDays(now, parseISO(cert.lastReminderDate))
-    if (daysSinceLastReminder < 7) {
+    if (daysSinceLastReminder <= 7) {
       return false
     }
   }
 
-  if (daysUntilExpiration <= 90 && daysUntilExpiration > 60) {
-    return cert.remindersSent === 0
-  } else if (daysUntilExpiration <= 60 && daysUntilExpiration > 30) {
-    return cert.remindersSent <= 1
-  } else if (daysUntilExpiration <= 30 && daysUntilExpiration > 14) {
-    return cert.remindersSent <= 2
-  } else if (daysUntilExpiration <= 14 && daysUntilExpiration > 7) {
-    return cert.remindersSent <= 3
-  } else if (daysUntilExpiration <= 7 && daysUntilExpiration > 0) {
+  const reminderRules = [
+    { maxDays: 90, minDaysExclusive: 60, maxRemindersSent: 0 },
+    { maxDays: 60, minDaysExclusive: 30, maxRemindersSent: 1 },
+    { maxDays: 30, minDaysExclusive: 14, maxRemindersSent: 2 },
+    { maxDays: 14, minDaysExclusive: 7, maxRemindersSent: 3 },
+  ]
+
+  const matchingRule = reminderRules.find(
+    (rule) => daysUntilExpiration <= rule.maxDays && daysUntilExpiration > rule.minDaysExclusive
+  )
+
+  if (matchingRule) {
+    return cert.remindersSent <= matchingRule.maxRemindersSent
+  }
+
+  if (daysUntilExpiration <= 7 && daysUntilExpiration > 0) {
     return true
   }
 

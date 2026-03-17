@@ -391,8 +391,8 @@ describe('ManageCertificationsDialog', () => {
     expect(renewingName).toBeInTheDocument()
     expect(screen.getByText(/renewal in progress/i, { selector: 'span' })).toBeInTheDocument()
 
-    const expiredContainer = screen.getByTestId('certification-item-expired-cert')
-    const renewingContainer = screen.getByTestId('certification-item-renewing-cert')
+    const expiredContainer = screen.getByTestId('certification-item-expired-cert-0')
+    const renewingContainer = screen.getByTestId('certification-item-renewing-cert-1')
 
     expect(within(renewingContainer).getByText(/renewal required/i, { selector: 'span' })).toBeInTheDocument()
     expect(within(expiredContainer).queryByText(/renewal required/i, { selector: 'span' })).not.toBeInTheDocument()

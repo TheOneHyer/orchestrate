@@ -98,7 +98,7 @@ export function ManageCertificationsDialog({
 
     if (index === editingIndex) {
       setEditingIndex(null)
-      setFormData(EMPTY_FORM_DATA())
+      setFormData(getEmptyFormData())
       return
     }
 
@@ -115,7 +115,7 @@ export function ManageCertificationsDialog({
   const handleCancel = () => {
     setLocalCerts(certifications)
     setEditingIndex(null)
-    setFormData(EMPTY_FORM_DATA())
+    setFormData(getEmptyFormData())
   }
 
   return (
