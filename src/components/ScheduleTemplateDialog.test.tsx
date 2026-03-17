@@ -115,4 +115,119 @@ describe('ScheduleTemplateDialog', () => {
 
         expect(onOpenChange).toHaveBeenCalledWith(false)
     })
+
+    it('hides day-of-week controls for daily recurrence and omits cycleDays on save', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/template name/i), 'Daily Briefing')
+
+        await user.click(screen.getByRole('combobox', { name: /recurrence type/i }))
+        await user.click(await screen.findByRole('option', { name: /^daily$/i }))
+
+        expect(screen.queryByText(/day of week/i)).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create template/i }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                recurrenceType: 'daily',
+                cycleDays: undefined,
+            })
+        )
+    })
+
+    it('removes existing tags when editing a template and saves updated values', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+        const onOpenChange = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={onOpenChange}
+                onSave={onSave}
+                courses={courses}
+                template={{
+                    id: 'template-1',
+                    name: 'Weekly Safety',
+                    description: 'Existing template',
+                    courseId: 'course-1',
+                    category: 'safety',
+                    recurrenceType: 'weekly',
+                    sessions: [
+                        {
+                            dayOfWeek: 1,
+                            time: '09:00',
+                            duration: 120,
+                            capacity: 20,
+                            requiresCertifications: [],
+                        }
+                    ],
+                    autoAssignTrainers: true,
+                    notifyParticipants: true,
+                    createdBy: 'admin-1',
+                    createdAt: '2026-01-01T00:00:00.000Z',
+                    usageCount: 2,
+                    tags: ['urgent', 'night'],
+                    isActive: true,
+                }}
+            />
+        )
+
+        expect(screen.getByRole('button', { name: /update template/i })).toBeEnabled()
+
+        const urgentTag = screen.getByText('urgent').closest('[data-slot="badge"]')
+        if (!(urgentTag instanceof HTMLElement)) {
+            throw new Error('Urgent tag container was not found')
+        }
+
+        await user.click(within(urgentTag).getByRole('button'))
+        await user.clear(screen.getByLabelText(/template name/i))
+        await user.type(screen.getByLabelText(/template name/i), 'Updated Weekly Safety')
+        await user.click(screen.getByRole('button', { name: /update template/i }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: 'Updated Weekly Safety',
+                tags: ['night'],
+            })
+        )
+        expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it('persists auto-assign and notify toggles when switched off', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/template name/i), 'Toggled Template')
+        await user.click(screen.getByRole('switch', { name: /auto-assign trainers/i }))
+        await user.click(screen.getByRole('switch', { name: /notify participants/i }))
+        await user.click(screen.getByRole('button', { name: /create template/i }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                autoAssignTrainers: false,
+                notifyParticipants: false,
+            })
+        )
+    })
 })

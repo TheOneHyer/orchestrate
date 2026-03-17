@@ -8,11 +8,12 @@ import type { User, Course, Session } from '@/lib/types'
 import * as conflictDetection from '@/lib/conflict-detection'
 
 const toastError = vi.fn()
+const toastSuccess = vi.fn()
 
 vi.mock('sonner', () => ({
   toast: {
     error: (...args: unknown[]) => toastError(...args),
-    success: vi.fn(),
+    success: (...args: unknown[]) => toastSuccess(...args),
   },
 }))
 
@@ -40,7 +41,12 @@ vi.mock('./GuidedScheduler', () => ({
 
 vi.mock('@/components/EnrollStudentsDialog', () => ({
   EnrollStudentsDialog: ({ open, onEnrollStudents }: { open: boolean; onEnrollStudents: (studentIds: string[]) => void }) => (
-    open ? <button data-testid="confirm-enroll" onClick={() => onEnrollStudents(['u-new'])}>Confirm Enroll</button> : null
+    open ? (
+      <>
+        <button data-testid="confirm-enroll" onClick={() => onEnrollStudents(['u-new'])}>Confirm Enroll</button>
+        <button data-testid="confirm-enroll-multi" onClick={() => onEnrollStudents(['u-new', 'u-second'])}>Confirm Enroll Multi</button>
+      </>
+    ) : null
   ),
 }))
 
@@ -120,6 +126,26 @@ describe('Schedule', () => {
 
   const setDateTimeInput = (label: RegExp, value: string) => {
     fireEvent.change(screen.getByLabelText(label), { target: { value } })
+  }
+
+  const createDragDataTransfer = () => ({
+    effectAllowed: 'move',
+    dropEffect: 'move',
+    setData: vi.fn(),
+    getData: vi.fn(),
+  }) as unknown as DataTransfer
+
+  const getDropZoneForSessionTitle = (title: RegExp | string) => {
+    const sessionCard = screen.getByText(title)
+    const calendarBody = sessionCard.closest('[data-calendar-cell-body]')
+    if (!(calendarBody instanceof HTMLElement) || !(calendarBody.parentElement instanceof HTMLElement)) {
+      throw new Error('Could not locate calendar drop zone for session card')
+    }
+
+    return {
+      sessionCard,
+      dropZone: calendarBody.parentElement,
+    }
   }
 
   it('opens the Auto-Schedule dialog', async () => {
@@ -216,6 +242,77 @@ describe('Schedule', () => {
     )
   })
 
+  it('calls onUpdateSession and shows plural success copy when multiple students enroll', async () => {
+    const onUpdateSession = vi.fn()
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /enroll students/i }))
+    await user.click(screen.getByTestId('confirm-enroll-multi'))
+
+    expect(onUpdateSession).toHaveBeenCalledWith(
+      's-1',
+      expect.objectContaining({
+        enrolledStudents: expect.arrayContaining(['u-employee', 'u-new', 'u-second']),
+      })
+    )
+    expect(toastSuccess).toHaveBeenCalledWith('Students enrolled', expect.objectContaining({
+      description: '2 students enrolled successfully',
+    }))
+  })
+
+  it('calls onCreateSession when guided scheduler creates sessions', async () => {
+    const onCreateSession = vi.fn()
+    const user = userEvent.setup()
+
+    renderSchedule({ onCreateSession })
+
+    await user.click(screen.getByRole('button', { name: /guided schedule/i }))
+    await user.click(screen.getByRole('button', { name: /create guided sessions/i }))
+
+    expect(onCreateSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'guided-1',
+        courseId: 'c-1',
+        title: 'Guided Created Session',
+      })
+    )
+  })
+
+  it('opens guided scheduler from an empty day cell for schedule managers', async () => {
+    renderSchedule({ sessions: [] })
+
+    fireEvent.click(screen.getByRole('button', { name: /^day$/i }))
+    const emptyState = screen.getByText(/no sessions scheduled for this day/i)
+    const dropZone = emptyState.closest('div[class*="min-h"]')
+    if (!(dropZone instanceof HTMLElement)) {
+      throw new Error('Unable to find day drop-zone')
+    }
+
+    fireEvent.click(dropZone)
+
+    expect(screen.getByText(/guided trainer scheduler/i)).toBeInTheDocument()
+    expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
+
+  it('does not open guided scheduler from day cell for employees', async () => {
+    renderSchedule({ currentUser: baseEmployee, sessions: [] })
+
+    fireEvent.click(screen.getByRole('button', { name: /^day$/i }))
+    const emptyState = screen.getByText(/no sessions scheduled for this day/i)
+    const dropZone = emptyState.closest('div[class*="min-h"]')
+    if (!(dropZone instanceof HTMLElement)) {
+      throw new Error('Unable to find day drop-zone')
+    }
+
+    fireEvent.click(dropZone)
+
+    expect(screen.queryByText(/guided trainer scheduler/i)).not.toBeInTheDocument()
+  })
+
   it('opens edit dialog from session details and saves updates', async () => {
     const onUpdateSession = vi.fn()
     // pointerEventsCheck is disabled to avoid test-environment pointer-events false negatives
@@ -242,6 +339,19 @@ describe('Schedule', () => {
         title: 'Updated Session Title',
       })
     )
+  })
+
+  it('navigates to course details from the session sheet', async () => {
+    const onNavigate = vi.fn()
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ sessions: [baseSession], onNavigate })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /view course/i }))
+
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'c-1' })
   })
 
   it('displays sessions with various statuses', async () => {
@@ -374,6 +484,21 @@ describe('Schedule', () => {
     expect(screen.queryByRole('button', { name: /new session/i })).not.toBeInTheDocument()
   })
 
+  it('shows only full-width view course action in sheet for employees', async () => {
+    const onNavigate = vi.fn()
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: baseEmployee, sessions: [baseSession], onNavigate })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+
+    const viewCourseButton = screen.getByRole('button', { name: /view course/i })
+    expect(viewCourseButton).toHaveClass('w-full')
+    expect(screen.queryByRole('button', { name: /^edit$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /enroll students/i })).not.toBeInTheDocument()
+  })
+
   it('handles large number of sessions', async () => {
     const user = userEvent.setup()
     const sessions: Session[] = Array.from({ length: 15 }, (_, idx) => ({
@@ -391,6 +516,215 @@ describe('Schedule', () => {
     expect(screen.getByText('Session 1')).toBeInTheDocument()
     expect(screen.getByText('Session 8')).toBeInTheDocument()
     expect(screen.getByText('Session 15')).toBeInTheDocument()
+  })
+
+  it('shows overflow count in monthly calendar cells when more than two sessions exist', () => {
+    const crowdedDate = '2026-03-20'
+    const sessions: Session[] = [
+      { ...baseSession, id: 's-1', title: 'Session A', startTime: `${crowdedDate}T09:00:00.000Z`, endTime: `${crowdedDate}T10:00:00.000Z` },
+      { ...baseSession, id: 's-2', title: 'Session B', startTime: `${crowdedDate}T11:00:00.000Z`, endTime: `${crowdedDate}T12:00:00.000Z` },
+      { ...baseSession, id: 's-3', title: 'Session C', startTime: `${crowdedDate}T13:00:00.000Z`, endTime: `${crowdedDate}T14:00:00.000Z` },
+    ]
+
+    renderSchedule({ sessions })
+
+    expect(screen.getByText('+1 more')).toBeInTheDocument()
+  })
+
+  it('groups in-progress sessions in board view', async () => {
+    const user = userEvent.setup()
+    const sessions: Session[] = [
+      { ...baseSession, id: 's-in-progress', title: 'Live Session', status: 'in-progress' },
+      { ...baseSession, id: 's-complete', title: 'Done Session', status: 'completed', startTime: '2026-03-21T09:00:00.000Z', endTime: '2026-03-21T10:00:00.000Z' },
+    ]
+
+    renderSchedule({ sessions })
+
+    await user.click(screen.getByRole('tab', { name: /board/i }))
+
+    expect(screen.getByRole('heading', { name: /in progress/i })).toBeInTheDocument()
+    expect(screen.getByText('Live Session')).toBeInTheDocument()
+    expect(screen.getByText('Done Session')).toBeInTheDocument()
+  })
+
+  it('shows conflict banner in daily view while dragging over a conflicting day', async () => {
+    const user = userEvent.setup()
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts').mockReturnValue({
+      hasConflicts: true,
+      conflicts: [
+        {
+          type: 'trainer',
+          message: 'Drag conflict in daily view',
+          severity: 'error',
+          conflictingSessionId: 's-2',
+          conflictingSessionTitle: 'Conflict Session',
+        },
+      ],
+    })
+
+    const today = new Date()
+    const startTime = new Date(today)
+    startTime.setHours(9, 0, 0, 0)
+    const endTime = new Date(today)
+    endTime.setHours(10, 30, 0, 0)
+
+    const todaySession: Session = {
+      ...baseSession,
+      id: 's-today',
+      title: 'Today Drag Session',
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    }
+
+    renderSchedule({ sessions: [todaySession] })
+
+    await user.click(screen.getByRole('button', { name: /^day$/i }))
+
+    const { sessionCard, dropZone } = getDropZoneForSessionTitle(/today drag session/i)
+    const dataTransfer = createDragDataTransfer()
+
+    fireEvent.dragStart(sessionCard, { dataTransfer })
+    fireEvent.dragOver(dropZone, { dataTransfer })
+
+    expect(screen.getByText(/scheduling conflicts/i)).toBeInTheDocument()
+    expect(screen.getByText(/drag conflict in daily view/i)).toBeInTheDocument()
+
+    conflictSpy.mockRestore()
+  })
+
+  it('shows conflict indicator in weekly view while dragging over a conflicting day', async () => {
+    const user = userEvent.setup()
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts').mockReturnValue({
+      hasConflicts: true,
+      conflicts: [
+        {
+          type: 'room',
+          message: 'Weekly conflict',
+          severity: 'error',
+          conflictingSessionId: 's-2',
+          conflictingSessionTitle: 'Conflict Session',
+        },
+      ],
+    })
+
+    const today = new Date()
+    const startTime = new Date(today)
+    startTime.setHours(11, 0, 0, 0)
+    const endTime = new Date(today)
+    endTime.setHours(12, 0, 0, 0)
+
+    const weekSession: Session = {
+      ...baseSession,
+      id: 's-week',
+      title: 'Weekly Drag Session',
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    }
+
+    renderSchedule({ sessions: [weekSession] })
+
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+
+    const { sessionCard, dropZone } = getDropZoneForSessionTitle(/weekly drag session/i)
+    const dataTransfer = createDragDataTransfer()
+
+    fireEvent.dragStart(sessionCard, { dataTransfer })
+    fireEvent.dragOver(dropZone, { dataTransfer })
+
+    expect(screen.getByText(/conflict/i)).toBeInTheDocument()
+
+    conflictSpy.mockRestore()
+  })
+
+  it('shows conflict icon in monthly view while dragging over a conflicting day', () => {
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts').mockReturnValue({
+      hasConflicts: true,
+      conflicts: [
+        {
+          type: 'student',
+          message: 'Monthly conflict',
+          severity: 'error',
+          conflictingSessionId: 's-2',
+          conflictingSessionTitle: 'Conflict Session',
+        },
+      ],
+    })
+
+    renderSchedule({ sessions: [baseSession] })
+
+    const { sessionCard, dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
+    const dataTransfer = createDragDataTransfer()
+
+    fireEvent.dragStart(sessionCard, { dataTransfer })
+    fireEvent.dragOver(dropZone, { dataTransfer })
+
+    expect(screen.getAllByText('⚠️').length).toBeGreaterThan(0)
+
+    conflictSpy.mockRestore()
+  })
+
+  it('prevents drop when conflict detection returns errors', () => {
+    const onUpdateSession = vi.fn()
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts').mockReturnValue({
+      hasConflicts: true,
+      conflicts: [
+        {
+          type: 'trainer',
+          message: 'Drop conflict',
+          severity: 'error',
+          conflictingSessionId: 's-2',
+          conflictingSessionTitle: 'Conflict Session',
+        },
+      ],
+    })
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    const { sessionCard, dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
+    const dataTransfer = createDragDataTransfer()
+
+    fireEvent.dragStart(sessionCard, { dataTransfer })
+    fireEvent.drop(dropZone, { dataTransfer })
+
+    expect(toastError).toHaveBeenCalledWith('Cannot move session', expect.any(Object))
+    expect(onUpdateSession).not.toHaveBeenCalled()
+
+    conflictSpy.mockRestore()
+  })
+
+  it('allows drop when only warning conflicts are returned', () => {
+    const onUpdateSession = vi.fn()
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts').mockReturnValue({
+      hasConflicts: true,
+      conflicts: [
+        {
+          type: 'room',
+          message: 'Warning-only conflict',
+          severity: 'warning',
+          conflictingSessionId: 's-2',
+          conflictingSessionTitle: 'Conflict Session',
+        },
+      ],
+    })
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    const { sessionCard, dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
+    const dataTransfer = createDragDataTransfer()
+
+    fireEvent.dragStart(sessionCard, { dataTransfer })
+    fireEvent.drop(dropZone, { dataTransfer })
+
+    expect(onUpdateSession).toHaveBeenCalledWith(
+      's-1',
+      expect.objectContaining({
+        startTime: expect.any(String),
+        endTime: expect.any(String),
+      })
+    )
+    expect(toastSuccess).toHaveBeenCalledWith('Session rescheduled', expect.any(Object))
+
+    conflictSpy.mockRestore()
   })
 
   it('handles sessions with various location names', async () => {
@@ -459,6 +793,42 @@ describe('Schedule', () => {
     await user.click(screen.getByRole('button', { name: /save changes/i }))
 
     expect(toastError).toHaveBeenCalledWith('Invalid time range', expect.any(Object))
+    expect(onUpdateSession).not.toHaveBeenCalled()
+  })
+
+  it('shows validation error for invalid schedule time values during edit', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    setDateTimeInput(/start time/i, '')
+    setDateTimeInput(/end time/i, '')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(toastError).toHaveBeenCalledWith('Invalid schedule time', expect.any(Object))
+    expect(onUpdateSession).not.toHaveBeenCalled()
+  })
+
+  it('shows validation error when capacity is zero during edit', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    await user.clear(screen.getByLabelText(/capacity/i))
+    await user.type(screen.getByLabelText(/capacity/i), '0')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(toastError).toHaveBeenCalledWith('Invalid capacity', expect.any(Object))
     expect(onUpdateSession).not.toHaveBeenCalled()
   })
 

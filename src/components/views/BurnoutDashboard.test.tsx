@@ -321,4 +321,190 @@ describe('BurnoutDashboard', () => {
             checkInsWithData
         )
     })
+
+    it('shows healthy-state messaging when no trainer is high risk', () => {
+        calculateTrainerUtilizationMock.mockImplementation((trainer: User) => ({
+            trainerId: trainer.id,
+            utilizationRate: trainer.id === 't1' ? 68 : 46,
+            hoursScheduled: trainer.id === 't1' ? 27 : 18,
+            sessionCount: trainer.id === 't1' ? 6 : 4,
+            consecutiveDays: trainer.id === 't1' ? 4 : 3,
+            riskScore: trainer.id === 't1' ? 48 : 34,
+            riskLevel: trainer.id === 't1' ? 'medium' : 'low',
+            factors: [],
+            recommendations: ['Monitor'],
+        }))
+
+        render(
+            <BurnoutDashboard
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        expect(screen.queryByText(/at high burnout risk/i)).not.toBeInTheDocument()
+        expect(screen.getByText(/no high-risk trainers detected/i)).toBeInTheDocument()
+    })
+
+    it('renders plural high-risk alert copy when multiple trainers are high risk', () => {
+        calculateTrainerUtilizationMock.mockImplementation((trainer: User) => ({
+            trainerId: trainer.id,
+            utilizationRate: trainer.id === 't1' ? 95 : 89,
+            hoursScheduled: trainer.id === 't1' ? 38 : 35,
+            sessionCount: trainer.id === 't1' ? 8 : 7,
+            consecutiveDays: trainer.id === 't1' ? 7 : 6,
+            riskScore: trainer.id === 't1' ? 92 : 83,
+            riskLevel: trainer.id === 't1' ? 'critical' : 'high',
+            factors: [],
+            recommendations: ['Intervene'],
+        }))
+
+        render(
+            <BurnoutDashboard
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText(/2 trainers at high burnout risk/i)).toBeInTheDocument()
+    })
+
+    it('shows decreasing trend state and empty factors in trainer details', async () => {
+        const user = userEvent.setup()
+
+        calculateTrainerUtilizationMock.mockImplementation((trainer: User) => {
+            if (trainer.id === 't1') {
+                return {
+                    trainerId: 't1',
+                    utilizationRate: 78,
+                    hoursScheduled: 30,
+                    sessionCount: 6,
+                    consecutiveDays: 5,
+                    riskScore: 61,
+                    riskLevel: 'medium',
+                    factors: [],
+                    recommendations: ['Keep monitoring'],
+                }
+            }
+
+            return {
+                trainerId: 't2',
+                utilizationRate: 45,
+                hoursScheduled: 18,
+                sessionCount: 4,
+                consecutiveDays: 3,
+                riskScore: 33,
+                riskLevel: 'low',
+                factors: [],
+                recommendations: ['Maintain'],
+            }
+        })
+
+        getUtilizationTrendMock.mockImplementation((trainer: User) => {
+            if (trainer.id === 't1') {
+                return {
+                    trainerId: 't1',
+                    trend: 'decreasing',
+                    changeRate: -4.2,
+                    dataPoints: [{ date: '2026-03-10', utilization: 82, hours: 31, sessions: 6 }],
+                }
+            }
+
+            return {
+                trainerId: 't2',
+                trend: 'stable',
+                changeRate: 0,
+                dataPoints: [{ date: '2026-03-10', utilization: 45, hours: 18, sessions: 4 }],
+            }
+        })
+
+        render(
+            <BurnoutDashboard
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByRole('tab', { name: /trainer details/i }))
+        await user.click(screen.getByRole('combobox', { name: /select trainer/i }))
+        await user.click(screen.getByRole('option', { name: /taylor trainer/i }))
+
+        expect(screen.getByText(/decreasing/i)).toBeInTheDocument()
+        expect(screen.getByText(/no significant risk factors detected/i)).toBeInTheDocument()
+    })
+
+    it('clears selected trainer and returns to details empty state', async () => {
+        const user = userEvent.setup()
+
+        render(
+            <BurnoutDashboard
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByText(/taylor trainer/i))
+        await user.click(screen.getByRole('tab', { name: /trainer details/i }))
+        await user.click(screen.getByRole('button', { name: /clear selection/i }))
+
+        expect(screen.getByText(/select a trainer to view detailed analytics/i)).toBeInTheDocument()
+    })
+
+    it('renders underutilized trainer entries in distribution tab', async () => {
+        const user = userEvent.setup()
+
+        calculateTrainerUtilizationMock.mockImplementation((trainer: User) => {
+            if (trainer.id === 't1') {
+                return {
+                    trainerId: 't1',
+                    utilizationRate: 86,
+                    hoursScheduled: 35,
+                    sessionCount: 7,
+                    consecutiveDays: 6,
+                    riskScore: 80,
+                    riskLevel: 'high',
+                    factors: [],
+                    recommendations: ['Redistribute'],
+                }
+            }
+
+            return {
+                trainerId: 't2',
+                utilizationRate: 42,
+                hoursScheduled: 17,
+                sessionCount: 3,
+                consecutiveDays: 2,
+                riskScore: 29,
+                riskLevel: 'low',
+                factors: [],
+                recommendations: ['Increase assignments'],
+            }
+        })
+
+        render(
+            <BurnoutDashboard
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByRole('tab', { name: /workload distribution/i }))
+
+        const underutilizedCard = screen
+            .getByText(/underutilized trainers/i)
+            .closest('[data-slot="card"]') as HTMLElement
+
+        expect(within(underutilizedCard).getByText(/uma trainer/i)).toBeInTheDocument()
+        expect(within(underutilizedCard).getByText('42%')).toBeInTheDocument()
+    })
 })

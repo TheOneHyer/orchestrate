@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
     calculateBurnoutRisk,
     calculateTrainerUtilization,
-    getBurnoutRiskLevel
+    getBurnoutRiskLevel,
+    getUtilizationTrend
 } from './burnout-analytics'
 import type { Course, Session, User, WellnessCheckIn } from './types'
 
@@ -191,5 +192,92 @@ describe('burnout-analytics', () => {
         [NaN, 'low'],
     ])('maps utilization %s to burnout risk %s', (input, expected) => {
         expect(getBurnoutRiskLevel(input)).toBe(expected)
+    })
+
+    it('flags high utilization and long streaks before critical thresholds', () => {
+        const trainer = createTrainer()
+        const courses = [createCourse('course-1')]
+        const sessions = Array.from({ length: 8 }, (_, index) => {
+            const day = String(index + 8).padStart(2, '0')
+            return createSession(
+                `session-${index + 1}`,
+                'course-1',
+                `2026-03-${day}T00:00:00.000Z`,
+                `2026-03-${day}T20:00:00.000Z`
+            )
+        })
+
+        const result = calculateTrainerUtilization(trainer, sessions, courses, 'month')
+
+        expect(result.utilizationRate).toBeGreaterThan(85)
+        expect(result.utilizationRate).toBeLessThan(95)
+        expect(result.riskLevel).toBe('medium')
+        expect(result.factors.map((factor) => factor.factor)).toEqual(
+            expect.arrayContaining(['High Utilization', 'Long Work Streak'])
+        )
+        expect(result.recommendations).toEqual(
+            expect.arrayContaining([
+                'Reduce session load by 10-15% over the next two weeks',
+                'Schedule a rest day within the next 3 days'
+            ])
+        )
+    })
+
+    it('captures medium wellness warning signals and follow-up recommendations', () => {
+        const trainer = createTrainer()
+        const checkIns = [
+            createCheckIn('check-in-1', { timestamp: '2026-03-15T09:00:00.000Z', mood: 3, stress: 'high', energy: 'tired', workloadSatisfaction: 2, concerns: ['Fatigue'], followUpRequired: true }),
+            createCheckIn('check-in-2', { timestamp: '2026-03-14T09:00:00.000Z', mood: 3, stress: 'high', energy: 'tired', workloadSatisfaction: 2, concerns: ['Workload'], followUpRequired: true }),
+            createCheckIn('check-in-3', { timestamp: '2026-03-13T09:00:00.000Z', mood: 3, stress: 'moderate', energy: 'neutral', workloadSatisfaction: 3, concerns: ['Schedule'] }),
+            createCheckIn('check-in-4', { timestamp: '2026-03-12T09:00:00.000Z', mood: 4, stress: 'moderate', energy: 'neutral', workloadSatisfaction: 3 }),
+            createCheckIn('check-in-5', { timestamp: '2026-03-11T09:00:00.000Z', mood: 3, stress: 'moderate', energy: 'neutral', workloadSatisfaction: 3 })
+        ]
+
+        const result = calculateTrainerUtilization(trainer, [], [], 'month', checkIns)
+
+        expect(result.factors.map((factor) => factor.factor)).toEqual(
+            expect.arrayContaining([
+                'Below Average Mood',
+                'Elevated Stress Levels',
+                'Energy Depletion',
+                'Workload Dissatisfaction',
+                'Multiple Concerns Raised',
+                'Pending Follow-ups'
+            ])
+        )
+        expect(result.recommendations).toEqual(
+            expect.arrayContaining([
+                'Schedule immediate stress management intervention or counseling',
+                'Complete pending wellness follow-ups as high priority'
+            ])
+        )
+    })
+
+    it('reports utilization trends as increasing when recent weekly load climbs sharply', () => {
+        const trainer = createTrainer()
+        const sessions = [
+            createSession('w1', 'course-1', '2026-02-16T08:00:00.000Z', '2026-02-16T12:00:00.000Z'),
+            createSession('w2', 'course-1', '2026-02-23T08:00:00.000Z', '2026-02-23T20:00:00.000Z'),
+            createSession('w3', 'course-1', '2026-03-02T08:00:00.000Z', '2026-03-03T04:00:00.000Z'),
+            createSession('w4', 'course-1', '2026-03-09T08:00:00.000Z', '2026-03-10T12:00:00.000Z')
+        ]
+
+        const trend = getUtilizationTrend(trainer, sessions, 'month')
+
+        expect(trend.trend).toBe('increasing')
+        expect(Number.isFinite(trend.changeRate)).toBe(true)
+        expect(trend.dataPoints.length).toBeGreaterThan(1)
+    })
+
+    it('returns a low risk assessment when trainer id is unknown', () => {
+        const assessment = calculateBurnoutRisk('missing-trainer', [], [], [], [])
+
+        expect(assessment).toEqual({
+            trainerId: 'missing-trainer',
+            riskScore: 0,
+            risk: 'low',
+            factors: [],
+            recommendations: []
+        })
     })
 })

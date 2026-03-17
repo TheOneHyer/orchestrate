@@ -278,4 +278,118 @@ describe('GuidedScheduler', () => {
         expect(screen.getByText(/no available trainers/i)).toBeInTheDocument()
         expect(toastError).toHaveBeenCalledWith('No qualified trainers available')
     })
+
+    it('shows info toast when available trainers are non-optimal', async () => {
+        const user = userEvent.setup()
+
+        findAvailableTrainersMock.mockReturnValueOnce([
+            {
+                trainer: users[0],
+                score: 74,
+                matchReasons: ['Qualified trainer'],
+                conflicts: ['Higher utilization'],
+                availability: 'partial',
+            },
+        ])
+
+        calculateTrainerWorkloadMock.mockReturnValueOnce({ totalHours: 34, utilizationRate: 82 })
+        calculateBurnoutRiskMock.mockReturnValueOnce({ risk: 'moderate', riskScore: 58 })
+
+        render(
+            <GuidedScheduler
+                users={users}
+                courses={courses}
+                onSessionsCreated={vi.fn()}
+            />
+        )
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        expect(screen.getByText(/use with caution/i)).toBeInTheDocument()
+        expect(toastInfo).toHaveBeenCalledWith('Review trainer recommendations carefully')
+    })
+
+    it('shows all-filtered-out alert when hide toggle removes all recommendations', async () => {
+        const user = userEvent.setup()
+
+        const noScheduleUsers = [
+            { ...users[0], trainerProfile: undefined },
+            { ...users[1], trainerProfile: undefined },
+        ]
+
+        findAvailableTrainersMock.mockReturnValueOnce([
+            {
+                trainer: noScheduleUsers[0],
+                score: 90,
+                matchReasons: ['Strong match'],
+                conflicts: [],
+                availability: 'available',
+            },
+            {
+                trainer: noScheduleUsers[1],
+                score: 80,
+                matchReasons: ['Qualified'],
+                conflicts: [],
+                availability: 'available',
+            },
+        ])
+
+        render(
+            <GuidedScheduler
+                users={noScheduleUsers}
+                courses={courses}
+                onSessionsCreated={vi.fn()}
+            />
+        )
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+        await user.click(screen.getByRole('checkbox', { name: /hide trainers without configured schedules/i }))
+
+        expect(screen.getByText(/all trainers filtered out/i)).toBeInTheDocument()
+    })
+
+    it('creates recurring sessions and allows back navigation between steps', async () => {
+        const user = userEvent.setup()
+        const onSessionsCreated = vi.fn()
+
+        render(
+            <GuidedScheduler
+                users={users}
+                courses={courses}
+                onSessionsCreated={onSessionsCreated}
+            />
+        )
+
+        await fillParameters(user)
+
+        const endDateInput = screen.getByLabelText(/end date/i)
+        await user.click(endDateInput)
+        await user.clear(endDateInput)
+        await user.type(endDateInput, '2026-03-22')
+        await user.tab()
+
+        await user.click(screen.getByRole('combobox', { name: /recurrence pattern/i }))
+        await user.click(screen.getByRole('option', { name: /daily/i }))
+
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        await user.click(screen.getByRole('button', { name: /back to parameters/i }))
+        expect(screen.getByText(/session parameters/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+        await user.click(screen.getByText(/1\. taylor trainer/i))
+        await user.click(screen.getByRole('button', { name: /back to trainers/i }))
+        expect(screen.getByText(/select trainer/i)).toBeInTheDocument()
+
+        await user.click(screen.getByText(/1\. taylor trainer/i))
+        await user.click(screen.getByRole('button', { name: /confirm & schedule/i }))
+
+        const createdSessions = onSessionsCreated.mock.calls[0][0] as Array<Partial<{ recurrence: { frequency: string; endDate: string } }>>
+        expect(createdSessions).toHaveLength(3)
+        expect(createdSessions[0].recurrence).toEqual(
+            expect.objectContaining({ frequency: 'daily', endDate: '2026-03-22' })
+        )
+    })
 })

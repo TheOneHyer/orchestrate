@@ -49,4 +49,11 @@ describe('use-theme', () => {
         expect(document.documentElement.classList.contains('light')).toBe(true)
         expect(document.documentElement.classList.contains('dark')).toBe(false)
     })
+
+    it('falls back to "light" when the stored theme is null', () => {
+        vi.mocked(useKV).mockImplementation(() => useState<Theme>(null as unknown as Theme))
+        const { result } = renderHook(() => useTheme())
+        expect(result.current.theme).toBe('light')
+        expect(document.documentElement.classList.contains('light')).toBe(true)
+    })
 })

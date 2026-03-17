@@ -33,4 +33,13 @@ describe('ErrorFallback', () => {
         expect(screen.getByText(/this spark has encountered a runtime error/i)).toBeInTheDocument()
         expect(screen.getByText(/contact the spark author/i)).toBeInTheDocument()
     })
+
+    it('rethrows the error in DEV mode instead of rendering the fallback UI', () => {
+        vi.stubEnv('DEV', true)
+
+        const error = new Error('dev-mode error')
+        expect(() => render(<ErrorFallback error={error} resetErrorBoundary={vi.fn()} />)).toThrow('dev-mode error')
+
+        vi.stubEnv('DEV', false)
+    })
 })

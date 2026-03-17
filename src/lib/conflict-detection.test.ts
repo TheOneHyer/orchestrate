@@ -92,6 +92,57 @@ describe('conflict-detection', () => {
             expect(result.hasConflicts).toBe(false)
             expect(result.conflicts).toEqual([])
         })
+
+        it('uses singular wording and unknown fallback for a single conflicting student', () => {
+            const draggedSession = createSession({
+                trainerId: 'trainer-1',
+                location: 'Room A',
+                enrolledStudents: ['student-missing']
+            })
+            const conflictingSession = createSession({
+                id: 'session-existing',
+                trainerId: 'trainer-2',
+                location: 'Room B',
+                enrolledStudents: ['student-missing']
+            })
+
+            const result = checkSessionConflicts(
+                draggedSession,
+                new Date('2026-03-16T09:00:00.000Z'),
+                new Date('2026-03-16T10:00:00.000Z'),
+                [draggedSession, conflictingSession],
+                []
+            )
+
+            const studentConflict = result.conflicts.find(conflict => conflict.type === 'student')
+            expect(studentConflict).toBeDefined()
+            expect(studentConflict!.message).toContain('1 student is already enrolled')
+            expect(studentConflict!.message).toContain('Unknown')
+        })
+
+        it('skips room conflicts when dragged session location is empty', () => {
+            const draggedSession = createSession({
+                location: '',
+                enrolledStudents: [],
+                trainerId: 'trainer-1'
+            })
+            const conflictingSession = createSession({
+                id: 'session-existing',
+                location: 'Room A',
+                trainerId: 'trainer-2',
+                enrolledStudents: []
+            })
+
+            const result = checkSessionConflicts(
+                draggedSession,
+                new Date('2026-03-16T09:30:00.000Z'),
+                new Date('2026-03-16T10:30:00.000Z'),
+                [draggedSession, conflictingSession],
+                []
+            )
+
+            expect(result.conflicts.find(conflict => conflict.type === 'room')).toBeUndefined()
+        })
     })
 
     describe('formatConflictMessage', () => {
@@ -117,6 +168,26 @@ describe('conflict-detection', () => {
             expect(message).toContain('Trainer is already scheduled')
             expect(message).toContain('Warnings:')
             expect(message).toContain('Room is near capacity')
+        })
+
+        it('formats warning-only conflict sets without an error header', () => {
+            const message = formatConflictMessage([
+                {
+                    type: 'room',
+                    severity: 'warning',
+                    message: 'Room is near capacity',
+                    conflictingSessionId: 'session-2',
+                    conflictingSessionTitle: 'Afternoon Session'
+                }
+            ])
+
+            expect(message).not.toContain('Cannot move session:')
+            expect(message).toContain('Warnings:')
+            expect(message).toContain('Room is near capacity')
+        })
+
+        it('returns an empty message when there are no conflicts to format', () => {
+            expect(formatConflictMessage([])).toBe('')
         })
     })
 

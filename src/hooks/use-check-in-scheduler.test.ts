@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useKV } from '@github/spark/hooks'
 import type { CheckInSchedule, User, WellnessCheckIn } from '@/lib/types'
@@ -322,5 +322,74 @@ describe('use-check-in-scheduler', () => {
         )
 
         expect(setter).not.toHaveBeenCalled()
+    })
+
+    it('computes next date using daily, biweekly, monthly, and custom frequencies', () => {
+        const baseDate = '2026-03-10T00:00:00.000Z'
+        const daily = createSchedule({ id: 'daily', frequency: 'daily', lastCheckInDate: baseDate })
+        const biweekly = createSchedule({ id: 'biweekly', frequency: 'biweekly', lastCheckInDate: baseDate })
+        const monthly = createSchedule({ id: 'monthly', frequency: 'monthly', lastCheckInDate: baseDate })
+        const customWithDays = createSchedule({ id: 'custom-3', frequency: 'custom', customDays: 3, lastCheckInDate: baseDate })
+        const customDefault = createSchedule({ id: 'custom-default', frequency: 'custom', customDays: undefined, lastCheckInDate: baseDate })
+
+        const schedules = [daily, biweekly, monthly, customWithDays, customDefault]
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([schedules, setter] as any)
+
+        const { result } = renderHook(() => useCheckInScheduler([createTrainer('trainer-1')], [], undefined))
+
+        result.current.updateScheduleNextDate('daily', baseDate)
+        result.current.updateScheduleNextDate('biweekly', baseDate)
+        result.current.updateScheduleNextDate('monthly', baseDate)
+        result.current.updateScheduleNextDate('custom-3', baseDate)
+        result.current.updateScheduleNextDate('custom-default', baseDate)
+
+        const updaterCalls = vi.mocked(setter).mock.calls
+            .map((call) => call[0])
+            .filter((arg): arg is (prev: CheckInSchedule[]) => CheckInSchedule[] => typeof arg === 'function')
+
+        const updatedDaily = updaterCalls[0](schedules).find((s) => s.id === 'daily')
+        const updatedBiweekly = updaterCalls[1](schedules).find((s) => s.id === 'biweekly')
+        const updatedMonthly = updaterCalls[2](schedules).find((s) => s.id === 'monthly')
+        const updatedCustom3 = updaterCalls[3](schedules).find((s) => s.id === 'custom-3')
+        const updatedCustomDefault = updaterCalls[4](schedules).find((s) => s.id === 'custom-default')
+
+        expect(updatedDaily?.nextScheduledDate).toBe('2026-03-11T00:00:00.000Z')
+        expect(updatedBiweekly?.nextScheduledDate).toBe('2026-03-24T00:00:00.000Z')
+        expect(updatedMonthly?.nextScheduledDate).toBe('2026-04-10T00:00:00.000Z')
+        expect(updatedCustom3?.nextScheduledDate).toBe('2026-03-13T00:00:00.000Z')
+        expect(updatedCustomDefault?.nextScheduledDate).toBe('2026-03-17T00:00:00.000Z')
+    })
+
+    it('keeps schedules unchanged when updateScheduleNextDate is called with an unknown schedule id', () => {
+        const schedule = createSchedule({ id: 'existing', completedCheckIns: 2 })
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[schedule], setter] as any)
+
+        const { result } = renderHook(() => useCheckInScheduler([createTrainer('trainer-1')], [], undefined))
+
+        result.current.updateScheduleNextDate('missing-id', '2026-03-15T00:00:00.000Z')
+
+        const updaterFn = getUpdaterFn<CheckInSchedule[]>(setter)
+        const updated = updaterFn([schedule])
+        expect(updated[0]).toEqual(schedule)
+    })
+
+    it('re-checks due schedules on the 30-minute interval', () => {
+        const dueTime = new Date(NOW.getTime() - 60 * 60 * 1000).toISOString()
+        const schedule = createSchedule({ id: 'interval-schedule', nextScheduledDate: dueTime })
+        vi.mocked(useKV).mockReturnValue([[schedule], vi.fn()] as any)
+
+        const onTriggerCheckIn = vi.fn()
+        renderHook(() => useCheckInScheduler([createTrainer('trainer-1')], [], onTriggerCheckIn))
+
+        // Runs once on mount.
+        expect(onTriggerCheckIn).toHaveBeenCalledTimes(1)
+
+        // Runs again when the polling interval fires.
+        act(() => {
+            vi.advanceTimersByTime(30 * 60 * 1000)
+        })
+        expect(onTriggerCheckIn).toHaveBeenCalledTimes(2)
     })
 })

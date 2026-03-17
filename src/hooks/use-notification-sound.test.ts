@@ -239,4 +239,147 @@ describe('useNotificationSound', () => {
         const scheduledFrequencies = vi.mocked(mockOscillator.frequency.setValueAtTime).mock.calls.map(call => call[0])
         expect(scheduledFrequencies.every((frequency) => Number.isFinite(frequency) && frequency > 0)).toBe(true)
     })
+
+    it('suppresses sound during normal quiet-hour windows that do not cross midnight', () => {
+        const candidateUtcHours = [12, 9, 6, 3, 0, 15, 18, 21]
+        let chosenUtcTime = Date.UTC(2026, 2, 16, 12, 30, 0)
+
+        for (const hour of candidateUtcHours) {
+            const candidate = Date.UTC(2026, 2, 16, hour, 30, 0)
+            const localHour = new Date(candidate).getHours()
+            if (localHour >= 1 && localHour <= 21) {
+                chosenUtcTime = candidate
+                break
+            }
+        }
+
+        vi.setSystemTime(chosenUtcTime)
+        const localHour = new Date(chosenUtcTime).getHours()
+        const startTime = `${String(localHour).padStart(2, '0')}:00`
+        const endTime = `${String(localHour + 1).padStart(2, '0')}:00`
+
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                volume: 0.4,
+                soundType: 'soft',
+                quietHours: { enabled: true, startTime, endTime, allowCritical: true }
+            },
+            vi.fn()
+        ] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+        act(() => {
+            result.current.playSound('low')
+        })
+
+        expect(MockAudioContext).not.toHaveBeenCalled()
+    })
+
+    it('handles AudioContext initialization failures without throwing', () => {
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+        MockAudioContext.mockImplementationOnce(function ThrowingAudioContext() {
+            throw new Error('audio-init-failure')
+        })
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                volume: 0.4,
+                soundType: 'pleasant',
+                quietHours: { enabled: false, startTime: '22:00', endTime: '08:00', allowCritical: true }
+            },
+            vi.fn()
+        ] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+
+        expect(() => {
+            act(() => {
+                result.current.playSound('medium')
+            })
+        }).not.toThrow()
+        expect(consoleErrorSpy).toHaveBeenCalled()
+
+        consoleErrorSpy.mockRestore()
+    })
+
+    it('uses testSound helper to trigger audio playback', () => {
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                volume: 0.5,
+                soundType: 'gentle',
+                quietHours: { enabled: false, startTime: '22:00', endTime: '08:00', allowCritical: true }
+            },
+            vi.fn()
+        ] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+        act(() => {
+            result.current.testSound('high')
+        })
+
+        expect(MockAudioContext).toHaveBeenCalledOnce()
+        expect(mockAudioContextInstance.createOscillator).toHaveBeenCalled()
+    })
 })
+
+    it('suppresses sound during overnight (cross-midnight) quiet hours', () => {
+        // startTime "01:00" > endTime "00:30" in minutes (60 > 30), triggering the
+        // else branch in isWithinQuietHours. Any local time in range [01:00, 00:30)
+        // wrapping around midnight is suppressed; with a near-24h window every
+        // reasonable local time is within quiet hours.
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                volume: 0.4,
+                soundType: 'soft',
+                quietHours: { enabled: true, startTime: '01:00', endTime: '00:30', allowCritical: true }
+            },
+            vi.fn()
+        ] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+        act(() => { result.current.playSound('medium') })
+
+        expect(MockAudioContext).not.toHaveBeenCalled()
+    })
+
+    it('plays sound outside overnight quiet hours when current time is between end and start', () => {
+        // With start > end, isWithinQuietHours uses the overnight branch:
+        // current >= start || current < end. At local noon this expression is false for 23:00-05:00.
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                volume: 0.4,
+                soundType: 'soft',
+                quietHours: { enabled: true, startTime: '23:00', endTime: '05:00', allowCritical: true }
+            },
+            vi.fn()
+        ] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+        act(() => { result.current.playSound('medium') })
+
+        expect(MockAudioContext).toHaveBeenCalledOnce()
+    })
+
+    it('schedules an exponential frequency ramp when tone has a different endFreq', () => {
+        // The 'pleasant' sound type at 'low' priority has startFreq: 587.33, endFreq: 523.25,
+        // which triggers the tone.endFreq && tone.endFreq !== tone.startFreq branch (line 106).
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                volume: 0.5,
+                soundType: 'pleasant',
+                quietHours: { enabled: false, startTime: '22:00', endTime: '08:00', allowCritical: true }
+            },
+            vi.fn()
+        ] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+        act(() => { result.current.playSound('low') })
+
+        expect(MockAudioContext).toHaveBeenCalledOnce()
+        expect(mockOscillator.frequency.exponentialRampToValueAtTime).toHaveBeenCalled()
+    })

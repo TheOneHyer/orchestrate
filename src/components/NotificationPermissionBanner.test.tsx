@@ -159,4 +159,59 @@ describe('NotificationPermissionBanner', () => {
             expect(setDismissed).toHaveBeenCalledWith(true)
         })
     })
+
+    it('does not trigger a duplicate permission request while one is in flight', async () => {
+        const user = userEvent.setup()
+        const setDismissed = vi.fn()
+        let resolvePermission!: (value: NotificationPermission) => void
+        const requestPermission = vi.fn(
+            () => new Promise<NotificationPermission>((resolve) => { resolvePermission = resolve })
+        )
+
+        mockUsePushNotifications.mockReturnValue({
+            isSupported: true,
+            settings: { permission: 'default' },
+            requestPermission,
+        })
+        mockUseKV.mockReturnValue([false, setDismissed])
+
+        render(<NotificationPermissionBanner />)
+
+        const enableButton = await screen.findByRole('button', { name: /enable/i })
+        await user.click(enableButton)
+        await user.click(enableButton)
+
+        expect(requestPermission).toHaveBeenCalledTimes(1)
+
+        resolvePermission('granted')
+        await waitFor(() => {
+            expect(setDismissed).toHaveBeenCalledWith(true)
+        })
+    })
+
+    it('does not update banner state when permission resolves after unmount', async () => {
+        const user = userEvent.setup()
+        const setDismissed = vi.fn()
+        let resolvePermission!: (value: NotificationPermission) => void
+        const requestPermission = vi.fn(
+            () => new Promise<NotificationPermission>((resolve) => { resolvePermission = resolve })
+        )
+
+        mockUsePushNotifications.mockReturnValue({
+            isSupported: true,
+            settings: { permission: 'default' },
+            requestPermission,
+        })
+        mockUseKV.mockReturnValue([false, setDismissed])
+
+        const { unmount } = render(<NotificationPermissionBanner />)
+
+        await user.click(await screen.findByRole('button', { name: /enable/i }))
+        unmount()
+
+        resolvePermission('granted')
+        await Promise.resolve()
+
+        expect(setDismissed).not.toHaveBeenCalled()
+    })
 })

@@ -175,4 +175,73 @@ describe('WorkloadRecommendations', () => {
     expect(within(screen.getByTestId('balanced-tile')).getByText('1')).toBeInTheDocument()
     expect(within(screen.getByTestId('underutilized-tile')).getByText('1')).toBeInTheDocument()
   })
+
+  it('renders optimize recommendation type and applies actionable recommendation', async () => {
+    const user = userEvent.setup()
+    const onApplyRecommendation = vi.fn()
+    const recommendation = makeRecommendation({
+      type: 'optimize',
+      title: 'Optimize Trainer Mix',
+      actionable: true,
+      affectedTrainers: [],
+    })
+
+    render(
+      <WorkloadRecommendations
+        analysis={makeAnalysis({
+          balanceScore: 58,
+          recommendations: [recommendation],
+        })}
+        users={[]}
+        onApplyRecommendation={onApplyRecommendation}
+      />
+    )
+
+    expect(screen.getByText('Optimize Trainer Mix')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /view details/i }))
+    expect(onApplyRecommendation).toHaveBeenCalledWith(recommendation)
+  })
+
+  it('calls onViewTrainer from overutilized and underutilized trainer cards', async () => {
+    const user = userEvent.setup()
+    const over = makeUser('over-1', 'Over One')
+    const under = makeUser('under-1', 'Under One')
+    const onViewTrainer = vi.fn()
+
+    render(
+      <WorkloadRecommendations
+        analysis={makeAnalysis({
+          balanceScore: 55,
+          recommendations: [makeRecommendation()],
+          overutilizedTrainers: [makeWorkload(over, 92)],
+          underutilizedTrainers: [makeWorkload(under, 45)],
+        })}
+        users={[over, under]}
+        onViewTrainer={onViewTrainer}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /over one/i }))
+    await user.click(screen.getByRole('button', { name: /under one/i }))
+
+    expect(onViewTrainer).toHaveBeenCalledWith('over-1')
+    expect(onViewTrainer).toHaveBeenCalledWith('under-1')
+  })
+
+  it('renders low-priority reduce recommendations', () => {
+    const analysis = makeAnalysis({
+      balanceScore: 52,
+      recommendations: [makeRecommendation({
+        type: 'reduce',
+        title: 'Reduce Session Load',
+        priority: 'low',
+      })],
+    })
+
+    render(<WorkloadRecommendations analysis={analysis} users={[]} />)
+
+    expect(screen.getByText('Reduce Session Load')).toBeInTheDocument()
+    expect(screen.getByText(/^low$/i)).toBeInTheDocument()
+  })
 })

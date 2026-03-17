@@ -175,4 +175,65 @@ describe('workload-balancer', () => {
             expect(session).toHaveProperty('courseId', 'course-a')
         }
     })
+
+    it('recommends hiring when a critically overloaded trainer has no compatible backup', () => {
+        const overloaded = createTrainer('trainer-overloaded', 'Olivia', ['Forklift'], 'DAY')
+        const incompatible = createTrainer('trainer-incompatible', 'Quinn', ['Hazmat'], 'NIGHT')
+        const users = [overloaded, incompatible]
+        const courses = [createCourse('course-a', ['Forklift'])]
+        const sessions = [
+            ...generateSessions(10, overloaded.id, 'course-a', 9, 'overloaded-'),
+            createSession('other-1', incompatible.id, 'course-a', '2026-03-10T08:00:00.000Z', '2026-03-10T12:00:00.000Z')
+        ]
+
+        const analysis = analyzeWorkloadBalance(users, sessions, courses, WEEK_START, WEEK_END)
+
+        expect(analysis.recommendations).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    type: 'hire',
+                    priority: 'high',
+                    actionable: false,
+                    affectedTrainers: [overloaded.id]
+                })
+            ])
+        )
+    })
+
+    it('adds recurring-session redistribution guidance when duplicate course load is concentrated', () => {
+        const overloaded = createTrainer('trainer-overloaded', 'Olivia', ['Forklift'])
+        const available = createTrainer('trainer-available', 'Parker', ['Forklift'])
+        const users = [overloaded, available]
+        const courses = [createCourse('course-a', ['Forklift'])]
+        const sessions = [
+            ...generateSessions(10, overloaded.id, 'course-a', 9, 'overloaded-'),
+            createSession('available-1', available.id, 'course-a', '2026-03-10T08:00:00.000Z', '2026-03-10T12:00:00.000Z')
+        ]
+
+        const analysis = analyzeWorkloadBalance(users, sessions, courses, WEEK_START, WEEK_END)
+
+        expect(analysis.recommendations.some((entry) => entry.title.includes('Share Olivia\'s recurring sessions'))).toBe(true)
+    })
+
+    it('returns no redistribution opportunities when sessions are incompatible or missing course metadata', () => {
+        const overloaded = createTrainer('trainer-overloaded', 'Olivia', ['Forklift'])
+        const underutilized = createTrainer('trainer-under', 'Parker', ['Hazmat'])
+        const sessions = [
+            createSession('session-1', overloaded.id, 'course-a', '2026-03-09T08:00:00.000Z', '2026-03-09T12:00:00.000Z'),
+            createSession('session-2', overloaded.id, 'missing-course', '2026-03-10T08:00:00.000Z', '2026-03-10T12:00:00.000Z')
+        ]
+        const courses = [createCourse('course-a', ['Forklift'])]
+
+        const overloadedWorkload = calculateTrainerWorkload(overloaded, sessions, WEEK_START, WEEK_END)
+        const underutilizedWorkload = calculateTrainerWorkload(underutilized, [], WEEK_START, WEEK_END)
+
+        const opportunities = findRedistributionOpportunities(
+            overloadedWorkload,
+            underutilizedWorkload,
+            sessions,
+            courses
+        )
+
+        expect(opportunities).toEqual([])
+    })
 })

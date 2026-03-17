@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CertificationRecord, Notification, User } from '@/lib/types'
 
@@ -456,4 +456,29 @@ it('updates notifications when users array is updated via rerender', () => {
 
     expect(onCreateNotification).toHaveBeenCalledTimes(2)
     expect(onUpdateUsers).toHaveBeenCalledOnce()
+})
+
+it('re-runs checkAndNotify when the 24-hour interval fires', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(SYSTEM_TIME)
+    const cert = createCertRecord(45, 0)
+    const trainer = createTrainer('trainer-interval', cert)
+    const onCreateNotification = vi.fn()
+    const onUpdateUsers = vi.fn()
+
+    renderHook(() => useCertificationNotifications([trainer], onCreateNotification, onUpdateUsers))
+
+    // Initial mount fires checkAndNotify
+    expect(onCreateNotification).toHaveBeenCalledTimes(2)
+    onCreateNotification.mockClear()
+
+    // Advance the clock by 24 hours to trigger the interval
+    act(() => {
+        vi.advanceTimersByTime(24 * 60 * 60 * 1000)
+    })
+
+    // The interval callback fires checkAndNotify with usersRef.current (original users)
+    expect(onCreateNotification).toHaveBeenCalledTimes(2)
+
+    vi.useRealTimers()
 })

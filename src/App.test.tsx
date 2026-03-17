@@ -66,6 +66,8 @@ const createPreviewSeedDataMock = vi.fn(() => ({
     riskHistorySnapshots: [],
     targetTrainerCoverage: 4,
 }))
+const getPreviewSeedModeMock = vi.fn(() => 'off')
+const isPreviewSeedEnabledMock = vi.fn(() => false)
 
 const kvSeed: Record<string, unknown> = {}
 
@@ -337,8 +339,8 @@ vi.mock('@/lib/trainer-profile-generator', () => ({
 }))
 
 vi.mock('@/lib/preview-mode', () => ({
-    getPreviewSeedMode: () => 'off',
-    isPreviewSeedEnabled: () => false,
+    getPreviewSeedMode: () => getPreviewSeedModeMock(),
+    isPreviewSeedEnabled: () => isPreviewSeedEnabledMock(),
 }))
 
 vi.mock('@/lib/preview-seed-data', () => ({
@@ -352,6 +354,8 @@ describe('App', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         utilizationNotified = false
+        getPreviewSeedModeMock.mockReturnValue('off')
+        isPreviewSeedEnabledMock.mockReturnValue(false)
         Object.keys(kvSeed).forEach((key) => delete kvSeed[key])
         kvSeed['users'] = [
             {
@@ -419,7 +423,7 @@ describe('App', () => {
     it('renders dashboard by default and supports navigation across views', async () => {
         const user = userEvent.setup()
 
-        render(<App />)
+        const { unmount } = render(<App />)
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
 
@@ -464,7 +468,7 @@ describe('App', () => {
     })
 
     it('handles notification creation and routes on notification click action', async () => {
-        render(<App />)
+        const { unmount } = render(<App />)
 
         await waitFor(() => {
             expect(sendNotificationMock).toHaveBeenCalledWith(
@@ -498,7 +502,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        const { unmount } = render(<App />)
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
 
@@ -619,6 +623,92 @@ describe('App', () => {
         expect(screen.getByText(/toaster mock/i)).toBeInTheDocument()
     })
 
+    it('does not load preview seed data when overwrite is cancelled', async () => {
+        const user = userEvent.setup()
+        vi.stubGlobal('confirm', vi.fn(() => false))
+
+        const { unmount } = render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /load seed data/i }))
+
+        expect(globalThis.confirm).toHaveBeenCalled()
+        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+    })
+
+    it('does not reset preview data when confirmation is cancelled', async () => {
+        const user = userEvent.setup()
+        vi.stubGlobal('confirm', vi.fn(() => false))
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /reset preview data/i }))
+
+        expect(globalThis.confirm).toHaveBeenCalled()
+        expect(toastSuccess).not.toHaveBeenCalledWith(
+            'Preview data reset complete',
+            expect.objectContaining({ description: expect.stringMatching(/cleared/i) })
+        )
+    })
+
+    it('auto-seeds preview data in empty mode when enabled', () => {
+        getPreviewSeedModeMock.mockReturnValue('empty')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        kvSeed['users'] = []
+        kvSeed['sessions'] = []
+        kvSeed['courses'] = []
+        kvSeed['enrollments'] = []
+        kvSeed['preview-seed-version'] = ''
+
+        render(<App />)
+
+        expect(createPreviewSeedDataMock).toHaveBeenCalled()
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Preview test data loaded',
+            expect.objectContaining({ description: expect.stringMatching(/seeded/i) })
+        )
+    })
+
+    it('skips auto-seeding in full mode when core data already exists', () => {
+        getPreviewSeedModeMock.mockReturnValue('full')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        kvSeed['preview-seed-version'] = ''
+
+        render(<App />)
+
+        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+    })
+
+    it('skips auto-seeding when current mode is already seeded', () => {
+        getPreviewSeedModeMock.mockReturnValue('empty')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        kvSeed['users'] = []
+        kvSeed['sessions'] = []
+        kvSeed['courses'] = []
+        kvSeed['enrollments'] = []
+        kvSeed['preview-seed-version'] = 'preview-seed-v1:empty'
+
+        render(<App />)
+
+        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+    })
+
+    it('calls auto-seed path with off mode and exits before creating preview seed data', () => {
+        getPreviewSeedModeMock.mockReturnValue('off')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        kvSeed['preview-seed-version'] = ''
+
+        render(<App />)
+
+        // applyPreviewSeedData runs with mode "off" and returns early.
+        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+        expect(toastSuccess).not.toHaveBeenCalledWith(
+            'Preview test data loaded',
+            expect.anything()
+        )
+    })
+
     it('initializes missing trainer profiles during startup', () => {
         kvSeed['users'] = [
             {
@@ -644,5 +734,85 @@ describe('App', () => {
         render(<App />)
 
         expect(ensureProfilesMock).toHaveBeenCalled()
+    })
+
+    it('handles notification actions when multiple notifications exist', async () => {
+        const user = userEvent.setup()
+        utilizationNotified = true
+        kvSeed['notifications'] = [
+            {
+                id: 'notif-1',
+                userId: 'trainer-1',
+                type: 'system',
+                title: 'One',
+                message: 'First',
+                read: false,
+                priority: 'medium',
+                createdAt: '2026-03-16T00:00:00.000Z',
+            },
+            {
+                id: 'notif-2',
+                userId: 'trainer-1',
+                type: 'system',
+                title: 'Two',
+                message: 'Second',
+                read: true,
+                priority: 'low',
+                createdAt: '2026-03-16T00:01:00.000Z',
+            },
+        ]
+
+        const { unmount } = render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
+        expect(screen.getByText(/notifications total:\s*2/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /mark read/i }))
+        await user.click(screen.getByRole('button', { name: /mark unread/i }))
+        await user.click(screen.getByRole('button', { name: /mark all read/i }))
+        expect(screen.getByText(/notifications unread:\s*0/i)).toBeInTheDocument()
+
+        // Dismiss one while there are two notifications to cover both filter outcomes.
+        await user.click(screen.getByRole('button', { name: /dismiss one/i }))
+        expect(screen.getByText(/notifications total:\s*1/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /dismiss read/i }))
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+        unmount()
+
+        // Re-render the view state from scratch to hit the non-read filter branch too.
+        kvSeed['notifications'] = [
+            {
+                id: 'notif-3',
+                userId: 'trainer-1',
+                type: 'system',
+                title: 'Three',
+                message: 'Third',
+                read: false,
+                priority: 'low',
+                createdAt: '2026-03-16T00:02:00.000Z',
+            },
+        ]
+
+        render(<App />)
+        await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
+        await user.click(screen.getByRole('button', { name: /dismiss one/i }))
+        await user.click(screen.getByRole('button', { name: /dismiss all/i }))
+
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('removes reminder-* localStorage keys when resetting preview data', async () => {
+        const user = userEvent.setup()
+        localStorage.setItem('reminder-schedule-1-2099-01-01T09:00:00.000Z', 'true')
+        localStorage.setItem('unrelated-key', 'keep')
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /reset preview data/i }))
+
+        expect(localStorage.getItem('reminder-schedule-1-2099-01-01T09:00:00.000Z')).toBeNull()
+        expect(localStorage.getItem('unrelated-key')).toBe('keep')
     })
 })

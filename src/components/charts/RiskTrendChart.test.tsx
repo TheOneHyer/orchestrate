@@ -62,4 +62,36 @@ describe('RiskTrendChart', () => {
         expect(screen.getByTestId('risk-trend-chart')).toBeInTheDocument()
         expect(screen.queryByTestId('utilization-summary')).not.toBeInTheDocument()
     })
+
+    it('renders chart without trainer header when trainerName is not provided', () => {
+        render(<RiskTrendChart data={[mockDataPoint]} />)
+
+        expect(screen.getByTestId('risk-trend-chart')).toBeInTheDocument()
+        expect(screen.queryByText(/tracking.*risk level over time/i)).not.toBeInTheDocument()
+    })
+
+    it('reports flat utilization trend when all values are equal', () => {
+        render(
+            <RiskTrendChart
+                showUtilization={true}
+                data={[{ ...mockDataPoint, utilizationRate: 80 }]}
+            />
+        )
+
+        expect(screen.getByTestId('utilization-summary')).toHaveTextContent('trend flat')
+    })
+
+    it('reports decreasing utilization trend when last value is lower than first', () => {
+        render(
+            <RiskTrendChart
+                showUtilization={true}
+                data={[
+                    { ...mockDataPoint, date: '2026-03-10T00:00:00.000Z', utilizationRate: 91 },
+                    { ...highRiskDataPoint, date: '2026-03-15T00:00:00.000Z', utilizationRate: 75 },
+                ]}
+            />
+        )
+
+        expect(screen.getByTestId('utilization-summary')).toHaveTextContent('trend down')
+    })
 })

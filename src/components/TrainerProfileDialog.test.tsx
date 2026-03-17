@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TrainerProfileDialog } from './TrainerProfileDialog'
 import type { CertificationRecord, User } from '@/lib/types'
+import { calculateCertificationStatus } from '@/lib/certification-tracker'
 
 vi.mock('@/lib/certification-tracker', () => ({
     calculateCertificationStatus: vi.fn(() => 'active'),
@@ -53,6 +54,22 @@ function makeTrainer(overrides: Partial<User> = {}): User {
         hireDate: '2024-01-01T00:00:00.000Z',
         ...overrides,
     }
+}
+
+function makeTrainerWithCertification(record: CertificationRecord): User {
+    return makeTrainer({
+        trainerProfile: {
+            authorizedRoles: ['trainer'],
+            shiftSchedules: [],
+            tenure: {
+                hireDate: '2024-01-01T00:00:00.000Z',
+                yearsOfService: 2,
+                monthsOfService: 24,
+            },
+            specializations: [],
+            certificationRecords: [record],
+        },
+    })
 }
 
 describe('TrainerProfileDialog', () => {
@@ -156,5 +173,213 @@ describe('TrainerProfileDialog', () => {
             })
         )
         expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it('removes role and specialization badges before save', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+            />
+        )
+
+        const roleInput = await screen.findByPlaceholderText(/add authorized role/i)
+        await user.type(roleInput, 'Safety Instructor')
+        await user.click(screen.getByRole('button', { name: /add role/i }))
+
+        const specializationInput = screen.getByPlaceholderText(/add specialization/i)
+        await user.type(specializationInput, 'Incident Response')
+        await user.click(screen.getByRole('button', { name: /add specialization/i }))
+
+        const roleBadge = screen.getByText('Safety Instructor').closest('[data-slot="badge"]')
+        if (!(roleBadge instanceof HTMLElement)) {
+            throw new Error('Role badge was not found')
+        }
+
+        const specBadge = screen.getByText('Incident Response').closest('[data-slot="badge"]')
+        if (!(specBadge instanceof HTMLElement)) {
+            throw new Error('Specialization badge was not found')
+        }
+
+        await user.click(within(roleBadge).getByRole('button'))
+        await user.click(within(specBadge).getByRole('button'))
+        await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                trainerProfile: expect.objectContaining({
+                    authorizedRoles: [],
+                    specializations: [],
+                }),
+            })
+        )
+    })
+
+    it('saves optional max hours, preferred location, and notes fields', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+            />
+        )
+
+        await user.type(await screen.findByPlaceholderText(/e\.g\., 40/i), '36')
+        await user.type(screen.getByPlaceholderText(/building a, room 101/i), 'Building C, Room 204')
+        await user.type(screen.getByPlaceholderText(/additional notes about this trainer/i), 'Prefers morning cohorts.')
+        await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                trainerProfile: expect.objectContaining({
+                    maxWeeklyHours: 36,
+                    preferredLocation: 'Building C, Room 204',
+                    notes: 'Prefers morning cohorts.',
+                }),
+            })
+        )
+    })
+
+    it('calls onOpenChange(false) when Cancel button is clicked', async () => {
+        const user = userEvent.setup()
+        const onOpenChange = vi.fn()
+
+        render(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={onOpenChange}
+                onSave={vi.fn()}
+            />
+        )
+
+        await user.click(await screen.findByRole('button', { name: /cancel/i }))
+        expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it('updates shift code and toggles a working day', async () => {
+        const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+        render(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+
+        await user.click(await screen.findByRole('button', { name: /add schedule/i }))
+
+        const shiftCodeInput = screen.getByPlaceholderText(/e\.g\., SHIFT-A/i)
+        await user.clear(shiftCodeInput)
+        await user.type(shiftCodeInput, 'DAY-SHIFT')
+        expect(shiftCodeInput).toHaveValue('DAY-SHIFT')
+
+        // Saturday starts unchecked (default daysWorked = Mon–Fri); toggle it on
+        const saturdayCheckbox = await screen.findByRole('checkbox', { name: /^sat$/i })
+        expect(saturdayCheckbox).toHaveAttribute('aria-checked', 'false')
+        await userEvent.click(saturdayCheckbox)
+        expect(saturdayCheckbox).toHaveAttribute('aria-checked', 'true')
+    })
+
+    it('removes a shift schedule', async () => {
+        const user = userEvent.setup()
+
+        render(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+
+        await user.click(await screen.findByRole('button', { name: /add schedule/i }))
+        expect(screen.getByPlaceholderText(/e\.g\., SHIFT-A/i)).toBeInTheDocument()
+
+        // The remove (trash) button is the only button with the bg-destructive class token
+        const removeBtn = document.querySelector('button.bg-destructive') as HTMLElement
+        await user.click(removeBtn)
+
+        expect(screen.queryByPlaceholderText(/e\.g\., SHIFT-A/i)).not.toBeInTheDocument()
+        expect(screen.getByText(/no shift schedules configured/i)).toBeInTheDocument()
+    })
+
+    it('removes an already-selected working day from the schedule', async () => {
+        const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+        render(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+
+        await user.click(await screen.findByRole('button', { name: /add schedule/i }))
+
+        const mondayCheckbox = await screen.findByRole('checkbox', { name: /^mon$/i })
+        expect(mondayCheckbox).toHaveAttribute('aria-checked', 'true')
+        await userEvent.click(mondayCheckbox)
+        expect(mondayCheckbox).toHaveAttribute('aria-checked', 'false')
+    })
+
+    it('renders status badge colors for expiring-soon, expired, and unknown statuses', () => {
+        const cert: CertificationRecord = {
+            certificationName: 'Forklift Safety',
+            issuedDate: '2025-01-01T00:00:00.000Z',
+            expirationDate: '2026-12-01T00:00:00.000Z',
+            status: 'active',
+            renewalRequired: true,
+            remindersSent: 0,
+        }
+
+        vi.mocked(calculateCertificationStatus)
+            .mockReturnValueOnce('expiring-soon')
+            .mockReturnValueOnce('expired')
+            .mockReturnValueOnce('unknown' as CertificationRecord['status'])
+
+        const { rerender } = render(
+            <TrainerProfileDialog
+                user={makeTrainerWithCertification(cert)}
+                open
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText(/d left/i).className).toContain('bg-amber-100')
+
+        rerender(
+            <TrainerProfileDialog
+                user={makeTrainerWithCertification(cert)}
+                open
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+        expect(screen.getByText(/expired/i).className).toContain('bg-red-100')
+
+        rerender(
+            <TrainerProfileDialog
+                user={makeTrainerWithCertification(cert)}
+                open
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+        const unknownStatusBadge = document.querySelector('.bg-gray-100')
+        expect(unknownStatusBadge).toBeTruthy()
     })
 })

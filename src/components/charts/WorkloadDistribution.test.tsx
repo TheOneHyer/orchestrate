@@ -1,7 +1,25 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { WorkloadDistribution } from './WorkloadDistribution'
+
+vi.mock('recharts', async () => {
+    const actual = await vi.importActual<typeof import('recharts')>('recharts')
+    return {
+        ...actual,
+        Tooltip: ({ formatter }: { formatter?: (value: number, name: string) => unknown }) => {
+            // Invoke the formatter with all four name values so every branch in the
+            // component's formatter callback is exercised during each render.
+            if (formatter) {
+                formatter(75, 'utilization')
+                formatter(40, 'hours')
+                formatter(10, 'sessions')
+                formatter(5, 'other')
+            }
+            return null
+        },
+    }
+})
 
 describe('WorkloadDistribution', () => {
     const mockTrainer = {

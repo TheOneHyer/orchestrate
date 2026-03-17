@@ -107,4 +107,77 @@ describe('Layout', () => {
         await userEvent.click(screen.getByRole('button', { name: /toggle theme/i }))
         expect(mockToggleTheme).toHaveBeenCalledOnce()
     })
+
+    it('calls onNavigate with item id when a nav item is clicked', async () => {
+        const onNavigate = vi.fn()
+        render(
+            <Layout activeView="dashboard" onNavigate={onNavigate} userRole="admin" notificationCount={0}>
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /burnout risk/i }))
+        expect(onNavigate).toHaveBeenCalledWith('burnout-dashboard')
+    })
+
+    it('calls onNavigate with settings when settings button is clicked', async () => {
+        const onNavigate = vi.fn()
+        render(
+            <Layout activeView="dashboard" onNavigate={onNavigate} userRole="admin" notificationCount={0}>
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /^settings$/i }))
+        expect(onNavigate).toHaveBeenCalledWith('settings')
+    })
+
+    it('applies active styles for notifications and settings views', () => {
+        const { rerender } = render(
+            <Layout activeView="notifications" onNavigate={vi.fn()} userRole="admin" notificationCount={2}>
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        const notificationsButton = screen.getByRole('button', { name: /notifications/i })
+        expect(notificationsButton.className).toContain('bg-primary')
+
+        rerender(
+            <Layout activeView="settings" onNavigate={vi.fn()} userRole="admin" notificationCount={2}>
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        const settingsButton = screen.getByRole('button', { name: /^settings$/i })
+        expect(settingsButton.className).toContain('bg-primary')
+    })
+
+    it('renders the dark-theme icon variant when theme is dark', () => {
+        mockUseTheme.mockReturnValue({ theme: 'dark', toggleTheme: mockToggleTheme })
+
+        const { rerender } = render(
+            <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="trainer">
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        const darkIconPath = screen.getByRole('button', { name: /toggle theme/i })
+            .querySelector('path')
+            ?.getAttribute('d')
+
+        mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: mockToggleTheme })
+        rerender(
+            <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="trainer">
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        const lightIconPath = screen.getByRole('button', { name: /toggle theme/i })
+            .querySelector('path')
+            ?.getAttribute('d')
+
+        expect(darkIconPath).toBeTruthy()
+        expect(lightIconPath).toBeTruthy()
+        expect(darkIconPath).not.toBe(lightIconPath)
+    })
 })

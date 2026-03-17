@@ -137,4 +137,46 @@ describe('use-utilization-notifications', () => {
         renderHook(() => useUtilizationNotifications([], [], onCreateNotification))
         expect(onCreateNotification).not.toHaveBeenCalled()
     })
+
+    it('fires a critical notification when utilization escalates from overutilized to critical', () => {
+        const trainer = createTrainer('trainer-5')
+        // Start overutilized (not critical): 9 × 4h = 36h → 90%
+        const overSessions = buildSessions(trainer.id, 4, 9)
+        // Escalate to critical: 10 × 4h = 40h → 100%
+        const criticalSessions = buildSessions(trainer.id, 4, 10)
+        const onCreateNotification = vi.fn()
+
+        const { rerender } = renderHook(
+            ({ sessions }: { sessions: Session[] }) =>
+                useUtilizationNotifications([trainer], sessions, onCreateNotification),
+            { initialProps: { sessions: overSessions } }
+        )
+
+        vi.mocked(onCreateNotification).mockClear()
+        rerender({ sessions: criticalSessions })
+
+        const calls = vi.mocked(onCreateNotification).mock.calls.map(c => c[0] as Omit<Notification, 'id' | 'createdAt'>)
+        expect(calls.some(n => n.priority === 'critical')).toBe(true)
+    })
+
+    it('fires an overutilized notification when utilization transitions from normal to over threshold', () => {
+        const trainer = createTrainer('trainer-6')
+        // Start normal: 4 × 4h = 16h → 40%
+        const normalSessions = buildSessions(trainer.id, 4, 4)
+        // Become overutilized: 9 × 4h = 36h → 90%
+        const overSessions = buildSessions(trainer.id, 4, 9)
+        const onCreateNotification = vi.fn()
+
+        const { rerender } = renderHook(
+            ({ sessions }: { sessions: Session[] }) =>
+                useUtilizationNotifications([trainer], sessions, onCreateNotification),
+            { initialProps: { sessions: normalSessions } }
+        )
+
+        vi.mocked(onCreateNotification).mockClear()
+        rerender({ sessions: overSessions })
+
+        const calls = vi.mocked(onCreateNotification).mock.calls.map(c => c[0] as Omit<Notification, 'id' | 'createdAt'>)
+        expect(calls.some(n => n.priority === 'high')).toBe(true)
+    })
 })

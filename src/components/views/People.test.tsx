@@ -284,4 +284,51 @@ describe('People', () => {
 
         expect(screen.getByText(/no people found/i)).toBeInTheDocument()
     })
+
+    it('syncs selectedUser when the users prop updates with changed data', async () => {
+        const user = userEvent.setup()
+        const adminUser = createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' })
+        const trainerUser = createUser({ id: 'u-trainer', name: 'Trainer User', role: 'trainer', email: 'trainer@example.com' })
+
+        const { rerender } = render(
+            <People
+                users={[adminUser, trainerUser]}
+                enrollments={[]}
+                courses={[baseCourse]}
+                sessions={[baseSession]}
+                currentUser={adminUser}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByText('Trainer User'))
+        expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User')
+
+        const updatedTrainer = { ...trainerUser, name: 'Trainer User Renamed' }
+        rerender(
+            <People
+                users={[adminUser, updatedTrainer]}
+                enrollments={[]}
+                courses={[baseCourse]}
+                sessions={[baseSession]}
+                currentUser={adminUser}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User Renamed')
+    })
+
+    it('saves profile update in state when onUpdateUser is not provided', async () => {
+        const user = userEvent.setup()
+        renderPeople({ onUpdateUser: undefined })
+
+        await user.click(screen.getByText('Trainer User'))
+        await user.click(screen.getByRole('button', { name: /mock edit profile/i }))
+        await user.click(screen.getByRole('button', { name: /mock save profile/i }))
+
+        expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User Updated')
+    })
+
+
 })

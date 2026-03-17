@@ -203,4 +203,28 @@ describe('TrainerProfileView', () => {
       })
     )
   })
-})
+
+    it('renders string certifications for a non-trainer user without a trainerProfile', () => {
+      const employeeWithCerts: User = {
+        id: 'u-employee',
+        name: 'Jordan Employee',
+        email: 'jordan@example.com',
+        role: 'employee',
+        department: 'Operations',
+        certifications: ['CPR', 'First Aid'],
+        hireDate: '2024-01-01T00:00:00.000Z',
+      }
+
+      render(
+        <TrainerProfileView
+          user={employeeWithCerts}
+          sessions={[]}
+          courses={[]}
+          enrollments={[]}
+        />
+      )
+
+      expect(screen.getByText('CPR')).toBeInTheDocument()
+      expect(screen.getByText('First Aid')).toBeInTheDocument()
+    })
+  })

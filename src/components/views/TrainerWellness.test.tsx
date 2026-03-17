@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TrainerWellness } from './TrainerWellness'
 import type { CheckInSchedule, RecoveryPlan, Session, User, WellnessCheckIn } from '@/lib/types'
+import * as wellnessAnalytics from '@/lib/wellness-analytics'
 
 const useKVMock = vi.fn()
 const setCheckInsMock = vi.fn()
@@ -337,5 +338,371 @@ describe('TrainerWellness', () => {
 
         expect(screen.getByText(/no check-ins recorded yet/i)).toBeInTheDocument()
         expect(screen.getByText(/start tracking wellness by creating a check-in/i)).toBeInTheDocument()
+    })
+
+    it('shows empty schedule state and creates first schedule', async () => {
+        const user = userEvent.setup()
+        schedulesState = []
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
+        expect(screen.getByText(/no automated schedules created yet/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create first schedule/i }))
+        await user.click(screen.getByRole('button', { name: /mock submit schedule/i }))
+
+        expect(setSchedulesMock).toHaveBeenCalled()
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Schedule Created',
+            expect.objectContaining({ description: expect.stringMatching(/has been created successfully/i) })
+        )
+    })
+
+    it('opens schedule edit flow and saves updates', async () => {
+        const user = userEvent.setup()
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
+        await user.click(screen.getByRole('button', { name: /edit/i }))
+        await user.click(screen.getByRole('button', { name: /mock submit schedule/i }))
+
+        expect(setSchedulesMock).toHaveBeenCalled()
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Schedule Updated',
+            expect.objectContaining({ description: expect.stringMatching(/has been updated/i) })
+        )
+    })
+
+    it('shows resume action for paused schedules and toggles status', async () => {
+        const user = userEvent.setup()
+        schedulesState = [
+            {
+                ...schedulesState[0],
+                status: 'paused',
+            },
+        ]
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
+        await user.click(screen.getByRole('button', { name: /resume/i }))
+
+        expect(setSchedulesMock).toHaveBeenCalled()
+    })
+
+    it('shows plural critical alert copy when multiple trainers need support', () => {
+        const statusSpy = vi.spyOn(wellnessAnalytics, 'getWellnessStatus').mockReturnValue('critical')
+
+        renderTrainerWellness(users[0])
+
+        expect(screen.getByText(/2 trainers need immediate support/i)).toBeInTheDocument()
+        statusSpy.mockRestore()
+    })
+
+    it('renders recovery empty state when no plans exist', async () => {
+        const user = userEvent.setup()
+        recoveryPlansState = []
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /recovery plans/i }))
+
+        expect(screen.getByText(/no recovery plans created yet/i)).toBeInTheDocument()
+    })
+
+    it('shows follow-up completed label in check-in history', async () => {
+        const user = userEvent.setup()
+        checkInsState = [
+            {
+                ...checkInsState[0],
+                id: 'checkin-completed',
+                followUpRequired: true,
+                followUpCompleted: true,
+                timestamp: '2026-03-16T10:00:00.000Z',
+            },
+        ]
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /check-in history/i }))
+
+        expect(screen.getByText(/follow-up completed/i)).toBeInTheDocument()
+    })
+
+    it('renders frequency labels and schedule metadata variants', async () => {
+        const user = userEvent.setup()
+        const now = new Date()
+        const tomorrow = new Date(now)
+        tomorrow.setDate(now.getDate() + 1)
+
+        schedulesState = [
+            {
+                ...schedulesState[0],
+                id: 'schedule-daily',
+                frequency: 'daily',
+                nextScheduledDate: tomorrow.toISOString(),
+                completedCheckIns: 0,
+                missedCheckIns: 0,
+                notificationEnabled: false,
+                autoReminders: false,
+                lastCheckInDate: '2026-03-10T00:00:00.000Z',
+                endDate: '2026-04-10T00:00:00.000Z',
+                notes: 'Daily coaching cadence',
+            },
+            {
+                ...schedulesState[0],
+                id: 'schedule-biweekly',
+                frequency: 'biweekly',
+                nextScheduledDate: tomorrow.toISOString(),
+                autoReminders: false,
+            },
+            {
+                ...schedulesState[0],
+                id: 'schedule-monthly',
+                frequency: 'monthly',
+                nextScheduledDate: tomorrow.toISOString(),
+                autoReminders: false,
+            },
+            {
+                ...schedulesState[0],
+                id: 'schedule-custom',
+                frequency: 'custom',
+                customDays: 10,
+                nextScheduledDate: tomorrow.toISOString(),
+                autoReminders: false,
+            },
+            {
+                ...schedulesState[0],
+                id: 'schedule-unknown',
+                frequency: 'quarterly' as CheckInSchedule['frequency'],
+                nextScheduledDate: tomorrow.toISOString(),
+                autoReminders: false,
+            },
+        ]
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
+
+        expect(screen.getByText(/daily check-ins/i)).toBeInTheDocument()
+        expect(screen.getByText(/bi-weekly check-ins/i)).toBeInTheDocument()
+        expect(screen.getByText(/monthly check-ins/i)).toBeInTheDocument()
+        expect(screen.getByText(/every 10 days check-ins/i)).toBeInTheDocument()
+        expect(screen.getByText(/quarterly check-ins/i)).toBeInTheDocument()
+        expect(screen.getByText(/n\/a/i)).toBeInTheDocument()
+        expect(screen.getByText(/last check-in:/i)).toBeInTheDocument()
+        expect(screen.getByText(/ends:/i)).toBeInTheDocument()
+        expect(screen.getByText(/daily coaching cadence/i)).toBeInTheDocument()
+        expect(screen.queryByText(/automatic reminders/i)).not.toBeInTheDocument()
+    })
+
+    it('renders overdue and due-soon schedule indicators', async () => {
+        const user = userEvent.setup()
+        const now = new Date()
+        const yesterday = new Date(now)
+        yesterday.setDate(now.getDate() - 1)
+        const today = new Date(now)
+
+        schedulesState = [
+            {
+                ...schedulesState[0],
+                id: 'schedule-overdue',
+                nextScheduledDate: yesterday.toISOString(),
+                status: 'active',
+            },
+            {
+                ...schedulesState[0],
+                id: 'schedule-due-soon',
+                nextScheduledDate: today.toISOString(),
+                status: 'paused',
+            },
+        ]
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
+
+        expect(screen.getByText(/^overdue$/i)).toBeInTheDocument()
+        expect(screen.getByText(/due soon/i)).toBeInTheDocument()
+        expect(screen.getByText(/today/i)).toBeInTheDocument()
+    })
+
+    it('filters check-in history by selected trainer', async () => {
+        const user = userEvent.setup()
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /check-in history/i }))
+        const checkInPanel = screen.getByRole('tabpanel', { name: /check-in history/i })
+        await user.click(within(checkInPanel).getByRole('combobox'))
+        await user.click(screen.getByRole('option', { name: /uma trainer/i }))
+
+        expect(within(checkInPanel).getAllByText('Uma Trainer').length).toBeGreaterThan(0)
+        expect(within(checkInPanel).queryByText(/^Taylor Trainer$/)).not.toBeInTheDocument()
+    })
+
+    it('renders concerns and comments when present in check-in history', async () => {
+        const user = userEvent.setup()
+        checkInsState = [
+            {
+                ...checkInsState[0],
+                id: 'checkin-comments',
+                concerns: ['Fatigue', 'Workload'],
+                comments: 'Need lighter assignment next week',
+            },
+        ]
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /check-in history/i }))
+
+        expect(screen.getByText(/concerns:/i)).toBeInTheDocument()
+        expect(screen.getByText('Fatigue')).toBeInTheDocument()
+        expect(screen.getAllByText('Workload').length).toBeGreaterThan(1)
+        expect(screen.getByText(/comments:/i)).toBeInTheDocument()
+        expect(screen.getByText(/need lighter assignment next week/i)).toBeInTheDocument()
+    })
+
+    it('renders recovery progress and notes when actions exist', async () => {
+        const user = userEvent.setup()
+        recoveryPlansState = [
+            {
+                ...recoveryPlansState[0],
+                id: 'recovery-with-actions',
+                status: 'completed',
+                actions: [
+                    {
+                        id: 'action-1',
+                        type: 'time-off',
+                        description: 'Take two days off',
+                        targetDate: '2026-03-20T00:00:00.000Z',
+                        completed: true,
+                        completedDate: '2026-03-21T00:00:00.000Z',
+                    },
+                    {
+                        id: 'action-2',
+                        type: 'schedule-adjustment',
+                        description: 'Reduce evening sessions',
+                        targetDate: '2026-03-25T00:00:00.000Z',
+                        completed: false,
+                    },
+                ],
+                notes: 'Recovery plan completed successfully',
+            },
+        ]
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /recovery plans/i }))
+
+        expect(screen.getByText(/1 of 2 actions completed/i)).toBeInTheDocument()
+        expect(screen.getByText(/recovery plan completed successfully/i)).toBeInTheDocument()
+        expect(screen.getByText(/^completed$/i)).toBeInTheDocument()
+    })
+
+    it('shows recovery recommendation warning after a check-in trigger', async () => {
+        const user = userEvent.setup()
+        const triggerSpy = vi
+            .spyOn(wellnessAnalytics, 'shouldTriggerRecoveryPlan')
+            .mockReturnValue({ shouldTrigger: true, reasons: ['High stress trend'] })
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('button', { name: /new check-in/i }))
+        await user.click(screen.getByRole('button', { name: /mock submit check-in/i }))
+
+        expect(toastWarning).toHaveBeenCalledWith(
+            'Recovery Plan Recommended',
+            expect.objectContaining({ description: expect.stringMatching(/recommended for/i) })
+        )
+
+        triggerSpy.mockRestore()
+    })
+
+    it('creates a recovery plan from the recovery tab action', async () => {
+        const user = userEvent.setup()
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /recovery plans/i }))
+        await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
+        await user.click(screen.getByRole('button', { name: /mock submit recovery plan/i }))
+
+        expect(setRecoveryPlansMock).toHaveBeenCalled()
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Recovery Plan Created',
+            expect.objectContaining({ description: expect.stringMatching(/created successfully/i) })
+        )
+    })
+
+    it('renders insights with action-needed and multi-severity recommendations', async () => {
+        const user = userEvent.setup()
+
+        const triggerSpy = vi
+            .spyOn(wellnessAnalytics, 'shouldTriggerRecoveryPlan')
+            .mockImplementation((_checkIns, trainerId) =>
+                trainerId === 't1'
+                    ? { shouldTrigger: true, reasons: ['Sustained stress trend'] }
+                    : { shouldTrigger: false, reasons: [] }
+            )
+
+        const insightsSpy = vi
+            .spyOn(wellnessAnalytics, 'getWellnessInsights')
+            .mockImplementation((_checkIns, trainerId) =>
+                trainerId === 't1'
+                    ? [
+                          { severity: 'critical', insight: 'Immediate schedule reduction needed' },
+                          { severity: 'warning', insight: 'Fatigue trend increasing this week' },
+                          { severity: 'info', insight: 'Sleep quality improved recently' },
+                      ]
+                    : [{ severity: 'info', insight: 'Stable wellbeing profile' }]
+            )
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /insights/i }))
+
+        expect(screen.getByText(/action needed/i)).toBeInTheDocument()
+        expect(screen.getByText(/recovery plan recommended/i)).toBeInTheDocument()
+        expect(screen.getByText(/sustained stress trend/i)).toBeInTheDocument()
+        expect(screen.getByText(/immediate schedule reduction needed/i)).toBeInTheDocument()
+        expect(screen.getByText(/fatigue trend increasing this week/i)).toBeInTheDocument()
+        expect(screen.getByText(/sleep quality improved recently/i)).toBeInTheDocument()
+
+        triggerSpy.mockRestore()
+        insightsSpy.mockRestore()
+    })
+
+    it('does not delete a schedule when confirmation is cancelled', async () => {
+        const user = userEvent.setup()
+        vi.stubGlobal('confirm', vi.fn(() => false))
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
+        await user.click(screen.getByRole('button', { name: /delete/i }))
+
+        expect(setSchedulesMock).not.toHaveBeenCalled()
+        expect(toastSuccess).not.toHaveBeenCalledWith(
+            'Schedule Deleted',
+            expect.objectContaining({ description: expect.stringMatching(/removed/i) })
+        )
+    })
+
+    it('handles undefined persisted check-ins and recovery plans safely', () => {
+        useKVMock.mockImplementation((key: string, initial: unknown[]) => {
+            if (key === 'wellness-check-ins') {
+                return [undefined, setCheckInsMock]
+            }
+            if (key === 'recovery-plans') {
+                return [undefined, setRecoveryPlansMock]
+            }
+            return [initial, vi.fn()]
+        })
+
+        expect(() => renderTrainerWellness(users[0])).not.toThrow()
+        expect(screen.getByText(/trainer wellness & recovery/i)).toBeInTheDocument()
     })
 })
