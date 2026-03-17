@@ -233,4 +233,48 @@ describe('RecoveryPlanDialog', () => {
 
         expect(baseProps.onClose).toHaveBeenCalledOnce()
     })
+
+    it('does not prefill recommendations when dialog is closed', () => {
+        render(
+            <RecoveryPlanDialog
+                {...baseProps}
+                open={false}
+                latestCheckIn={latestCheckIn}
+                currentUtilization={90}
+            />
+        )
+
+        expect(vi.mocked(calculateWellnessScore)).not.toHaveBeenCalled()
+        expect(vi.mocked(getRecoveryPlanRecommendations)).not.toHaveBeenCalled()
+    })
+
+    it('skips high-stress, concerns, and support-action prefill on low-risk check-ins', () => {
+        vi.mocked(calculateWellnessScore).mockReturnValueOnce(68)
+
+        const lowRiskCheckIn: WellnessCheckIn = {
+            ...latestCheckIn,
+            stress: 'low',
+            followUpRequired: false,
+            concerns: [],
+            energy: 'good',
+        }
+
+        render(
+            <RecoveryPlanDialog
+                {...baseProps}
+                latestCheckIn={lowRiskCheckIn}
+                currentUtilization={70}
+            />
+        )
+
+        const triggerInput = screen.getByLabelText(/trigger reason/i) as HTMLTextAreaElement
+        expect(triggerInput.value).toContain('Wellness score: 68/100.')
+        expect(triggerInput.value).not.toContain('High stress level')
+        expect(triggerInput.value).not.toContain('Utilization at')
+        expect(triggerInput.value).not.toContain('Concerns raised')
+
+        expect(screen.queryByText(/support session/i, { selector: 'span' })).not.toBeInTheDocument()
+        expect(screen.queryByText(/provide 3-5 consecutive days of paid time off/i)).not.toBeInTheDocument()
+        expect(screen.getByText(/no actions added yet/i)).toBeInTheDocument()
+    })
 })

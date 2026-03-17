@@ -11,6 +11,7 @@ vi.mock('@/components/WorkloadRecommendations', () => ({
         <div>
             <p>WorkloadRecommendations Mock</p>
             <button onClick={() => onViewTrainer('t1')}>Mock View Trainer</button>
+            <button onClick={() => onViewTrainer('missing-trainer')}>Mock Missing Trainer</button>
         </div>
     ),
 }))
@@ -91,6 +92,24 @@ const sessions: Session[] = [
         status: 'scheduled',
     },
 ]
+
+function makeSession(id: string, trainerId: string, start: Date, durationHours: number): Session {
+    const end = new Date(start)
+    end.setHours(end.getHours() + durationHours)
+
+    return {
+        id,
+        courseId: 'c1',
+        trainerId,
+        title: `Session ${id}`,
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        location: 'Room A',
+        capacity: 10,
+        enrolledStudents: ['e1'],
+        status: 'scheduled',
+    }
+}
 
 describe('TrainerAvailability', () => {
     it('renders aggregate stats and navigates to schedule view', async () => {
@@ -185,5 +204,199 @@ describe('TrainerAvailability', () => {
 
         expect(screen.getByRole('heading', { name: /taylor trainer/i })).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: /availability/i, level: 3 })).toBeInTheDocument()
+    })
+
+    it('does not open trainer detail sheet for missing workload recommendation trainer id', async () => {
+        const user = userEvent.setup()
+
+        render(
+            <TrainerAvailability
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByRole('tab', { name: /workload balance/i }))
+        await user.click(screen.getByRole('button', { name: /mock missing trainer/i }))
+
+        expect(screen.queryByRole('heading', { name: /taylor trainer/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('heading', { name: /uma trainer/i })).not.toBeInTheDocument()
+    })
+
+    it('filters by certification and restores all trainers when filter is cleared', async () => {
+        const user = userEvent.setup()
+
+        render(
+            <TrainerAvailability
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getAllByRole('combobox')[0])
+        await user.click(screen.getByRole('option', { name: /^CPR$/i }))
+
+        expect(screen.getByText(/taylor trainer/i)).toBeInTheDocument()
+        expect(screen.queryByText(/uma trainer/i)).not.toBeInTheDocument()
+
+        const clearButton = screen
+            .getAllByRole('button')
+            .find((button) => button.textContent?.trim() === '')
+
+        if (!(clearButton instanceof HTMLElement)) {
+            throw new Error('Clear filter button was not found')
+        }
+
+        await user.click(clearButton)
+
+        expect(screen.getByText(/uma trainer/i)).toBeInTheDocument()
+    })
+
+    it('shows schedule and certification fallback text for trainers without profile details', async () => {
+        const user = userEvent.setup()
+        const usersWithFallbackTrainer = [
+            users[0],
+            {
+                ...users[1],
+                certifications: [],
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01',
+                        yearsOfService: 2,
+                        monthsOfService: 24,
+                    },
+                    specializations: [],
+                },
+            },
+            users[2],
+        ]
+
+        render(
+            <TrainerAvailability
+                users={usersWithFallbackTrainer}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /uma trainer/i }))
+
+        expect(screen.getByText(/no detailed work schedule configured/i)).toBeInTheDocument()
+        expect(screen.getByText(/no certifications/i)).toBeInTheDocument()
+    })
+
+    it('renders authorized roles in trainer detail sheet when present', async () => {
+        const user = userEvent.setup()
+        const usersWithRoles = [
+            {
+                ...users[0],
+                trainerProfile: {
+                    ...users[0].trainerProfile!,
+                    authorizedRoles: ['Safety Instructor'],
+                },
+            },
+            users[1],
+            users[2],
+        ]
+
+        render(
+            <TrainerAvailability
+                users={usersWithRoles}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /taylor trainer/i }))
+
+        expect(screen.getByText(/authorized to teach/i)).toBeInTheDocument()
+        expect(screen.getByText(/safety instructor/i)).toBeInTheDocument()
+    })
+
+    it('navigates from upcoming sessions in trainer detail sheet', async () => {
+        const user = userEvent.setup()
+        const onNavigate = vi.fn()
+        const futureSession: Session = {
+            ...sessions[0],
+            id: 'future-1',
+            title: 'Future Session',
+            startTime: '2099-01-01T09:00:00.000Z',
+            endTime: '2099-01-01T10:00:00.000Z',
+        }
+
+        render(
+            <TrainerAvailability
+                users={users}
+                sessions={[futureSession]}
+                courses={courses}
+                onNavigate={onNavigate}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /taylor trainer/i }))
+        await user.click(screen.getByRole('button', { name: /future session/i }))
+
+        expect(onNavigate).toHaveBeenCalledWith('schedule', { sessionId: 'future-1' })
+    })
+
+    it('applies red over-utilized card style when at least one trainer is over 90% utilization', () => {
+        const now = new Date()
+        now.setHours(8, 0, 0, 0)
+
+        const heavySessions = [
+            makeSession('over-1', 't1', new Date(now), 40),
+        ]
+
+        render(
+            <TrainerAvailability
+                users={users}
+                sessions={heavySessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        const overutilizedCard = screen.getByText(/over-utilized/i).closest('[data-slot="card"]') as HTMLElement
+        expect(within(overutilizedCard).getByText('1')).toHaveClass('text-red-600')
+    })
+
+    it('applies utilization color thresholds for high, medium, and moderate loads', () => {
+        const now = new Date()
+        now.setHours(8, 0, 0, 0)
+
+        const extraTrainer = createUser({
+            id: 't3',
+            name: 'Kai Trainer',
+            email: 'kai@example.com',
+            role: 'trainer',
+            certifications: ['CPR'],
+        })
+
+        const thresholdSessions = [
+            makeSession('high', 't1', new Date(now), 40),
+            makeSession('medium', 't2', new Date(now), 30),
+            makeSession('moderate', 't3', new Date(now), 16),
+        ]
+
+        render(
+            <TrainerAvailability
+                users={[users[0], users[1], extraTrainer, users[2]]}
+                sessions={thresholdSessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText('100% utilized')).toHaveClass('text-red-600')
+        expect(screen.getByText('75% utilized')).toHaveClass('text-orange-600')
+        expect(screen.getByText('40% utilized')).toHaveClass('text-green-600')
     })
 })

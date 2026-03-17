@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CertificationDashboard } from './CertificationDashboard'
 import type { CertificationRecord, User } from '@/lib/types'
+import * as certificationTracker from '@/lib/certification-tracker'
 
 const addCertificationDialogSpy = vi.fn()
 const TEST_NOW = new Date('2026-03-16T00:00:00.000Z')
@@ -225,5 +226,86 @@ describe('CertificationDashboard', () => {
                 expirationDate: '2027-01-01',
             })
         )
+    })
+
+    it('renders singular high-priority copy for a single high alert', () => {
+        const users: User[] = [
+            createTrainer(
+                { id: 'trainer-high', name: 'High Only', email: 'high-only@example.com' },
+                [createRecord({ certificationName: 'CPR', expirationDate: '2026-04-08T00:00:00.000Z' })]
+            ),
+        ]
+
+        render(
+            <CertificationDashboard
+                users={users}
+                onNavigate={vi.fn()}
+                onAddCertification={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText(/1 certification expiring within 30 days/i)).toBeInTheDocument()
+    })
+
+    it('renders singular certification count in trainer summary badge', () => {
+        const users: User[] = [
+            createTrainer(
+                { id: 'trainer-single', name: 'Single Cert', email: 'single@example.com' },
+                [createRecord({ certificationName: 'Solo Cert', expirationDate: '2026-09-01T00:00:00.000Z' })]
+            ),
+        ]
+
+        render(
+            <CertificationDashboard
+                users={users}
+                onNavigate={vi.fn()}
+                onAddCertification={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText(/1 certification$/i)).toBeInTheDocument()
+    })
+
+    it('uses default status badge styling for unexpected certification status values', () => {
+        const statusSpy = vi.spyOn(certificationTracker, 'calculateCertificationStatus').mockReturnValue('unknown-status' as never)
+        const users: User[] = [
+            createTrainer(
+                { id: 'trainer-unknown', name: 'Unknown Status Trainer', email: 'unknown@example.com' },
+                [createRecord({ certificationName: 'Statusless Cert', expirationDate: '2026-09-01T00:00:00.000Z' })]
+            ),
+        ]
+
+        render(
+            <CertificationDashboard
+                users={users}
+                onNavigate={vi.fn()}
+                onAddCertification={vi.fn()}
+            />
+        )
+
+        expect(document.querySelector('.bg-gray-100.text-gray-800.border-gray-200')).toBeInTheDocument()
+        statusSpy.mockRestore()
+    })
+
+    it('navigates to people view when clicking a trainer row in all certifications', () => {
+        const onNavigate = vi.fn()
+        const users: User[] = [
+            createTrainer(
+                { id: 'trainer-row', name: 'Row Click Trainer', email: 'row@example.com' },
+                [createRecord({ certificationName: 'Row Cert', expirationDate: '2026-09-01T00:00:00.000Z' })]
+            ),
+        ]
+
+        render(
+            <CertificationDashboard
+                users={users}
+                onNavigate={onNavigate}
+                onAddCertification={vi.fn()}
+            />
+        )
+
+        fireEvent.click(screen.getByText('Row Click Trainer'))
+
+        expect(onNavigate).toHaveBeenCalledWith('people', { userId: 'trainer-row' })
     })
 })

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -144,6 +144,107 @@ describe('ScheduleTemplateDialog', () => {
                 cycleDays: undefined,
             })
         )
+    })
+
+    it('updates a newly added session fields and saves both sessions', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/template name/i), 'Two Session Template')
+        await user.click(screen.getByRole('button', { name: /add session/i }))
+
+        const secondSessionCard = screen.getByText('Session 2').closest('[data-slot="card"]')
+        if (!(secondSessionCard instanceof HTMLElement)) {
+            throw new Error('Session 2 card was not found')
+        }
+
+        const sessionComboboxes = within(secondSessionCard).getAllByRole('combobox')
+
+        await user.click(sessionComboboxes[0])
+        await user.click(await screen.findByRole('option', { name: /wednesday/i }))
+
+        const timeInput = secondSessionCard.querySelector('input[type="time"]')
+        if (!(timeInput instanceof HTMLInputElement)) {
+            throw new Error('Session time input was not found')
+        }
+        await user.clear(timeInput)
+        await user.type(timeInput, '13:30')
+
+        const numberInputs = secondSessionCard.querySelectorAll('input[type="number"]')
+        const durationInput = numberInputs[0]
+        const capacityInput = numberInputs[1]
+        if (!(durationInput instanceof HTMLInputElement) || !(capacityInput instanceof HTMLInputElement)) {
+            throw new Error('Session number inputs were not found')
+        }
+
+        fireEvent.change(durationInput, { target: { value: '90' } })
+
+        await user.click(sessionComboboxes[1])
+        await user.click(await screen.findByRole('option', { name: /^night$/i }))
+
+        fireEvent.change(capacityInput, { target: { value: '12' } })
+
+        await user.type(within(secondSessionCard).getByPlaceholderText(/room\/location/i), 'Bay 3')
+
+        await user.click(screen.getByRole('button', { name: /create template/i }))
+
+        expect(onSave).toHaveBeenCalledOnce()
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: 'Two Session Template',
+                sessions: expect.arrayContaining([
+                    expect.objectContaining({
+                        dayOfWeek: 2,
+                        time: '13:30',
+                        duration: 90,
+                        shift: 'night',
+                        capacity: 12,
+                        location: 'Bay 3',
+                    }),
+                ]),
+            })
+        )
+        expect(onSave.mock.calls[0][0].sessions).toHaveLength(2)
+    })
+
+    it('removes an added session before save', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/template name/i), 'Single Session Template')
+        await user.click(screen.getByRole('button', { name: /add session/i }))
+
+        const secondSessionCard = screen.getByText('Session 2').closest('[data-slot="card"]')
+        if (!(secondSessionCard instanceof HTMLElement)) {
+            throw new Error('Session 2 card was not found')
+        }
+
+        await user.click(within(secondSessionCard).getByRole('button'))
+
+        expect(screen.queryByText('Session 2')).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create template/i }))
+
+        expect(onSave).toHaveBeenCalledOnce()
+        expect(onSave.mock.calls[0][0].sessions).toHaveLength(1)
     })
 
     it('removes existing tags when editing a template and saves updated values', async () => {

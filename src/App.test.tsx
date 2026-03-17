@@ -8,6 +8,15 @@ const toastError = vi.fn()
 
 const sendNotificationMock = vi.fn()
 let utilizationNotified = false
+let utilizationNotificationPayload: Record<string, unknown> = {
+    userId: 'admin-1',
+    type: 'system',
+    title: 'Critical Alert',
+    message: 'High-risk condition detected',
+    read: false,
+    priority: 'critical',
+    link: '/trainer-wellness',
+}
 const callbackSpies = {
     onCreateSession: vi.fn(),
     onUpdateSession: vi.fn(),
@@ -83,7 +92,9 @@ vi.mock('@github/spark/hooks', async () => {
 
     return {
         useKV: <T,>(key: string, initialValue: T) => {
-            const seeded = (kvSeed[key] as T | undefined) ?? initialValue
+            const seeded = Object.prototype.hasOwnProperty.call(kvSeed, key)
+                ? (kvSeed[key] as T)
+                : initialValue
             const [value, setValue] = React.useState<T>(seeded)
 
             const setter = (next: T | ((current: T) => T)) => {
@@ -320,15 +331,7 @@ vi.mock('@/hooks/use-utilization-notifications', async () => {
                 }
 
                 utilizationNotified = true
-                onCreateNotification({
-                    userId: 'admin-1',
-                    type: 'system',
-                    title: 'Critical Alert',
-                    message: 'High-risk condition detected',
-                    read: false,
-                    priority: 'critical',
-                    link: '/trainer-wellness',
-                })
+                onCreateNotification(utilizationNotificationPayload)
             }, [onCreateNotification])
         },
     }
@@ -354,6 +357,15 @@ describe('App', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         utilizationNotified = false
+        utilizationNotificationPayload = {
+            userId: 'admin-1',
+            type: 'system',
+            title: 'Critical Alert',
+            message: 'High-risk condition detected',
+            read: false,
+            priority: 'critical',
+            link: '/trainer-wellness',
+        }
         getPreviewSeedModeMock.mockReturnValue('off')
         isPreviewSeedEnabledMock.mockReturnValue(false)
         Object.keys(kvSeed).forEach((key) => delete kvSeed[key])
@@ -637,6 +649,24 @@ describe('App', () => {
         expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
     })
 
+    it('loads preview seed data without overwrite confirmation when no core data exists', async () => {
+        const user = userEvent.setup()
+        const confirmSpy = vi.fn(() => true)
+        vi.stubGlobal('confirm', confirmSpy)
+        kvSeed['users'] = []
+        kvSeed['sessions'] = []
+        kvSeed['courses'] = []
+        kvSeed['enrollments'] = []
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /load seed data/i }))
+
+        expect(confirmSpy).not.toHaveBeenCalled()
+        expect(createPreviewSeedDataMock).toHaveBeenCalledOnce()
+    })
+
     it('does not reset preview data when confirmation is cancelled', async () => {
         const user = userEvent.setup()
         vi.stubGlobal('confirm', vi.fn(() => false))
@@ -804,6 +834,103 @@ describe('App', () => {
         render(<App />)
         await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
         await user.click(screen.getByRole('button', { name: /dismiss one/i }))
+        await user.click(screen.getByRole('button', { name: /dismiss all/i }))
+
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('handles high-priority notifications with unknown link and keeps current view on click', async () => {
+        utilizationNotificationPayload = {
+            userId: 'admin-1',
+            type: 'system',
+            title: 'High Alert',
+            message: 'Action required',
+            read: false,
+            priority: 'high',
+            link: '/unknown-route',
+        }
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(sendNotificationMock).toHaveBeenCalledWith(
+                'High Alert',
+                expect.objectContaining({ priority: 'high' })
+            )
+        })
+
+        const sendCall = sendNotificationMock.mock.calls[0]
+        const options = sendCall[1]
+        act(() => {
+            options.onClick()
+        })
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(toastError).toHaveBeenCalledWith(
+            '⚠️ High Alert',
+            expect.objectContaining({ duration: 8000 })
+        )
+    })
+
+    it('uses medium priority by default and omits click handler when notification link is missing', async () => {
+        utilizationNotificationPayload = {
+            userId: 'admin-1',
+            type: 'system',
+            title: 'Heads Up',
+            message: 'No explicit priority',
+            read: false,
+        }
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(sendNotificationMock).toHaveBeenCalledWith(
+                'Heads Up',
+                expect.objectContaining({ priority: 'medium', onClick: undefined })
+            )
+        })
+
+        expect(toastError).not.toHaveBeenCalled()
+    })
+
+    it('handles undefined kv state by using fallback arrays in action handlers', async () => {
+        const user = userEvent.setup()
+        utilizationNotified = true
+        kvSeed['users'] = undefined
+        kvSeed['sessions'] = undefined
+        kvSeed['courses'] = undefined
+        kvSeed['enrollments'] = undefined
+        kvSeed['notifications'] = undefined
+
+        render(<App />)
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+        expect(screen.getByText(/notification count:\s*0/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: /update session/i }))
+        await user.click(screen.getByRole('button', { name: /create session/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go schedule templates$/i }))
+        await user.click(screen.getByRole('button', { name: /create template sessions/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: /update user/i }))
+        await user.click(screen.getByRole('button', { name: /add user/i }))
+        await user.click(screen.getByRole('button', { name: /delete user/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go certifications$/i }))
+        await user.click(screen.getByRole('button', { name: /add certification/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: /mark read/i }))
+        await user.click(screen.getByRole('button', { name: /mark unread/i }))
+        await user.click(screen.getByRole('button', { name: /mark all read/i }))
+        await user.click(screen.getByRole('button', { name: /dismiss one/i }))
+        await user.click(screen.getByRole('button', { name: /dismiss read/i }))
         await user.click(screen.getByRole('button', { name: /dismiss all/i }))
 
         expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()

@@ -102,6 +102,24 @@ vi.mock('@/components/ApplyTemplateDialog', () => ({
                 >
                     Mock Confirm Apply
                 </button>
+                <button
+                    onClick={() =>
+                        onApply([
+                            {
+                                title: 'Generated Session One',
+                                courseId: template.courseId,
+                                trainerId: 't1',
+                            },
+                            {
+                                title: 'Generated Session Two',
+                                courseId: template.courseId,
+                                trainerId: 't2',
+                            },
+                        ])
+                    }
+                >
+                    Mock Confirm Apply Multiple
+                </button>
             </div>
         )
     },
@@ -317,7 +335,7 @@ describe('ScheduleTemplates', () => {
         await user.click(applyButton)
 
         expect(screen.getByText(/applying ops rotation/i)).toBeInTheDocument()
-        await user.click(screen.getByRole('button', { name: /mock confirm apply/i }))
+        await user.click(screen.getByRole('button', { name: /^mock confirm apply$/i }))
 
         expect(onCreateSessions).toHaveBeenCalledWith(
             expect.arrayContaining([
@@ -333,6 +351,18 @@ describe('ScheduleTemplates', () => {
         expect(updatedTemplate?.usageCount).toBe(3)
         expect(updatedTemplate?.lastUsed).toBeTruthy()
         expect(toastSuccess).toHaveBeenCalledWith('1 session created successfully')
+    })
+
+    it('applies a template with plural success copy even when onCreateSessions is not provided', async () => {
+        const user = userEvent.setup()
+
+        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} />)
+
+        await user.click(screen.getByTestId('apply-template-template-1'))
+        await user.click(screen.getByRole('button', { name: /mock confirm apply multiple/i }))
+
+        expect(toastSuccess).toHaveBeenCalledWith('2 sessions created successfully')
+        expect(setTemplatesMock).toHaveBeenCalled()
     })
 
     it('opens apply dialog from dropdown menu apply action', async () => {
@@ -436,5 +466,40 @@ describe('ScheduleTemplates', () => {
         expect(screen.getByText('+1')).toBeInTheDocument()
         // lastUsed is set → "Last: Mar 1" rendered
         expect(screen.getByText(/last:/i)).toBeInTheDocument()
+    })
+
+    it('handles undefined persisted template arrays in updater callbacks', async () => {
+        const user = userEvent.setup()
+
+        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+
+        await user.click(screen.getByRole('button', { name: /new template/i }))
+        await user.click(screen.getByRole('button', { name: /mock save template/i }))
+
+        const createUpdater = getUpdater(0)
+        const createdFromUndefined = createUpdater(undefined as unknown as ScheduleTemplate[])
+        expect(createdFromUndefined).toHaveLength(1)
+        expect(createdFromUndefined[0]).toEqual(expect.objectContaining({ name: 'Mock Template Name' }))
+
+        const templateCard = screen.getByTestId('template-card-template-1')
+        await user.click(within(templateCard).getByRole('button', { name: /duplicate/i }))
+        const duplicateUpdater = getUpdater(1)
+        const duplicatedFromUndefined = duplicateUpdater(undefined as unknown as ScheduleTemplate[])
+        expect(duplicatedFromUndefined).toHaveLength(1)
+        expect(duplicatedFromUndefined[0].name).toMatch(/\(copy\)$/i)
+
+        await user.click(within(templateCard).getByRole('button', { name: /delete/i }))
+        const deleteUpdater = getUpdater(2)
+        expect(deleteUpdater(undefined as unknown as ScheduleTemplate[])).toEqual([])
+
+        await user.click(within(templateCard).getByRole('button', { name: /edit/i }))
+        await user.click(screen.getByRole('button', { name: /mock save template/i }))
+        const editUpdater = getUpdater(3)
+        expect(editUpdater(undefined as unknown as ScheduleTemplate[])).toEqual([])
+
+        await user.click(screen.getByTestId('apply-template-template-1'))
+        await user.click(screen.getByRole('button', { name: /^mock confirm apply$/i }))
+        const applyUpdater = getUpdater(4)
+        expect(applyUpdater(undefined as unknown as ScheduleTemplate[])).toEqual([])
     })
 })

@@ -1,16 +1,18 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { TrainerProfileView } from './TrainerProfileView'
 import type { User, Session, Course, Enrollment, CertificationRecord } from '@/lib/types'
+
+const mockCalculateCertificationStatus = vi.fn()
 
 vi.mock('@/components/UnconfiguredScheduleAlert', () => ({
   UnconfiguredScheduleAlert: () => <div>UnconfiguredScheduleAlert Mock</div>,
 }))
 
 vi.mock('@/lib/certification-tracker', () => ({
-  calculateCertificationStatus: () => 'active',
+  calculateCertificationStatus: (cert: CertificationRecord) => mockCalculateCertificationStatus(cert),
 }))
 
 vi.mock('@/components/ManageCertificationsDialog', () => ({
@@ -122,6 +124,11 @@ const courses: Course[] = [
 ]
 
 describe('TrainerProfileView', () => {
+  beforeEach(() => {
+    mockCalculateCertificationStatus.mockReset()
+    mockCalculateCertificationStatus.mockReturnValue('active')
+  })
+
   it('renders profile details and action sections', () => {
     render(
       <TrainerProfileView
@@ -229,5 +236,204 @@ describe('TrainerProfileView', () => {
 
     expect(screen.getByText('CPR')).toBeInTheDocument()
     expect(screen.getByText('First Aid')).toBeInTheDocument()
+  })
+
+  it('renders months of service and no certifications for a recently hired non-trainer', () => {
+    const recentHireDate = new Date()
+    recentHireDate.setMonth(recentHireDate.getMonth() - 2)
+
+    const employeeWithoutCerts: User = {
+      id: 'u-recent',
+      name: 'Recent Hire',
+      email: 'recent@example.com',
+      role: 'employee',
+      department: 'Operations',
+      certifications: [],
+      hireDate: recentHireDate.toISOString(),
+    }
+
+    render(
+      <TrainerProfileView
+        user={employeeWithoutCerts}
+        sessions={[]}
+        courses={[]}
+        enrollments={[]}
+      />
+    )
+
+    expect(screen.getByText(/months/i)).toBeInTheDocument()
+    expect(screen.getByText(/no certifications/i)).toBeInTheDocument()
+  })
+
+  it('renders expired and expiring certification statuses with renewal badge', () => {
+    mockCalculateCertificationStatus.mockImplementation((cert: CertificationRecord) => {
+      if (cert.certificationName === 'Expired Cert') return 'expired'
+      if (cert.certificationName === 'Expiring Cert') return 'expiring-soon'
+      return 'active'
+    })
+
+    const trainerWithMixedStatuses: User = {
+      ...trainerUser,
+      trainerProfile: {
+        ...trainerUser.trainerProfile!,
+        certificationRecords: [
+          {
+            certificationName: 'Expired Cert',
+            issuedDate: '2024-01-01',
+            expirationDate: '2024-06-01',
+            status: 'expired',
+            renewalRequired: true,
+            renewalInProgress: true,
+            remindersSent: 2,
+          },
+          {
+            certificationName: 'Expiring Cert',
+            issuedDate: '2025-01-01',
+            expirationDate: '2099-01-10',
+            status: 'active',
+            renewalRequired: true,
+            remindersSent: 1,
+          },
+          {
+            certificationName: 'Active Cert',
+            issuedDate: '2025-01-01',
+            expirationDate: '2099-12-31',
+            status: 'active',
+            renewalRequired: false,
+            remindersSent: 0,
+          },
+        ],
+      },
+    }
+
+    render(
+      <TrainerProfileView
+        user={trainerWithMixedStatuses}
+        sessions={sessions}
+        courses={courses}
+        enrollments={[]}
+        onUpdateUser={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/renewal/i)).toBeInTheDocument()
+    expect(screen.getByText('Expired')).toBeInTheDocument()
+    expect(screen.getByText(/d left/i)).toBeInTheDocument()
+    expect(screen.getByText('Active')).toBeInTheDocument()
+  })
+
+  it('renders empty trainer sections and hides additional information when optional fields are absent', () => {
+    const trainerWithEmptySections: User = {
+      ...trainerUser,
+      certifications: [],
+      trainerProfile: {
+        ...trainerUser.trainerProfile!,
+        shiftSchedules: [],
+        authorizedRoles: [],
+        specializations: [],
+        maxWeeklyHours: undefined,
+        preferredLocation: undefined,
+        notes: undefined,
+        certificationRecords: [],
+      },
+    }
+
+    render(
+      <TrainerProfileView
+        user={trainerWithEmptySections}
+        sessions={sessions}
+        courses={courses}
+        enrollments={[]}
+        onUpdateUser={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/no shift schedules configured/i)).toBeInTheDocument()
+    expect(screen.getByText(/no authorized roles configured/i)).toBeInTheDocument()
+    expect(screen.getByText(/no certifications/i)).toBeInTheDocument()
+    expect(screen.queryByText(/additional information/i)).not.toBeInTheDocument()
+  })
+
+  it('shows additional information when only preferred location is configured', () => {
+    const trainerWithLocationOnly: User = {
+      ...trainerUser,
+      trainerProfile: {
+        ...trainerUser.trainerProfile!,
+        maxWeeklyHours: undefined,
+        preferredLocation: 'Plant B',
+        notes: undefined,
+      },
+    }
+
+    render(
+      <TrainerProfileView
+        user={trainerWithLocationOnly}
+        sessions={sessions}
+        courses={courses}
+        enrollments={[]}
+      />
+    )
+
+    expect(screen.getByText(/additional information/i)).toBeInTheDocument()
+    expect(screen.getByText(/preferred location/i)).toBeInTheDocument()
+    expect(screen.getByText(/plant b/i)).toBeInTheDocument()
+  })
+
+  it('shows additional information when only notes are configured', () => {
+    const trainerWithNotesOnly: User = {
+      ...trainerUser,
+      trainerProfile: {
+        ...trainerUser.trainerProfile!,
+        maxWeeklyHours: undefined,
+        preferredLocation: undefined,
+        notes: 'Needs ergonomic chair setup',
+      },
+    }
+
+    render(
+      <TrainerProfileView
+        user={trainerWithNotesOnly}
+        sessions={sessions}
+        courses={courses}
+        enrollments={[]}
+      />
+    )
+
+    expect(screen.getByText(/additional information/i)).toBeInTheDocument()
+    expect(screen.getByText(/notes/i)).toBeInTheDocument()
+    expect(screen.getByText(/needs ergonomic chair setup/i)).toBeInTheDocument()
+  })
+
+  it('passes an empty certification array to manage dialog when trainer profile is missing', async () => {
+    const user = userEvent.setup()
+    const onUpdateUser = vi.fn()
+    const trainerWithoutProfile: User = {
+      id: 'u-no-profile',
+      name: 'No Profile Trainer',
+      email: 'no-profile@example.com',
+      role: 'trainer',
+      department: 'Training',
+      certifications: ['Orientation'],
+      hireDate: '2023-01-01T00:00:00.000Z',
+    }
+
+    render(
+      <TrainerProfileView
+        user={trainerWithoutProfile}
+        sessions={[]}
+        courses={[]}
+        enrollments={[]}
+        onUpdateUser={onUpdateUser}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /manage/i }))
+    await user.click(screen.getByRole('button', { name: /save certifications/i }))
+
+    const updatedUser = onUpdateUser.mock.calls[0][0]
+    expect(updatedUser.trainerProfile.certificationRecords).toHaveLength(1)
+    expect(updatedUser.trainerProfile.certificationRecords[0]).toEqual(
+      expect.objectContaining({ certificationName: 'First Aid' })
+    )
   })
 })

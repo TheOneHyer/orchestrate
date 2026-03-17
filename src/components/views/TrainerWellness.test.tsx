@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -14,6 +14,7 @@ const setSchedulesMock = vi.fn()
 const toastInfo = vi.fn()
 const toastSuccess = vi.fn()
 const toastWarning = vi.fn()
+let triggerCheckInFromScheduler: ((trainerId: string, trainerName: string) => void) | null = null
 
 let checkInsState: WellnessCheckIn[] = []
 let recoveryPlansState: RecoveryPlan[] = []
@@ -24,12 +25,15 @@ vi.mock('@github/spark/hooks', () => ({
 }))
 
 vi.mock('@/hooks/use-check-in-scheduler', () => ({
-    useCheckInScheduler: () => ({
-        get schedules() {
-            return schedulesState
-        },
-        setSchedules: setSchedulesMock,
-    }),
+    useCheckInScheduler: (...args: unknown[]) => {
+        triggerCheckInFromScheduler = args[2] as ((trainerId: string, trainerName: string) => void) | null
+        return {
+            get schedules() {
+                return schedulesState
+            },
+            setSchedules: setSchedulesMock,
+        }
+    },
 }))
 
 vi.mock('sonner', () => ({
@@ -41,77 +45,87 @@ vi.mock('sonner', () => ({
 }))
 
 vi.mock('@/components/WellnessCheckInDialog', () => ({
-    WellnessCheckInDialog: ({ open, trainerId, onSubmit }: { open: boolean; trainerId: string; onSubmit: (data: Omit<WellnessCheckIn, 'id' | 'timestamp'>) => void }) => {
+    WellnessCheckInDialog: ({ open, trainerId, trainerName, onSubmit, onClose }: { open: boolean; trainerId: string; trainerName?: string; onSubmit: (data: Omit<WellnessCheckIn, 'id' | 'timestamp'>) => void; onClose: () => void }) => {
         if (!open) return null
         return (
-            <button
-                onClick={() =>
-                    onSubmit({
-                        trainerId,
-                        mood: 3,
-                        stress: 'moderate',
-                        energy: 'neutral',
-                        workloadSatisfaction: 3,
-                        sleepQuality: 3,
-                        physicalWellbeing: 3,
-                        mentalClarity: 3,
-                        followUpRequired: false,
-                    })
-                }
-            >
-                Mock Submit Check-In
-            </button>
+            <>
+                <p>{`Mock Check-In Props: ${trainerId}|${trainerName || ''}`}</p>
+                <button
+                    onClick={() =>
+                        onSubmit({
+                            trainerId,
+                            mood: 3,
+                            stress: 'moderate',
+                            energy: 'neutral',
+                            workloadSatisfaction: 3,
+                            sleepQuality: 3,
+                            physicalWellbeing: 3,
+                            mentalClarity: 3,
+                            followUpRequired: false,
+                        })
+                    }
+                >
+                    Mock Submit Check-In
+                </button>
+                <button onClick={onClose}>Mock Close Check-In</button>
+            </>
         )
     },
 }))
 
 vi.mock('@/components/RecoveryPlanDialog', () => ({
-    RecoveryPlanDialog: ({ open, trainerId, currentUser, onSubmit }: { open: boolean; trainerId: string; currentUser: User; onSubmit: (plan: Omit<RecoveryPlan, 'id' | 'createdAt'>) => void }) => {
+    RecoveryPlanDialog: ({ open, trainerId, currentUser, onSubmit, onClose }: { open: boolean; trainerId: string; currentUser: User; onSubmit: (plan: Omit<RecoveryPlan, 'id' | 'createdAt'>) => void; onClose: () => void }) => {
         if (!open) return null
         return (
-            <button
-                onClick={() =>
-                    onSubmit({
-                        trainerId,
-                        createdBy: currentUser.id,
-                        status: 'active',
-                        triggerReason: 'High stress trend',
-                        targetUtilization: 60,
-                        currentUtilization: 85,
-                        startDate: '2026-03-16T00:00:00.000Z',
-                        targetCompletionDate: '2026-04-16T00:00:00.000Z',
-                        actions: [],
-                        checkIns: [],
-                    })
-                }
-            >
-                Mock Submit Recovery Plan
-            </button>
+            <>
+                <button
+                    onClick={() =>
+                        onSubmit({
+                            trainerId,
+                            createdBy: currentUser.id,
+                            status: 'active',
+                            triggerReason: 'High stress trend',
+                            targetUtilization: 60,
+                            currentUtilization: 85,
+                            startDate: '2026-03-16T00:00:00.000Z',
+                            targetCompletionDate: '2026-04-16T00:00:00.000Z',
+                            actions: [],
+                            checkIns: [],
+                        })
+                    }
+                >
+                    Mock Submit Recovery Plan
+                </button>
+                <button onClick={onClose}>Mock Close Recovery Plan</button>
+            </>
         )
     },
 }))
 
 vi.mock('@/components/CheckInScheduleDialog', () => ({
-    CheckInScheduleDialog: ({ open, trainers, currentUserId, existingSchedule, onSubmit }: { open: boolean; trainers: User[]; currentUserId: string; existingSchedule?: CheckInSchedule; onSubmit: (data: Omit<CheckInSchedule, 'id' | 'createdAt' | 'completedCheckIns' | 'missedCheckIns'>) => void }) => {
+    CheckInScheduleDialog: ({ open, trainers, currentUserId, existingSchedule, onSubmit, onClose }: { open: boolean; trainers: User[]; currentUserId: string; existingSchedule?: CheckInSchedule; onSubmit: (data: Omit<CheckInSchedule, 'id' | 'createdAt' | 'completedCheckIns' | 'missedCheckIns'>) => void; onClose: () => void }) => {
         if (!open) return null
         return (
-            <button
-                onClick={() =>
-                    onSubmit({
-                        trainerId: existingSchedule?.trainerId || trainers[0]?.id,
-                        frequency: 'weekly',
-                        startDate: '2026-03-16T00:00:00.000Z',
-                        nextScheduledDate: '2026-03-20T00:00:00.000Z',
-                        status: 'active',
-                        notificationEnabled: true,
-                        autoReminders: true,
-                        reminderHoursBefore: 24,
-                        createdBy: currentUserId,
-                    })
-                }
-            >
-                Mock Submit Schedule
-            </button>
+            <>
+                <button
+                    onClick={() =>
+                        onSubmit({
+                            trainerId: existingSchedule?.trainerId || trainers[0]?.id,
+                            frequency: 'weekly',
+                            startDate: '2026-03-16T00:00:00.000Z',
+                            nextScheduledDate: '2026-03-20T00:00:00.000Z',
+                            status: 'active',
+                            notificationEnabled: true,
+                            autoReminders: true,
+                            reminderHoursBefore: 24,
+                            createdBy: currentUserId,
+                        })
+                    }
+                >
+                    Mock Submit Schedule
+                </button>
+                <button onClick={onClose}>Mock Close Schedule</button>
+            </>
         )
     },
 }))
@@ -178,6 +192,7 @@ function renderTrainerWellness(currentUser: User) {
 
 describe('TrainerWellness', () => {
     beforeEach(() => {
+        triggerCheckInFromScheduler = null
         checkInsState = [
             {
                 id: 'checkin-1',
@@ -528,6 +543,30 @@ describe('TrainerWellness', () => {
         expect(screen.getByText(/today/i)).toBeInTheDocument()
     })
 
+    it('shows non-urgent next-date text for schedules outside due-soon window', async () => {
+        const user = userEvent.setup()
+        const now = new Date()
+        const inFiveDays = new Date(now)
+        inFiveDays.setDate(now.getDate() + 5)
+
+        schedulesState = [
+            {
+                ...schedulesState[0],
+                id: 'schedule-future',
+                nextScheduledDate: inFiveDays.toISOString(),
+                status: 'active',
+            },
+        ]
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
+
+        expect(screen.queryByText(/^overdue$/i)).not.toBeInTheDocument()
+        expect(screen.queryByText(/due soon/i)).not.toBeInTheDocument()
+        expect(screen.getByText(/^\d+ days$/i)).toBeInTheDocument()
+    })
+
     it('filters check-in history by selected trainer', async () => {
         const user = userEvent.setup()
 
@@ -540,6 +579,48 @@ describe('TrainerWellness', () => {
 
         expect(within(checkInPanel).getAllByText('Uma Trainer').length).toBeGreaterThan(0)
         expect(within(checkInPanel).queryByText(/^Taylor Trainer$/)).not.toBeInTheDocument()
+    })
+
+    it('resets check-in history filter back to all trainers', async () => {
+        const user = userEvent.setup()
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /check-in history/i }))
+        const checkInPanel = screen.getByRole('tabpanel', { name: /check-in history/i })
+
+        await user.click(within(checkInPanel).getByRole('combobox'))
+        await user.click(screen.getByRole('option', { name: /uma trainer/i }))
+        expect(within(checkInPanel).queryByText(/^Taylor Trainer$/)).not.toBeInTheDocument()
+
+        await user.click(within(checkInPanel).getByRole('combobox'))
+        await user.click(screen.getByRole('option', { name: /all trainers/i }))
+
+        expect(within(checkInPanel).getByText(/^Taylor Trainer$/)).toBeInTheDocument()
+        expect(within(checkInPanel).getByText(/^Uma Trainer$/)).toBeInTheDocument()
+    })
+
+    it('handles scheduled check-in trigger callback and action flow', async () => {
+        renderTrainerWellness(users[0])
+
+        expect(triggerCheckInFromScheduler).toBeTypeOf('function')
+        triggerCheckInFromScheduler?.('t1', 'Taylor Trainer')
+
+        expect(toastInfo).toHaveBeenCalledWith(
+            'Wellness Check-In Due',
+            expect.objectContaining({
+                description: expect.stringMatching(/scheduled wellness check-in due now/i),
+                action: expect.objectContaining({ label: 'Open Check-In' }),
+            })
+        )
+
+        const action = toastInfo.mock.calls[0]?.[1]?.action
+        expect(action).toBeDefined()
+        await act(async () => {
+            action.onClick()
+        })
+
+        expect(await screen.findByRole('button', { name: /mock submit check-in/i })).toBeInTheDocument()
     })
 
     it('renders concerns and comments when present in check-in history', async () => {
@@ -618,6 +699,53 @@ describe('TrainerWellness', () => {
         )
 
         triggerSpy.mockRestore()
+    })
+
+    it('closes check-in and schedule dialogs via onClose callbacks', async () => {
+        const user = userEvent.setup()
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('button', { name: /new check-in/i }))
+        expect(screen.getByRole('button', { name: /mock submit check-in/i })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: /mock close check-in/i }))
+        expect(screen.queryByRole('button', { name: /mock submit check-in/i })).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
+        await user.click(screen.getByRole('button', { name: /new schedule/i }))
+        expect(screen.getByRole('button', { name: /mock submit schedule/i })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: /mock close schedule/i }))
+        expect(screen.queryByRole('button', { name: /mock submit schedule/i })).not.toBeInTheDocument()
+    })
+
+    it('renders status badge variants including excellent, fair, and unknown', () => {
+        const statusSpy = vi
+            .spyOn(wellnessAnalytics, 'getWellnessStatus')
+            .mockImplementationOnce(() => 'excellent')
+            .mockImplementationOnce(() => 'fair')
+            .mockImplementation(() => 'unknown' as any)
+
+        renderTrainerWellness(users[0])
+
+        expect(screen.getByText(/^excellent$/i)).toBeInTheDocument()
+        expect(screen.getByText(/^fair$/i)).toBeInTheDocument()
+
+        statusSpy.mockRestore()
+    })
+
+    it('shows plural active recovery plan copy for a trainer with multiple active plans', () => {
+        recoveryPlansState = [
+            recoveryPlansState[0],
+            {
+                ...recoveryPlansState[0],
+                id: 'recovery-2',
+                createdAt: '2026-03-11T00:00:00.000Z',
+            },
+        ]
+
+        renderTrainerWellness(users[0])
+
+        expect(screen.getByText(/2 active recovery plans/i)).toBeInTheDocument()
     })
 
     it('creates a recovery plan from the recovery tab action', async () => {
@@ -703,5 +831,104 @@ describe('TrainerWellness', () => {
 
         expect(() => renderTrainerWellness(users[0])).not.toThrow()
         expect(screen.getByText(/trainer wellness & recovery/i)).toBeInTheDocument()
+    })
+
+    it('uses muted status bar color for unknown wellness status values', () => {
+        const statusSpy = vi.spyOn(wellnessAnalytics, 'getWellnessStatus').mockReturnValue('mystery' as never)
+
+        renderTrainerWellness(users[0])
+
+        const statusBars = document.querySelectorAll('.w-2.h-16.rounded-full')
+        expect(statusBars.length).toBeGreaterThan(0)
+        expect(statusBars[0].className).toContain('bg-muted')
+
+        statusSpy.mockRestore()
+    })
+
+    it('prioritizes active schedules and ignores schedules for missing trainers', async () => {
+        const user = userEvent.setup()
+        schedulesState = [
+            {
+                ...schedulesState[0],
+                id: 'schedule-paused',
+                trainerId: 't1',
+                status: 'paused',
+                nextScheduledDate: '2026-03-17T00:00:00.000Z',
+            },
+            {
+                ...schedulesState[0],
+                id: 'schedule-active',
+                trainerId: 't2',
+                status: 'active',
+                nextScheduledDate: '2026-03-25T00:00:00.000Z',
+            },
+            {
+                ...schedulesState[0],
+                id: 'schedule-missing-trainer',
+                trainerId: 'missing-trainer-id',
+                status: 'active',
+            },
+        ]
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
+
+        const trainerNames = screen.getAllByText(/trainer$/i)
+        expect(trainerNames[0]).toHaveTextContent('Uma Trainer')
+        expect(screen.queryByText(/missing-trainer-id/i)).not.toBeInTheDocument()
+    })
+
+    it('prioritizes active recovery plans above non-active plans', async () => {
+        const user = userEvent.setup()
+        recoveryPlansState = [
+            {
+                ...recoveryPlansState[0],
+                id: 'recovery-completed',
+                trainerId: 't1',
+                status: 'completed',
+                createdAt: '2026-03-11T00:00:00.000Z',
+            },
+            {
+                ...recoveryPlansState[0],
+                id: 'recovery-active',
+                trainerId: 't2',
+                status: 'active',
+                createdAt: '2026-03-01T00:00:00.000Z',
+            },
+        ]
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /recovery plans/i }))
+
+        const planTitles = screen.getAllByText(/- Recovery Plan$/i)
+        expect(planTitles[0]).toHaveTextContent(/^Uma Trainer/i)
+    })
+
+    it('passes empty trainer fallback props to check-in dialog when no trainers exist', async () => {
+        const user = userEvent.setup()
+        const adminOnly: User = {
+            id: 'admin-only',
+            name: 'Admin Only',
+            email: 'admin-only@example.com',
+            role: 'admin',
+            department: 'Operations',
+            certifications: [],
+            hireDate: '2024-01-01',
+        }
+
+        render(
+            <TrainerWellness
+                users={[adminOnly]}
+                sessions={[]}
+                currentUser={adminOnly}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /new check-in/i }))
+
+        expect(screen.getByText('Mock Check-In Props: |')).toBeInTheDocument()
     })
 })

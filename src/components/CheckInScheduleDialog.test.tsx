@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -191,5 +191,79 @@ describe('CheckInScheduleDialog', () => {
 
     // Custom days input should now be visible
     expect(screen.getByLabelText(/custom days/i)).toBeInTheDocument()
+  })
+
+  it('submits custom schedules with customDays, endDate, and trimmed notes', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+
+    render(<CheckInScheduleDialog {...makeProps({ onSubmit })} />)
+
+    await user.click(screen.getByRole('combobox', { name: /trainer/i }))
+    await user.click(await screen.findByRole('option', { name: /alex trainer/i }))
+
+    await user.click(screen.getByRole('combobox', { name: /check-in frequency/i }))
+    await user.click(await screen.findByRole('option', { name: /custom interval/i }))
+
+    await user.clear(screen.getByLabelText(/custom days/i))
+    await user.type(screen.getByLabelText(/custom days/i), '10')
+
+    await user.clear(screen.getByLabelText(/start date/i))
+    await user.type(screen.getByLabelText(/start date/i), '2026-03-01')
+
+    const endDateLabelRow = screen.getByText(/end date \(optional\)/i).closest('div')
+    if (!(endDateLabelRow instanceof HTMLElement)) {
+      throw new Error('End date label row was not found')
+    }
+
+    const endDateSwitch = within(endDateLabelRow).getByRole('switch')
+    await user.click(endDateSwitch)
+    await user.clear(screen.getByLabelText(/end date/i))
+    await user.type(screen.getByLabelText(/end date/i), '2026-03-20')
+
+    await user.type(screen.getByLabelText(/notes/i), '  Follow up with coach  ')
+    await user.click(screen.getByRole('button', { name: /create schedule/i }))
+
+    expect(onSubmit).toHaveBeenCalledOnce()
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trainerId: 't-1',
+        frequency: 'custom',
+        customDays: 10,
+        startDate: new Date('2026-03-01').toISOString(),
+        endDate: new Date('2026-03-20').toISOString(),
+        notes: 'Follow up with coach',
+      })
+    )
+  })
+
+  it('uses existing endDate values in edit mode', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    const existing = makeExistingSchedule({
+      endDate: '2026-04-30T00:00:00.000Z',
+    })
+
+    render(
+      <CheckInScheduleDialog
+        {...makeProps({ onSubmit })}
+        existingSchedule={existing}
+      />
+    )
+
+    const endDateInput = screen.getByLabelText(/end date/i)
+    expect(endDateInput).toBeEnabled()
+    expect((endDateInput as HTMLInputElement).value).not.toBe('')
+
+    await user.click(screen.getByRole('button', { name: /update schedule/i }))
+
+    const expectedEndDate = new Date((endDateInput as HTMLInputElement).value).toISOString()
+
+    expect(onSubmit).toHaveBeenCalledOnce()
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endDate: expectedEndDate,
+      })
+    )
   })
 })

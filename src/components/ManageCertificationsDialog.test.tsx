@@ -48,6 +48,49 @@ describe('ManageCertificationsDialog', () => {
     expect(screen.getByText('Safety Training')).toBeInTheDocument()
   })
 
+  it('resets local draft state when reopening from closed state', async () => {
+    const user = userEvent.setup()
+    const { rerender } = render(
+      <ManageCertificationsDialog
+        {...defaultProps}
+        open={false}
+        certifications={[makeCert({ certificationName: 'Initial Cert' })]}
+      />
+    )
+
+    rerender(
+      <ManageCertificationsDialog
+        {...defaultProps}
+        open={true}
+        certifications={[makeCert({ certificationName: 'Initial Cert' })]}
+      />
+    )
+
+    await user.type(screen.getByLabelText(/certification name/i), 'Unsaved Draft')
+    await user.type(screen.getByLabelText(/issued date/i), '2024-07-01')
+    await user.type(screen.getByLabelText(/expiration date/i), '2026-07-01')
+    await user.click(screen.getByRole('button', { name: /^add certification$/i }))
+    expect(screen.getByText('Unsaved Draft')).toBeInTheDocument()
+
+    rerender(
+      <ManageCertificationsDialog
+        {...defaultProps}
+        open={false}
+        certifications={[makeCert({ certificationName: 'Reopened Cert' })]}
+      />
+    )
+    rerender(
+      <ManageCertificationsDialog
+        {...defaultProps}
+        open={true}
+        certifications={[makeCert({ certificationName: 'Reopened Cert' })]}
+      />
+    )
+
+    expect(screen.queryByText('Unsaved Draft')).not.toBeInTheDocument()
+    expect(screen.getByText('Reopened Cert')).toBeInTheDocument()
+  })
+
   it('adds a new certification to the list', async () => {
     render(<ManageCertificationsDialog {...defaultProps} />)
 
@@ -212,6 +255,28 @@ describe('ManageCertificationsDialog', () => {
     expect(screen.getByText('HazMat')).toBeInTheDocument()
   })
 
+  it('keeps edit mode aligned when deleting an earlier certification', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ManageCertificationsDialog
+        {...defaultProps}
+        certifications={[
+          makeCert({ certificationName: 'CPR' }),
+          makeCert({ certificationName: 'Forklift Safety' }),
+          makeCert({ certificationName: 'HazMat' }),
+        ]}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /edit certification hazmat/i }))
+    await user.click(screen.getByRole('button', { name: /delete certification cpr/i }))
+
+    expect(screen.getByRole('button', { name: /update certification/i })).toBeInTheDocument()
+    expect(screen.getByDisplayValue('HazMat')).toBeInTheDocument()
+    expect(screen.queryByText('CPR')).not.toBeInTheDocument()
+  })
+
   it('calls onOpenChange when Cancel is clicked', async () => {
     const onOpenChange = vi.fn()
     render(<ManageCertificationsDialog {...defaultProps} onOpenChange={onOpenChange} />)
@@ -230,6 +295,72 @@ describe('ManageCertificationsDialog', () => {
     )
 
     expect(screen.getByText(/renewal in progress/i, { selector: 'span' })).toBeInTheDocument()
+  })
+
+  it('applies fallback defaults when editing legacy certifications with missing fields', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    const legacyCert = {
+      certificationName: 'Legacy Cert',
+      issuedDate: '2024-01-01',
+      expirationDate: '2026-01-01',
+      remindersSent: 0,
+      renewalInProgress: false,
+      notes: '',
+    } as unknown as CertificationRecord
+
+    render(
+      <ManageCertificationsDialog
+        {...defaultProps}
+        certifications={[legacyCert]}
+        onSave={onSave}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /edit certification legacy cert/i }))
+    await user.click(screen.getByRole('button', { name: /update certification/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(onSave).toHaveBeenCalledWith([
+      expect.objectContaining({
+        certificationName: 'Legacy Cert',
+        status: 'active',
+        renewalRequired: true,
+      }),
+    ])
+  })
+
+  it('renders notes text and allows toggling renewal flags before add', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+
+    render(<ManageCertificationsDialog {...defaultProps} onSave={onSave} />)
+
+    await user.type(screen.getByLabelText(/certification name/i), 'Forklift Operator')
+    await user.type(screen.getByLabelText(/issued date/i), '2024-08-10')
+    await user.type(screen.getByLabelText(/expiration date/i), '2026-08-10')
+
+    const renewalRequiredSwitch = screen.getAllByRole('switch')[0]
+    const renewalInProgressSwitch = screen.getAllByRole('switch')[1]
+    await user.click(renewalRequiredSwitch)
+    await user.click(renewalInProgressSwitch)
+    await user.type(screen.getByLabelText(/notes/i), 'Needs annual practical check')
+
+    expect(screen.getByText(/^No$/)).toBeInTheDocument()
+    expect(screen.getByText(/^Yes$/)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /^add certification$/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(screen.getByText(/needs annual practical check/i)).toBeInTheDocument()
+    expect(onSave).toHaveBeenCalledWith([
+      expect.objectContaining({
+        certificationName: 'Forklift Operator',
+        renewalRequired: false,
+        renewalInProgress: true,
+        notes: 'Needs annual practical check',
+      }),
+    ])
   })
 
   it('renders mixed status and renewal states without cross-item leakage', () => {

@@ -509,4 +509,114 @@ describe('BurnoutDashboard', () => {
         expect(within(underutilizedCard as HTMLElement).getByText(/uma trainer/i)).toBeInTheDocument()
         expect(within(underutilizedCard as HTMLElement).getByText('42%')).toBeInTheDocument()
     })
+
+    it('uses fallback values when wellness check-ins are undefined and no trainers exist', () => {
+        useKVMock.mockImplementation((key: string, initialValue: unknown) => {
+            if (key === 'wellness-check-ins') return [undefined, vi.fn()]
+            return [initialValue, vi.fn()]
+        })
+
+        render(
+            <BurnoutDashboard
+                users={[createUser({ id: 'emp-1', role: 'employee', name: 'Employee One' })]}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText(/0\.0%/i)).toBeInTheDocument()
+        expect(screen.getByTestId('active-trainers-count')).toHaveTextContent('0')
+        expect(calculateTrainerUtilizationMock).not.toHaveBeenCalled()
+    })
+
+    it('shows stable trend state in trainer details when trend is unchanged', async () => {
+        const user = userEvent.setup()
+
+        getUtilizationTrendMock.mockImplementation((trainer: User) => ({
+            trainerId: trainer.id,
+            trend: 'stable',
+            changeRate: 0,
+            dataPoints: [{ date: '2026-03-10', utilization: 60, hours: 24, sessions: 5 }],
+        }))
+
+        render(
+            <BurnoutDashboard
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByRole('tab', { name: /trainer details/i }))
+        await user.click(screen.getByRole('combobox', { name: /select trainer/i }))
+        await user.click(screen.getByRole('option', { name: /taylor trainer/i }))
+
+        expect(screen.getByText(/^Stable$/i)).toBeInTheDocument()
+    })
+
+    it('passes empty trainerName fallback to utilization chart when selected trainer is missing from users', async () => {
+        const user = userEvent.setup()
+
+        calculateTrainerUtilizationMock.mockImplementation((trainer: User) => {
+            if (trainer.id === 't1') {
+                return {
+                    trainerId: 'missing-trainer',
+                    utilizationRate: 88,
+                    hoursScheduled: 35,
+                    sessionCount: 7,
+                    consecutiveDays: 6,
+                    riskScore: 82,
+                    riskLevel: 'high',
+                    factors: [],
+                    recommendations: ['Add backup trainer'],
+                }
+            }
+
+            return {
+                trainerId: 't2',
+                utilizationRate: 42,
+                hoursScheduled: 17,
+                sessionCount: 3,
+                consecutiveDays: 2,
+                riskScore: 29,
+                riskLevel: 'low',
+                factors: [],
+                recommendations: ['Increase assignments'],
+            }
+        })
+
+        getUtilizationTrendMock.mockImplementation((trainer: User) => {
+            if (trainer.id === 't1') {
+                return {
+                    trainerId: 'missing-trainer',
+                    trend: 'stable',
+                    changeRate: 0,
+                    dataPoints: [{ date: '2026-03-10', utilization: 88, hours: 35, sessions: 7 }],
+                }
+            }
+
+            return {
+                trainerId: 't2',
+                trend: 'stable',
+                changeRate: 0,
+                dataPoints: [{ date: '2026-03-10', utilization: 42, hours: 17, sessions: 3 }],
+            }
+        })
+
+        render(
+            <BurnoutDashboard
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getAllByText('88%')[0])
+        await user.click(screen.getByRole('tab', { name: /trainer details/i }))
+
+        expect(screen.getByText(/^UtilizationChart$/i)).toBeInTheDocument()
+    })
 })

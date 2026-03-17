@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -18,23 +18,37 @@ vi.mock('sonner', () => ({
 }))
 
 vi.mock('./AutoScheduler', () => ({
-  AutoScheduler: ({ onSessionsCreated }: { onSessionsCreated: (sessions: Array<Partial<Session>>) => void }) => (
+  AutoScheduler: ({
+    onSessionsCreated,
+    onClose,
+  }: {
+    onSessionsCreated: (sessions: Array<Partial<Session>>) => void
+    onClose?: () => void
+  }) => (
     <div>
       <div>AutoScheduler Mock</div>
       <button onClick={() => onSessionsCreated([{ id: 'auto-1', courseId: 'c-1', title: 'Auto Created Session' }])}>
         Create Auto Sessions
       </button>
+      <button onClick={() => onClose?.()}>Close Auto Scheduler</button>
     </div>
   ),
 }))
 
 vi.mock('./GuidedScheduler', () => ({
-  GuidedScheduler: ({ onSessionsCreated }: { onSessionsCreated: (sessions: Array<Partial<Session>>) => void }) => (
+  GuidedScheduler: ({
+    onSessionsCreated,
+    onClose,
+  }: {
+    onSessionsCreated: (sessions: Array<Partial<Session>>) => void
+    onClose?: () => void
+  }) => (
     <div>
       <div>GuidedScheduler Mock</div>
       <button onClick={() => onSessionsCreated([{ id: 'guided-1', courseId: 'c-1', title: 'Guided Created Session' }])}>
         Create Guided Sessions
       </button>
+      <button onClick={() => onClose?.()}>Close Guided Scheduler</button>
     </div>
   ),
 }))
@@ -201,6 +215,61 @@ describe('Schedule', () => {
 
     await user.click(screen.getByRole('button', { name: /^month$/i }))
     expect(screen.getByRole('button', { name: /previous month/i })).toBeInTheDocument()
+  })
+
+  it('navigates day, week, and month periods including reset to today', async () => {
+    const user = userEvent.setup()
+
+    renderSchedule()
+
+    await user.click(screen.getByRole('button', { name: /^day$/i }))
+    const dailyHeading = () => screen.getByRole('heading', { level: 3 }).textContent
+    const initialDayHeading = dailyHeading()
+
+    await user.click(screen.getByRole('button', { name: /next day/i }))
+    expect(dailyHeading()).not.toEqual(initialDayHeading)
+
+    await user.click(screen.getByRole('button', { name: /today/i }))
+    expect(dailyHeading()).toEqual(new Date().toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }))
+
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+    const weekHeadingBefore = screen.getByRole('heading', { level: 3 }).textContent
+    await user.click(screen.getByRole('button', { name: /next week/i }))
+    expect(screen.getByRole('heading', { level: 3 }).textContent).not.toEqual(weekHeadingBefore)
+
+    await user.click(screen.getByRole('button', { name: /^month$/i }))
+    const monthHeadingBefore = screen.getByRole('heading', { level: 3 }).textContent
+    await user.click(screen.getByRole('button', { name: /next month/i }))
+    expect(screen.getByRole('heading', { level: 3 }).textContent).not.toEqual(monthHeadingBefore)
+  })
+
+  it('supports previous navigation in day, week, and month periods', async () => {
+    const user = userEvent.setup()
+
+    renderSchedule()
+
+    await user.click(screen.getByRole('button', { name: /^day$/i }))
+    const dayHeadingStart = screen.getByRole('heading', { level: 3 }).textContent
+    await user.click(screen.getByRole('button', { name: /next day/i }))
+    await user.click(screen.getByRole('button', { name: /previous day/i }))
+    expect(screen.getByRole('heading', { level: 3 }).textContent).toEqual(dayHeadingStart)
+
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+    const weekHeadingStart = screen.getByRole('heading', { level: 3 }).textContent
+    await user.click(screen.getByRole('button', { name: /next week/i }))
+    await user.click(screen.getByRole('button', { name: /previous week/i }))
+    expect(screen.getByRole('heading', { level: 3 }).textContent).toEqual(weekHeadingStart)
+
+    await user.click(screen.getByRole('button', { name: /^month$/i }))
+    const monthHeadingStart = screen.getByRole('heading', { level: 3 }).textContent
+    await user.click(screen.getByRole('button', { name: /next month/i }))
+    await user.click(screen.getByRole('button', { name: /previous month/i }))
+    expect(screen.getByRole('heading', { level: 3 }).textContent).toEqual(monthHeadingStart)
   })
 
   it('calls onCreateSession when auto scheduler creates sessions', async () => {
@@ -587,6 +656,102 @@ describe('Schedule', () => {
 
       expect(screen.getByText(/scheduling conflicts/i)).toBeInTheDocument()
       expect(screen.getByText(/drag conflict in daily view/i)).toBeInTheDocument()
+
+      fireEvent.dragLeave(dropZone)
+      expect(screen.queryByText(/scheduling conflicts/i)).not.toBeInTheDocument()
+    } finally {
+      conflictSpy.mockRestore()
+    }
+  })
+
+  it('shows drag-over accent styling in daily view when conflicts are absent', async () => {
+    const user = userEvent.setup()
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts').mockReturnValue({
+      hasConflicts: false,
+      conflicts: [],
+    })
+
+    try {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const startTime = new Date(tomorrow)
+      startTime.setHours(13, 0, 0, 0)
+      const endTime = new Date(tomorrow)
+      endTime.setHours(14, 0, 0, 0)
+
+      const todaySession: Session = {
+        ...baseSession,
+        id: 's-daily-accent',
+        title: 'Daily Accent Session',
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      }
+
+      renderSchedule({ sessions: [todaySession] })
+
+      await user.click(screen.getByRole('button', { name: /^day$/i }))
+      await user.click(screen.getByRole('button', { name: /next day/i }))
+
+      const { sessionCard, dropZone } = getDropZoneForSessionTitle(/daily accent session/i)
+      const dataTransfer = createDragDataTransfer()
+
+      fireEvent.dragStart(sessionCard, { dataTransfer })
+      fireEvent.dragOver(dropZone, { dataTransfer })
+
+      await waitFor(() => {
+        expect(dropZone.className).toContain('border-accent')
+      })
+    } finally {
+      conflictSpy.mockRestore()
+    }
+  })
+
+  it('shows destructive drag-over styling in daily view conflicts on non-today dates', async () => {
+    const user = userEvent.setup()
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts').mockReturnValue({
+      hasConflicts: true,
+      conflicts: [
+        {
+          type: 'trainer',
+          message: 'Non-today daily conflict',
+          severity: 'error',
+          conflictingSessionId: 's-2',
+          conflictingSessionTitle: 'Conflict Session',
+        },
+      ],
+    })
+
+    try {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const startTime = new Date(tomorrow)
+      startTime.setHours(10, 0, 0, 0)
+      const endTime = new Date(tomorrow)
+      endTime.setHours(11, 0, 0, 0)
+
+      const tomorrowSession: Session = {
+        ...baseSession,
+        id: 's-daily-conflict-non-today',
+        title: 'Daily Conflict Non Today',
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+      }
+
+      renderSchedule({ sessions: [tomorrowSession] })
+
+      await user.click(screen.getByRole('button', { name: /^day$/i }))
+      await user.click(screen.getByRole('button', { name: /next day/i }))
+
+      const { sessionCard, dropZone } = getDropZoneForSessionTitle(/daily conflict non today/i)
+      const dataTransfer = createDragDataTransfer()
+
+      fireEvent.dragStart(sessionCard, { dataTransfer })
+      fireEvent.dragOver(dropZone, { dataTransfer })
+
+      expect(screen.getByText(/scheduling conflicts/i)).toBeInTheDocument()
+      expect(dropZone.className).toContain('border-destructive')
     } finally {
       conflictSpy.mockRestore()
     }
@@ -608,10 +773,12 @@ describe('Schedule', () => {
     })
 
     try {
-      const today = new Date()
-      const startTime = new Date(today)
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+
+      const startTime = new Date(tomorrow)
       startTime.setHours(11, 0, 0, 0)
-      const endTime = new Date(today)
+      const endTime = new Date(tomorrow)
       endTime.setHours(12, 0, 0, 0)
 
       const weekSession: Session = {
@@ -633,6 +800,60 @@ describe('Schedule', () => {
       fireEvent.dragOver(dropZone, { dataTransfer })
 
       expect(screen.getByText(/conflict/i)).toBeInTheDocument()
+      expect(dropZone.className).toContain('border-destructive')
+    } finally {
+      conflictSpy.mockRestore()
+    }
+  })
+
+  it('does not run conflict detection during drag-over when no session is being dragged', async () => {
+    const user = userEvent.setup()
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts')
+
+    renderSchedule({ sessions: [baseSession] })
+
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+
+    const { dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
+    fireEvent.dragOver(dropZone, { dataTransfer: createDragDataTransfer() })
+
+    expect(conflictSpy).not.toHaveBeenCalled()
+
+    conflictSpy.mockRestore()
+  })
+
+  it('shows drag-over accent styling in weekly and monthly views when conflicts are absent', async () => {
+    const user = userEvent.setup()
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts').mockReturnValue({
+      hasConflicts: false,
+      conflicts: [],
+    })
+
+    try {
+      renderSchedule({ sessions: [baseSession] })
+
+      await user.click(screen.getByRole('button', { name: /^week$/i }))
+      let zoneInfo = getDropZoneForSessionTitle(/morning safety session/i)
+      let dataTransfer = createDragDataTransfer()
+
+      fireEvent.dragStart(zoneInfo.sessionCard, { dataTransfer })
+      fireEvent.dragOver(zoneInfo.dropZone, { dataTransfer })
+
+      await waitFor(() => {
+        expect(zoneInfo.dropZone.className).toContain('border-accent')
+      })
+      fireEvent.dragEnd(zoneInfo.sessionCard, { dataTransfer })
+
+      await user.click(screen.getByRole('button', { name: /^month$/i }))
+      zoneInfo = getDropZoneForSessionTitle(/morning safety session/i)
+      dataTransfer = createDragDataTransfer()
+
+      fireEvent.dragStart(zoneInfo.sessionCard, { dataTransfer })
+      fireEvent.dragOver(zoneInfo.dropZone, { dataTransfer })
+
+      await waitFor(() => {
+        expect(zoneInfo.dropZone.className).toContain('border-accent')
+      })
     } finally {
       conflictSpy.mockRestore()
     }
@@ -662,6 +883,7 @@ describe('Schedule', () => {
       fireEvent.dragOver(dropZone, { dataTransfer })
 
       expect(screen.getAllByText('⚠️').length).toBeGreaterThan(0)
+      expect(dropZone.className).toContain('bg-destructive/10')
     } finally {
       conflictSpy.mockRestore()
     }
@@ -693,6 +915,46 @@ describe('Schedule', () => {
 
       expect(toastError).toHaveBeenCalledWith('Cannot move session', expect.any(Object))
       expect(onUpdateSession).not.toHaveBeenCalled()
+    } finally {
+      conflictSpy.mockRestore()
+    }
+  })
+
+  it('ignores drop events when no dragged session is active', () => {
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    const { dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
+    fireEvent.drop(dropZone, { dataTransfer: createDragDataTransfer() })
+
+    expect(onUpdateSession).not.toHaveBeenCalled()
+  })
+
+  it('allows drop when conflict detection returns no conflicts', () => {
+    const onUpdateSession = vi.fn()
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts').mockReturnValue({
+      hasConflicts: false,
+      conflicts: [],
+    })
+
+    try {
+      renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+      const { sessionCard, dropZone } = getDropZoneForSessionTitle(/morning safety session/i)
+      const dataTransfer = createDragDataTransfer()
+
+      fireEvent.dragStart(sessionCard, { dataTransfer })
+      fireEvent.drop(dropZone, { dataTransfer })
+
+      expect(onUpdateSession).toHaveBeenCalledWith(
+        's-1',
+        expect.objectContaining({
+          startTime: expect.any(String),
+          endTime: expect.any(String),
+        })
+      )
+      expect(toastSuccess).toHaveBeenCalledWith('Session rescheduled', expect.any(Object))
     } finally {
       conflictSpy.mockRestore()
     }
@@ -733,6 +995,93 @@ describe('Schedule', () => {
     } finally {
       conflictSpy.mockRestore()
     }
+  })
+
+  it('updates status through edit dialog and saves selected value', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    const editDialog = screen.getByRole('dialog', { name: /edit session/i })
+    await user.click(within(editDialog).getByRole('combobox'))
+    await user.click(screen.getByRole('option', { name: /^cancelled$/i }))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(onUpdateSession).toHaveBeenCalledWith(
+      's-1',
+      expect.objectContaining({ status: 'cancelled' })
+    )
+  })
+
+  it('renders completed status in daily cards', async () => {
+    const user = userEvent.setup()
+    const today = new Date()
+    const startTime = new Date(today)
+    startTime.setHours(9, 0, 0, 0)
+    const endTime = new Date(today)
+    endTime.setHours(10, 0, 0, 0)
+
+    const completedToday: Session = {
+      ...baseSession,
+      id: 's-completed-today',
+      title: 'Completed Daily Session',
+      status: 'completed',
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    }
+
+    renderSchedule({ sessions: [completedToday] })
+
+    await user.click(screen.getByRole('button', { name: /^day$/i }))
+
+    expect(screen.getByText(/completed daily session/i)).toBeInTheDocument()
+    expect(screen.getByText(/^completed$/i)).toBeInTheDocument()
+  })
+
+  it('renders outline badge status in daily cards for non-scheduled and non-completed sessions', async () => {
+    const user = userEvent.setup()
+    const today = new Date()
+    const startTime = new Date(today)
+    startTime.setHours(11, 0, 0, 0)
+    const endTime = new Date(today)
+    endTime.setHours(12, 0, 0, 0)
+
+    const cancelledToday: Session = {
+      ...baseSession,
+      id: 's-cancelled-today',
+      title: 'Cancelled Daily Session',
+      status: 'cancelled',
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    }
+
+    renderSchedule({ sessions: [cancelledToday] })
+
+    await user.click(screen.getByRole('button', { name: /^day$/i }))
+
+    expect(screen.getByText(/cancelled daily session/i)).toBeInTheDocument()
+    expect(screen.getByText(/^cancelled$/i)).toBeInTheDocument()
+  })
+
+  it('closes scheduler dialogs when child onClose callbacks are triggered', async () => {
+    const user = userEvent.setup()
+
+    renderSchedule()
+
+    await user.click(screen.getByRole('button', { name: /auto-schedule/i }))
+    expect(screen.getByText(/autoscheduler mock/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /close auto scheduler/i }))
+    expect(screen.queryByText(/autoscheduler mock/i)).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: /guided schedule/i }))
+    expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /close guided scheduler/i }))
+    expect(screen.queryByText(/guidedscheduler mock/i)).not.toBeInTheDocument()
   })
 
   it('handles sessions with various location names', async () => {

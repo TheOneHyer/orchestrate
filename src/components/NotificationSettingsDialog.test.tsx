@@ -150,6 +150,27 @@ describe('NotificationSettingsDialog', () => {
     )
   })
 
+  it('updates medium, high, and critical priority toggles', async () => {
+    const updateSettings = vi.fn()
+    mockUsePushNotifications.mockReturnValue(makeHook({ updateSettings }))
+
+    render(<NotificationSettingsDialog open={true} onOpenChange={vi.fn()} />)
+
+    await userEvent.click(screen.getByLabelText(/medium priority notifications/i))
+    await userEvent.click(screen.getByLabelText(/high priority notifications/i))
+    await userEvent.click(screen.getByLabelText(/critical priority notifications/i))
+
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ showForPriorities: expect.objectContaining({ medium: false }) })
+    )
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ showForPriorities: expect.objectContaining({ high: false }) })
+    )
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ showForPriorities: expect.objectContaining({ critical: false }) })
+    )
+  })
+
   it('calls testNotification when send test notification is clicked', async () => {
     const testNotification = vi.fn()
     mockUsePushNotifications.mockReturnValue(makeHook({ testNotification }))

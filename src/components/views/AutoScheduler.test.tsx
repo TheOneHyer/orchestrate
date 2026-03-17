@@ -182,6 +182,31 @@ describe('AutoScheduler', () => {
         expect(toastSuccess).toHaveBeenCalledWith('Schedule is feasible!')
     })
 
+    it('renders partial trainer availability with conflict details', async () => {
+        findAvailableTrainersMock.mockReturnValueOnce([
+            {
+                trainer: { ...users[0], shifts: ['day'] },
+                score: 78,
+                matchReasons: ['Has required certification'],
+                conflicts: ['Already assigned during selected time'],
+                availability: 'partial',
+            },
+        ])
+
+        render(
+            <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
+        )
+
+        await selectCourseAndDate()
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+        })
+
+        expect(screen.getByText(/partial/i)).toBeInTheDocument()
+        expect(screen.getByText(/already assigned during selected time/i)).toBeInTheDocument()
+    })
+
     it('shows no available trainers alert when analysis returns none', async () => {
         findAvailableTrainersMock.mockReturnValueOnce([])
         analyzeFeasibilityMock.mockReturnValueOnce({ feasible: false })
@@ -219,6 +244,58 @@ describe('AutoScheduler', () => {
         expect(screen.getByText(/sessions created successfully/i)).toBeInTheDocument()
         expect(toastSuccess).toHaveBeenCalledWith('Successfully scheduled 1 session(s)!')
         expect(toastInfo).toHaveBeenCalledWith('Balance workload next week', { duration: 5000 })
+    })
+
+    it('includes recurrence and date-range constraints in auto-schedule payload and supports null sessions store', async () => {
+        useKVMock.mockImplementationOnce((key: string, initialValue: unknown) => {
+            if (key === 'sessions') {
+                return [null, vi.fn()]
+            }
+            return [initialValue, vi.fn()]
+        })
+
+        render(
+            <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
+        )
+
+        await selectCourseAndDate()
+
+        fireEvent.change(screen.getByLabelText(/end date/i), {
+            target: { value: '2026-03-21' },
+        })
+        fireEvent.change(screen.getByLabelText(/start time/i), {
+            target: { value: '08:30' },
+        })
+        fireEvent.change(screen.getByLabelText(/end time/i), {
+            target: { value: '11:45' },
+        })
+        fireEvent.change(screen.getByLabelText(/capacity/i), {
+            target: { value: '16' },
+        })
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('combobox', { name: /recurrence pattern/i }))
+        await user.click(screen.getByRole('option', { name: /^weekly$/i }))
+
+        fireEvent.change(screen.getByLabelText(/^location$/i), { target: { value: 'Room C' } })
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
+        })
+
+        expect(autoScheduleSessionsMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                dates: ['2026-03-20', '2026-03-21'],
+                startTime: '08:30',
+                endTime: '11:45',
+                location: 'Room C',
+                capacity: 16,
+                recurrence: {
+                    frequency: 'weekly',
+                    endDate: '2026-03-21',
+                },
+            })
+        )
     })
 
     it('renders scheduling conflicts when auto-schedule fails', async () => {

@@ -175,6 +175,70 @@ describe('TrainerProfileDialog', () => {
         expect(onOpenChange).toHaveBeenCalledWith(false)
     })
 
+    it('adds authorized role and specialization with Enter key', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+            />
+        )
+
+        const roleInput = await screen.findByPlaceholderText(/add authorized role/i)
+        await user.type(roleInput, 'HazMat Instructor{Enter}')
+
+        const specializationInput = screen.getByPlaceholderText(/add specialization/i)
+        await user.type(specializationInput, 'Warehouse Safety{Enter}')
+
+        await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                trainerProfile: expect.objectContaining({
+                    authorizedRoles: expect.arrayContaining(['HazMat Instructor']),
+                    specializations: expect.arrayContaining(['Warehouse Safety']),
+                }),
+            })
+        )
+    })
+
+    it('ignores blank authorized role and specialization input submissions', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+            />
+        )
+
+        const roleInput = await screen.findByPlaceholderText(/add authorized role/i)
+        await user.type(roleInput, '   ')
+        await user.click(screen.getByRole('button', { name: /add role/i }))
+
+        const specializationInput = screen.getByPlaceholderText(/add specialization/i)
+        await user.type(specializationInput, '   ')
+        await user.click(screen.getByRole('button', { name: /add specialization/i }))
+
+        await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                trainerProfile: expect.objectContaining({
+                    authorizedRoles: [],
+                    specializations: [],
+                }),
+            })
+        )
+    })
+
     it('removes role and specialization badges before save', async () => {
         const user = userEvent.setup()
         const onSave = vi.fn()
@@ -244,6 +308,44 @@ describe('TrainerProfileDialog', () => {
                     maxWeeklyHours: 36,
                     preferredLocation: 'Building C, Room 204',
                     notes: 'Prefers morning cohorts.',
+                }),
+            })
+        )
+    })
+
+    it('clears max weekly hours to undefined when input is emptied', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <TrainerProfileDialog
+                user={makeTrainer({
+                    trainerProfile: {
+                        authorizedRoles: [],
+                        shiftSchedules: [],
+                        tenure: {
+                            hireDate: '2024-01-01T00:00:00.000Z',
+                            yearsOfService: 2,
+                            monthsOfService: 24,
+                        },
+                        specializations: [],
+                        maxWeeklyHours: 40,
+                    },
+                })}
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+            />
+        )
+
+        const maxHoursInput = await screen.findByPlaceholderText(/e\.g\., 40/i)
+        await user.clear(maxHoursInput)
+        await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                trainerProfile: expect.objectContaining({
+                    maxWeeklyHours: undefined,
                 }),
             })
         )
@@ -383,5 +485,28 @@ describe('TrainerProfileDialog', () => {
         )
         const unknownBadge = screen.getByText(/^Active$|^Expired$|^.*d left$|^Unknown$/)
         expect(unknownBadge).toHaveAttribute('data-status', 'unknown')
+    })
+
+    it('renders renewal in progress badge for certification records marked in progress', () => {
+        const cert: CertificationRecord = {
+            certificationName: 'Forklift Safety',
+            issuedDate: '2025-01-01T00:00:00.000Z',
+            expirationDate: '2026-12-01T00:00:00.000Z',
+            status: 'active',
+            renewalRequired: true,
+            remindersSent: 0,
+            renewalInProgress: true,
+        }
+
+        render(
+            <TrainerProfileDialog
+                user={makeTrainerWithCertification(cert)}
+                open
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText(/renewal in progress/i, { selector: 'span' })).toBeInTheDocument()
     })
 })
