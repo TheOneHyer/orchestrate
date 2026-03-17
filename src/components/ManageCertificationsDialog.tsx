@@ -23,7 +23,7 @@ interface ManageCertificationsDialogProps {
   onSave: (certifications: CertificationRecord[]) => void
 }
 
-const EMPTY_FORM_DATA = (): Partial<CertificationRecord> => ({
+const getEmptyFormData = (): Partial<CertificationRecord> => ({
   certificationName: '',
   issuedDate: '',
   expirationDate: '',
@@ -44,7 +44,7 @@ export function ManageCertificationsDialog({
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const prevOpenRef = useRef(open)
 
-  const [formData, setFormData] = useState<Partial<CertificationRecord>>(EMPTY_FORM_DATA)
+  const [formData, setFormData] = useState<Partial<CertificationRecord>>(getEmptyFormData)
 
   useEffect(() => {
     const wasOpen = prevOpenRef.current
@@ -52,7 +52,7 @@ export function ManageCertificationsDialog({
     if (open && !wasOpen) {
       setLocalCerts(certifications)
       setEditingIndex(null)
-      setFormData(EMPTY_FORM_DATA())
+      setFormData(getEmptyFormData())
     }
 
     prevOpenRef.current = open
@@ -83,7 +83,7 @@ export function ManageCertificationsDialog({
       setLocalCerts([...localCerts, newCert])
     }
 
-    setFormData(EMPTY_FORM_DATA())
+    setFormData(getEmptyFormData())
   }
 
   const handleEdit = (index: number) => {
