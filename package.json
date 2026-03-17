@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "kill": "fuser -k 5173/tcp",
+        "kill": "kill-port 5173",
         "kill:unix": "fuser -k 5173/tcp",
         "kill:win": "powershell -Command \"Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }\"",
         "build": "tsc -b --noCheck && vite build",
@@ -98,6 +98,7 @@
         "eslint-plugin-react-refresh": "^0.4.19",
         "globals": "^16.0.0",
         "jsdom": "^26.1.0",
+        "kill-port": "^2.0.1",
         "tailwindcss": "^4.1.11",
         "typescript": "~5.7.2",
         "typescript-eslint": "^8.38.0",

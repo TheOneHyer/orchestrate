@@ -95,7 +95,7 @@ export function NotificationPermissionBanner() {
               <Button size="sm" onClick={handleEnableNotifications} disabled={isRequesting} aria-busy={isRequesting}>
                 {isRequesting ? 'Enabling...' : 'Enable'}
               </Button>
-              <Button size="sm" variant="ghost" onClick={handleDismiss} disabled={isRequesting} aria-disabled={isRequesting}>
+              <Button size="sm" variant="ghost" onClick={handleDismiss} disabled={isRequesting}>
                 Maybe Later
               </Button>
             </div>
