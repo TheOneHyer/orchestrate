@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { TrendUp, TrendDown, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
+import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
 import { User, Enrollment, Session, Course } from '@/lib/types'
 
 interface AnalyticsProps {
@@ -10,14 +10,26 @@ interface AnalyticsProps {
   courses: Course[]
 }
 
+function toStableSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function trainerLabel(count: number): string {
+  return `${count} trainer${count === 1 ? '' : 's'}`
+}
+
 export function Analytics({ users, enrollments, sessions, courses }: AnalyticsProps) {
   const totalEnrollments = enrollments.length
   const completedEnrollments = enrollments.filter(e => e.status === 'completed').length
   const completionRate = totalEnrollments > 0 ? Math.round((completedEnrollments / totalEnrollments) * 100) : 0
-  
+
   const totalSessions = sessions.length
   const completedSessions = sessions.filter(s => s.status === 'completed').length
-  
+
   const averageScore = enrollments
     .filter(e => e.score !== undefined)
     .reduce((sum, e) => sum + (e.score || 0), 0) / enrollments.filter(e => e.score !== undefined).length || 0
@@ -32,7 +44,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
       const courseAvgScore = courseEnrollments
         .filter(e => e.score !== undefined)
         .reduce((sum, e) => sum + (e.score || 0), 0) / courseEnrollments.filter(e => e.score !== undefined).length || 0
-      
+
       return {
         course,
         enrollments: courseEnrollments.length,
@@ -60,7 +72,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">{employeeCount}</div>
+            <div data-testid="employee-count" className="text-3xl font-semibold text-foreground">{employeeCount}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {trainerCount} trainers
             </p>
@@ -75,7 +87,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">{completionRate}%</div>
+            <div data-testid="completion-rate" className="text-3xl font-semibold text-foreground">{completionRate}%</div>
             <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
               <TrendUp size={12} className="text-green-600" />
               {completedEnrollments} of {totalEnrollments}
@@ -91,7 +103,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">{Math.round(averageScore)}%</div>
+            <div data-testid="average-score" className="text-3xl font-semibold text-foreground">{Math.round(averageScore)}%</div>
             <p className="text-xs text-muted-foreground mt-1">
               Across all courses
             </p>
@@ -106,7 +118,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">{completedSessions}/{totalSessions}</div>
+            <div data-testid="sessions-completed" className="text-3xl font-semibold text-foreground">{completedSessions}/{totalSessions}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Completed
             </p>
@@ -152,15 +164,16 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
             {Array.from(new Set(users.map(u => u.department)))
               .map(dept => {
                 const deptUsers = users.filter(u => u.department === dept && u.role === 'employee')
-                const percentage = (deptUsers.length / employeeCount) * 100
-                return { dept, count: deptUsers.length, percentage }
+                const count = deptUsers.length
+                const percentage = employeeCount > 0 ? (count / employeeCount) * 100 : 0
+                return { dept, count, percentage }
               })
               .sort((a, b) => b.count - a.count)
               .map(({ dept, count, percentage }) => (
-                <div key={dept} className="space-y-2">
+                <div key={dept} data-testid={`department-${toStableSlug(dept)}`} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-foreground">{dept}</span>
-                    <span className="text-sm text-muted-foreground">{count} employees</span>
+                    <span className="text-sm text-muted-foreground">{count} employees • {Math.round(percentage)}%</span>
                   </div>
                   <Progress value={percentage} className="h-2" />
                 </div>
@@ -175,28 +188,28 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
           </CardHeader>
           <CardContent className="space-y-3">
             {(() => {
-              const trainersWithSchedules = users.filter(u => 
-                u.role === 'trainer' && 
-                u.trainerProfile?.shiftSchedules && 
+              const trainersWithSchedules = users.filter(u =>
+                u.role === 'trainer' &&
+                u.trainerProfile?.shiftSchedules &&
                 u.trainerProfile.shiftSchedules.length > 0
               )
               const trainersWithoutSchedules = trainerCount - trainersWithSchedules.length
-              const configuredPercentage = (trainersWithSchedules.length / trainerCount) * 100
-              const unconfiguredPercentage = (trainersWithoutSchedules / trainerCount) * 100
-              
+              const configuredPercentage = trainerCount > 0 ? (trainersWithSchedules.length / trainerCount) * 100 : 0
+              const unconfiguredPercentage = trainerCount > 0 ? (trainersWithoutSchedules / trainerCount) * 100 : 0
+
               return (
                 <>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-foreground">Configured</span>
-                      <span className="text-sm text-muted-foreground">{trainersWithSchedules.length} trainers</span>
+                      <span data-testid="configured-trainers" className="text-sm text-muted-foreground">{trainerLabel(trainersWithSchedules.length)} • {Math.round(configuredPercentage)}%</span>
                     </div>
                     <Progress value={configuredPercentage} className="h-2" />
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-foreground">Not Configured</span>
-                      <span className="text-sm text-muted-foreground">{trainersWithoutSchedules} trainers</span>
+                      <span data-testid="unconfigured-trainers" className="text-sm text-muted-foreground">{trainerLabel(trainersWithoutSchedules)} • {Math.round(unconfiguredPercentage)}%</span>
                     </div>
                     <Progress value={unconfiguredPercentage} className="h-2" />
                   </div>

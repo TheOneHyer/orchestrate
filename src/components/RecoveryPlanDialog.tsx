@@ -46,11 +46,17 @@ export function RecoveryPlanDialog({
   const [targetUtilization, setTargetUtilization] = useState(70)
   const [durationWeeks, setDurationWeeks] = useState(4)
   const [triggerReason, setTriggerReason] = useState('')
+  const [triggerReasonTouched, setTriggerReasonTouched] = useState(false)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const [notes, setNotes] = useState('')
   const [actions, setActions] = useState<Omit<RecoveryPlanAction, 'id'>[]>([])
 
   useEffect(() => {
-    if (open && latestCheckIn) {
+    if (!open) return
+    setTriggerReasonTouched(false)
+    setSubmitAttempted(false)
+
+    if (latestCheckIn) {
       const wellnessScore = calculateWellnessScore(latestCheckIn)
       const recommendations = getRecoveryPlanRecommendations(
         currentUtilization,
@@ -71,7 +77,6 @@ export function RecoveryPlanDialog({
       }
 
       setTriggerReason(reason)
-
       const initialActions: Omit<RecoveryPlanAction, 'id'>[] = []
 
       if (currentUtilization >= 85) {
@@ -106,6 +111,12 @@ export function RecoveryPlanDialog({
   }, [open, latestCheckIn, currentUtilization])
 
   const handleSubmit = () => {
+    setSubmitAttempted(true)
+
+    if (!triggerReason.trim() || actions.length === 0) {
+      return
+    }
+
     const plan: Omit<RecoveryPlan, 'id' | 'createdAt'> = {
       trainerId,
       createdBy: currentUser.id,
@@ -131,6 +142,8 @@ export function RecoveryPlanDialog({
     setTargetUtilization(70)
     setDurationWeeks(4)
     setTriggerReason('')
+    setTriggerReasonTouched(false)
+    setSubmitAttempted(false)
     setNotes('')
     setActions([])
     onClose()
@@ -176,11 +189,20 @@ export function RecoveryPlanDialog({
             </Label>
             <Textarea
               id="trigger-reason"
+              aria-invalid={!triggerReason.trim() && (triggerReasonTouched || submitAttempted)}
+              aria-describedby={!triggerReason.trim() && (triggerReasonTouched || submitAttempted) ? 'trigger-reason-error' : undefined}
               value={triggerReason}
-              onChange={(e) => setTriggerReason(e.target.value)}
+              onChange={(e) => {
+                setTriggerReason(e.target.value)
+                setTriggerReasonTouched(true)
+              }}
+              onBlur={() => setTriggerReasonTouched(true)}
               placeholder="Why is this recovery plan needed?"
               rows={3}
             />
+            {!triggerReason.trim() && (triggerReasonTouched || submitAttempted) && (
+              <p id="trigger-reason-error" className="text-sm text-destructive" role="alert">Trigger reason is required</p>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -242,11 +264,16 @@ export function RecoveryPlanDialog({
             </div>
 
             {actions.length === 0 ? (
-              <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
-                <FirstAid className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p className="font-medium">No actions added yet</p>
-                <p className="text-sm mt-1">Add recovery actions using the dropdown above</p>
-              </div>
+              <>
+                <div className="border-2 border-dashed rounded-lg p-8 text-center text-muted-foreground">
+                  <FirstAid className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="font-medium">No actions added yet</p>
+                  <p className="text-sm mt-1">Add recovery actions using the dropdown above</p>
+                </div>
+                {submitAttempted && (
+                  <p className="text-sm text-destructive" role="alert">At least one recovery action is required</p>
+                )}
+              </>
             ) : (
               <div className="space-y-3">
                 {actions.map((action, idx) => (
@@ -258,6 +285,7 @@ export function RecoveryPlanDialog({
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label={`Remove action ${action.type.replace(/-/g, ' ')}`}
                         onClick={() => removeAction(idx)}
                       >
                         <Trash className="h-4 w-4 text-destructive" />
@@ -347,8 +375,8 @@ export function RecoveryPlanDialog({
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleSubmit} 
+          <Button
+            onClick={handleSubmit}
             disabled={!triggerReason.trim() || actions.length === 0}
           >
             Create Recovery Plan

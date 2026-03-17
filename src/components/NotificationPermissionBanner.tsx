@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -9,6 +9,15 @@ export function NotificationPermissionBanner() {
   const { isSupported, settings, requestPermission } = usePushNotifications()
   const [dismissed, setDismissed] = useKV<boolean>('notification-banner-dismissed', false)
   const [isVisible, setIsVisible] = useState(false)
+  const [isRequesting, setIsRequesting] = useState(false)
+  const isMountedRef = useRef(true)
+
+  useEffect(() => {
+    isMountedRef.current = true
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!isSupported) {
@@ -30,13 +39,39 @@ export function NotificationPermissionBanner() {
   }, [isSupported, settings?.permission, dismissed])
 
   const handleEnableNotifications = async () => {
-    const permission = await requestPermission()
-    if (permission === 'granted' || permission === 'denied') {
-      setDismissed(true)
+    if (isRequesting) {
+      return
+    }
+
+    setIsRequesting(true)
+
+    try {
+      const permission = await requestPermission()
+      if (!isMountedRef.current) {
+        return
+      }
+
+      if (permission === 'granted' || permission === 'denied') {
+        setDismissed(true)
+      }
+    } catch (error) {
+      // Dismiss the banner if permission flow fails so users can continue.
+      console.error('notification permission request failed', error)
+      if (isMountedRef.current) {
+        setDismissed(true)
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsRequesting(false)
+      }
     }
   }
 
   const handleDismiss = () => {
+    if (isRequesting) {
+      return
+    }
+
     setDismissed(true)
   }
 
@@ -57,10 +92,10 @@ export function NotificationPermissionBanner() {
               Stay updated with important alerts about trainer schedules, certifications, and system notifications.
             </p>
             <div className="flex gap-2">
-              <Button size="sm" onClick={handleEnableNotifications}>
-                Enable
+              <Button size="sm" onClick={handleEnableNotifications} disabled={isRequesting} aria-busy={isRequesting}>
+                {isRequesting ? 'Enabling...' : 'Enable'}
               </Button>
-              <Button size="sm" variant="ghost" onClick={handleDismiss}>
+              <Button size="sm" variant="ghost" onClick={handleDismiss} disabled={isRequesting}>
                 Maybe Later
               </Button>
             </div>
@@ -70,6 +105,7 @@ export function NotificationPermissionBanner() {
             variant="ghost"
             className="h-6 w-6 p-0 rounded-full"
             onClick={handleDismiss}
+            disabled={isRequesting}
           >
             <X size={16} />
           </Button>

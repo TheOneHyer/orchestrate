@@ -2,6 +2,8 @@ export type UserRole = 'admin' | 'trainer' | 'employee'
 
 export type DayOfWeek = 'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday'
 
+export type ShiftType = 'day' | 'evening' | 'night'
+
 export interface ShiftSchedule {
   shiftCode: string
   daysWorked: DayOfWeek[]
@@ -126,6 +128,7 @@ export interface Notification {
   read: boolean
   createdAt: string
   priority?: 'low' | 'medium' | 'high' | 'critical'
+  metadata?: Record<string, unknown>
 }
 
 export interface QuizQuestion {

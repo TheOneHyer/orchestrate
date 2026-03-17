@@ -1,6 +1,14 @@
 import { User, TrainerProfile, ShiftSchedule, DayOfWeek, ShiftType } from './types'
 import { differenceInYears, differenceInMonths } from 'date-fns'
 
+export type { ShiftType }
+export type TrainerWithShifts = Omit<User, 'shifts'> & {
+  role: 'trainer'
+  shifts: ShiftType[]
+}
+
+export function generateTrainerProfile(user: TrainerWithShifts): TrainerWithShifts & { trainerProfile: TrainerProfile }
+export function generateTrainerProfile(user: User): User
 export function generateTrainerProfile(user: User): User {
   if (user.role !== 'trainer') return user
 

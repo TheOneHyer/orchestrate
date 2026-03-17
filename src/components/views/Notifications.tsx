@@ -3,12 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { 
-  CheckCircle, 
-  Warning, 
-  Info, 
-  Clock, 
-  Users as UsersIcon, 
+import {
+  CheckCircle,
+  Warning,
+  Info,
+  Clock,
+  Users as UsersIcon,
   GraduationCap,
   CalendarDots,
   Gear,
@@ -33,14 +33,14 @@ interface NotificationsProps {
   onNavigate: (view: string, data?: any) => void
 }
 
-export function Notifications({ 
-  notifications, 
-  onMarkAsRead, 
+export function Notifications({
+  notifications,
+  onMarkAsRead,
   onMarkAsUnread,
   onMarkAllAsRead,
   onDismiss,
   onDismissAll,
-  onNavigate 
+  onNavigate
 }: NotificationsProps) {
   const [activeTab, setActiveTab] = useState('all')
   const [showDismissAllDialog, setShowDismissAllDialog] = useState(false)
@@ -51,7 +51,7 @@ export function Notifications({
 
   const getFilteredNotifications = () => {
     let filtered = notifications
-    
+
     switch (activeTab) {
       case 'unread':
         filtered = unreadNotifications
@@ -75,7 +75,7 @@ export function Notifications({
         filtered = notifications.filter(n => n.type === 'workload')
         break
       case 'high-priority':
-        filtered = notifications.filter(n => 
+        filtered = notifications.filter(n =>
           n.priority === 'high' || n.priority === 'critical'
         )
         break
@@ -83,7 +83,7 @@ export function Notifications({
         filtered = notifications
     }
 
-    return filtered.sort((a, b) => 
+    return filtered.sort((a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     )
   }
@@ -137,7 +137,7 @@ export function Notifications({
 
   const getPriorityBadge = (priority?: Notification['priority']) => {
     if (!priority || priority === 'low') return null
-    
+
     const variants = {
       medium: { variant: 'secondary' as const, label: 'Medium' },
       high: { variant: 'default' as const, label: 'High' },
@@ -182,7 +182,7 @@ export function Notifications({
         </div>
         <div className="flex items-center gap-3">
           {unreadNotifications.length > 0 && (
-            <Button 
+            <Button
               variant="outline"
               onClick={onMarkAllAsRead}
             >
@@ -191,7 +191,7 @@ export function Notifications({
             </Button>
           )}
           {readNotifications.length > 0 && (
-            <Button 
+            <Button
               variant="outline"
               onClick={() => handleDismissAllClick('read')}
             >
@@ -200,7 +200,7 @@ export function Notifications({
             </Button>
           )}
           {notifications.length > 0 && (
-            <Button 
+            <Button
               variant="destructive"
               onClick={() => handleDismissAllClick('all')}
             >
@@ -288,13 +288,13 @@ export function Notifications({
                           key={notification.id}
                           className={cn(
                             'group relative flex items-start gap-4 p-4 rounded-lg border transition-all duration-200',
-                            notification.read 
-                              ? 'border-border bg-background hover:bg-secondary/50' 
+                            notification.read
+                              ? 'border-border bg-background hover:bg-secondary/50'
                               : 'border-accent/30 bg-accent/5 hover:bg-accent/10',
                             notification.link && 'cursor-pointer'
                           )}
                         >
-                          <div 
+                          <div
                             onClick={() => handleNotificationClick(notification)}
                             className="flex items-start gap-4 flex-1 min-w-0"
                           >
@@ -330,12 +330,13 @@ export function Notifications({
                               </div>
                             </div>
                           </div>
-                          
-                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
                             {!notification.read ? (
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                aria-label={`Mark ${notification.title} as read`}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   onMarkAsRead(notification.id)
@@ -348,6 +349,7 @@ export function Notifications({
                               <Button
                                 size="sm"
                                 variant="ghost"
+                                aria-label={`Mark ${notification.title} as unread`}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   onMarkAsUnread(notification.id)
@@ -360,6 +362,7 @@ export function Notifications({
                             <Button
                               size="sm"
                               variant="ghost"
+                              aria-label={`Dismiss ${notification.title}`}
                               onClick={(e) => {
                                 e.stopPropagation()
                                 onDismiss(notification.id)
@@ -384,12 +387,12 @@ export function Notifications({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {dismissAllFilter === 'all' 
-                ? 'Clear All Notifications?' 
+              {dismissAllFilter === 'all'
+                ? 'Clear All Notifications?'
                 : 'Clear Read Notifications?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {dismissAllFilter === 'all' 
+              {dismissAllFilter === 'all'
                 ? `This will permanently delete all ${notifications.length} notifications. This action cannot be undone.`
                 : `This will permanently delete ${readNotifications.length} read notifications. This action cannot be undone.`}
             </AlertDialogDescription>

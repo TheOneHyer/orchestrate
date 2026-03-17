@@ -48,8 +48,18 @@ export function AddCertificationDialog({ users, onAddCertification }: AddCertifi
       return
     }
 
+    if (!issuedDate) {
+      toast.error('Please select an issued date')
+      return
+    }
+
     if (!expirationDate) {
       toast.error('Please select an expiration date')
+      return
+    }
+
+    if (expirationDate < issuedDate) {
+      toast.error('Expiration date must be on or after issued date')
       return
     }
 
@@ -93,7 +103,8 @@ export function AddCertificationDialog({ users, onAddCertification }: AddCertifi
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Keep native constraints for semantics; handleSubmit owns validation and toast messaging for consistent UX/testing. */}
+        <form onSubmit={handleSubmit} noValidate className="space-y-6">
           <div className="space-y-4">
             <div>
               <Label htmlFor="cert-name">Certification Name</Label>

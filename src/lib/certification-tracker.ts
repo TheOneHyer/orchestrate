@@ -13,7 +13,7 @@ export function calculateCertificationStatus(cert: CertificationRecord): Certifi
   const now = new Date()
   const expirationDate = parseISO(cert.expirationDate)
   const daysUntilExpiration = differenceInDays(expirationDate, now)
-  
+
   if (daysUntilExpiration < 0) {
     return 'expired'
   } else if (daysUntilExpiration <= 30) {
@@ -26,42 +26,49 @@ export function shouldSendRenewalReminder(cert: CertificationRecord): boolean {
   const now = new Date()
   const expirationDate = parseISO(cert.expirationDate)
   const daysUntilExpiration = differenceInDays(expirationDate, now)
-  
+
   if (cert.lastReminderDate) {
     const daysSinceLastReminder = differenceInDays(now, parseISO(cert.lastReminderDate))
-    if (daysSinceLastReminder < 7) {
+    if (daysSinceLastReminder <= 7) {
       return false
     }
   }
-  
-  if (daysUntilExpiration <= 90 && daysUntilExpiration > 60) {
-    return cert.remindersSent === 0
-  } else if (daysUntilExpiration <= 60 && daysUntilExpiration > 30) {
-    return cert.remindersSent <= 1
-  } else if (daysUntilExpiration <= 30 && daysUntilExpiration > 14) {
-    return cert.remindersSent <= 2
-  } else if (daysUntilExpiration <= 14 && daysUntilExpiration > 7) {
-    return cert.remindersSent <= 3
-  } else if (daysUntilExpiration <= 7 && daysUntilExpiration > 0) {
+
+  const reminderRules = [
+    { maxDays: 90, minDaysExclusive: 60, maxRemindersSent: 0 },
+    { maxDays: 60, minDaysExclusive: 30, maxRemindersSent: 1 },
+    { maxDays: 30, minDaysExclusive: 14, maxRemindersSent: 2 },
+    { maxDays: 14, minDaysExclusive: 7, maxRemindersSent: 3 },
+  ]
+
+  const matchingRule = reminderRules.find(
+    (rule) => daysUntilExpiration <= rule.maxDays && daysUntilExpiration > rule.minDaysExclusive
+  )
+
+  if (matchingRule) {
+    return cert.remindersSent <= matchingRule.maxRemindersSent
+  }
+
+  if (daysUntilExpiration <= 7 && daysUntilExpiration > 0) {
     return true
   }
-  
+
   return false
 }
 
 export function getExpiringCertifications(users: User[]): CertificationAlert[] {
   const alerts: CertificationAlert[] = []
   const now = new Date()
-  
+
   users.forEach(user => {
     if (user.role === 'trainer' && user.trainerProfile?.certificationRecords) {
       user.trainerProfile.certificationRecords.forEach(cert => {
         const expirationDate = parseISO(cert.expirationDate)
         const daysUntilExpiration = differenceInDays(expirationDate, now)
-        
+
         if (daysUntilExpiration <= 90) {
           let urgency: CertificationAlert['urgency'] = 'low'
-          
+
           if (daysUntilExpiration < 0) {
             urgency = 'critical'
           } else if (daysUntilExpiration <= 14) {
@@ -71,7 +78,7 @@ export function getExpiringCertifications(users: User[]): CertificationAlert[] {
           } else if (daysUntilExpiration <= 60) {
             urgency = 'medium'
           }
-          
+
           alerts.push({
             userId: user.id,
             userName: user.name,
@@ -83,7 +90,7 @@ export function getExpiringCertifications(users: User[]): CertificationAlert[] {
       })
     }
   })
-  
+
   return alerts.sort((a, b) => a.daysUntilExpiration - b.daysUntilExpiration)
 }
 
@@ -92,13 +99,13 @@ export function generateCertificationNotification(
   isAdmin: boolean = false
 ): Omit<Notification, 'id' | 'createdAt'> {
   const { certification, daysUntilExpiration, userId, userName } = alert
-  
+
   let title = ''
   let message = ''
   let priority: Notification['priority'] = 'low'
-  
+
   if (daysUntilExpiration < 0) {
-    title = isAdmin 
+    title = isAdmin
       ? `${userName}'s ${certification.certificationName} Certification Expired`
       : `Your ${certification.certificationName} Certification Has Expired`
     message = isAdmin
@@ -154,7 +161,7 @@ export function generateCertificationNotification(
       : 'Early notice: Your certification will expire soon. Keep this on your radar.'
     priority = 'low'
   }
-  
+
   return {
     userId: isAdmin ? 'admin' : userId,
     type: 'reminder',
@@ -173,7 +180,7 @@ export function updateCertificationRecords(users: User[]): User[] {
         ...cert,
         status: calculateCertificationStatus(cert)
       }))
-      
+
       return {
         ...user,
         trainerProfile: {
@@ -191,27 +198,27 @@ export function getCertificationSummary(users: User[]) {
   let activeCertifications = 0
   let expiringSoon = 0
   let expired = 0
-  
+
   users.forEach(user => {
     if (user.role === 'trainer' && user.trainerProfile?.certificationRecords) {
       user.trainerProfile.certificationRecords.forEach(cert => {
         totalCertifications++
         const status = calculateCertificationStatus(cert)
-        
+
         if (status === 'active') activeCertifications++
         else if (status === 'expiring-soon') expiringSoon++
         else if (status === 'expired') expired++
       })
     }
   })
-  
+
   return {
     totalCertifications,
     activeCertifications,
     expiringSoon,
     expired,
-    complianceRate: totalCertifications > 0 
-      ? Math.round((activeCertifications / totalCertifications) * 100) 
+    complianceRate: totalCertifications > 0
+      ? Math.round((activeCertifications / totalCertifications) * 100)
       : 100
   }
 }

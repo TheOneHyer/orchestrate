@@ -1,5 +1,5 @@
 import { User, Session, Course, WellnessCheckIn } from './types'
-import { differenceInDays, startOfWeek, endOfWeek, eachWeekOfInterval, subDays } from 'date-fns'
+import { differenceInDays, startOfDay, startOfWeek, endOfWeek, eachWeekOfInterval, subDays } from 'date-fns'
 import { calculateSessionDuration } from './helpers'
 
 export interface TrainerUtilization {
@@ -51,7 +51,7 @@ export function calculateTrainerUtilization(
   const daysBack = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 90
   const startDate = subDays(now, daysBack)
 
-  const trainerSessions = allSessions.filter(session => 
+  const trainerSessions = allSessions.filter(session =>
     session.trainerId === trainer.id &&
     new Date(session.startTime) >= startDate &&
     new Date(session.startTime) <= now &&
@@ -237,13 +237,11 @@ export function calculateTrainerUtilization(
 function calculateConsecutiveDays(sessions: Session[]): number {
   if (sessions.length === 0) return 0
 
-  const sortedSessions = [...sessions].sort((a, b) => 
-    new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-  )
-
   const uniqueDates = [...new Set(
-    sortedSessions.map(s => new Date(s.startTime).toDateString())
-  )].sort()
+    sessions.map(session => startOfDay(new Date(session.startTime)).getTime())
+  )]
+    .sort((left, right) => left - right)
+    .map(timestamp => new Date(timestamp))
 
   let maxStreak = 1
   let currentStreak = 1
@@ -316,7 +314,7 @@ function generateRecommendations(
 
   if (wellnessCheckIns && wellnessCheckIns.length > 0) {
     const trainerCheckIns = wellnessCheckIns.filter(c => c.trainerId === trainer.id)
-    
+
     if (trainerCheckIns.some(c => c.stress === 'critical' || c.stress === 'high')) {
       recommendations.push('Schedule immediate stress management intervention or counseling')
     }
@@ -349,10 +347,10 @@ export function getUtilizationTrend(
   const startDate = subDays(now, daysBack)
 
   const weeks = eachWeekOfInterval({ start: startDate, end: now })
-  
+
   const dataPoints: DataPoint[] = weeks.map(weekStart => {
     const weekEnd = endOfWeek(weekStart)
-    
+
     const weekSessions = allSessions.filter(session => {
       const sessionDate = new Date(session.startTime)
       return (
@@ -459,18 +457,18 @@ export function calculateBurnoutRisk(
   if (recentCheckIns.length > 0) {
     const avgMood = recentCheckIns.reduce((sum, c) => sum + c.mood, 0) / recentCheckIns.length
     const highStressCount = recentCheckIns.filter(c => c.stress === 'high' || c.stress === 'critical').length
-    
+
     if (avgMood < 2.5) {
       riskScore += 20
       factors.push('Low mood reported in recent check-ins')
     }
-    
+
     if (highStressCount >= 3) {
       riskScore += 25
       factors.push('Consistent high stress levels')
       recommendations.push('Schedule immediate wellness intervention')
     }
-    
+
     const concernsRaised = recentCheckIns.filter(c => c.concerns && c.concerns.length > 0).length
     if (concernsRaised >= 3) {
       riskScore += 15

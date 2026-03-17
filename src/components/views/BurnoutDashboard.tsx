@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { 
-  TrendUp, 
-  TrendDown, 
-  Warning, 
+import {
+  TrendUp,
+  TrendDown,
+  Warning,
   ChartLine,
   Users,
   Calendar,
@@ -21,7 +21,7 @@ import {
   ClockCounterClockwise
 } from '@phosphor-icons/react'
 import { User, Session, Course, WellnessCheckIn } from '@/lib/types'
-import { 
+import {
   calculateTrainerUtilization,
   getUtilizationTrend,
   getBurnoutRiskLevel,
@@ -46,11 +46,11 @@ interface BurnoutDashboardProps {
 export function BurnoutDashboard({ users, sessions, courses, onNavigate }: BurnoutDashboardProps) {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('month')
   const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null)
-  
+
   const [checkIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const { getTrainerHistory } = useRiskHistory(users, sessions, courses, checkIns || [])
 
-  const trainers = useMemo(() => 
+  const trainers = useMemo(() =>
     users.filter(u => u.role === 'trainer'),
     [users]
   )
@@ -58,13 +58,13 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
   const safeCheckIns = checkIns || []
 
   const trainerUtilization = useMemo(() => {
-    return trainers.map(trainer => 
+    return trainers.map(trainer =>
       calculateTrainerUtilization(trainer, sessions, courses, timeRange, safeCheckIns)
     ).sort((a, b) => b.riskScore - a.riskScore)
   }, [trainers, sessions, courses, timeRange, safeCheckIns])
 
   const utilizationTrends = useMemo(() => {
-    return trainers.map(trainer => 
+    return trainers.map(trainer =>
       getUtilizationTrend(trainer, sessions, timeRange)
     )
   }, [trainers, sessions, timeRange])
@@ -72,7 +72,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
   const highRiskTrainers = trainerUtilization.filter(t => t.riskLevel === 'critical' || t.riskLevel === 'high')
   const avgUtilization = trainerUtilization.reduce((sum, t) => sum + t.utilizationRate, 0) / trainerUtilization.length || 0
 
-  const selectedTrainerData = selectedTrainer 
+  const selectedTrainerData = selectedTrainer
     ? trainerUtilization.find(t => t.trainerId === selectedTrainer)
     : null
 
@@ -118,10 +118,10 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
             Monitor workload trends and identify burnout risk early
           </p>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <Select value={timeRange} onValueChange={(v: any) => setTimeRange(v)}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px]" aria-label="Time range">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -180,7 +180,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
             <Users className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{trainers.length}</div>
+            <div className="text-3xl font-bold" data-testid="active-trainers-count">{trainers.length}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Currently scheduled
             </p>
@@ -233,8 +233,8 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <TrendChart 
-                  data={utilizationTrends} 
+                <TrendChart
+                  data={utilizationTrends}
                   timeRange={timeRange}
                 />
               </CardContent>
@@ -304,7 +304,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
         <TabsContent value="trainers" className="space-y-6">
           <div className="flex items-center gap-3 mb-4">
             <Select value={selectedTrainer || ''} onValueChange={setSelectedTrainer}>
-              <SelectTrigger className="w-[300px]">
+              <SelectTrigger className="w-[300px]" aria-label="Select trainer">
                 <SelectValue placeholder="Select a trainer to view details" />
               </SelectTrigger>
               <SelectContent>
@@ -393,7 +393,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <UtilizationChart 
+                  <UtilizationChart
                     data={selectedTrainerTrend.dataPoints}
                     trainerName={trainers.find(t => t.id === selectedTrainer)?.name || ''}
                   />
@@ -415,12 +415,12 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
                 <CardContent>
                   {(() => {
                     if (!selectedTrainer) return null
-                    
+
                     const trainerHistory = getTrainerHistory(selectedTrainer)
                     const aggregatedHistory = aggregateSnapshotsByDay(trainerHistory)
-                    
+
                     return (
-                      <RiskTrendChart 
+                      <RiskTrendChart
                         data={aggregatedHistory.map(snap => ({
                           date: snap.timestamp,
                           riskScore: snap.riskScore,
@@ -509,8 +509,8 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <TrendChart 
-                data={utilizationTrends} 
+              <TrendChart
+                data={utilizationTrends}
                 timeRange={timeRange}
                 showAll={true}
               />
@@ -529,7 +529,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
                 {trainerUtilization.map((trainer) => {
                   const trainerInfo = trainers.find(t => t.id === trainer.trainerId)
                   const trend = utilizationTrends.find(t => t.trainerId === trainer.trainerId)
-                  
+
                   return (
                     <div
                       key={trainer.trainerId}

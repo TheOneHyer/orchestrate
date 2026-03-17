@@ -19,10 +19,10 @@ interface DashboardProps {
   onDismissNotification?: (id: string) => void
 }
 
-export function Dashboard({ 
-  currentUser, 
-  upcomingSessions, 
-  notifications, 
+export function Dashboard({
+  currentUser,
+  upcomingSessions,
+  notifications,
   enrollments,
   courses,
   onNavigate,
@@ -63,7 +63,7 @@ export function Dashboard({
 
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle data-testid="upcoming-sessions-heading" className="text-sm font-medium text-muted-foreground">
               Upcoming Sessions
             </CardTitle>
           </CardHeader>
@@ -84,7 +84,7 @@ export function Dashboard({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">
+            <div data-testid="unread-count" className="text-3xl font-semibold text-foreground">
               {unreadNotifications.length}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
@@ -142,8 +142,8 @@ export function Dashboard({
               })
             )}
             {upcomingSessions.length > 5 && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => onNavigate('schedule')}
               >
@@ -174,17 +174,15 @@ export function Dashboard({
                     onClick={() => {
                       if (notification.link) onNavigate(notification.link)
                     }}
-                    className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-colors text-left ${
-                      notification.read 
-                        ? 'border-border bg-background' 
-                        : 'border-accent/30 bg-accent/5'
-                    }`}
+                    className={`w-full flex items-start gap-3 p-3 rounded-lg border transition-colors text-left ${notification.read
+                      ? 'border-border bg-background'
+                      : 'border-accent/30 bg-accent/5'
+                      }`}
                   >
-                    <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${
-                      notification.type === 'reminder' || notification.type === 'system'
-                        ? 'bg-accent/10'
-                        : 'bg-primary/10'
-                    }`}>
+                    <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${notification.type === 'reminder' || notification.type === 'system'
+                      ? 'bg-accent/10'
+                      : 'bg-primary/10'
+                      }`}>
                       {notification.type === 'reminder' || notification.type === 'system' ? (
                         <Warning size={20} className="text-accent" />
                       ) : (
@@ -209,6 +207,7 @@ export function Dashboard({
                       <Button
                         size="sm"
                         variant="ghost"
+                        aria-label={`Mark ${notification.title} as read`}
                         onClick={(e) => {
                           e.stopPropagation()
                           onMarkNotificationAsRead(notification.id)
@@ -222,6 +221,7 @@ export function Dashboard({
                       <Button
                         size="sm"
                         variant="ghost"
+                        aria-label={`Dismiss ${notification.title}`}
                         onClick={(e) => {
                           e.stopPropagation()
                           onDismissNotification(notification.id)
@@ -236,8 +236,8 @@ export function Dashboard({
               ))
             )}
             {notifications.length > 5 && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="w-full"
                 onClick={() => onNavigate('notifications')}
               >
@@ -258,7 +258,7 @@ export function Dashboard({
             {activeEnrollments.slice(0, 3).map(enrollment => {
               const course = courses.find(c => c.id === enrollment.courseId)
               if (!course) return null
-              
+
               return (
                 <button
                   key={enrollment.id}

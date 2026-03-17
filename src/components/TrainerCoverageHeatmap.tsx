@@ -30,7 +30,7 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
   const certFilter = selectedCertification ?? internalCertFilter
   const setCertFilter = onCertificationChange ?? setInternalCertFilter
 
-  const allTrainers = useMemo(() => 
+  const allTrainers = useMemo(() =>
     users.filter(u => u.role === 'trainer'),
     [users]
   )
@@ -52,13 +52,13 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
   const parseTime = (timeStr: string): number => {
     const [time, period] = timeStr.split(' ')
     let [hours, minutes] = time.split(':').map(Number)
-    
+
     if (period === 'PM' && hours !== 12) {
       hours += 12
     } else if (period === 'AM' && hours === 12) {
       hours = 0
     }
-    
+
     return hours + (minutes || 0) / 60
   }
 
@@ -80,14 +80,14 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
 
         trainers.forEach(trainer => {
           const schedules = trainer.trainerProfile?.shiftSchedules || []
-          
+
           schedules.forEach(schedule => {
             if (schedule.daysWorked.includes(day)) {
               const startHour = parseTime(schedule.startTime)
               const endHour = parseTime(schedule.endTime)
 
               let isWorking = false
-              
+
               if (startHour < endHour) {
                 isWorking = hour >= Math.floor(startHour) && hour < Math.ceil(endHour)
               } else {
@@ -114,11 +114,11 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
 
   const getHeatmapColor = (count: number, target: number) => {
     const ratio = count / target
-    
+
     if (count === 0) {
       return 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800'
     }
-    
+
     if (ratio >= 1) {
       return 'bg-green-500 dark:bg-green-600 border-green-600 dark:border-green-700 text-white'
     } else if (ratio >= 0.75) {
@@ -128,8 +128,20 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     } else if (ratio > 0) {
       return 'bg-red-400 dark:bg-red-500 border-red-500 dark:border-red-600 text-white'
     }
-    
+
     return 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800'
+  }
+
+  const getCoverageTier = (count: number, target: number) => {
+    if (count === 0) return 0
+
+    const ratio = count / target
+    if (ratio >= 1) return 4
+    if (ratio >= 0.75) return 3
+    if (ratio >= 0.5) return 2
+    if (ratio > 0) return 1
+
+    return 0
   }
 
   const formatHour = (hour: number) => {
@@ -171,7 +183,7 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
             {!onCertificationChange && allCertifications.length > 0 && (
               <div className="flex items-center gap-2">
                 <Select value={certFilter} onValueChange={setCertFilter}>
-                  <SelectTrigger className="w-[180px] h-8 text-xs">
+                  <SelectTrigger aria-label="Certification filter" className="w-[180px] h-8 text-xs">
                     <SelectValue placeholder="All Certifications" />
                   </SelectTrigger>
                   <SelectContent>
@@ -295,6 +307,9 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div
+                                data-day={key}
+                                data-hour={hourData.hour}
+                                data-coverage-tier={getCoverageTier(hourData.count, targetCoverage || 4)}
                                 className={`p-1 flex items-center justify-center text-[10px] font-semibold cursor-help transition-colors hover:opacity-80 border ${getHeatmapColor(hourData.count, targetCoverage || 4)}`}
                               >
                                 {hourData.count > 0 ? hourData.count : ''}
@@ -331,7 +346,7 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
 
             <div className="pt-2 text-xs text-muted-foreground">
               <p>
-                Hover over any cell to see which trainers are working during that hour. 
+                Hover over any cell to see which trainers are working during that hour.
                 Target coverage is set to <span className="font-semibold">{targetCoverage || 4}</span> trainer{(targetCoverage || 4) !== 1 ? 's' : ''} per hour.
                 {certFilter !== 'all' && (
                   <span className="ml-1">

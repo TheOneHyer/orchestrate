@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -7,9 +8,26 @@ import { Bell } from '@phosphor-icons/react'
 
 export function NotificationSoundSettings() {
   const { settings: pushSettings, updateSettings: updatePushSettings, requestPermission, testNotification, isSupported } = usePushNotifications()
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const handleRequestPushPermission = async () => {
-    await requestPermission()
+    setErrorMessage(null)
+    try {
+      await requestPermission()
+    } catch (error) {
+      console.error('Failed to request browser notification permission', error)
+      setErrorMessage('Unable to enable notifications. Please try again.')
+    }
+  }
+
+  const handleUpdatePushSettings = async (updates: Parameters<typeof updatePushSettings>[0]) => {
+    setErrorMessage(null)
+    try {
+      await updatePushSettings(updates)
+    } catch (error) {
+      console.error('Failed to update browser notification settings', error)
+      setErrorMessage('Unable to update notification settings. Please try again.')
+    }
   }
 
   if (!pushSettings) {
@@ -33,6 +51,11 @@ export function NotificationSoundSettings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {errorMessage && (
+            <div role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              {errorMessage}
+            </div>
+          )}
           {!isSupported ? (
             <div className="rounded-md bg-muted p-4 text-sm text-muted-foreground">
               Browser notifications are not supported in your browser
@@ -67,7 +90,7 @@ export function NotificationSoundSettings() {
                     <Switch
                       id="push-enabled"
                       checked={pushSettings.enabled}
-                      onCheckedChange={(enabled) => updatePushSettings({ enabled })}
+                      onCheckedChange={(enabled) => void handleUpdatePushSettings({ enabled })}
                     />
                   </div>
 
@@ -82,7 +105,7 @@ export function NotificationSoundSettings() {
                               id="priority-low"
                               checked={pushSettings.showForPriorities.low}
                               onCheckedChange={(checked) =>
-                                updatePushSettings({
+                                void handleUpdatePushSettings({
                                   showForPriorities: {
                                     ...pushSettings.showForPriorities,
                                     low: checked
@@ -97,7 +120,7 @@ export function NotificationSoundSettings() {
                               id="priority-medium"
                               checked={pushSettings.showForPriorities.medium}
                               onCheckedChange={(checked) =>
-                                updatePushSettings({
+                                void handleUpdatePushSettings({
                                   showForPriorities: {
                                     ...pushSettings.showForPriorities,
                                     medium: checked
@@ -112,7 +135,7 @@ export function NotificationSoundSettings() {
                               id="priority-high"
                               checked={pushSettings.showForPriorities.high}
                               onCheckedChange={(checked) =>
-                                updatePushSettings({
+                                void handleUpdatePushSettings({
                                   showForPriorities: {
                                     ...pushSettings.showForPriorities,
                                     high: checked
@@ -127,7 +150,7 @@ export function NotificationSoundSettings() {
                               id="priority-critical"
                               checked={pushSettings.showForPriorities.critical}
                               onCheckedChange={(checked) =>
-                                updatePushSettings({
+                                void handleUpdatePushSettings({
                                   showForPriorities: {
                                     ...pushSettings.showForPriorities,
                                     critical: checked

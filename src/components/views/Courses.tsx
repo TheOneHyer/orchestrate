@@ -56,7 +56,7 @@ export function Courses({ courses, enrollments, currentUser, onNavigate }: Cours
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredCourses.map(course => {
           const enrollment = getEnrollmentForCourse(course.id)
-          
+
           return (
             <Card key={course.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => onNavigate('courses', { courseId: course.id })}>
               <CardHeader>
@@ -80,10 +80,10 @@ export function Courses({ courses, enrollments, currentUser, onNavigate }: Cours
                     {formatDuration(course.duration)}
                   </span>
                   <span className="text-muted-foreground">
-                    {course.modules.length} modules
+                    {course.modules.length} module{course.modules.length === 1 ? '' : 's'}
                   </span>
                 </div>
-                
+
                 {course.certifications.length > 0 && (
                   <div className="flex flex-wrap gap-1">
                     {course.certifications.slice(0, 2).map(cert => (

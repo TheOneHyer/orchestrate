@@ -4,13 +4,12 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
-import { 
-  Warning, 
-  CheckCircle, 
-  Info, 
-  TrendUp, 
-  TrendDown, 
-  Users as UsersIcon,
+import {
+  Warning,
+  CheckCircle,
+  Info,
+  TrendUp,
+  TrendDown,
   ArrowsLeftRight,
   UserPlus,
   Gauge
@@ -25,11 +24,11 @@ interface WorkloadRecommendationsProps {
   onApplyRecommendation?: (recommendation: WorkloadRecommendation) => void
 }
 
-export function WorkloadRecommendations({ 
-  analysis, 
+export function WorkloadRecommendations({
+  analysis,
   users,
   onViewTrainer,
-  onApplyRecommendation 
+  onApplyRecommendation
 }: WorkloadRecommendationsProps) {
   const { recommendations, balanceScore, overutilizedTrainers, underutilizedTrainers } = analysis
 
@@ -125,19 +124,19 @@ export function WorkloadRecommendations({
         <CardContent>
           <Progress value={balanceScore} className="h-2" />
           <div className="grid grid-cols-3 gap-4 mt-4">
-            <div className="text-center p-3 rounded-lg bg-secondary/50">
+            <div data-testid="overutilized-tile" className="text-center p-3 rounded-lg bg-secondary/50">
               <div className="text-2xl font-semibold text-foreground">
                 {overutilizedTrainers.length}
               </div>
               <div className="text-xs text-muted-foreground mt-1">Overutilized</div>
             </div>
-            <div className="text-center p-3 rounded-lg bg-secondary/50">
+            <div data-testid="balanced-tile" className="text-center p-3 rounded-lg bg-secondary/50">
               <div className="text-2xl font-semibold text-foreground">
                 {analysis.workloads.length - overutilizedTrainers.length - underutilizedTrainers.length}
               </div>
               <div className="text-xs text-muted-foreground mt-1">Balanced</div>
             </div>
-            <div className="text-center p-3 rounded-lg bg-secondary/50">
+            <div data-testid="underutilized-tile" className="text-center p-3 rounded-lg bg-secondary/50">
               <div className="text-2xl font-semibold text-foreground">
                 {underutilizedTrainers.length}
               </div>

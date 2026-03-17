@@ -99,10 +99,10 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
         (current || []).map((t) =>
           t.id === selectedTemplate.id
             ? {
-                ...t,
-                usageCount: t.usageCount + 1,
-                lastUsed: new Date().toISOString()
-              }
+              ...t,
+              usageCount: t.usageCount + 1,
+              lastUsed: new Date().toISOString()
+            }
             : t
         )
       )
@@ -112,7 +112,8 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
       onCreateSessions(sessions)
     }
 
-    toast.success(`${sessions.length} sessions created successfully`)
+    const sessionLabel = sessions.length === 1 ? 'session' : 'sessions'
+    toast.success(`${sessions.length} ${sessionLabel} created successfully`)
     setApplyDialogOpen(false)
     setSelectedTemplate(null)
   }
@@ -198,7 +199,7 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTemplates.map((template) => (
-            <Card key={template.id} className="p-4 hover:shadow-md transition-shadow">
+            <Card key={template.id} data-testid={`template-card-${template.id}`} className="p-4 hover:shadow-md transition-shadow">
               <div className="flex flex-col gap-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -212,7 +213,7 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleApplyTemplate(template)}>
+                      <DropdownMenuItem onClick={() => handleApplyTemplate(template)} data-testid="dropdown-apply-template">
                         <Play size={16} className="mr-2" />
                         Apply Template
                       </DropdownMenuItem>
@@ -274,7 +275,11 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
                   )}
                 </div>
 
-                <Button onClick={() => handleApplyTemplate(template)} className="w-full mt-2">
+                <Button
+                  data-testid={`apply-template-${template.id}`}
+                  onClick={() => handleApplyTemplate(template)}
+                  className="w-full mt-2"
+                >
                   <Play size={16} className="mr-2" />
                   Apply Template
                 </Button>

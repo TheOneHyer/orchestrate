@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +23,17 @@ interface ManageCertificationsDialogProps {
   onSave: (certifications: CertificationRecord[]) => void
 }
 
+const getEmptyFormData = (): Partial<CertificationRecord> => ({
+  certificationName: '',
+  issuedDate: '',
+  expirationDate: '',
+  status: 'active',
+  renewalRequired: true,
+  remindersSent: 0,
+  renewalInProgress: false,
+  notes: ''
+})
+
 export function ManageCertificationsDialog({
   open,
   onOpenChange,
@@ -31,23 +42,27 @@ export function ManageCertificationsDialog({
 }: ManageCertificationsDialogProps) {
   const [localCerts, setLocalCerts] = useState<CertificationRecord[]>(certifications)
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
-  
-  const [formData, setFormData] = useState<Partial<CertificationRecord>>({
-    certificationName: '',
-    issuedDate: '',
-    expirationDate: '',
-    status: 'active',
-    renewalRequired: true,
-    remindersSent: 0,
-    renewalInProgress: false,
-    notes: ''
-  })
-  
+  const prevOpenRef = useRef(open)
+
+  const [formData, setFormData] = useState<Partial<CertificationRecord>>(getEmptyFormData)
+
+  useEffect(() => {
+    const wasOpen = prevOpenRef.current
+
+    if (open && !wasOpen) {
+      setLocalCerts(certifications)
+      setEditingIndex(null)
+      setFormData(getEmptyFormData())
+    }
+
+    prevOpenRef.current = open
+  }, [open, certifications])
+
   const handleAdd = () => {
     if (!formData.certificationName || !formData.issuedDate || !formData.expirationDate) {
       return
     }
-    
+
     const newCert: CertificationRecord = {
       certificationName: formData.certificationName,
       issuedDate: formData.issuedDate,
@@ -58,7 +73,7 @@ export function ManageCertificationsDialog({
       renewalInProgress: formData.renewalInProgress || false,
       notes: formData.notes || ''
     }
-    
+
     if (editingIndex !== null) {
       const updated = [...localCerts]
       updated[editingIndex] = newCert
@@ -67,48 +82,42 @@ export function ManageCertificationsDialog({
     } else {
       setLocalCerts([...localCerts, newCert])
     }
-    
-    setFormData({
-      certificationName: '',
-      issuedDate: '',
-      expirationDate: '',
-      status: 'active',
-      renewalRequired: true,
-      remindersSent: 0,
-      renewalInProgress: false,
-      notes: ''
-    })
+
+    setFormData(getEmptyFormData())
   }
-  
+
   const handleEdit = (index: number) => {
     setEditingIndex(index)
     setFormData(localCerts[index])
   }
-  
+
   const handleDelete = (index: number) => {
     setLocalCerts(localCerts.filter((_, i) => i !== index))
+
+    if (editingIndex === null) return
+
+    if (index === editingIndex) {
+      setEditingIndex(null)
+      setFormData(getEmptyFormData())
+      return
+    }
+
+    if (index < editingIndex) {
+      setEditingIndex(editingIndex - 1)
+    }
   }
-  
+
   const handleSave = () => {
     onSave(localCerts)
     onOpenChange(false)
   }
-  
+
   const handleCancel = () => {
     setLocalCerts(certifications)
     setEditingIndex(null)
-    setFormData({
-      certificationName: '',
-      issuedDate: '',
-      expirationDate: '',
-      status: 'active',
-      renewalRequired: true,
-      remindersSent: 0,
-      renewalInProgress: false,
-      notes: ''
-    })
+    setFormData(getEmptyFormData())
   }
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -118,13 +127,13 @@ export function ManageCertificationsDialog({
             Add, edit, or remove trainer certifications and track expiration dates
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-6">
           <div className="border rounded-lg p-4 bg-muted/30">
             <h3 className="font-semibold mb-4">
               {editingIndex !== null ? 'Edit Certification' : 'Add New Certification'}
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="cert-name">Certification Name *</Label>
@@ -135,7 +144,7 @@ export function ManageCertificationsDialog({
                   placeholder="e.g., OSHA Safety Training"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="issued-date">Issued Date *</Label>
                 <Input
@@ -145,7 +154,7 @@ export function ManageCertificationsDialog({
                   onChange={(e) => setFormData({ ...formData, issuedDate: e.target.value })}
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="expiration-date">Expiration Date *</Label>
                 <Input
@@ -155,11 +164,12 @@ export function ManageCertificationsDialog({
                   onChange={(e) => setFormData({ ...formData, expirationDate: e.target.value })}
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <Label>Renewal Required</Label>
+                <Label htmlFor="renewal-required">Renewal Required</Label>
                 <div className="flex items-center gap-2 h-10">
                   <Switch
+                    id="renewal-required"
                     checked={formData.renewalRequired ?? true}
                     onCheckedChange={(checked) => setFormData({ ...formData, renewalRequired: checked })}
                   />
@@ -168,11 +178,12 @@ export function ManageCertificationsDialog({
                   </span>
                 </div>
               </div>
-              
+
               <div className="space-y-2">
-                <Label>Renewal in Progress</Label>
+                <Label htmlFor="renewal-in-progress">Renewal in Progress</Label>
                 <div className="flex items-center gap-2 h-10">
                   <Switch
+                    id="renewal-in-progress"
                     checked={formData.renewalInProgress || false}
                     onCheckedChange={(checked) => setFormData({ ...formData, renewalInProgress: checked })}
                   />
@@ -181,7 +192,7 @@ export function ManageCertificationsDialog({
                   </span>
                 </div>
               </div>
-              
+
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="notes">Notes</Label>
                 <Textarea
@@ -193,7 +204,7 @@ export function ManageCertificationsDialog({
                 />
               </div>
             </div>
-            
+
             <div className="flex gap-2 mt-4">
               <Button onClick={handleAdd} disabled={!formData.certificationName || !formData.issuedDate || !formData.expirationDate}>
                 <Plus weight="bold" />
@@ -206,10 +217,10 @@ export function ManageCertificationsDialog({
               )}
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <h3 className="font-semibold">Current Certifications ({localCerts.length})</h3>
-            
+
             {localCerts.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground border rounded-lg">
                 <p>No certifications added yet</p>
@@ -219,7 +230,8 @@ export function ManageCertificationsDialog({
               <div className="space-y-2">
                 {localCerts.map((cert, index) => (
                   <div
-                    key={index}
+                    key={`${cert.certificationName}-${cert.issuedDate}-${index}`}
+                    data-testid={`certification-item-${cert.certificationName.toLowerCase().replace(/\s+/g, '-')}-${index}`}
                     className="flex items-center justify-between p-4 border rounded-lg bg-card hover:bg-muted/30 transition-colors"
                   >
                     <div className="flex-1">
@@ -244,6 +256,7 @@ export function ManageCertificationsDialog({
                       <Button
                         variant="outline"
                         size="sm"
+                        aria-label={`Edit certification ${cert.certificationName}`}
                         onClick={() => handleEdit(index)}
                       >
                         Edit
@@ -251,6 +264,7 @@ export function ManageCertificationsDialog({
                       <Button
                         variant="destructive"
                         size="sm"
+                        aria-label={`Delete certification ${cert.certificationName}`}
                         onClick={() => handleDelete(index)}
                       >
                         <X weight="bold" />
@@ -262,7 +276,7 @@ export function ManageCertificationsDialog({
             )}
           </div>
         </div>
-        
+
         <DialogFooter>
           <Button variant="outline" onClick={() => { onOpenChange(false); handleCancel(); }}>
             Cancel

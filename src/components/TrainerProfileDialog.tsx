@@ -41,7 +41,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     if (!editedUser.trainerProfile) {
       const yearsOfService = differenceInYears(new Date(), new Date(editedUser.hireDate))
       const monthsOfService = differenceInMonths(new Date(), new Date(editedUser.hireDate))
-      
+
       setEditedUser({
         ...editedUser,
         trainerProfile: {
@@ -61,18 +61,18 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
   const calculateHoursPerWeek = (schedule: ShiftSchedule): number => {
     const [startHour, startMinute] = schedule.startTime.split(':').map(Number)
     const [endHour, endMinute] = schedule.endTime.split(':').map(Number)
-    
+
     const startTotalMinutes = startHour * 60 + startMinute
     const endTotalMinutes = endHour * 60 + endMinute
-    
+
     let durationMinutes = endTotalMinutes - startTotalMinutes
-    
+
     if (durationMinutes < 0) {
       durationMinutes += 24 * 60
     }
-    
+
     const hoursPerDay = durationMinutes / 60
-    
+
     return hoursPerDay * schedule.daysWorked.length
   }
 
@@ -195,7 +195,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
 
   const handleCertificationsSave = (certifications: CertificationRecord[]) => {
     if (!editedUser.trainerProfile) return
-    
+
     setEditedUser({
       ...editedUser,
       trainerProfile: {
@@ -303,6 +303,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                             <Button
                               variant="destructive"
                               size="sm"
+                              aria-label={`Remove schedule ${index + 1}`}
                               onClick={() => removeShiftSchedule(index)}
                             >
                               <Trash size={16} weight="bold" />
@@ -316,6 +317,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                           <Label>Start Time</Label>
                           <Input
                             type="time"
+                            aria-label={`Schedule ${index + 1} start time`}
                             value={schedule.startTime}
                             onChange={(e) => updateShiftSchedule(index, { startTime: e.target.value })}
                           />
@@ -324,6 +326,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                           <Label>End Time</Label>
                           <Input
                             type="time"
+                            aria-label={`Schedule ${index + 1} end time`}
                             value={schedule.endTime}
                             onChange={(e) => updateShiftSchedule(index, { endTime: e.target.value })}
                           />
@@ -386,6 +389,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                   onKeyPress={(e) => e.key === 'Enter' && addAuthorizedRole()}
                 />
                 <Button onClick={addAuthorizedRole}>
+                  <span className="sr-only">Add role</span>
                   <Plus size={16} weight="bold" />
                 </Button>
               </div>
@@ -422,6 +426,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                   onKeyPress={(e) => e.key === 'Enter' && addSpecialization()}
                 />
                 <Button onClick={addSpecialization}>
+                  <span className="sr-only">Add specialization</span>
                   <Plus size={16} weight="bold" />
                 </Button>
               </div>
@@ -472,7 +477,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                     const daysUntil = Math.floor(
                       (new Date(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
                     )
-                    
+
                     return (
                       <div
                         key={index}
@@ -491,10 +496,11 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                             Expires: {format(parseISO(cert.expirationDate), 'MMM d, yyyy')}
                           </p>
                         </div>
-                        <Badge className={getStatusColor(status)}>
+                        <Badge className={getStatusColor(status)} data-status={status}>
                           {status === 'expired' && 'Expired'}
                           {status === 'expiring-soon' && `${daysUntil}d left`}
                           {status === 'active' && 'Active'}
+                          {status !== 'expired' && status !== 'expiring-soon' && status !== 'active' && 'Unknown'}
                         </Badge>
                       </div>
                     )
@@ -572,7 +578,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
           <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
-      
+
       <ManageCertificationsDialog
         open={certDialogOpen}
         onOpenChange={setCertDialogOpen}

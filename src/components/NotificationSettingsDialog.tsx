@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -30,11 +30,25 @@ export function NotificationSettingsDialog({ open, onOpenChange }: NotificationS
   } = usePushNotifications()
 
   const [isRequestingPermission, setIsRequestingPermission] = useState(false)
+  const [permissionError, setPermissionError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!open) {
+      setPermissionError(null)
+    }
+  }, [open])
 
   const handleRequestPermission = async () => {
+    setPermissionError(null)
     setIsRequestingPermission(true)
-    await requestPermission()
-    setIsRequestingPermission(false)
+    try {
+      await requestPermission()
+    } catch (error) {
+      console.error('notification permission request failed', error)
+      setPermissionError('Unable to request notification permission. Please try again.')
+    } finally {
+      setIsRequestingPermission(false)
+    }
   }
 
   return (
@@ -70,6 +84,11 @@ export function NotificationSettingsDialog({ open, onOpenChange }: NotificationS
                     <p className="text-sm text-muted-foreground">
                       Browser notifications allow you to receive alerts even when TrainSync is not in focus.
                     </p>
+                    {permissionError && (
+                      <p className="text-sm text-destructive" role="alert">
+                        {permissionError}
+                      </p>
+                    )}
                     <Button
                       onClick={handleRequestPermission}
                       disabled={isRequestingPermission}
@@ -125,9 +144,10 @@ export function NotificationSettingsDialog({ open, onOpenChange }: NotificationS
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="bg-muted">Low</Badge>
-                                <span className="text-sm">Low priority notifications</span>
+                                <Label htmlFor="priority-low" className="text-sm font-normal">Low priority notifications</Label>
                               </div>
                               <Switch
+                                id="priority-low"
                                 checked={pushSettings.showForPriorities.low}
                                 onCheckedChange={(checked) =>
                                   updatePushSettings({
@@ -143,9 +163,10 @@ export function NotificationSettingsDialog({ open, onOpenChange }: NotificationS
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/30">Medium</Badge>
-                                <span className="text-sm">Medium priority notifications</span>
+                                <Label htmlFor="priority-medium" className="text-sm font-normal">Medium priority notifications</Label>
                               </div>
                               <Switch
+                                id="priority-medium"
                                 checked={pushSettings.showForPriorities.medium}
                                 onCheckedChange={(checked) =>
                                   updatePushSettings({
@@ -161,9 +182,10 @@ export function NotificationSettingsDialog({ open, onOpenChange }: NotificationS
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Badge variant="outline" className="bg-accent">High</Badge>
-                                <span className="text-sm">High priority notifications</span>
+                                <Label htmlFor="priority-high" className="text-sm font-normal">High priority notifications</Label>
                               </div>
                               <Switch
+                                id="priority-high"
                                 checked={pushSettings.showForPriorities.high}
                                 onCheckedChange={(checked) =>
                                   updatePushSettings({
@@ -179,9 +201,10 @@ export function NotificationSettingsDialog({ open, onOpenChange }: NotificationS
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <Badge variant="destructive">Critical</Badge>
-                                <span className="text-sm">Critical priority notifications</span>
+                                <Label htmlFor="priority-critical" className="text-sm font-normal">Critical priority notifications</Label>
                               </div>
                               <Switch
+                                id="priority-critical"
                                 checked={pushSettings.showForPriorities.critical}
                                 onCheckedChange={(checked) =>
                                   updatePushSettings({

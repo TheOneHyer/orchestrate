@@ -1,0 +1,135 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+
+import { DeletePersonDialog } from './DeletePersonDialog'
+import type { User } from '@/lib/types'
+
+function createUser(overrides: Partial<User> = {}): User {
+    return {
+        id: 'user-1',
+        name: 'Taylor Trainer',
+        email: 'taylor@example.com',
+        role: 'trainer',
+        department: 'Operations',
+        certifications: [],
+        hireDate: '2020-01-01T00:00:00.000Z',
+        ...overrides,
+    }
+}
+
+describe('DeletePersonDialog', () => {
+    it('renders nothing when no user is provided', () => {
+        const { container } = render(
+            <DeletePersonDialog
+                user={null}
+                open={true}
+                onOpenChange={vi.fn()}
+                onConfirm={vi.fn()}
+            />
+        )
+
+        expect(container).toBeEmptyDOMElement()
+    })
+
+    it('renders trainer-specific deletion warning', () => {
+        render(
+            <DeletePersonDialog
+                user={createUser({ role: 'trainer', name: 'Taylor' })}
+                open={true}
+                onOpenChange={vi.fn()}
+                onConfirm={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText('Delete Taylor?')).toBeInTheDocument()
+        expect(screen.getByText(/remove them from all assigned training sessions/i)).toBeInTheDocument()
+    })
+
+    it('renders employee-specific warning', () => {
+        render(
+            <DeletePersonDialog
+                user={createUser({ role: 'employee', name: 'Evan Employee' })}
+                open={true}
+                onOpenChange={vi.fn()}
+                onConfirm={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText(/remove them from all enrolled courses/i)).toBeInTheDocument()
+    })
+
+    it('confirms deletion when Delete clicked', async () => {
+        const user = userEvent.setup()
+        const onConfirm = vi.fn()
+
+        render(
+            <DeletePersonDialog
+                user={createUser({ role: 'employee', name: 'Evan Employee' })}
+                open={true}
+                onOpenChange={vi.fn()}
+                onConfirm={onConfirm}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /delete/i }))
+        expect(onConfirm).toHaveBeenCalledOnce()
+    })
+
+    it('calls onOpenChange(false) when Cancel is clicked', async () => {
+        const user = userEvent.setup()
+        const onOpenChange = vi.fn()
+        const onConfirm = vi.fn()
+
+        render(
+            <DeletePersonDialog
+                user={createUser({ role: 'trainer', name: 'Taylor' })}
+                open={true}
+                onOpenChange={onOpenChange}
+                onConfirm={onConfirm}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /cancel/i }))
+
+        expect(onOpenChange).toHaveBeenCalledTimes(1)
+        expect(onOpenChange).toHaveBeenCalledWith(false)
+        expect(onConfirm).not.toHaveBeenCalled()
+    })
+
+    it('does not close when overlay is clicked', async () => {
+        const user = userEvent.setup()
+        const onOpenChange = vi.fn()
+        const onConfirm = vi.fn()
+
+        render(
+            <DeletePersonDialog
+                user={createUser({ role: 'trainer', name: 'Taylor' })}
+                open={true}
+                onOpenChange={onOpenChange}
+                onConfirm={onConfirm}
+            />
+        )
+
+        expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+        const overlay = screen.getByTestId('dialog-overlay')
+
+        await user.click(overlay)
+
+        expect(onOpenChange).not.toHaveBeenCalled()
+        expect(onConfirm).not.toHaveBeenCalled()
+    })
+
+    it('renders nothing when open is false', () => {
+        render(
+            <DeletePersonDialog
+                user={createUser({ role: 'trainer', name: 'Taylor' })}
+                open={false}
+                onOpenChange={vi.fn()}
+                onConfirm={vi.fn()}
+            />
+        )
+
+        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
+})

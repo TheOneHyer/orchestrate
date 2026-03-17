@@ -32,7 +32,35 @@ export function ApplyTemplateDialog({ open, onOpenChange, template, onApply }: A
 
     const sessions: Partial<Session>[] = []
     const numOccurrences = parseInt(occurrences) || 1
-    const baseDate = new Date(startDate)
+    const [yearStr, monthStr, dayStr] = startDate.split('-')
+    const year = Number(yearStr)
+    const month = Number(monthStr)
+    const day = Number(dayStr)
+
+    if (
+      !Number.isInteger(year) ||
+      !Number.isInteger(month) ||
+      !Number.isInteger(day) ||
+      year < 1900 ||
+      year > 3000 ||
+      month < 1 ||
+      month > 12 ||
+      day < 1 ||
+      day > 31
+    ) {
+      return []
+    }
+
+    const baseDate = new Date(year, month - 1, day)
+
+    if (
+      Number.isNaN(baseDate.getTime()) ||
+      baseDate.getFullYear() !== year ||
+      baseDate.getMonth() !== month - 1 ||
+      baseDate.getDate() !== day
+    ) {
+      return []
+    }
 
     for (let i = 0; i < numOccurrences; i++) {
       let cycleStartDate: Date
@@ -58,7 +86,7 @@ export function ApplyTemplateDialog({ open, onOpenChange, template, onApply }: A
       }
 
       template.sessions.forEach(templateSession => {
-        let sessionDate = cycleStartDate
+        let sessionDate = new Date(cycleStartDate)
 
         if (template.recurrenceType !== 'daily' && templateSession.dayOfWeek !== undefined) {
           const dayDiff = templateSession.dayOfWeek - cycleStartDate.getDay()

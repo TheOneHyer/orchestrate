@@ -1,10 +1,10 @@
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { User, CertificationRecord } from '@/lib/types'
-import { 
-  getExpiringCertifications, 
+import {
+  getExpiringCertifications,
   getCertificationSummary,
-  calculateCertificationStatus 
+  calculateCertificationStatus
 } from '@/lib/certification-tracker'
 import { Certificate, Warning, CheckCircle, XCircle, Clock } from '@phosphor-icons/react'
 import { format, parseISO } from 'date-fns'
@@ -19,11 +19,11 @@ interface CertificationDashboardProps {
 export function CertificationDashboard({ users, onNavigate, onAddCertification }: CertificationDashboardProps) {
   const summary = getCertificationSummary(users)
   const expiringAlerts = getExpiringCertifications(users)
-  
+
   const criticalAlerts = expiringAlerts.filter(a => a.urgency === 'critical')
   const highAlerts = expiringAlerts.filter(a => a.urgency === 'high')
   const mediumAlerts = expiringAlerts.filter(a => a.urgency === 'medium')
-  
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -36,7 +36,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
         return 'bg-gray-100 text-gray-800 border-gray-200'
     }
   }
-  
+
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case 'critical':
@@ -49,7 +49,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
         return 'border-l-4 border-l-gray-300 bg-gray-50'
     }
   }
-  
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -64,9 +64,9 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
         </div>
         <AddCertificationDialog users={users} onAddCertification={onAddCertification} />
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="p-6">
+        <Card className="p-6" data-testid="total-card">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-blue-100 rounded-lg">
               <Certificate size={24} weight="duotone" className="text-blue-600" />
@@ -77,8 +77,8 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
             </div>
           </div>
         </Card>
-        
-        <Card className="p-6">
+
+        <Card className="p-6" data-testid="active-card">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-green-100 rounded-lg">
               <CheckCircle size={24} weight="duotone" className="text-green-600" />
@@ -89,8 +89,8 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
             </div>
           </div>
         </Card>
-        
-        <Card className="p-6">
+
+        <Card className="p-6" data-testid="expiring-card">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-amber-100 rounded-lg">
               <Clock size={24} weight="duotone" className="text-amber-600" />
@@ -101,8 +101,8 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
             </div>
           </div>
         </Card>
-        
-        <Card className="p-6">
+
+        <Card className="p-6" data-testid="expired-card">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-red-100 rounded-lg">
               <XCircle size={24} weight="duotone" className="text-red-600" />
@@ -113,8 +113,8 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
             </div>
           </div>
         </Card>
-        
-        <Card className="p-6">
+
+        <Card className="p-6" data-testid="compliance-card">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-primary/10 rounded-lg">
               <CheckCircle size={24} weight="duotone" className="text-primary" />
@@ -126,7 +126,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
           </div>
         </Card>
       </div>
-      
+
       {criticalAlerts.length > 0 && (
         <Card className="p-6 border-red-200 bg-red-50">
           <div className="flex items-start gap-3 mb-4">
@@ -138,11 +138,12 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
               </p>
             </div>
           </div>
-          
+
           <div className="space-y-2">
-            {criticalAlerts.slice(0, 5).map((alert, idx) => (
+            {criticalAlerts.slice(0, 5).map((alert) => (
               <div
-                key={idx}
+                key={`${alert.userId}-${alert.certification.certificationName}`}
+                data-testid={`critical-alert-${alert.userId}`}
                 className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200 cursor-pointer hover:shadow-sm transition-shadow"
                 onClick={() => onNavigate('people', { userId: alert.userId })}
               >
@@ -162,7 +163,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
           </div>
         </Card>
       )}
-      
+
       {highAlerts.length > 0 && (
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-4">
@@ -174,11 +175,12 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
               </p>
             </div>
           </div>
-          
+
           <div className="space-y-2">
-            {highAlerts.slice(0, 5).map((alert, idx) => (
+            {highAlerts.slice(0, 5).map((alert) => (
               <div
-                key={idx}
+                key={`${alert.userId}-${alert.certification.certificationName}`}
+                data-testid={`high-alert-${alert.userId}`}
                 className="flex items-center justify-between p-3 bg-muted/30 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => onNavigate('people', { userId: alert.userId })}
               >
@@ -196,7 +198,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
           </div>
         </Card>
       )}
-      
+
       <Card className="p-6">
         <div className="flex items-center gap-3 mb-4">
           <Certificate size={24} weight="duotone" className="text-primary" />
@@ -205,13 +207,13 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
             <p className="text-sm text-muted-foreground">Complete certification tracking for all trainers</p>
           </div>
         </div>
-        
+
         <div className="space-y-4">
           {users
             .filter(u => u.role === 'trainer' && u.trainerProfile?.certificationRecords?.length)
             .map(trainer => (
               <div key={trainer.id} className="border rounded-lg p-4">
-                <div 
+                <div
                   className="flex items-center justify-between mb-3 cursor-pointer"
                   onClick={() => onNavigate('people', { userId: trainer.id })}
                 >
@@ -224,14 +226,15 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                     {(trainer.trainerProfile?.certificationRecords?.length || 0) !== 1 ? 's' : ''}
                   </Badge>
                 </div>
-                
+
                 <div className="space-y-2">
                   {trainer.trainerProfile?.certificationRecords?.map((cert, certIdx) => {
                     const status = calculateCertificationStatus(cert)
+                    const isUnknownStatus = status !== 'expired' && status !== 'expiring-soon' && status !== 'active'
                     const daysUntil = Math.floor(
                       (new Date(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
                     )
-                    
+
                     return (
                       <div
                         key={certIdx}
@@ -249,10 +252,11 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                               Renewal in Progress
                             </Badge>
                           )}
-                          <Badge className={getStatusColor(status)}>
+                          <Badge className={getStatusColor(status)} data-testid={isUnknownStatus ? 'status-badge-unknown' : undefined}>
                             {status === 'expired' && 'Expired'}
                             {status === 'expiring-soon' && `${daysUntil}d left`}
                             {status === 'active' && 'Active'}
+                            {isUnknownStatus && 'Unknown'}
                           </Badge>
                         </div>
                       </div>
@@ -261,7 +265,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                 </div>
               </div>
             ))}
-          
+
           {users.filter(u => u.role === 'trainer' && u.trainerProfile?.certificationRecords?.length).length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <Certificate size={48} weight="duotone" className="mx-auto mb-3 opacity-50" />
