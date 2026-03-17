@@ -152,4 +152,159 @@ describe('use-check-in-scheduler', () => {
         expect(updatedOverdue?.missedCheckIns).toBe(1)
         expect(updatedActive?.missedCheckIns).toBe(0)
     })
+
+    it('marks schedule completed when computed next date exceeds endDate', () => {
+        const schedule = createSchedule({
+            id: 'schedule-complete',
+            frequency: 'weekly',
+            endDate: '2026-03-05T00:00:00.000Z',
+            lastCheckInDate: '2026-03-04T00:00:00.000Z',
+        })
+
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[schedule], setter] as any)
+
+        const { result } = renderHook(() =>
+            useCheckInScheduler([createTrainer('trainer-1')], [], undefined)
+        )
+
+        result.current.updateScheduleNextDate('schedule-complete', '2026-03-04T00:00:00.000Z')
+
+        expect(setter).toHaveBeenCalledWith(expect.any(Function))
+        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: CheckInSchedule[]) => CheckInSchedule[]
+        const updated = updaterFn([schedule])
+
+        expect(updated[0].status).toBe('completed')
+        expect(updated[0].nextScheduledDate).toBe('2026-03-05T00:00:00.000Z')
+        expect(updated[0].completedCheckIns).toBe(1)
+    })
+
+    it('falls back to weekly cadence for unknown frequency values', () => {
+        const schedule = createSchedule({
+            id: 'schedule-unknown',
+            frequency: 'unknown' as CheckInSchedule['frequency'],
+            lastCheckInDate: '2026-03-01T00:00:00.000Z',
+        })
+
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[schedule], setter] as any)
+
+        const { result } = renderHook(() =>
+            useCheckInScheduler([createTrainer('trainer-1')], [], undefined)
+        )
+
+        result.current.updateScheduleNextDate('schedule-unknown', '2026-03-01T00:00:00.000Z')
+
+        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: CheckInSchedule[]) => CheckInSchedule[]
+        const updated = updaterFn([schedule])
+        expect(updated[0].nextScheduledDate).toBe('2026-03-08T00:00:00.000Z')
+    })
+
+    it('ignores inactive schedules and schedules with missing trainers', () => {
+        const inactiveSchedule = createSchedule({
+            id: 'inactive',
+            status: 'paused',
+            nextScheduledDate: new Date(NOW.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+        })
+        const missingTrainerSchedule = createSchedule({
+            id: 'missing-trainer',
+            trainerId: 'trainer-missing',
+            nextScheduledDate: new Date(NOW.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+        })
+
+        const setter = vi.fn()
+        const onTriggerCheckIn = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[inactiveSchedule, missingTrainerSchedule], setter] as any)
+
+        renderHook(() =>
+            useCheckInScheduler([createTrainer('trainer-1')], [], onTriggerCheckIn)
+        )
+
+        expect(onTriggerCheckIn).not.toHaveBeenCalled()
+        expect(toast.info).not.toHaveBeenCalled()
+        expect(setter).not.toHaveBeenCalled()
+    })
+
+    it('updates matching active schedule when a newer check-in is observed', () => {
+        const schedule = createSchedule({
+            id: 'sync-schedule',
+            trainerId: 'trainer-1',
+            nextScheduledDate: new Date(NOW.getTime() + 48 * 60 * 60 * 1000).toISOString(),
+            notificationEnabled: false,
+            autoReminders: false,
+            reminderHoursBefore: 1,
+            lastCheckInDate: '2026-03-10T00:00:00.000Z',
+        })
+
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[schedule], setter] as any)
+
+        renderHook(() =>
+            useCheckInScheduler(
+                [createTrainer('trainer-1')],
+                [
+                    {
+                        id: 'check-1',
+                        trainerId: 'trainer-1',
+                        timestamp: '2026-03-15T00:00:00.000Z',
+                        mood: 3,
+                        stress: 'moderate',
+                        energy: 'neutral',
+                        workloadSatisfaction: 3,
+                        sleepQuality: 3,
+                        physicalWellbeing: 3,
+                        mentalClarity: 3,
+                        followUpRequired: false,
+                    },
+                ],
+                undefined
+            )
+        )
+
+        expect(setter).toHaveBeenCalledWith(expect.any(Function))
+        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: CheckInSchedule[]) => CheckInSchedule[]
+        const updated = updaterFn([schedule])
+
+        expect(updated[0].lastCheckInDate).toBe('2026-03-15T00:00:00.000Z')
+        expect(updated[0].completedCheckIns).toBe(1)
+    })
+
+    it('does not update schedule when latest check-in timestamp matches the recorded date', () => {
+        const schedule = createSchedule({
+            id: 'no-sync',
+            trainerId: 'trainer-1',
+            nextScheduledDate: new Date(NOW.getTime() + 48 * 60 * 60 * 1000).toISOString(),
+            notificationEnabled: false,
+            autoReminders: false,
+            reminderHoursBefore: 1,
+            lastCheckInDate: '2026-03-15T00:00:00.000Z',
+        })
+
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[schedule], setter] as any)
+
+        renderHook(() =>
+            useCheckInScheduler(
+                [createTrainer('trainer-1')],
+                [
+                    {
+                        id: 'check-1',
+                        trainerId: 'trainer-1',
+                        timestamp: '2026-03-15T00:00:00.000Z',
+                        mood: 3,
+                        stress: 'moderate',
+                        energy: 'neutral',
+                        workloadSatisfaction: 3,
+                        sleepQuality: 3,
+                        physicalWellbeing: 3,
+                        mentalClarity: 3,
+                        followUpRequired: false,
+                    },
+                ],
+                undefined
+            )
+        )
+
+        expect(setter).not.toHaveBeenCalled()
+    })
 })

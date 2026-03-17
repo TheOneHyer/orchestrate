@@ -30,6 +30,28 @@ afterEach(() => {
 })
 
 describe('usePushNotifications', () => {
+    it('syncs stored permission to the browser permission on mount when different', () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: false,
+                permission: 'default',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            setter,
+        ] as any)
+
+        const NotificationMock = globalThis.Notification as any
+        NotificationMock.permission = 'granted'
+
+        renderHook(() => usePushNotifications())
+
+        expect(setter).toHaveBeenCalledWith(expect.any(Function))
+        const updater = setter.mock.calls[0][0] as (prev: any) => any
+        const updated = updater({ enabled: false, permission: 'default', showForPriorities: {} })
+        expect(updated.permission).toBe('granted')
+    })
+
     it('reports isSupported=true when Notification API is available', () => {
         const { result } = renderHook(() => usePushNotifications())
         // Notification is stubbed in this file's beforeEach.
@@ -102,6 +124,44 @@ describe('usePushNotifications', () => {
         expect(updated.enabled).toBe(false)
     })
 
+    it('requestPermission returns denied when Notification.requestPermission throws', async () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: false,
+                permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            setter,
+        ] as any)
+
+        const NotificationMock = globalThis.Notification as any
+        NotificationMock.requestPermission = vi.fn(async () => {
+            throw new Error('permission failure')
+        })
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+        const { result } = renderHook(() => usePushNotifications())
+        const beforeCalls = setter.mock.calls.length
+        let permResult: NotificationPermission | undefined
+        await act(async () => {
+            permResult = await result.current.requestPermission()
+        })
+
+        expect(permResult).toBe('denied')
+        expect(errorSpy).toHaveBeenCalled()
+        expect(setter.mock.calls.length).toBe(beforeCalls)
+
+        errorSpy.mockRestore()
+    })
+
+    it('sendNotification returns null when Notification API is unavailable', () => {
+        vi.unstubAllGlobals()
+
+        const { result } = renderHook(() => usePushNotifications())
+        expect(result.current.sendNotification('No API')).toBeNull()
+    })
+
     it('sendNotification returns null when notifications are disabled (default)', () => {
         vi.mocked(useKV).mockReturnValue([
             {
@@ -150,6 +210,97 @@ describe('usePushNotifications', () => {
                 badge: '/badge-72.png',
                 requireInteraction: false,
                 silent: false,
+            })
+        )
+    })
+
+    it('invokes onClick callback and closes the notification when clicked', () => {
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            vi.fn(),
+        ] as any)
+
+        const onClick = vi.fn()
+        const { result } = renderHook(() => usePushNotifications())
+        const notification = result.current.sendNotification('Interactive', { onClick }) as any
+
+        expect(notification).not.toBeNull()
+        notification.onclick()
+
+        expect(onClick).toHaveBeenCalledOnce()
+        expect(notification.close).toHaveBeenCalledOnce()
+    })
+
+    it('uses critical priority defaults without auto-dismiss timeout', () => {
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            vi.fn(),
+        ] as any)
+
+        const timeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+
+        const { result } = renderHook(() => usePushNotifications())
+        const notification = result.current.sendNotification('Critical', { priority: 'critical' })
+
+        expect(notification).not.toBeNull()
+        expect(timeoutSpy).not.toHaveBeenCalled()
+
+        timeoutSpy.mockRestore()
+    })
+
+    it('merges partial settings updates through updateSettings', () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: false,
+                permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            setter,
+        ] as any)
+
+        const { result } = renderHook(() => usePushNotifications())
+
+        act(() => {
+            result.current.updateSettings({ enabled: true })
+        })
+
+        expect(setter).toHaveBeenCalledWith(expect.any(Function))
+        const updater = setter.mock.calls[setter.mock.calls.length - 1][0] as (prev: any) => any
+        const updated = updater({ enabled: false, permission: 'granted', showForPriorities: { low: false, medium: true, high: true, critical: true } })
+        expect(updated.enabled).toBe(true)
+        expect(updated.permission).toBe('granted')
+    })
+
+    it('testNotification sends a medium-priority test message', () => {
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            vi.fn(),
+        ] as any)
+
+        const { result } = renderHook(() => usePushNotifications())
+        act(() => {
+            result.current.testNotification()
+        })
+
+        const NotificationMock = globalThis.Notification as unknown as ReturnType<typeof vi.fn>
+        expect(NotificationMock).toHaveBeenCalledWith(
+            'Test Notification',
+            expect.objectContaining({
+                body: 'This is a test notification from TrainSync',
+                tag: 'test-notification',
             })
         )
     })

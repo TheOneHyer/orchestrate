@@ -1,10 +1,21 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Schedule } from './Schedule'
 import type { User, Course, Session } from '@/lib/types'
+import * as conflictDetection from '@/lib/conflict-detection'
+
+const toastError = vi.fn()
+const toastSuccess = vi.fn()
+
+vi.mock('sonner', () => ({
+  toast: {
+    error: (...args: unknown[]) => toastError(...args),
+    success: (...args: unknown[]) => toastSuccess(...args),
+  },
+}))
 
 vi.mock('./AutoScheduler', () => ({
   AutoScheduler: ({ onSessionsCreated }: { onSessionsCreated: (sessions: Array<Partial<Session>>) => void }) => (
@@ -104,6 +115,14 @@ function renderSchedule(overrides: Partial<ComponentProps<typeof Schedule>> = {}
 }
 
 describe('Schedule', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  const setDateTimeInput = (label: RegExp, value: string) => {
+    fireEvent.change(screen.getByLabelText(label), { target: { value } })
+  }
+
   it('opens the Auto-Schedule dialog', async () => {
     const user = userEvent.setup()
 
@@ -390,5 +409,121 @@ describe('Schedule', () => {
     expect(screen.getByText('Building A, Room 101')).toBeInTheDocument()
     expect(screen.getByText('Virtual Meeting')).toBeInTheDocument()
     expect(screen.getByText('Outdoor Training Area')).toBeInTheDocument()
+  })
+
+  it('shows validation error when title is empty during edit', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    await user.clear(screen.getByLabelText(/^title/i))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(toastError).toHaveBeenCalledWith('Title is required', expect.any(Object))
+    expect(onUpdateSession).not.toHaveBeenCalled()
+  })
+
+  it('shows validation error when location is empty during edit', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    await user.clear(screen.getByLabelText(/^location/i))
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(toastError).toHaveBeenCalledWith('Location is required', expect.any(Object))
+    expect(onUpdateSession).not.toHaveBeenCalled()
+  })
+
+  it('shows validation error for invalid time range during edit', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    setDateTimeInput(/start time/i, '2026-03-20T11:00')
+    setDateTimeInput(/end time/i, '2026-03-20T10:00')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(toastError).toHaveBeenCalledWith('Invalid time range', expect.any(Object))
+    expect(onUpdateSession).not.toHaveBeenCalled()
+  })
+
+  it('shows validation error when capacity is below enrolled student count', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+    const crowdedSession: Session = {
+      ...baseSession,
+      enrolledStudents: ['u-employee', 'u-trainer'],
+      capacity: 3,
+    }
+
+    renderSchedule({ sessions: [crowdedSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    await user.clear(screen.getByLabelText(/capacity/i))
+    await user.type(screen.getByLabelText(/capacity/i), '1')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(toastError).toHaveBeenCalledWith('Invalid capacity', expect.any(Object))
+    expect(onUpdateSession).not.toHaveBeenCalled()
+  })
+
+  it('blocks save when edited session conflicts with another session', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+    const conflictSpy = vi.spyOn(conflictDetection, 'checkSessionConflicts').mockReturnValue({
+      hasConflicts: true,
+      conflicts: [
+        {
+          type: 'trainer',
+          message: 'Mock trainer conflict',
+          severity: 'error',
+          conflictingSessionId: 's-2',
+          conflictingSessionTitle: 'Conflicting Session',
+        },
+      ],
+    })
+    const conflictSession: Session = {
+      ...baseSession,
+      id: 's-2',
+      title: 'Conflicting Session',
+      startTime: '2026-03-20T11:00:00.000Z',
+      endTime: '2026-03-20T12:00:00.000Z',
+      enrolledStudents: [],
+      capacity: 10,
+    }
+
+    renderSchedule({ sessions: [baseSession, conflictSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    setDateTimeInput(/start time/i, '2026-03-20T11:15')
+    setDateTimeInput(/end time/i, '2026-03-20T11:45')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(toastError).toHaveBeenCalledWith('Cannot save session changes', expect.any(Object))
+    expect(onUpdateSession).not.toHaveBeenCalled()
+
+    conflictSpy.mockRestore()
   })
 })
