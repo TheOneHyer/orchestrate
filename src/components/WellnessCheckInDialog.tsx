@@ -289,7 +289,11 @@ export function WellnessCheckInDialog({
                     onClick={(e) => e.stopPropagation()}
                     onCheckedChange={() => toggleConcern(concern)}
                   />
-                  <Label htmlFor={concern} className="text-sm cursor-pointer flex-1">
+                  <Label
+                    htmlFor={concern}
+                    className="text-sm cursor-pointer flex-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {concern}
                   </Label>
                 </div>
