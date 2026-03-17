@@ -156,10 +156,10 @@ describe('use-utilization-notifications', () => {
         rerender({ sessions: criticalSessions })
 
         const calls = vi.mocked(onCreateNotification).mock.calls.map(c => c[0] as Omit<Notification, 'id' | 'createdAt'>)
-        const adminId = users[1]?.role === 'admin' ? users[1].id : users[0].id
+        const adminId = 'admin'
         expect(calls.filter(n => n.priority === 'critical')).toHaveLength(2)
-        expect(calls.some(n => n.recipientId === trainer.id && n.priority === 'critical')).toBe(true)
-        expect(calls.some(n => n.recipientId === adminId && n.priority === 'critical')).toBe(true)
+        expect(calls.some(n => n.userId === trainer.id && n.priority === 'critical')).toBe(true)
+        expect(calls.some(n => n.userId === adminId && n.priority === 'critical')).toBe(true)
     })
 
     it('fires an overutilized notification when utilization transitions from normal to over threshold', () => {
@@ -180,9 +180,9 @@ describe('use-utilization-notifications', () => {
         rerender({ sessions: overSessions })
 
         const calls = vi.mocked(onCreateNotification).mock.calls.map(c => c[0] as Omit<Notification, 'id' | 'createdAt'>)
-        const adminId = users[1]?.role === 'admin' ? users[1].id : users[0].id
+        const adminId = 'admin'
         expect(calls.filter(n => n.priority === 'high')).toHaveLength(2)
-        expect(calls.some(n => n.recipientId === trainer.id && n.priority === 'high')).toBe(true)
-        expect(calls.some(n => n.recipientId === adminId && n.priority === 'high')).toBe(true)
+        expect(calls.some(n => n.userId === trainer.id && n.priority === 'high')).toBe(true)
+        expect(calls.some(n => n.userId === adminId && n.priority === 'high')).toBe(true)
     })
 })

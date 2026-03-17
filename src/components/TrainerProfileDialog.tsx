@@ -500,6 +500,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                           {status === 'expired' && 'Expired'}
                           {status === 'expiring-soon' && `${daysUntil}d left`}
                           {status === 'active' && 'Active'}
+                          {status !== 'expired' && status !== 'expiring-soon' && status !== 'active' && 'Unknown'}
                         </Badge>
                       </div>
                     )
