@@ -43,7 +43,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
-  const trainers = useMemo(() => 
+  const trainers = useMemo(() =>
     users.filter(u => u.role === 'trainer'),
     [users]
   )
@@ -57,9 +57,9 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   const filteredTrainers = useMemo(() => {
     return trainers.filter(trainer => {
       const matchesSearch = trainer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          trainer.email.toLowerCase().includes(searchTerm.toLowerCase())
+        trainer.email.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesCert = selectedCertification === 'all' || trainer.certifications.includes(selectedCertification)
-      const hasSchedule = hideUnconfigured 
+      const hasSchedule = hideUnconfigured
         ? (trainer.trainerProfile?.shiftSchedules && trainer.trainerProfile.shiftSchedules.length > 0)
         : true
       return matchesSearch && matchesCert && hasSchedule
@@ -69,7 +69,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   const trainerSchedules = useMemo(() => {
     return filteredTrainers.map(trainer => {
       const trainerSessions = sessions.filter(s => s.trainerId === trainer.id)
-      const weekSessions = trainerSessions.filter(s => 
+      const weekSessions = trainerSessions.filter(s =>
         isWithinInterval(new Date(s.startTime), {
           start: startOfDay(weekStart),
           end: endOfDay(addDays(weekStart, 6))
@@ -96,8 +96,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   }, [filteredTrainers, sessions, weekStart])
 
   const getTrainerSessionsForDay = (trainerId: string, day: Date) => {
-    return sessions.filter(s => 
-      s.trainerId === trainerId && 
+    return sessions.filter(s =>
+      s.trainerId === trainerId &&
       isSameDay(new Date(s.startTime), day)
     )
   }
@@ -138,8 +138,10 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                   {!hasSchedule && (
                     <TooltipProvider>
                       <Tooltip>
-                        <TooltipTrigger>
-                          <WarningCircle size={14} weight="fill" className="text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex" tabIndex={0} aria-label="Schedule not configured indicator">
+                            <WarningCircle size={14} weight="fill" className="text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                          </span>
                         </TooltipTrigger>
                         <TooltipContent>Schedule not configured</TooltipContent>
                       </Tooltip>
@@ -172,8 +174,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
               const isToday = isSameDay(day, new Date())
 
               return (
-                <div 
-                  key={day.toString()} 
+                <div
+                  key={day.toString()}
                   className={`p-2 min-h-[100px] ${isToday ? 'bg-primary/5' : ''}`}
                 >
                   <div className="space-y-1">
@@ -251,7 +253,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
 
         <div className="space-y-6 mt-6">
           <UnconfiguredScheduleAlert user={selectedTrainer} variant="compact" />
-          
+
           <div>
             <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
               <Clock size={16} />
@@ -278,7 +280,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
           {profile && (
             <>
               <Separator />
-              
+
               <div>
                 <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
                   <CalendarCheck size={16} />
@@ -556,22 +558,22 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
             <CardHeader className="border-b border-border pb-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => setCurrentWeek(addWeeks(currentWeek, -1))}
                   >
                     Previous
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => setCurrentWeek(new Date())}
                   >
                     This Week
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     onClick={() => setCurrentWeek(addWeeks(currentWeek, 1))}
                   >
@@ -593,8 +595,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                   {weekDays.map(day => {
                     const isToday = isSameDay(day, new Date())
                     return (
-                      <div 
-                        key={day.toString()} 
+                      <div
+                        key={day.toString()}
                         className={`p-3 text-center ${isToday ? 'bg-primary/10' : 'bg-muted/50'}`}
                       >
                         <div className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
@@ -624,12 +626,12 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
         </TabsContent>
 
         <TabsContent value="work-schedule" className="space-y-6">
-          <TrainerCoverageHeatmap 
-            users={users} 
+          <TrainerCoverageHeatmap
+            users={users}
             selectedCertification={selectedCertification}
             onCertificationChange={setSelectedCertification}
           />
-          
+
           <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -686,8 +688,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                 </div>
                 <div className="grid grid-cols-7 divide-x divide-border">
                   {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => (
-                    <div 
-                      key={day} 
+                    <div
+                      key={day}
                       className="p-3 text-center bg-muted/50"
                     >
                       <div className="text-xs font-medium text-muted-foreground">
@@ -703,7 +705,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                   {filteredTrainers.map(trainer => {
                     const profile = trainer.trainerProfile
                     const daysOfWeek: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-                    
+
                     return (
                       <div key={trainer.id} className="border-b border-border last:border-b-0">
                         <div className="grid grid-cols-[250px_1fr] divide-x divide-border">
@@ -732,13 +734,13 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
 
                           <div className="grid grid-cols-7 divide-x divide-border">
                             {daysOfWeek.map(dayOfWeek => {
-                              const schedulesForDay = profile?.shiftSchedules?.filter(schedule => 
+                              const schedulesForDay = profile?.shiftSchedules?.filter(schedule =>
                                 schedule.daysWorked.includes(dayOfWeek)
                               ) || []
 
                               return (
-                                <div 
-                                  key={dayOfWeek} 
+                                <div
+                                  key={dayOfWeek}
                                   className="p-2 min-h-[100px]"
                                 >
                                   <div className="space-y-1">

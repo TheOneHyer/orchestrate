@@ -99,10 +99,10 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
         (current || []).map((t) =>
           t.id === selectedTemplate.id
             ? {
-                ...t,
-                usageCount: t.usageCount + 1,
-                lastUsed: new Date().toISOString()
-              }
+              ...t,
+              usageCount: t.usageCount + 1,
+              lastUsed: new Date().toISOString()
+            }
             : t
         )
       )
@@ -112,7 +112,8 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
       onCreateSessions(sessions)
     }
 
-    toast.success(`${sessions.length} sessions created successfully`)
+    const sessionLabel = sessions.length === 1 ? 'session' : 'sessions'
+    toast.success(`${sessions.length} ${sessionLabel} created successfully`)
     setApplyDialogOpen(false)
     setSelectedTemplate(null)
   }

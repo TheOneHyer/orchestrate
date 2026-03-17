@@ -168,33 +168,41 @@ describe('AddCertificationDialog', () => {
   })
 
   it('resets form after successful submission', async () => {
+    const user = userEvent.setup()
+    const expectedIssuedDate = (() => {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = String(now.getMonth() + 1).padStart(2, '0')
+      const day = String(now.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    })()
+
     const onAddCertification = vi.fn()
     const issuedDate = '2027-12-15'
     const expirationDate = '2028-01-01'
 
     render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
     // Fill and submit the form
-    await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Training')
+    await user.type(screen.getByLabelText(/certification name/i), 'CPR Training')
     setDateInput(/issued date/i, issuedDate)
     setDateInput(/expiration date/i, expirationDate)
-    await userEvent.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
+    await user.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
 
-    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+    await user.click(screen.getByRole('button', { name: /^add certification$/i }))
 
     // Dialog should close
     expect(onAddCertification).toHaveBeenCalledOnce()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
     // Reopen the dialog
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
     // Assert form is reset (certification name and expiration date are cleared, issued date reset to today)
     expect(screen.getByLabelText(/certification name/i)).toHaveValue('')
     const issuedDateInput = screen.getByLabelText(/^issued date$/i) as HTMLInputElement
-    const today = new Date().toISOString().split('T')[0]
-    expect(issuedDateInput.value).toBe(today)
+    expect(issuedDateInput.value).toBe(expectedIssuedDate)
     expect(screen.getByLabelText(/^expiration date$/i)).toHaveValue('')
 
     // Assert no checkboxes remain checked

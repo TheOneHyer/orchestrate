@@ -28,6 +28,8 @@ interface ScheduleProps {
   onNavigate: (view: string, data?: any) => void
 }
 
+const allowedScheduleManagers: ReadonlyArray<User['role']> = ['admin', 'trainer']
+
 export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate }: ScheduleProps) {
   const [viewType, setViewType] = useState<'calendar' | 'list' | 'gantt' | 'board'>('calendar')
   const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('month')
@@ -41,6 +43,16 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const [draggedSession, setDraggedSession] = useState<Session | null>(null)
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null)
   const [dragConflicts, setDragConflicts] = useState<string[]>([])
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingSession, setEditingSession] = useState<Session | null>(null)
+  const [editForm, setEditForm] = useState({
+    title: '',
+    location: '',
+    startTime: '',
+    endTime: '',
+    capacity: '20',
+    status: 'scheduled' as Session['status'],
+  })
 
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)
@@ -85,8 +97,121 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     })
   }
 
+  const handleEditClick = () => {
+    if (!selectedSession) return
+
+    setEditingSession(selectedSession)
+    setEditForm({
+      title: selectedSession.title,
+      location: selectedSession.location,
+      startTime: format(new Date(selectedSession.startTime), "yyyy-MM-dd'T'HH:mm"),
+      endTime: format(new Date(selectedSession.endTime), "yyyy-MM-dd'T'HH:mm"),
+      capacity: selectedSession.capacity.toString(),
+      status: selectedSession.status,
+    })
+    setEditDialogOpen(true)
+    setSheetOpen(false)
+  }
+
+  const handleSaveSessionEdit = () => {
+    if (!editingSession) return
+
+    const trimmedTitle = editForm.title.trim()
+    const trimmedLocation = editForm.location.trim()
+
+    if (!trimmedTitle) {
+      toast.error('Title is required', {
+        description: 'Please provide a session title before saving.',
+      })
+      return
+    }
+
+    if (!trimmedLocation) {
+      toast.error('Location is required', {
+        description: 'Please provide a session location before saving.',
+      })
+      return
+    }
+
+    const parsedStartTime = new Date(editForm.startTime)
+    const parsedEndTime = new Date(editForm.endTime)
+    const parsedCapacity = Number.parseInt(editForm.capacity, 10)
+
+    if (Number.isNaN(parsedStartTime.getTime()) || Number.isNaN(parsedEndTime.getTime())) {
+      toast.error('Invalid schedule time', {
+        description: 'Please provide valid start and end times.',
+      })
+      return
+    }
+
+    if (parsedEndTime <= parsedStartTime) {
+      toast.error('Invalid time range', {
+        description: 'End time must be after start time.',
+      })
+      return
+    }
+
+    if (!Number.isInteger(parsedCapacity) || parsedCapacity <= 0) {
+      toast.error('Invalid capacity', {
+        description: 'Capacity must be a positive whole number.',
+      })
+      return
+    }
+
+    const updates: Partial<Session> = {
+      title: trimmedTitle,
+      location: trimmedLocation,
+      startTime: parsedStartTime.toISOString(),
+      endTime: parsedEndTime.toISOString(),
+      capacity: parsedCapacity,
+      status: editForm.status,
+    }
+
+    const tentativeSession: Session = {
+      ...editingSession,
+      ...updates,
+      startTime: parsedStartTime.toISOString(),
+      endTime: parsedEndTime.toISOString(),
+      capacity: parsedCapacity,
+      status: editForm.status,
+      title: trimmedTitle,
+      location: trimmedLocation,
+    }
+
+    // checkSessionConflicts ignores matching ids, so the edited session won't conflict with itself.
+    const conflictCheck = checkSessionConflicts(
+      tentativeSession,
+      parsedStartTime,
+      parsedEndTime,
+      sessions,
+      users
+    )
+
+    if (conflictCheck.hasConflicts) {
+      toast.error('Cannot save session changes', {
+        description: formatConflictMessage(conflictCheck.conflicts),
+        duration: 6000,
+      })
+      return
+    }
+
+    onUpdateSession(editingSession.id, updates)
+
+    setSelectedSession((current) => {
+      if (!current || current.id !== editingSession.id) return current
+      return { ...current, ...updates }
+    })
+
+    setEditDialogOpen(false)
+    setEditingSession(null)
+
+    toast.success('Session updated', {
+      description: 'Schedule changes have been saved.',
+    })
+  }
+
   const availableStudents = users.filter(u => u.role === 'employee')
-  const canManageSchedule = currentUser.role !== 'employee'
+  const canManageSchedule = allowedScheduleManagers.includes(currentUser.role)
 
   const navigateDate = (direction: 'prev' | 'next' | 'today') => {
     if (direction === 'today') {
@@ -252,15 +377,16 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
         <div
           className={`border rounded-lg p-6 min-h-[400px] transition-colors cursor-pointer hover:border-primary/50 ${isToday ? 'border-primary bg-primary/5' :
-              hasConflict ? 'border-destructive bg-destructive/10 border-2' :
-                isDragOver ? 'border-accent bg-accent/10 border-2' :
-                  'border-border'
+            hasConflict ? 'border-destructive bg-destructive/10 border-2' :
+              isDragOver ? 'border-accent bg-accent/10 border-2' :
+                'border-border'
             }`}
           onDragOver={(e) => handleDragOver(e, currentDate)}
           onDragLeave={handleDragLeave}
           onDrop={(e) => handleDrop(e, currentDate)}
           onClick={(e) => {
-            if (canManageSchedule && e.target === e.currentTarget) {
+            const target = e.target as HTMLElement
+            if (canManageSchedule && (target.closest('[data-calendar-cell-body]') || target === e.currentTarget)) {
               handleOpenGuidedScheduler(currentDate)
             }
           }}
@@ -280,7 +406,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
               No sessions scheduled for this day
             </div>
           ) : (
-            <div className="space-y-3">
+            <div data-calendar-cell-body className="space-y-3">
               {daySessions.map(session => {
                 const course = courses.find(c => c.id === session.courseId)
                 const trainer = users.find(u => u.id === session.trainerId)
@@ -378,16 +504,16 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
               <div
                 key={day.toString()}
                 className={`border rounded-lg p-3 min-h-[200px] transition-colors cursor-pointer hover:border-primary/50 ${isToday ? 'border-primary bg-primary/5' :
-                    hasConflict ? 'border-destructive bg-destructive/10 border-2' :
-                      isDragOver ? 'border-accent bg-accent/10 border-2' :
-                        'border-border'
+                  hasConflict ? 'border-destructive bg-destructive/10 border-2' :
+                    isDragOver ? 'border-accent bg-accent/10 border-2' :
+                      'border-border'
                   }`}
                 onDragOver={(e) => handleDragOver(e, day)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, day)}
                 onClick={(e) => {
                   const target = e.target as HTMLElement
-                  if (canManageSchedule && !target.closest('[draggable]') && (target.classList.contains('space-y-2') || target === e.currentTarget)) {
+                  if (canManageSchedule && !target.closest('[draggable]') && (target.closest('[data-calendar-cell-body]') || target === e.currentTarget)) {
                     handleOpenGuidedScheduler(day)
                   }
                 }}
@@ -403,7 +529,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                     ⚠️ Conflict
                   </div>
                 )}
-                <div className="space-y-2">
+                <div data-calendar-cell-body className="space-y-2">
                   {daySessions.map(session => {
                     return (
                       <div
@@ -497,7 +623,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                   onDrop={(e) => handleDrop(e, day)}
                   onClick={(e) => {
                     const target = e.target as HTMLElement
-                    if (canManageSchedule && !target.closest('[draggable]') && (target.classList.contains('space-y-1') || target === e.currentTarget || target.classList.contains('text-xs'))) {
+                    if (canManageSchedule && !target.closest('[draggable]') && (target.closest('[data-calendar-cell-body]') || target === e.currentTarget)) {
                       handleOpenGuidedScheduler(day)
                     }
                   }}
@@ -511,7 +637,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                       ⚠️
                     </div>
                   )}
-                  <div className="space-y-1">
+                  <div data-calendar-cell-body className="space-y-1">
                     {daySessions.slice(0, 2).map(session => (
                       <div
                         key={session.id}
@@ -797,7 +923,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                     View Course
                   </Button>
                   {canManageSchedule && (
-                    <Button variant="outline" className="flex-1">
+                    <Button variant="outline" className="flex-1" onClick={handleEditClick}>
                       Edit
                     </Button>
                   )}
@@ -807,6 +933,104 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog
+        open={editDialogOpen}
+        onOpenChange={(open) => {
+          setEditDialogOpen(open)
+          if (!open) {
+            setEditingSession(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Edit Session</DialogTitle>
+            <DialogDescription>
+              Update session details and save your schedule changes.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-session-title">Title *</Label>
+              <Input
+                id="edit-session-title"
+                value={editForm.title}
+                onChange={(e) => setEditForm((current) => ({ ...current, title: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-session-location">Location *</Label>
+              <Input
+                id="edit-session-location"
+                value={editForm.location}
+                onChange={(e) => setEditForm((current) => ({ ...current, location: e.target.value }))}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-session-start">Start Time</Label>
+                <Input
+                  id="edit-session-start"
+                  type="datetime-local"
+                  value={editForm.startTime}
+                  onChange={(e) => setEditForm((current) => ({ ...current, startTime: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-session-end">End Time</Label>
+                <Input
+                  id="edit-session-end"
+                  type="datetime-local"
+                  value={editForm.endTime}
+                  onChange={(e) => setEditForm((current) => ({ ...current, endTime: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-session-capacity">Capacity</Label>
+                <Input
+                  id="edit-session-capacity"
+                  type="number"
+                  min={1}
+                  value={editForm.capacity}
+                  onChange={(e) => setEditForm((current) => ({ ...current, capacity: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={editForm.status}
+                  onValueChange={(value) => setEditForm((current) => ({ ...current, status: value as Session['status'] }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scheduled">Scheduled</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveSessionEdit}>Save Changes</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={autoSchedulerOpen} onOpenChange={setAutoSchedulerOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">

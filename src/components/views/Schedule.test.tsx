@@ -197,6 +197,33 @@ describe('Schedule', () => {
       })
     )
   })
+
+  it('opens edit dialog from session details and saves updates', async () => {
+    const onUpdateSession = vi.fn()
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ sessions: [baseSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    expect(screen.getByText(/edit session/i)).toBeInTheDocument()
+
+    const titleInput = screen.getByLabelText(/^title/i)
+    await user.clear(titleInput)
+    await user.type(titleInput, 'Updated Session Title')
+
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(onUpdateSession).toHaveBeenCalledWith(
+      's-1',
+      expect.objectContaining({
+        title: 'Updated Session Title',
+      })
+    )
+  })
+
   it('displays sessions with various statuses', async () => {
     const user = userEvent.setup()
     const sessions: Session[] = [
