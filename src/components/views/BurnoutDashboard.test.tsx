@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -9,6 +9,7 @@ const useKVMock = vi.fn()
 const calculateTrainerUtilizationMock = vi.fn()
 const getUtilizationTrendMock = vi.fn()
 const getTrainerHistoryMock = vi.fn()
+const getBurnoutRiskLevelMock = vi.fn()
 
 vi.mock('@github/spark/hooks', () => ({
     useKV: (...args: unknown[]) => useKVMock(...args),
@@ -23,7 +24,7 @@ vi.mock('@/hooks/use-risk-history', () => ({
 vi.mock('@/lib/burnout-analytics', () => ({
     calculateTrainerUtilization: (...args: unknown[]) => calculateTrainerUtilizationMock(...args),
     getUtilizationTrend: (...args: unknown[]) => getUtilizationTrendMock(...args),
-    getBurnoutRiskLevel: vi.fn(),
+    getBurnoutRiskLevel: (...args: unknown[]) => getBurnoutRiskLevelMock(...args),
 }))
 
 vi.mock('@/components/charts/UtilizationChart', () => ({
@@ -178,6 +179,8 @@ describe('BurnoutDashboard', () => {
                 hoursScheduled: 35,
             },
         ])
+
+        getBurnoutRiskLevelMock.mockReturnValue('high')
     })
 
     it('renders top-level metrics and high-risk alert', () => {
@@ -232,6 +235,8 @@ describe('BurnoutDashboard', () => {
 
         expect(screen.getByText(/^risk score$/i)).toBeInTheDocument()
         expect(screen.getByText(/^88$/)).toBeInTheDocument()
+        const riskScoreCard = screen.getByText(/^risk score$/i).closest('[data-slot="card"]') as HTMLElement
+        expect(within(riskScoreCard).getByText(/^high$/i)).toBeInTheDocument()
         expect(screen.getByText(/utilizationchart taylor trainer/i)).toBeInTheDocument()
         expect(screen.getByText(/risktrendchart taylor trainer/i)).toBeInTheDocument()
         expect(screen.getByText(/redistribute sessions/i)).toBeInTheDocument()
@@ -272,6 +277,8 @@ describe('BurnoutDashboard', () => {
             />
         )
 
+        calculateTrainerUtilizationMock.mockClear()
+
         await user.click(screen.getByRole('combobox', { name: /time range/i }))
         await user.click(screen.getByRole('option', { name: /last 7 days/i }))
 
@@ -301,6 +308,13 @@ describe('BurnoutDashboard', () => {
 
         expect(calculateTrainerUtilizationMock).toHaveBeenCalledWith(
             expect.objectContaining({ id: 't1' }),
+            sessions,
+            courses,
+            'month',
+            checkInsWithData
+        )
+        expect(calculateTrainerUtilizationMock).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 't2' }),
             sessions,
             courses,
             'month',

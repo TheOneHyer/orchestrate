@@ -10,6 +10,12 @@ const useKVMock = vi.fn()
 const setTemplatesMock = vi.fn()
 const toastSuccess = vi.fn()
 
+type MockScheduleTemplateDialogProps = {
+    open: boolean
+    template: ScheduleTemplate | null
+    onSave: (data: Omit<ScheduleTemplate, 'id' | 'createdAt' | 'createdBy' | 'lastUsed' | 'usageCount'>) => void
+}
+
 vi.mock('@github/spark/hooks', () => ({
     useKV: (...args: unknown[]) => useKVMock(...args),
 }))
@@ -31,7 +37,7 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
 }))
 
 vi.mock('@/components/ScheduleTemplateDialog', () => ({
-    ScheduleTemplateDialog: ({ open, template, onSave }: { open: boolean; template: ScheduleTemplate | null; onSave: (data: Omit<ScheduleTemplate, 'id' | 'createdAt' | 'createdBy' | 'lastUsed' | 'usageCount'>) => void }) => {
+    ScheduleTemplateDialog: ({ open, template, onSave }: MockScheduleTemplateDialogProps) => {
         if (!open) return null
         return (
             <div>
@@ -137,6 +143,9 @@ const courses: Course[] = [
 describe('ScheduleTemplates', () => {
     let kvTemplates: ScheduleTemplate[]
 
+    const getUpdater = (callIndex = 0): ((current: ScheduleTemplate[]) => ScheduleTemplate[]) =>
+        setTemplatesMock.mock.calls[callIndex][0] as (current: ScheduleTemplate[]) => ScheduleTemplate[]
+
     beforeEach(() => {
         kvTemplates = [
             createTemplate({ id: 'template-1', name: 'Ops Rotation' }),
@@ -172,6 +181,52 @@ describe('ScheduleTemplates', () => {
         expect(screen.getByText(/try adjusting your filters/i)).toBeInTheDocument()
     })
 
+    it('renders no templates state when KV templates are empty', () => {
+        kvTemplates = []
+
+        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+
+        expect(screen.getByText(/no templates found/i)).toBeInTheDocument()
+        expect(setTemplatesMock).not.toHaveBeenCalled()
+    })
+
+    it('handles legacy templates with missing optional metadata and still supports edit/duplicate', async () => {
+        const user = userEvent.setup()
+        const legacyTemplate = {
+            ...createTemplate({ id: 'template-legacy', name: 'Legacy Template' }),
+            usageCount: undefined,
+            createdBy: undefined,
+            lastUsed: undefined,
+        } as unknown as ScheduleTemplate
+        kvTemplates = [legacyTemplate]
+
+        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+
+        const card = screen.getByTestId('template-card-template-legacy')
+        expect(screen.getByText('Legacy Template')).toBeInTheDocument()
+
+        await user.click(within(card).getByRole('button', { name: /edit/i }))
+        await user.click(screen.getByRole('button', { name: /mock save template/i }))
+        expect(setTemplatesMock).toHaveBeenCalled()
+
+        await user.click(within(card).getByRole('button', { name: /duplicate/i }))
+        expect(setTemplatesMock).toHaveBeenCalledTimes(2)
+        expect(toastSuccess).toHaveBeenCalledWith('Template duplicated successfully')
+    })
+
+    it('handles special-character search terms without crashing', async () => {
+        const user = userEvent.setup()
+
+        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+
+        await user.type(screen.getByPlaceholderText(/search templates/i), '[ops]++??')
+        expect(screen.getByText(/no templates found/i)).toBeInTheDocument()
+
+        await user.clear(screen.getByPlaceholderText(/search templates/i))
+        await user.type(screen.getByPlaceholderText(/search templates/i), 'ops')
+        expect(screen.getByText('Ops Rotation')).toBeInTheDocument()
+    })
+
     it('creates a new template via dialog save', async () => {
         const user = userEvent.setup()
 
@@ -182,8 +237,8 @@ describe('ScheduleTemplates', () => {
 
         await user.click(screen.getByRole('button', { name: /mock save template/i }))
 
-        expect(setTemplatesMock).toHaveBeenCalled()
-        const updater = setTemplatesMock.mock.calls[0][0] as (current: ScheduleTemplate[]) => ScheduleTemplate[]
+        expect(setTemplatesMock).toHaveBeenCalledTimes(1)
+        const updater = getUpdater()
         const next = updater(kvTemplates)
 
         expect(next.length).toBe(3)
@@ -205,8 +260,7 @@ describe('ScheduleTemplates', () => {
 
         render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={onCreateSessions} />)
 
-        const card = screen.getByText('Ops Rotation').closest('[data-slot="card"]')
-        const applyButton = within(card as HTMLElement).getAllByRole('button', { name: /apply template/i })[0]
+        const applyButton = screen.getByTestId('apply-template-template-1')
         await user.click(applyButton)
 
         expect(screen.getByText(/applying ops rotation/i)).toBeInTheDocument()
@@ -218,7 +272,8 @@ describe('ScheduleTemplates', () => {
             ])
         )
 
-        const updater = setTemplatesMock.mock.calls[0][0] as (current: ScheduleTemplate[]) => ScheduleTemplate[]
+        expect(setTemplatesMock).toHaveBeenCalledTimes(1)
+        const updater = getUpdater()
         const next = updater(kvTemplates)
         const updatedTemplate = next.find((t) => t.id === 'template-1')
 
@@ -232,17 +287,19 @@ describe('ScheduleTemplates', () => {
 
         render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
 
-        const card = screen.getByText('Ops Rotation').closest('[data-slot="card"]')
+        const card = screen.getByTestId('template-card-template-1')
 
-        await user.click(within(card as HTMLElement).getByRole('button', { name: /duplicate/i }))
-        let updater = setTemplatesMock.mock.calls[0][0] as (current: ScheduleTemplate[]) => ScheduleTemplate[]
+        await user.click(within(card).getByRole('button', { name: /duplicate/i }))
+        expect(setTemplatesMock).toHaveBeenCalledTimes(1)
+        let updater = getUpdater(0)
         let next = updater(kvTemplates)
 
         expect(next.some((t) => t.name === 'Ops Rotation (Copy)')).toBe(true)
         expect(toastSuccess).toHaveBeenCalledWith('Template duplicated successfully')
 
-        await user.click(within(card as HTMLElement).getByRole('button', { name: /delete/i }))
-        updater = setTemplatesMock.mock.calls[1][0] as (current: ScheduleTemplate[]) => ScheduleTemplate[]
+        await user.click(within(card).getByRole('button', { name: /delete/i }))
+        expect(setTemplatesMock).toHaveBeenCalledTimes(2)
+        updater = getUpdater(1)
         next = updater(kvTemplates)
 
         expect(next.some((t) => t.id === 'template-1')).toBe(false)
@@ -254,13 +311,14 @@ describe('ScheduleTemplates', () => {
 
         render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
 
-        const card = screen.getByText('Ops Rotation').closest('[data-slot="card"]')
-        await user.click(within(card as HTMLElement).getByRole('button', { name: /edit/i }))
+        const card = screen.getByTestId('template-card-template-1')
+        await user.click(within(card).getByRole('button', { name: /edit/i }))
 
         expect(screen.getByText('Editing Ops Rotation')).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: /mock save template/i }))
 
-        const updater = setTemplatesMock.mock.calls[0][0] as (current: ScheduleTemplate[]) => ScheduleTemplate[]
+        expect(setTemplatesMock).toHaveBeenCalledTimes(1)
+        const updater = getUpdater()
         const next = updater(kvTemplates)
 
         expect(next.find((t) => t.id === 'template-1')).toEqual(

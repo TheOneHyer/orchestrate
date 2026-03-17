@@ -310,18 +310,17 @@ describe('TrainerWellness', () => {
 
         renderTrainerWellness(createUser({ id: 'e1', role: 'employee', name: 'Employee User' }))
 
-        expect(screen.queryByRole('button', { name: /new check-in/i })).toBeNull()
+        expect(screen.queryByRole('button', { name: /new check-in/i })).not.toBeInTheDocument()
 
         await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
 
-        expect(screen.queryByRole('button', { name: /new schedule/i })).toBeNull()
-        expect(screen.queryByRole('button', { name: /pause/i })).toBeNull()
+        expect(screen.queryByRole('button', { name: /new schedule/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /pause/i })).not.toBeInTheDocument()
     })
 
     it('renders check-in history empty state when there are no check-ins', async () => {
         const user = userEvent.setup()
 
-        const defaultUseKVImplementation = useKVMock.getMockImplementation()
         useKVMock.mockImplementation((key: string, initial: unknown[]) => {
             if (key === 'wellness-check-ins') {
                 return [[], setCheckInsMock]
@@ -332,17 +331,11 @@ describe('TrainerWellness', () => {
             return [initial, vi.fn()]
         })
 
-        try {
-            renderTrainerWellness(users[0])
+        renderTrainerWellness(users[0])
 
-            await user.click(screen.getByRole('tab', { name: /check-in history/i }))
+        await user.click(screen.getByRole('tab', { name: /check-in history/i }))
 
-            expect(screen.getByText(/no check-ins recorded yet/i)).toBeInTheDocument()
-            expect(screen.getByText(/start tracking wellness by creating a check-in/i)).toBeInTheDocument()
-        } finally {
-            if (defaultUseKVImplementation) {
-                useKVMock.mockImplementation(defaultUseKVImplementation)
-            }
-        }
+        expect(screen.getByText(/no check-ins recorded yet/i)).toBeInTheDocument()
+        expect(screen.getByText(/start tracking wellness by creating a check-in/i)).toBeInTheDocument()
     })
 })

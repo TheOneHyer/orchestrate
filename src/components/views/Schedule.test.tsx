@@ -200,6 +200,8 @@ describe('Schedule', () => {
 
   it('opens edit dialog from session details and saves updates', async () => {
     const onUpdateSession = vi.fn()
+    // pointerEventsCheck is disabled to avoid test-environment pointer-events false negatives
+    // when dialog/overlay layers are present while preserving real interaction behavior.
     const user = userEvent.setup({ pointerEventsCheck: 0 })
 
     renderSchedule({ sessions: [baseSession], onUpdateSession })

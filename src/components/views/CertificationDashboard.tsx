@@ -140,9 +140,9 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
           </div>
 
           <div className="space-y-2">
-            {criticalAlerts.slice(0, 5).map((alert, idx) => (
+            {criticalAlerts.slice(0, 5).map((alert) => (
               <div
-                key={idx}
+                key={`${alert.userId}-${alert.certification.certificationName}`}
                 data-testid={`critical-alert-${alert.userId}`}
                 className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200 cursor-pointer hover:shadow-sm transition-shadow"
                 onClick={() => onNavigate('people', { userId: alert.userId })}
@@ -177,9 +177,9 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
           </div>
 
           <div className="space-y-2">
-            {highAlerts.slice(0, 5).map((alert, idx) => (
+            {highAlerts.slice(0, 5).map((alert) => (
               <div
-                key={idx}
+                key={`${alert.userId}-${alert.certification.certificationName}`}
                 data-testid={`high-alert-${alert.userId}`}
                 className="flex items-center justify-between p-3 bg-muted/30 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => onNavigate('people', { userId: alert.userId })}

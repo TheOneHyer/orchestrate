@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { addDays, formatISO } from 'date-fns'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -117,8 +117,11 @@ describe('CertificationDashboard', () => {
     })
 
     it('renders critical and high-priority alert sections and navigates on alert click', async () => {
-        vi.useRealTimers()
-        const user = userEvent.setup()
+        const user = userEvent.setup({
+            delay: null,
+            advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms),
+        })
+        expect(user).toBeTruthy()
         const onNavigate = vi.fn()
 
         const users: User[] = [
@@ -143,8 +146,8 @@ describe('CertificationDashboard', () => {
         expect(screen.getByText(/critical alerts/i)).toBeInTheDocument()
         expect(screen.getByText(/high priority/i)).toBeInTheDocument()
 
-        await user.click(within(screen.getByTestId('critical-alert-trainer-critical')).getByText('Critical Trainer'))
-        await user.click(within(screen.getByTestId('high-alert-trainer-high')).getByText('High Trainer'))
+        fireEvent.click(within(screen.getByTestId('critical-alert-trainer-critical')).getByText('Critical Trainer'))
+        fireEvent.click(within(screen.getByTestId('high-alert-trainer-high')).getByText('High Trainer'))
 
         expect(onNavigate).toHaveBeenCalledWith('people', { userId: 'trainer-critical' })
         expect(onNavigate).toHaveBeenCalledWith('people', { userId: 'trainer-high' })
@@ -170,13 +173,13 @@ describe('CertificationDashboard', () => {
             />
         )
 
-        expect(screen.getAllByText('Status Trainer').length).toBeGreaterThan(0)
-        expect(screen.getAllByText('Expired Cert').length).toBeGreaterThan(0)
-        expect(screen.getAllByText('Soon Cert').length).toBeGreaterThan(0)
-        expect(screen.getAllByText('Active Cert').length).toBeGreaterThan(0)
-        expect(screen.getAllByText('Expired').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('Status Trainer')).toHaveLength(3)
+        expect(screen.getAllByText('Expired Cert')).toHaveLength(2)
+        expect(screen.getAllByText('Soon Cert')).toHaveLength(2)
+        expect(screen.getAllByText('Active Cert')).toHaveLength(1)
+        expect(screen.getAllByText('Expired')).toHaveLength(2)
         expect(screen.getByText(/d left/i)).toBeInTheDocument()
-        expect(screen.getAllByText('Active').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('Active')).toHaveLength(2)
         expect(screen.getByText(/renewal in progress/i)).toBeInTheDocument()
     })
 
@@ -194,8 +197,11 @@ describe('CertificationDashboard', () => {
     })
 
     it('wires add certification callback through AddCertificationDialog', async () => {
-        vi.useRealTimers()
-        const user = userEvent.setup()
+        const user = userEvent.setup({
+            delay: null,
+            advanceTimers: (ms) => vi.advanceTimersByTimeAsync(ms),
+        })
+        expect(user).toBeTruthy()
         const onAddCertification = vi.fn()
         const users = [createTrainer({ id: 'trainer-1', name: 'Trainer One' }, [])]
 
@@ -209,7 +215,7 @@ describe('CertificationDashboard', () => {
 
         expect(addCertificationDialogSpy).toHaveBeenCalledWith(users)
 
-        await user.click(screen.getByRole('button', { name: /mock add certification/i }))
+        fireEvent.click(screen.getByRole('button', { name: /mock add certification/i }))
 
         expect(onAddCertification).toHaveBeenCalledWith(
             ['trainer-1'],

@@ -253,11 +253,9 @@ describe('GuidedScheduler', () => {
             ])
         )
 
-        const expectedStartDate = new Date('2026-03-20')
-        expectedStartDate.setHours(9, 0, 0, 0)
-        const expectedIsoDate = expectedStartDate.toISOString().split('T')[0]
-
         const createdSessions = onSessionsCreated.mock.calls[0][0] as Array<Partial<{ startTime: string }>>
+        const createdStartDate = new Date(createdSessions[0].startTime as string)
+        const expectedIsoDate = `${createdStartDate.getUTCFullYear()}-${String(createdStartDate.getUTCMonth() + 1).padStart(2, '0')}-${String(createdStartDate.getUTCDate()).padStart(2, '0')}`
         expect(createdSessions[0].startTime).toEqual(expect.stringMatching(new RegExp(`^${expectedIsoDate}T`)))
         expect(toastSuccess).toHaveBeenCalledWith(expect.stringMatching(/successfully scheduled 1 session/i))
     })

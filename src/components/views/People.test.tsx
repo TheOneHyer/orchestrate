@@ -213,19 +213,12 @@ describe('People', () => {
     })
 
     it('does not allow trainers to complete add-person flow', async () => {
-        const user = userEvent.setup()
         const onAddUser = vi.fn()
 
         renderPeople({
             currentUser: createUser({ id: 'u-trainer-self', role: 'trainer', name: 'Trainer Self' }),
             onAddUser,
         })
-
-        const addPersonButton = screen.queryByRole('button', { name: /add person/i })
-        if (addPersonButton) {
-            await user.click(addPersonButton)
-            await user.click(screen.getByRole('button', { name: /mock confirm add person/i }))
-        }
 
         expect(screen.queryByRole('button', { name: /add person/i })).toBeNull()
         expect(onAddUser).not.toHaveBeenCalled()
@@ -275,6 +268,7 @@ describe('People', () => {
 
         await user.click(screen.getByText('Trainer User'))
 
+        // Deletion is initiated in profile view and confirmed from the people list, matching the product flow.
         await user.click(screen.getByRole('button', { name: /mock delete person/i }))
         await user.click(screen.getByRole('button', { name: /back to people/i }))
         await user.click(screen.getByRole('button', { name: /mock confirm delete/i }))

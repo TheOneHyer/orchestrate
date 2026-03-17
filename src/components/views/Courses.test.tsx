@@ -136,13 +136,62 @@ describe('Courses', () => {
         expect(screen.queryByText('Customer Service')).toBeNull()
 
         await user.clear(screen.getByPlaceholderText(/search courses/i))
+        expect(screen.getByText('Forklift Certification')).toBeInTheDocument()
+        expect(screen.getByText('Customer Service')).toBeInTheDocument()
+
         await user.type(screen.getByPlaceholderText(/search courses/i), 'communication')
 
         expect(screen.getByText('Customer Service')).toBeInTheDocument()
         expect(screen.queryByText('Forklift Certification')).toBeNull()
     })
 
-    it('renders draft badge, certifications, and current user enrollment progress', () => {
+    it('renders a Draft badge for unpublished courses', () => {
+        const courses: Course[] = [
+            createCourse({
+                id: 'c1',
+                title: 'Hazmat Intro',
+                published: false,
+                certifications: ['Hazmat', 'Safety', 'PPE'],
+            }),
+        ]
+
+        render(
+            <Courses
+                courses={courses}
+                enrollments={[]}
+                currentUser={createUser({ id: 'u1', role: 'employee' })}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText('Draft')).toBeInTheDocument()
+    })
+
+    it('renders certification labels and overflow indicator', () => {
+        const courses: Course[] = [
+            createCourse({
+                id: 'c1',
+                title: 'Hazmat Intro',
+                published: false,
+                certifications: ['Hazmat', 'Safety', 'PPE'],
+            }),
+        ]
+
+        render(
+            <Courses
+                courses={courses}
+                enrollments={[]}
+                currentUser={createUser({ id: 'u1', role: 'employee' })}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText('Hazmat')).toBeInTheDocument()
+        expect(screen.getByText('Safety')).toBeInTheDocument()
+        expect(screen.getByText('+1')).toBeInTheDocument()
+    })
+
+    it('renders only current user enrollment progress', () => {
         const currentUser = createUser({ id: 'u1', role: 'employee' })
 
         const courses: Course[] = [
@@ -174,6 +223,7 @@ describe('Courses', () => {
         expect(screen.getByText('+1')).toBeInTheDocument()
         expect(screen.getByText('Progress')).toBeInTheDocument()
         expect(screen.getByText('75%')).toBeInTheDocument()
+        expect(screen.queryByText('100%')).toBeNull()
         expect(screen.getByText('in-progress')).toBeInTheDocument()
     })
 

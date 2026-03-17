@@ -30,6 +30,8 @@ function makeTrainer(id: string, name: string): User {
 const trainers = [makeTrainer('t-1', 'Alex Trainer'), makeTrainer('t-2', 'Brook Trainer')]
 
 describe('AddCertificationDialog', () => {
+  const user = userEvent.setup()
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -48,7 +50,7 @@ describe('AddCertificationDialog', () => {
   it('opens the dialog when trigger button is clicked', async () => {
     render(<AddCertificationDialog users={trainers} onAddCertification={vi.fn()} />)
 
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText(/add a certification record to one or more trainers/i)).toBeInTheDocument()
@@ -56,7 +58,7 @@ describe('AddCertificationDialog', () => {
 
   it('shows all trainers as checkboxes', async () => {
     render(<AddCertificationDialog users={trainers} onAddCertification={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
     expect(screen.getByLabelText(/alex trainer/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/brook trainer/i)).toBeInTheDocument()
@@ -64,45 +66,45 @@ describe('AddCertificationDialog', () => {
 
   it('shows empty state when no trainers exist', async () => {
     render(<AddCertificationDialog users={[]} onAddCertification={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
     expect(screen.getByText(/no trainers found/i)).toBeInTheDocument()
   })
 
   it('selects a trainer checkbox', async () => {
     render(<AddCertificationDialog users={trainers} onAddCertification={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
     const checkbox = screen.getByRole('checkbox', { name: /alex trainer/i })
-    await userEvent.click(checkbox)
+    await user.click(checkbox)
 
     expect(screen.getByText(/1 trainer selected/i)).toBeInTheDocument()
   })
 
   it('select-all button selects all trainers', async () => {
     render(<AddCertificationDialog users={trainers} onAddCertification={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
-    await userEvent.click(screen.getByRole('button', { name: /select all/i }))
+    await user.click(screen.getByRole('button', { name: /select all/i }))
 
     expect(screen.getByText(/2 trainers selected/i)).toBeInTheDocument()
   })
 
   it('select-all becomes deselect-all when all are selected', async () => {
     render(<AddCertificationDialog users={trainers} onAddCertification={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
-    await userEvent.click(screen.getByRole('button', { name: /select all/i }))
+    await user.click(screen.getByRole('button', { name: /select all/i }))
 
     expect(screen.getByRole('button', { name: /deselect all/i })).toBeInTheDocument()
   })
 
   it('deselect-all clears all selected trainers', async () => {
     render(<AddCertificationDialog users={trainers} onAddCertification={vi.fn()} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
-    await userEvent.click(screen.getByRole('button', { name: /select all/i }))
-    await userEvent.click(screen.getByRole('button', { name: /deselect all/i }))
+    await user.click(screen.getByRole('button', { name: /select all/i }))
+    await user.click(screen.getByRole('button', { name: /deselect all/i }))
 
     expect(screen.queryByText(/trainers selected/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /select all/i })).toBeInTheDocument()
@@ -120,14 +122,14 @@ describe('AddCertificationDialog', () => {
     const expirationDate = '2028-01-01'
 
     render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
-    await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Training')
+    await user.type(screen.getByLabelText(/certification name/i), 'CPR Training')
     setDateInput(/issued date/i, issuedDate)
     setDateInput(/expiration date/i, expirationDate)
-    await userEvent.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
+    await user.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
 
-    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+    await user.click(screen.getByRole('button', { name: /^add certification$/i }))
 
     expect(onAddCertification).toHaveBeenCalledOnce()
     const [ids, cert] = onAddCertification.mock.calls[0]
@@ -148,14 +150,14 @@ describe('AddCertificationDialog', () => {
     const expirationDate = '2028-01-01'
 
     render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
-    await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Training')
+    await user.type(screen.getByLabelText(/certification name/i), 'CPR Training')
     setDateInput(/issued date/i, issuedDate)
     setDateInput(/expiration date/i, expirationDate)
-    await userEvent.click(screen.getByRole('button', { name: /select all/i }))
+    await user.click(screen.getByRole('button', { name: /select all/i }))
 
-    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+    await user.click(screen.getByRole('button', { name: /^add certification$/i }))
 
     expect(onAddCertification).toHaveBeenCalledOnce()
     const [ids, cert] = onAddCertification.mock.calls[0]
@@ -168,7 +170,6 @@ describe('AddCertificationDialog', () => {
   })
 
   it('resets form after successful submission', async () => {
-    const user = userEvent.setup()
     const expectedIssuedDate = (() => {
       const now = new Date()
       const year = now.getFullYear()
@@ -216,13 +217,13 @@ describe('AddCertificationDialog', () => {
     const onAddCertification = vi.fn()
 
     render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
 
     // Click the close button (X button on the dialog)
     const closeButton = screen.getByRole('button', { name: /close/i })
-    await userEvent.click(closeButton)
+    await user.click(closeButton)
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(onAddCertification).not.toHaveBeenCalled()
@@ -233,14 +234,14 @@ describe('AddCertificationDialog', () => {
     const issuedDate = '2027-12-15'
 
     render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
-    await userEvent.type(screen.getByLabelText(/certification name/i), 'Ongoing Training')
+    await user.type(screen.getByLabelText(/certification name/i), 'Ongoing Training')
     setDateInput(/issued date/i, issuedDate)
     // Leave expiration date empty
-    await userEvent.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
+    await user.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
 
-    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+    await user.click(screen.getByRole('button', { name: /^add certification$/i }))
 
     // Should show validation error because expiration date is required in current implementation
     expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/expiration date/i))
@@ -251,9 +252,9 @@ describe('AddCertificationDialog', () => {
     const onAddCertification = vi.fn()
 
     render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
-    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+    await user.click(screen.getByRole('button', { name: /^add certification$/i }))
 
     expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/please enter.*certification name/i))
     expect(onAddCertification).not.toHaveBeenCalled()
@@ -263,13 +264,13 @@ describe('AddCertificationDialog', () => {
     const onAddCertification = vi.fn()
 
     render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
-    await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Training')
+    await user.type(screen.getByLabelText(/certification name/i), 'CPR Training')
     setDateInput(/issued date/i, '2027-12-15')
     setDateInput(/expiration date/i, '2028-01-01')
 
-    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+    await user.click(screen.getByRole('button', { name: /^add certification$/i }))
 
     expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/select.*trainer/i))
     expect(onAddCertification).not.toHaveBeenCalled()
@@ -279,14 +280,14 @@ describe('AddCertificationDialog', () => {
     const onAddCertification = vi.fn()
 
     render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
-    await userEvent.click(screen.getByRole('button', { name: /add certification/i }))
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
 
-    await userEvent.type(screen.getByLabelText(/certification name/i), 'CPR Training')
+    await user.type(screen.getByLabelText(/certification name/i), 'CPR Training')
     setDateInput(/issued date/i, '2028-01-02')
     setDateInput(/expiration date/i, '2028-01-01')
-    await userEvent.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
+    await user.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
 
-    await userEvent.click(screen.getByRole('button', { name: /^add certification$/i }))
+    await user.click(screen.getByRole('button', { name: /^add certification$/i }))
 
     expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/expiration date.*issued date/i))
     expect(onAddCertification).not.toHaveBeenCalled()

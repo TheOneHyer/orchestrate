@@ -106,9 +106,8 @@ describe('TrainerAvailability', () => {
             />
         )
 
-        const activeTrainerCard = screen.getByText(/active trainers/i).closest('[data-slot="card"]')
-        expect(activeTrainerCard).not.toBeNull()
-        expect(within(activeTrainerCard as HTMLElement).getByText('2')).toBeInTheDocument()
+        const activeTrainerCard = screen.getByTestId('active-trainers-card')
+        expect(within(activeTrainerCard).getByText('2')).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /view schedule/i }))
         expect(onNavigate).toHaveBeenCalledWith('schedule')
@@ -164,7 +163,7 @@ describe('TrainerAvailability', () => {
 
         expect(screen.getByText(/trainercoverageheatmap mock/i)).toBeInTheDocument()
         expect(screen.getByText(/weekly work schedule/i)).toBeInTheDocument()
-        expect(screen.getAllByText('Off').length).toBeGreaterThan(0)
+        expect(screen.getAllByText('Off')).toHaveLength(12)
     })
 
     it('opens trainer detail sheet via workload recommendations callback', async () => {
@@ -185,6 +184,6 @@ describe('TrainerAvailability', () => {
         await user.click(screen.getByRole('button', { name: /mock view trainer/i }))
 
         expect(screen.getByRole('heading', { name: /taylor trainer/i })).toBeInTheDocument()
-        expect(screen.getAllByText(/availability/i).length).toBeGreaterThan(0)
+        expect(screen.getByRole('heading', { name: /availability/i, level: 3 })).toBeInTheDocument()
     })
 })

@@ -304,7 +304,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
         <TabsContent value="trainers" className="space-y-6">
           <div className="flex items-center gap-3 mb-4">
             <Select value={selectedTrainer || ''} onValueChange={setSelectedTrainer}>
-              <SelectTrigger className="w-[300px]">
+              <SelectTrigger className="w-[300px]" aria-label="Select trainer">
                 <SelectValue placeholder="Select a trainer to view details" />
               </SelectTrigger>
               <SelectContent>

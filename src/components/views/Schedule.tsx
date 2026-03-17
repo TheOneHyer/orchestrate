@@ -158,6 +158,14 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
       return
     }
 
+    const enrolledCount = editingSession.enrolledStudents.length
+    if (parsedCapacity < enrolledCount) {
+      toast.error('Invalid capacity', {
+        description: `Capacity cannot be less than the ${enrolledCount} currently enrolled student${enrolledCount === 1 ? '' : 's'}.`,
+      })
+      return
+    }
+
     const updates: Partial<Session> = {
       title: trimmedTitle,
       location: trimmedLocation,
@@ -386,7 +394,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           onDrop={(e) => handleDrop(e, currentDate)}
           onClick={(e) => {
             const target = e.target as HTMLElement
-            if (canManageSchedule && (target.closest('[data-calendar-cell-body]') || target === e.currentTarget)) {
+            if (
+              canManageSchedule &&
+              !target.closest('[draggable]') &&
+              (target.closest('[data-calendar-cell-body]') || target === e.currentTarget)
+            ) {
               handleOpenGuidedScheduler(currentDate)
             }
           }}
@@ -973,21 +985,23 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="edit-session-start">Start Time</Label>
+                <Label htmlFor="edit-session-start">Start Time *</Label>
                 <Input
                   id="edit-session-start"
                   type="datetime-local"
                   value={editForm.startTime}
                   onChange={(e) => setEditForm((current) => ({ ...current, startTime: e.target.value }))}
+                  required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-session-end">End Time</Label>
+                <Label htmlFor="edit-session-end">End Time *</Label>
                 <Input
                   id="edit-session-end"
                   type="datetime-local"
                   value={editForm.endTime}
                   onChange={(e) => setEditForm((current) => ({ ...current, endTime: e.target.value }))}
+                  required
                 />
               </div>
             </div>

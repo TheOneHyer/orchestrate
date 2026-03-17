@@ -175,7 +175,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
 
               return (
                 <div
-                  key={day.toString()}
+                  key={day.getTime()}
                   className={`p-2 min-h-[100px] ${isToday ? 'bg-primary/5' : ''}`}
                 >
                   <div className="space-y-1">
@@ -451,7 +451,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card data-testid="active-trainers-card">
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2">
               <UsersIcon size={16} />
@@ -596,7 +596,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                     const isToday = isSameDay(day, new Date())
                     return (
                       <div
-                        key={day.toString()}
+                        key={day.getTime()}
                         className={`p-3 text-center ${isToday ? 'bg-primary/10' : 'bg-muted/50'}`}
                       >
                         <div className={`text-xs font-medium ${isToday ? 'text-primary' : 'text-muted-foreground'}`}>
