@@ -409,6 +409,26 @@ describe('use-certification-notifications', () => {
         const updatedUsers = vi.mocked(onUpdateUsers).mock.calls[0][0] as User[]
         expect(updatedUsers[0].trainerProfile?.certificationRecords?.[0].remindersSent).toBe(1)
     })
+
+    it('does not mutate the original user objects or their certification records', () => {
+        const cert = createCertRecord(45, 0)
+        const trainer = createTrainer('trainer-clone', cert)
+        const inputUsers = [trainer]
+        const originalCertRef = trainer.trainerProfile!.certificationRecords![0]
+        const originalRemindersSent = originalCertRef.remindersSent
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications(inputUsers, vi.fn(), onUpdateUsers))
+
+        // The original certification record object must not have been modified
+        expect(originalCertRef.remindersSent).toBe(originalRemindersSent)
+
+        // The array and objects passed to onUpdateUsers are new (not the originals)
+        const updatedUsers = vi.mocked(onUpdateUsers).mock.calls[0][0] as User[]
+        expect(updatedUsers).not.toBe(inputUsers)
+        expect(updatedUsers[0]).not.toBe(trainer)
+        expect(updatedUsers[0].trainerProfile!.certificationRecords![0]).not.toBe(originalCertRef)
+    })
 })
 
 it('emits no notifications when users array is empty', () => {
