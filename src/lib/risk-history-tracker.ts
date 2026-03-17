@@ -37,6 +37,26 @@ export function calculateRiskLevel(score: number): RiskHistorySnapshot['riskLeve
   return 'low'
 }
 
+// Basic inline boundary checks to guard the calculateRiskLevel thresholds.
+// These act as lightweight tests to prevent regressions if the scoring model changes.
+function assertRiskLevelBoundary(score: number, expected: RiskHistorySnapshot['riskLevel']): void {
+  const actual = calculateRiskLevel(score)
+  if (actual !== expected) {
+    throw new Error(
+      `calculateRiskLevel(${score}) expected "${expected}" but received "${actual}". ` +
+        'This indicates a regression in the risk score thresholds.'
+    )
+  }
+}
+
+// Edge cases around threshold boundaries: 24/25, 44/45, 69/70.
+assertRiskLevelBoundary(24, 'low')
+assertRiskLevelBoundary(25, 'medium')
+assertRiskLevelBoundary(44, 'medium')
+assertRiskLevelBoundary(45, 'high')
+assertRiskLevelBoundary(69, 'high')
+assertRiskLevelBoundary(70, 'critical')
+
 export function createRiskSnapshot(
   trainer: User,
   sessions: Session[],
