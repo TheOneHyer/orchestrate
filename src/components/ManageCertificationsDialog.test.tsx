@@ -340,8 +340,8 @@ describe('ManageCertificationsDialog', () => {
     await user.type(screen.getByLabelText(/issued date/i), '2024-08-10')
     await user.type(screen.getByLabelText(/expiration date/i), '2026-08-10')
 
-    const renewalRequiredSwitch = screen.getAllByRole('switch')[0]
-    const renewalInProgressSwitch = screen.getAllByRole('switch')[1]
+    const renewalRequiredSwitch = screen.getByRole('switch', { name: /renewal required/i })
+    const renewalInProgressSwitch = screen.getByRole('switch', { name: /renewal in progress/i })
     await user.click(renewalRequiredSwitch)
     await user.click(renewalInProgressSwitch)
     await user.type(screen.getByLabelText(/notes/i), 'Needs annual practical check')

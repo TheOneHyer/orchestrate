@@ -114,6 +114,13 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     return 'text-muted-foreground'
   }
 
+  const getUtilizationTier = (rate: number) => {
+    if (rate >= 90) return 'high'
+    if (rate >= 70) return 'medium'
+    if (rate >= 40) return 'low'
+    return 'minimal'
+  }
+
   const renderTrainerRow = (schedule: TrainerSchedule) => {
     const { trainer, availableHours, utilizationRate } = schedule
     const hasSchedule = trainer.trainerProfile?.shiftSchedules && trainer.trainerProfile.shiftSchedules.length > 0
@@ -159,7 +166,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
               </div>
             ) : null}
             <div className="flex items-center justify-between mt-3 text-xs">
-              <span className={getUtilizationColor(utilizationRate)}>
+              <span className={getUtilizationColor(utilizationRate)} data-utilization={getUtilizationTier(utilizationRate)}>
                 {utilizationRate.toFixed(0)}% utilized
               </span>
               <span className="text-muted-foreground">
@@ -542,6 +549,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Clear filters"
                     onClick={() => {
                       setSearchTerm('')
                       setSelectedCertification('all')

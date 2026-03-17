@@ -258,10 +258,13 @@ describe('TrainerProfileView', () => {
         sessions={[]}
         courses={[]}
         enrollments={[]}
+        onEdit={vi.fn()}
+        onDelete={vi.fn()}
+        onUpdateUser={vi.fn()}
       />
     )
 
-    expect(screen.getByText(/months/i)).toBeInTheDocument()
+    expect(screen.getByText(/\d+\s*months/i)).toBeInTheDocument()
     expect(screen.getByText(/no certifications/i)).toBeInTheDocument()
   })
 

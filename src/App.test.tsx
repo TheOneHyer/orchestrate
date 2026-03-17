@@ -8,15 +8,20 @@ const toastError = vi.fn()
 
 const sendNotificationMock = vi.fn()
 let utilizationNotified = false
-let utilizationNotificationPayload: Record<string, unknown> = {
-    userId: 'admin-1',
-    type: 'system',
-    title: 'Critical Alert',
-    message: 'High-risk condition detected',
-    read: false,
-    priority: 'critical',
-    link: '/trainer-wellness',
+function createUtilizationNotificationPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+        userId: 'admin-1',
+        type: 'system',
+        title: 'Critical Alert',
+        message: 'High-risk condition detected',
+        read: false,
+        priority: 'critical',
+        link: '/trainer-wellness',
+        ...overrides,
+    }
 }
+
+let utilizationNotificationPayload: Record<string, unknown> = createUtilizationNotificationPayload()
 const callbackSpies = {
     onCreateSession: vi.fn(),
     onUpdateSession: vi.fn(),
@@ -357,15 +362,7 @@ describe('App', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         utilizationNotified = false
-        utilizationNotificationPayload = {
-            userId: 'admin-1',
-            type: 'system',
-            title: 'Critical Alert',
-            message: 'High-risk condition detected',
-            read: false,
-            priority: 'critical',
-            link: '/trainer-wellness',
-        }
+        utilizationNotificationPayload = createUtilizationNotificationPayload()
         getPreviewSeedModeMock.mockReturnValue('off')
         isPreviewSeedEnabledMock.mockReturnValue(false)
         Object.keys(kvSeed).forEach((key) => delete kvSeed[key])
@@ -840,15 +837,12 @@ describe('App', () => {
     })
 
     it('handles high-priority notifications with unknown link and keeps current view on click', async () => {
-        utilizationNotificationPayload = {
-            userId: 'admin-1',
-            type: 'system',
+        utilizationNotificationPayload = createUtilizationNotificationPayload({
             title: 'High Alert',
             message: 'Action required',
-            read: false,
             priority: 'high',
             link: '/unknown-route',
-        }
+        })
 
         render(<App />)
 
@@ -873,13 +867,12 @@ describe('App', () => {
     })
 
     it('uses medium priority by default and omits click handler when notification link is missing', async () => {
-        utilizationNotificationPayload = {
-            userId: 'admin-1',
-            type: 'system',
+        utilizationNotificationPayload = createUtilizationNotificationPayload({
             title: 'Heads Up',
             message: 'No explicit priority',
-            read: false,
-        }
+            priority: undefined,
+            link: undefined,
+        })
 
         render(<App />)
 

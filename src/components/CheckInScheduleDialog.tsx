@@ -31,14 +31,14 @@ export function CheckInScheduleDialog({
   const [frequency, setFrequency] = useState<CheckInFrequency>(existingSchedule?.frequency || 'weekly')
   const [customDays, setCustomDays] = useState(existingSchedule?.customDays?.toString() || '7')
   const [startDate, setStartDate] = useState(
-    existingSchedule?.startDate 
-      ? format(new Date(existingSchedule.startDate), 'yyyy-MM-dd')
+    existingSchedule?.startDate
+      ? existingSchedule.startDate.split('T')[0]
       : format(new Date(), 'yyyy-MM-dd')
   )
   const [hasEndDate, setHasEndDate] = useState(!!existingSchedule?.endDate)
   const [endDate, setEndDate] = useState(
-    existingSchedule?.endDate 
-      ? format(new Date(existingSchedule.endDate), 'yyyy-MM-dd')
+    existingSchedule?.endDate
+      ? existingSchedule.endDate.split('T')[0]
       : format(addDays(new Date(), 90), 'yyyy-MM-dd')
   )
   const [notificationEnabled, setNotificationEnabled] = useState(existingSchedule?.notificationEnabled ?? true)
@@ -176,6 +176,7 @@ export function CheckInScheduleDialog({
               <div className="flex items-center justify-between">
                 <Label htmlFor="endDate">End Date (Optional)</Label>
                 <Switch
+                  data-testid="end-date-switch"
                   checked={hasEndDate}
                   onCheckedChange={setHasEndDate}
                 />
@@ -193,7 +194,7 @@ export function CheckInScheduleDialog({
 
           <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
             <h4 className="font-medium text-sm">Notification Settings</h4>
-            
+
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label htmlFor="notificationEnabled">Enable Notifications</Label>

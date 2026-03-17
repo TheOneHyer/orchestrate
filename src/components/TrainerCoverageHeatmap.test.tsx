@@ -45,8 +45,12 @@ function makeTrainer(id: string, name: string, certs: string[], shiftSchedules?:
 describe('TrainerCoverageHeatmap', () => {
     const setTargetCoverage = vi.fn()
 
+    const mockUseKV = (value: number | undefined) => {
+        vi.mocked(useKV).mockReturnValue([value, setTargetCoverage, vi.fn()] as ReturnType<typeof useKV>)
+    }
+
     const getHeatmapCell = (value: string) => {
-        const cell = screen.getAllByText(value).find((element) => element.className.includes('cursor-help'))
+        const cell = screen.getAllByText(value).find((element) => element.classList.contains('cursor-help'))
         if (!cell) {
             throw new Error(`Unable to find heatmap cell with value ${value}`)
         }
@@ -55,7 +59,7 @@ describe('TrainerCoverageHeatmap', () => {
 
     beforeEach(() => {
         vi.clearAllMocks()
-        vi.mocked(useKV).mockReturnValue([4, setTargetCoverage, vi.fn()] as unknown as ReturnType<typeof useKV>)
+        mockUseKV(4)
     })
 
     it('shows empty state when no trainer schedules are configured', () => {
@@ -160,7 +164,7 @@ describe('TrainerCoverageHeatmap', () => {
 
     it('supports keyboard save and cancel while using default target when kv is undefined', async () => {
         const user = userEvent.setup()
-        vi.mocked(useKV).mockReturnValue([undefined as unknown as number, setTargetCoverage, vi.fn()] as unknown as ReturnType<typeof useKV>)
+        mockUseKV(undefined)
         const users: User[] = [makeTrainer('trainer-1', 'Alex Trainer', ['Safety'])]
 
         render(<TrainerCoverageHeatmap users={users} />)
@@ -185,7 +189,7 @@ describe('TrainerCoverageHeatmap', () => {
     })
 
     it('renders singular target summary and handles overnight and midnight schedule parsing', () => {
-        vi.mocked(useKV).mockReturnValue([1, setTargetCoverage, vi.fn()] as unknown as ReturnType<typeof useKV>)
+        mockUseKV(1)
 
         const overnightSchedule: ShiftSchedule = {
             shiftCode: 'overnight',
@@ -206,16 +210,28 @@ describe('TrainerCoverageHeatmap', () => {
             makeTrainer('trainer-2', 'Jordan Trainer', ['Safety'], [midnightSchedule]),
         ]
 
-        render(<TrainerCoverageHeatmap users={users} />)
+        const { container } = render(<TrainerCoverageHeatmap users={users} />)
+
+        const getCoverageCell = (day: string, hour: number) => {
+            const cell = container.querySelector(`[data-day="${day}"][data-hour="${hour}"]`)
+            if (!(cell instanceof HTMLElement)) {
+                throw new Error(`Unable to find coverage cell for ${day} at hour ${hour}`)
+            }
+            return cell
+        }
 
         const summary = screen.getByText(/target coverage is set to/i).parentElement
         expect(summary).toHaveTextContent(/target coverage is set to 1/i)
         expect(summary).toHaveTextContent(/trainer per hour\./i)
         expect(summary).not.toHaveTextContent(/trainers per hour\./i)
+
+        expect(getCoverageCell('monday', 23)).toHaveTextContent('1')
+        expect(getCoverageCell('monday', 0)).toHaveTextContent('2')
+        expect(getCoverageCell('monday', 1)).toHaveTextContent('1')
     })
 
     it('applies expected heatmap colors for each target ratio tier', () => {
-        vi.mocked(useKV).mockReturnValue([4, setTargetCoverage, vi.fn()] as unknown as ReturnType<typeof useKV>)
+        mockUseKV(4)
 
         const users: User[] = [
             makeTrainer('trainer-1', 'A Trainer', ['Safety'], [{
@@ -250,9 +266,9 @@ describe('TrainerCoverageHeatmap', () => {
 
         render(<TrainerCoverageHeatmap users={users} />)
 
-        expect(getHeatmapCell('4')).toHaveClass('bg-green-500')
-        expect(getHeatmapCell('3')).toHaveClass('bg-yellow-400')
-        expect(getHeatmapCell('2')).toHaveClass('bg-orange-400')
-        expect(getHeatmapCell('1')).toHaveClass('bg-red-400')
+        expect(getHeatmapCell('4')).toHaveAttribute('data-coverage-tier', '4')
+        expect(getHeatmapCell('3')).toHaveAttribute('data-coverage-tier', '3')
+        expect(getHeatmapCell('2')).toHaveAttribute('data-coverage-tier', '2')
+        expect(getHeatmapCell('1')).toHaveAttribute('data-coverage-tier', '1')
     })
 })

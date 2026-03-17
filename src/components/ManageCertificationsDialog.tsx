@@ -166,9 +166,10 @@ export function ManageCertificationsDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Renewal Required</Label>
+                <Label htmlFor="renewal-required">Renewal Required</Label>
                 <div className="flex items-center gap-2 h-10">
                   <Switch
+                    id="renewal-required"
                     checked={formData.renewalRequired ?? true}
                     onCheckedChange={(checked) => setFormData({ ...formData, renewalRequired: checked })}
                   />
@@ -179,9 +180,10 @@ export function ManageCertificationsDialog({
               </div>
 
               <div className="space-y-2">
-                <Label>Renewal in Progress</Label>
+                <Label htmlFor="renewal-in-progress">Renewal in Progress</Label>
                 <div className="flex items-center gap-2 h-10">
                   <Switch
+                    id="renewal-in-progress"
                     checked={formData.renewalInProgress || false}
                     onCheckedChange={(checked) => setFormData({ ...formData, renewalInProgress: checked })}
                   />

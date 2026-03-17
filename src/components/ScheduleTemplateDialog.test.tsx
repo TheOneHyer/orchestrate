@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -179,19 +179,21 @@ describe('ScheduleTemplateDialog', () => {
         await user.clear(timeInput)
         await user.type(timeInput, '13:30')
 
-        const numberInputs = secondSessionCard.querySelectorAll('input[type="number"]')
-        const durationInput = numberInputs[0]
-        const capacityInput = numberInputs[1]
-        if (!(durationInput instanceof HTMLInputElement) || !(capacityInput instanceof HTMLInputElement)) {
-            throw new Error('Session number inputs were not found')
-        }
+        const durationInput = within(secondSessionCard).getByRole('spinbutton', {
+            name: /duration for session 2/i,
+        })
+        const capacityInput = within(secondSessionCard).getByRole('spinbutton', {
+            name: /capacity for session 2/i,
+        })
 
-        fireEvent.change(durationInput, { target: { value: '90' } })
+        await user.clear(durationInput)
+        await user.type(durationInput, '90')
 
         await user.click(sessionComboboxes[1])
         await user.click(await screen.findByRole('option', { name: /^night$/i }))
 
-        fireEvent.change(capacityInput, { target: { value: '12' } })
+        await user.clear(capacityInput)
+        await user.type(capacityInput, '12')
 
         await user.type(within(secondSessionCard).getByPlaceholderText(/room\/location/i), 'Bay 3')
 
@@ -237,7 +239,7 @@ describe('ScheduleTemplateDialog', () => {
             throw new Error('Session 2 card was not found')
         }
 
-        await user.click(within(secondSessionCard).getByRole('button'))
+        await user.click(within(secondSessionCard).getByRole('button', { name: /remove session 2/i }))
 
         expect(screen.queryByText('Session 2')).not.toBeInTheDocument()
 

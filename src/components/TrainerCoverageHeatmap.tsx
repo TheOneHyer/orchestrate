@@ -132,6 +132,18 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     return 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800'
   }
 
+  const getCoverageTier = (count: number, target: number) => {
+    if (count === 0) return 0
+
+    const ratio = count / target
+    if (ratio >= 1) return 4
+    if (ratio >= 0.75) return 3
+    if (ratio >= 0.5) return 2
+    if (ratio > 0) return 1
+
+    return 0
+  }
+
   const formatHour = (hour: number) => {
     if (hour === 0) return '12a'
     if (hour === 12) return '12p'
@@ -295,6 +307,9 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <div
+                                data-day={key}
+                                data-hour={hourData.hour}
+                                data-coverage-tier={getCoverageTier(hourData.count, targetCoverage || 4)}
                                 className={`p-1 flex items-center justify-center text-[10px] font-semibold cursor-help transition-colors hover:opacity-80 border ${getHeatmapColor(hourData.count, targetCoverage || 4)}`}
                               >
                                 {hourData.count > 0 ? hourData.count : ''}

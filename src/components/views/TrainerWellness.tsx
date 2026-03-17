@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { 
+import {
   Heart,
   Plus,
   ClipboardText,
@@ -49,7 +49,7 @@ interface TrainerWellnessProps {
 export function TrainerWellness({ users, sessions, currentUser, onNavigate }: TrainerWellnessProps) {
   const [checkIns, setCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const [recoveryPlans, setRecoveryPlans] = useKV<RecoveryPlan[]>('recovery-plans', [])
-  
+
   const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null)
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false)
   const [recoveryPlanDialogOpen, setRecoveryPlanDialogOpen] = useState(false)
@@ -77,7 +77,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
     handleTriggerCheckIn
   )
 
-  const trainers = useMemo(() => 
+  const trainers = useMemo(() =>
     users.filter(u => u.role === 'trainer'),
     [users]
   )
@@ -88,7 +88,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
   const trainerWellnessData = useMemo(() => {
     return trainers.map(trainer => {
       const trainerCheckIns = safeCheckIns.filter(c => c.trainerId === trainer.id)
-      const latestCheckIn = trainerCheckIns.sort((a, b) => 
+      const latestCheckIn = trainerCheckIns.sort((a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
       )[0]
 
@@ -140,7 +140,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
     }
 
     setCheckIns((current) => [...(current || []), newCheckIn])
-    
+
     const trainer = trainers.find(t => t.id === checkInData.trainerId)
     toast.success('Check-in Recorded', {
       description: `Wellness check-in for ${trainer?.name} has been recorded successfully.`
@@ -182,7 +182,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
     }
 
     setRecoveryPlans((current) => [...(current || []), newPlan])
-    
+
     const trainer = trainers.find(t => t.id === plan.trainerId)
     toast.success('Recovery Plan Created', {
       description: `Recovery plan for ${trainer?.name} has been created successfully.`
@@ -386,7 +386,10 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-center gap-4 flex-1">
-                        <div className={`w-2 h-16 rounded-full ${getStatusColor(wellnessStatus)}`} />
+                        <div
+                          data-testid="wellness-status-bar"
+                          className={`w-2 h-16 rounded-full ${getStatusColor(wellnessStatus)}`}
+                        />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p className="font-semibold">{trainer.name}</p>
@@ -424,7 +427,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
                           <div className="text-xs text-muted-foreground">score</div>
                         </div>
                         {getStatusBadge(wellnessStatus)}
-                        
+
                         {currentUser.role === 'admin' && (
                           <div className="flex gap-2">
                             <Button
@@ -485,7 +488,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
                   <p className="font-medium">No automated schedules created yet</p>
                   <p className="text-sm mt-1">Create schedules to automate wellness check-ins for trainers</p>
                   {currentUser.role === 'admin' && (
-                    <Button 
+                    <Button
                       className="mt-4"
                       onClick={() => setScheduleDialogOpen(true)}
                     >
@@ -558,9 +561,8 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
                         <div className="grid grid-cols-4 gap-4">
                           <div>
                             <p className="text-sm text-muted-foreground">Next Check-In</p>
-                            <p className={`text-lg font-semibold ${
-                              isOverdue ? 'text-destructive' : isDueSoon ? 'text-accent' : ''
-                            }`}>
+                            <p className={`text-lg font-semibold ${isOverdue ? 'text-destructive' : isDueSoon ? 'text-accent' : ''
+                              }`}>
                               {isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : format(nextDate, 'MMM d')}
                             </p>
                             {!isOverdue && (
@@ -688,8 +690,8 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
               <h3 className="text-lg font-semibold">Check-In History</h3>
               <p className="text-sm text-muted-foreground">All wellness check-ins across trainers</p>
             </div>
-            <Select 
-              value={selectedTrainer || 'all'} 
+            <Select
+              value={selectedTrainer || 'all'}
               onValueChange={(v) => setSelectedTrainer(v === 'all' ? null : v)}
             >
               <SelectTrigger className="w-[250px]">
@@ -883,9 +885,8 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
                           {plan.actions.map((action) => (
                             <div
                               key={action.id}
-                              className={`flex items-start gap-3 p-3 border rounded-lg ${
-                                action.completed ? 'bg-muted/30' : ''
-                              }`}
+                              className={`flex items-start gap-3 p-3 border rounded-lg ${action.completed ? 'bg-muted/30' : ''
+                                }`}
                             >
                               {action.completed ? (
                                 <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" weight="fill" />
@@ -975,11 +976,10 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
                         {insights.map((insight, idx) => (
                           <div
                             key={idx}
-                            className={`flex items-start gap-3 p-3 border rounded-lg ${
-                              insight.severity === 'critical' ? 'border-destructive/50 bg-destructive/5' :
-                              insight.severity === 'warning' ? 'border-orange-500/50 bg-orange-50/50' :
-                              'bg-muted/30'
-                            }`}
+                            className={`flex items-start gap-3 p-3 border rounded-lg ${insight.severity === 'critical' ? 'border-destructive/50 bg-destructive/5' :
+                                insight.severity === 'warning' ? 'border-orange-500/50 bg-orange-50/50' :
+                                  'bg-muted/30'
+                              }`}
                           >
                             {insight.severity === 'critical' ? (
                               <Warning className="h-5 w-5 text-destructive mt-0.5" weight="fill" />
@@ -1017,12 +1017,12 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
             currentUtilization={
               selectedTrainer
                 ? calculateTrainerUtilization(
-                    trainers.find(t => t.id === selectedTrainer)!,
-                    sessions,
-                    [],
-                    timeRange,
-                    safeCheckIns
-                  ).utilizationRate
+                  trainers.find(t => t.id === selectedTrainer)!,
+                  sessions,
+                  [],
+                  timeRange,
+                  safeCheckIns
+                ).utilizationRate
                 : undefined
             }
           />
@@ -1040,19 +1040,19 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
             latestCheckIn={
               selectedTrainer
                 ? safeCheckIns
-                    .filter(c => c.trainerId === selectedTrainer)
-                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
+                  .filter(c => c.trainerId === selectedTrainer)
+                  .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
                 : undefined
             }
             currentUtilization={
               selectedTrainer
                 ? calculateTrainerUtilization(
-                    trainers.find(t => t.id === selectedTrainer)!,
-                    sessions,
-                    [],
-                    timeRange,
-                    safeCheckIns
-                  ).utilizationRate
+                  trainers.find(t => t.id === selectedTrainer)!,
+                  sessions,
+                  [],
+                  timeRange,
+                  safeCheckIns
+                ).utilizationRate
                 : undefined
             }
           />

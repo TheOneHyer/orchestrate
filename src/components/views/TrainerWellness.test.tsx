@@ -617,7 +617,7 @@ describe('TrainerWellness', () => {
         const action = toastInfo.mock.calls[0]?.[1]?.action
         expect(action).toBeDefined()
         await act(async () => {
-            action.onClick()
+            await action.onClick()
         })
 
         expect(await screen.findByRole('button', { name: /mock submit check-in/i })).toBeInTheDocument()
@@ -838,7 +838,7 @@ describe('TrainerWellness', () => {
 
         renderTrainerWellness(users[0])
 
-        const statusBars = document.querySelectorAll('.w-2.h-16.rounded-full')
+        const statusBars = screen.getAllByTestId('wellness-status-bar')
         expect(statusBars.length).toBeGreaterThan(0)
         expect(statusBars[0].className).toContain('bg-muted')
 

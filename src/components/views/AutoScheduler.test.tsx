@@ -89,6 +89,15 @@ const users: User[] = [
     }),
 ]
 
+const setDefaultUseKVMock = () => {
+    useKVMock.mockImplementation((key: string, initialValue: unknown) => {
+        if (key === 'sessions') {
+            return [[], vi.fn()]
+        }
+        return [initialValue, vi.fn()]
+    })
+}
+
 describe('AutoScheduler', () => {
     let timeoutSpy: ReturnType<typeof vi.spyOn>
 
@@ -100,12 +109,7 @@ describe('AutoScheduler', () => {
             return 0 as any
         })
 
-        useKVMock.mockImplementation((key: string, initialValue: unknown) => {
-            if (key === 'sessions') {
-                return [[], vi.fn()]
-            }
-            return [initialValue, vi.fn()]
-        })
+        setDefaultUseKVMock()
 
         analyzeFeasibilityMock.mockReturnValue({ feasible: true })
         findAvailableTrainersMock.mockReturnValue([
@@ -247,7 +251,7 @@ describe('AutoScheduler', () => {
     })
 
     it('includes recurrence and date-range constraints in auto-schedule payload and supports null sessions store', async () => {
-        useKVMock.mockImplementationOnce((key: string, initialValue: unknown) => {
+        useKVMock.mockImplementation((key: string, initialValue: unknown) => {
             if (key === 'sessions') {
                 return [null, vi.fn()]
             }
@@ -257,6 +261,8 @@ describe('AutoScheduler', () => {
         render(
             <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
         )
+
+        expect(screen.getByText(/automatic trainer scheduler/i)).toBeInTheDocument()
 
         await selectCourseAndDate()
 
@@ -296,6 +302,8 @@ describe('AutoScheduler', () => {
                 },
             })
         )
+
+        setDefaultUseKVMock()
     })
 
     it('renders scheduling conflicts when auto-schedule fails', async () => {

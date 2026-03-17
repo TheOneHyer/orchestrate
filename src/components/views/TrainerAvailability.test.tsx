@@ -94,8 +94,7 @@ const sessions: Session[] = [
 ]
 
 function makeSession(id: string, trainerId: string, start: Date, durationHours: number): Session {
-    const end = new Date(start)
-    end.setHours(end.getHours() + durationHours)
+    const end = new Date(start.getTime() + durationHours * 60 * 60 * 1000)
 
     return {
         id,
@@ -243,13 +242,7 @@ describe('TrainerAvailability', () => {
         expect(screen.getByText(/taylor trainer/i)).toBeInTheDocument()
         expect(screen.queryByText(/uma trainer/i)).not.toBeInTheDocument()
 
-        const clearButton = screen
-            .getAllByRole('button')
-            .find((button) => button.textContent?.trim() === '')
-
-        if (!(clearButton instanceof HTMLElement)) {
-            throw new Error('Clear filter button was not found')
-        }
+        const clearButton = screen.getByRole('button', { name: /clear/i })
 
         await user.click(clearButton)
 
@@ -364,7 +357,10 @@ describe('TrainerAvailability', () => {
             />
         )
 
-        const overutilizedCard = screen.getByText(/over-utilized/i).closest('[data-slot="card"]') as HTMLElement
+        const overutilizedCard = screen.getByText(/over-utilized/i).closest('[data-slot="card"]')
+        if (!(overutilizedCard instanceof HTMLElement)) {
+            throw new Error('Over-utilized card element not found')
+        }
         expect(within(overutilizedCard).getByText('1')).toHaveClass('text-red-600')
     })
 
@@ -395,8 +391,8 @@ describe('TrainerAvailability', () => {
             />
         )
 
-        expect(screen.getByText('100% utilized')).toHaveClass('text-red-600')
-        expect(screen.getByText('75% utilized')).toHaveClass('text-orange-600')
-        expect(screen.getByText('40% utilized')).toHaveClass('text-green-600')
+        expect(screen.getByText('100% utilized')).toHaveAttribute('data-utilization', 'high')
+        expect(screen.getByText('75% utilized')).toHaveAttribute('data-utilization', 'medium')
+        expect(screen.getByText('40% utilized')).toHaveAttribute('data-utilization', 'low')
     })
 })

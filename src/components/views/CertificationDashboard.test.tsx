@@ -283,7 +283,7 @@ describe('CertificationDashboard', () => {
             />
         )
 
-        expect(document.querySelector('.bg-gray-100.text-gray-800.border-gray-200')).toBeInTheDocument()
+        expect(screen.getByTestId('status-badge-unknown')).toBeInTheDocument()
         statusSpy.mockRestore()
     })
 

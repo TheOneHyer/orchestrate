@@ -230,6 +230,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                 <div className="space-y-2">
                   {trainer.trainerProfile?.certificationRecords?.map((cert, certIdx) => {
                     const status = calculateCertificationStatus(cert)
+                    const isUnknownStatus = status !== 'expired' && status !== 'expiring-soon' && status !== 'active'
                     const daysUntil = Math.floor(
                       (new Date(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
                     )
@@ -251,10 +252,11 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                               Renewal in Progress
                             </Badge>
                           )}
-                          <Badge className={getStatusColor(status)}>
+                          <Badge className={getStatusColor(status)} data-testid={isUnknownStatus ? 'status-badge-unknown' : undefined}>
                             {status === 'expired' && 'Expired'}
                             {status === 'expiring-soon' && `${daysUntil}d left`}
                             {status === 'active' && 'Active'}
+                            {isUnknownStatus && 'Unknown'}
                           </Badge>
                         </div>
                       </div>

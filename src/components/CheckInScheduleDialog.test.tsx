@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -81,6 +81,7 @@ describe('CheckInScheduleDialog', () => {
   })
 
   it('hides reminder hours when notifications are disabled', async () => {
+    const user = userEvent.setup()
     render(<CheckInScheduleDialog {...makeProps()} />)
 
     // Initially both notification and reminder switches are on – reminder hours visible
@@ -88,15 +89,16 @@ describe('CheckInScheduleDialog', () => {
     expect(screen.getByRole('switch', { name: /enable notifications/i })).toBeChecked()
 
     // Disable notifications
-    await userEvent.click(screen.getByLabelText(/enable notifications/i))
+    await user.click(screen.getByLabelText(/enable notifications/i))
 
     expect(screen.queryByLabelText(/reminder time/i)).not.toBeInTheDocument()
   })
 
   it('hides reminder hours when auto reminders are disabled', async () => {
+    const user = userEvent.setup()
     render(<CheckInScheduleDialog {...makeProps()} />)
 
-    await userEvent.click(screen.getByLabelText(/automatic reminders/i))
+    await user.click(screen.getByLabelText(/automatic reminders/i))
 
     expect(screen.queryByLabelText(/reminder time/i)).not.toBeInTheDocument()
   })
@@ -124,6 +126,7 @@ describe('CheckInScheduleDialog', () => {
   })
 
   it('submits edited schedule when existingSchedule is provided', async () => {
+    const user = userEvent.setup()
     const onSubmit = vi.fn()
     const existing = makeExistingSchedule()
 
@@ -135,7 +138,7 @@ describe('CheckInScheduleDialog', () => {
       />
     )
 
-    await userEvent.click(screen.getByRole('button', { name: /update schedule/i }))
+    await user.click(screen.getByRole('button', { name: /update schedule/i }))
 
     expect(onSubmit).toHaveBeenCalledOnce()
     expect(onSubmit).toHaveBeenCalledWith(
@@ -148,13 +151,14 @@ describe('CheckInScheduleDialog', () => {
   })
 
   it('submits a new schedule when a trainer is selected in create mode', async () => {
+    const user = userEvent.setup()
     const onSubmit = vi.fn()
 
     render(<CheckInScheduleDialog {...makeProps({ onSubmit })} />)
 
-    await userEvent.click(screen.getByRole('combobox', { name: /trainer/i }))
-    await userEvent.click(await screen.findByRole('option', { name: /alex trainer/i }))
-    await userEvent.click(screen.getByRole('button', { name: /create schedule/i }))
+    await user.click(screen.getByRole('combobox', { name: /trainer/i }))
+    await user.click(await screen.findByRole('option', { name: /alex trainer/i }))
+    await user.click(screen.getByRole('button', { name: /create schedule/i }))
 
     expect(onSubmit).toHaveBeenCalledOnce()
     expect(onSubmit).toHaveBeenCalledWith(
@@ -167,27 +171,29 @@ describe('CheckInScheduleDialog', () => {
   })
 
   it('calls onClose when cancel is clicked', async () => {
+    const user = userEvent.setup()
     const onClose = vi.fn()
     render(<CheckInScheduleDialog {...makeProps({ onClose })} />)
 
-    await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+    await user.click(screen.getByRole('button', { name: /cancel/i }))
 
     expect(onClose).toHaveBeenCalledOnce()
   })
 
   it('shows custom days input when frequency is set to custom', async () => {
+    const user = userEvent.setup()
     render(<CheckInScheduleDialog {...makeProps()} />)
 
     // Select a trainer
-    await userEvent.click(screen.getByRole('combobox', { name: /trainer/i }))
-    await userEvent.click(await screen.findByRole('option', { name: /alex trainer/i }))
+    await user.click(screen.getByRole('combobox', { name: /trainer/i }))
+    await user.click(await screen.findByRole('option', { name: /alex trainer/i }))
 
     // Initially custom days input should not be visible
     expect(screen.queryByLabelText(/custom days/i)).not.toBeInTheDocument()
 
     // Open frequency combobox and select custom
-    await userEvent.click(screen.getByRole('combobox', { name: /Check-In Frequency/i }))
-    await userEvent.click(await screen.findByRole('option', { name: /custom interval/i }))
+    await user.click(screen.getByRole('combobox', { name: /Check-In Frequency/i }))
+    await user.click(await screen.findByRole('option', { name: /custom interval/i }))
 
     // Custom days input should now be visible
     expect(screen.getByLabelText(/custom days/i)).toBeInTheDocument()
@@ -211,12 +217,7 @@ describe('CheckInScheduleDialog', () => {
     await user.clear(screen.getByLabelText(/start date/i))
     await user.type(screen.getByLabelText(/start date/i), '2026-03-01')
 
-    const endDateLabelRow = screen.getByText(/end date \(optional\)/i).closest('div')
-    if (!(endDateLabelRow instanceof HTMLElement)) {
-      throw new Error('End date label row was not found')
-    }
-
-    const endDateSwitch = within(endDateLabelRow).getByRole('switch')
+    const endDateSwitch = screen.getByTestId('end-date-switch')
     await user.click(endDateSwitch)
     await user.clear(screen.getByLabelText(/end date/i))
     await user.type(screen.getByLabelText(/end date/i), '2026-03-20')
@@ -230,8 +231,8 @@ describe('CheckInScheduleDialog', () => {
         trainerId: 't-1',
         frequency: 'custom',
         customDays: 10,
-        startDate: new Date('2026-03-01').toISOString(),
-        endDate: new Date('2026-03-20').toISOString(),
+        startDate: '2026-03-01T00:00:00.000Z',
+        endDate: '2026-03-20T00:00:00.000Z',
         notes: 'Follow up with coach',
       })
     )
@@ -253,16 +254,15 @@ describe('CheckInScheduleDialog', () => {
 
     const endDateInput = screen.getByLabelText(/end date/i)
     expect(endDateInput).toBeEnabled()
-    expect((endDateInput as HTMLInputElement).value).not.toBe('')
+    expect((endDateInput as HTMLInputElement).value).toBe('2026-04-30')
 
     await user.click(screen.getByRole('button', { name: /update schedule/i }))
 
-    const expectedEndDate = new Date((endDateInput as HTMLInputElement).value).toISOString()
 
     expect(onSubmit).toHaveBeenCalledOnce()
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
-        endDate: expectedEndDate,
+        endDate: '2026-04-30T00:00:00.000Z',
       })
     )
   })

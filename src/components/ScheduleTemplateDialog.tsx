@@ -268,6 +268,7 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
                           size="sm"
                           variant="ghost"
                           className="text-destructive"
+                          aria-label={`Remove session ${index + 1}`}
                         >
                           <Trash size={16} />
                         </Button>
@@ -312,6 +313,7 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
                           min="15"
                           step="15"
                           value={session.duration}
+                          aria-label={`Duration for session ${index + 1}`}
                           onChange={e => handleUpdateSession(index, { duration: parseInt(e.target.value) })}
                         />
                       </div>
@@ -341,6 +343,7 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
                           type="number"
                           min="1"
                           value={session.capacity}
+                          aria-label={`Capacity for session ${index + 1}`}
                           onChange={e => handleUpdateSession(index, { capacity: parseInt(e.target.value) })}
                         />
                       </div>

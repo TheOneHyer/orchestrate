@@ -250,6 +250,7 @@ describe('RecoveryPlanDialog', () => {
 
     it('skips high-stress, concerns, and support-action prefill on low-risk check-ins', () => {
         vi.mocked(calculateWellnessScore).mockReturnValueOnce(68)
+        vi.mocked(getRecoveryPlanRecommendations).mockReturnValueOnce([])
 
         const lowRiskCheckIn: WellnessCheckIn = {
             ...latestCheckIn,

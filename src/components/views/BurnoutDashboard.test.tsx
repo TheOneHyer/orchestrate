@@ -558,9 +558,10 @@ describe('BurnoutDashboard', () => {
 
     it('passes empty trainerName fallback to utilization chart when selected trainer is missing from users', async () => {
         const user = userEvent.setup()
+        const usersWithoutSelectedTrainer: User[] = [users[1]]
 
         calculateTrainerUtilizationMock.mockImplementation((trainer: User) => {
-            if (trainer.id === 't1') {
+            if (trainer.id === 't2') {
                 return {
                     trainerId: 'missing-trainer',
                     utilizationRate: 88,
@@ -575,7 +576,7 @@ describe('BurnoutDashboard', () => {
             }
 
             return {
-                trainerId: 't2',
+                trainerId: 't2-fallback',
                 utilizationRate: 42,
                 hoursScheduled: 17,
                 sessionCount: 3,
@@ -588,7 +589,7 @@ describe('BurnoutDashboard', () => {
         })
 
         getUtilizationTrendMock.mockImplementation((trainer: User) => {
-            if (trainer.id === 't1') {
+            if (trainer.id === 't2') {
                 return {
                     trainerId: 'missing-trainer',
                     trend: 'stable',
@@ -598,7 +599,7 @@ describe('BurnoutDashboard', () => {
             }
 
             return {
-                trainerId: 't2',
+                trainerId: 't2-fallback',
                 trend: 'stable',
                 changeRate: 0,
                 dataPoints: [{ date: '2026-03-10', utilization: 42, hours: 17, sessions: 3 }],
@@ -607,7 +608,7 @@ describe('BurnoutDashboard', () => {
 
         render(
             <BurnoutDashboard
-                users={users}
+                users={usersWithoutSelectedTrainer}
                 sessions={sessions}
                 courses={courses}
                 onNavigate={vi.fn()}
@@ -617,6 +618,6 @@ describe('BurnoutDashboard', () => {
         await user.click(screen.getAllByText('88%')[0])
         await user.click(screen.getByRole('tab', { name: /trainer details/i }))
 
-        expect(screen.getByText(/^UtilizationChart$/i)).toBeInTheDocument()
+        expect(screen.getByText((content) => /^UtilizationChart\s*$/.test(content))).toBeInTheDocument()
     })
 })

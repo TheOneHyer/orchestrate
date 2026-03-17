@@ -230,12 +230,7 @@ describe('Schedule', () => {
     expect(dailyHeading()).not.toEqual(initialDayHeading)
 
     await user.click(screen.getByRole('button', { name: /today/i }))
-    expect(dailyHeading()).toEqual(new Date().toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-    }))
+    expect(dailyHeading()).toEqual(initialDayHeading)
 
     await user.click(screen.getByRole('button', { name: /^week$/i }))
     const weekHeadingBefore = screen.getByRole('heading', { level: 3 }).textContent

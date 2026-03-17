@@ -473,6 +473,7 @@ describe('ScheduleTemplates', () => {
 
         render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
 
+        // Create flow (updater index 0)
         await user.click(screen.getByRole('button', { name: /new template/i }))
         await user.click(screen.getByRole('button', { name: /mock save template/i }))
 
@@ -481,6 +482,7 @@ describe('ScheduleTemplates', () => {
         expect(createdFromUndefined).toHaveLength(1)
         expect(createdFromUndefined[0]).toEqual(expect.objectContaining({ name: 'Mock Template Name' }))
 
+        // Duplicate flow (updater index 1)
         const templateCard = screen.getByTestId('template-card-template-1')
         await user.click(within(templateCard).getByRole('button', { name: /duplicate/i }))
         const duplicateUpdater = getUpdater(1)
@@ -488,15 +490,18 @@ describe('ScheduleTemplates', () => {
         expect(duplicatedFromUndefined).toHaveLength(1)
         expect(duplicatedFromUndefined[0].name).toMatch(/\(copy\)$/i)
 
+        // Delete flow (updater index 2)
         await user.click(within(templateCard).getByRole('button', { name: /delete/i }))
         const deleteUpdater = getUpdater(2)
         expect(deleteUpdater(undefined as unknown as ScheduleTemplate[])).toEqual([])
 
+        // Edit flow (updater index 3)
         await user.click(within(templateCard).getByRole('button', { name: /edit/i }))
         await user.click(screen.getByRole('button', { name: /mock save template/i }))
         const editUpdater = getUpdater(3)
         expect(editUpdater(undefined as unknown as ScheduleTemplate[])).toEqual([])
 
+        // Apply flow (updater index 4)
         await user.click(screen.getByTestId('apply-template-template-1'))
         await user.click(screen.getByRole('button', { name: /^mock confirm apply$/i }))
         const applyUpdater = getUpdater(4)
