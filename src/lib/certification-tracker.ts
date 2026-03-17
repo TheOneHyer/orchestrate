@@ -29,7 +29,7 @@ export function shouldSendRenewalReminder(cert: CertificationRecord): boolean {
 
   if (cert.lastReminderDate) {
     const daysSinceLastReminder = differenceInDays(now, parseISO(cert.lastReminderDate))
-    if (daysSinceLastReminder <= 7) {
+    if (daysSinceLastReminder < 7) {
       return false
     }
   }
