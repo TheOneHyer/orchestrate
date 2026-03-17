@@ -8,12 +8,11 @@ import type { User, Course, Session } from '@/lib/types'
 import * as conflictDetection from '@/lib/conflict-detection'
 
 const toastError = vi.fn()
-const toastSuccess = vi.fn()
 
 vi.mock('sonner', () => ({
   toast: {
     error: (...args: unknown[]) => toastError(...args),
-    success: (...args: unknown[]) => toastSuccess(...args),
+    success: vi.fn(),
   },
 }))
 
@@ -520,6 +519,19 @@ describe('Schedule', () => {
     setDateTimeInput(/start time/i, '2026-03-20T11:15')
     setDateTimeInput(/end time/i, '2026-03-20T11:45')
     await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(conflictSpy).toHaveBeenCalled()
+    const [editedSession, targetStartTime, targetEndTime, allSessions] = conflictSpy.mock.calls[0]
+    expect(editedSession).toEqual(
+      expect.objectContaining({
+        id: baseSession.id,
+        startTime: new Date('2026-03-20T11:15').toISOString(),
+        endTime: new Date('2026-03-20T11:45').toISOString(),
+      })
+    )
+    expect(targetStartTime).toEqual(new Date('2026-03-20T11:15'))
+    expect(targetEndTime).toEqual(new Date('2026-03-20T11:45'))
+    expect(allSessions).toEqual(expect.arrayContaining([expect.objectContaining({ id: 's-2' })]))
 
     expect(toastError).toHaveBeenCalledWith('Cannot save session changes', expect.any(Object))
     expect(onUpdateSession).not.toHaveBeenCalled()

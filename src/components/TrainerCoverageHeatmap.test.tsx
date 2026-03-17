@@ -100,6 +100,23 @@ describe('TrainerCoverageHeatmap', () => {
         expect(setTargetCoverage).not.toHaveBeenCalled()
     })
 
+    it('does not update target coverage when value is below allowed range', async () => {
+        const user = userEvent.setup()
+        const users: User[] = [makeTrainer('trainer-1', 'Alex Trainer', ['Safety'])]
+
+        render(<TrainerCoverageHeatmap users={users} />)
+
+        await user.click(screen.getByRole('button', { name: /target:\s*4/i }))
+
+        const targetInput = screen.getByRole('spinbutton')
+        await user.clear(targetInput)
+        await user.type(targetInput, '0')
+
+        await user.click(screen.getByRole('button', { name: /^save$/i }))
+
+        expect(setTargetCoverage).not.toHaveBeenCalled()
+    })
+
     it('applies and displays certification filter text', async () => {
         const user = userEvent.setup()
         const users: User[] = [
@@ -109,7 +126,7 @@ describe('TrainerCoverageHeatmap', () => {
 
         render(<TrainerCoverageHeatmap users={users} />)
 
-        await user.click(screen.getAllByRole('combobox')[0])
+        await user.click(screen.getByRole('combobox', { name: /certification filter/i }))
         await user.click(await screen.findByRole('option', { name: 'Safety' }))
 
         const filterSummary = screen.getByText(/showing only trainers certified in/i)

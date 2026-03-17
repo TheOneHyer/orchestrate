@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const toastSuccess = vi.fn()
@@ -7,6 +8,21 @@ const toastError = vi.fn()
 
 const sendNotificationMock = vi.fn()
 let utilizationNotified = false
+const callbackSpies = {
+    onCreateSession: vi.fn(),
+    onUpdateSession: vi.fn(),
+    onCreateTemplateSessions: vi.fn(),
+    onAddUser: vi.fn(),
+    onUpdateUser: vi.fn(),
+    onDeleteUser: vi.fn(),
+    onAddCertification: vi.fn(),
+    onMarkAsRead: vi.fn(),
+    onMarkAsUnread: vi.fn(),
+    onMarkAllAsRead: vi.fn(),
+    onDismissOne: vi.fn(),
+    onDismissRead: vi.fn(),
+    onDismissAll: vi.fn(),
+}
 const ensureProfilesMock = vi.fn((users) => users)
 const createPreviewSeedDataMock = vi.fn(() => ({
     users: [
@@ -86,7 +102,7 @@ vi.mock('@/components/NotificationPermissionBanner', () => ({
 }))
 
 vi.mock('@/components/Layout', () => ({
-    Layout: ({ children, onNavigate, activeView, notificationCount }: { children: any; onNavigate: (view: string) => void; activeView: string; notificationCount: number }) => (
+    Layout: ({ children, onNavigate, activeView, notificationCount }: { children: ReactNode; onNavigate: (view: string) => void; activeView: string; notificationCount: number }) => (
         <div>
             <div>Active View: {activeView}</div>
             <div>Notification Count: {notificationCount}</div>
@@ -119,11 +135,31 @@ vi.mock('@/components/views/Dashboard', () => ({
 }))
 
 vi.mock('@/components/views/Schedule', () => ({
-    Schedule: ({ onCreateSession, onUpdateSession }: { onCreateSession: (session: unknown) => void; onUpdateSession: (id: string, session: unknown) => void }) => (
+    Schedule: ({
+        sessions,
+        onCreateSession,
+        onUpdateSession,
+    }: {
+        sessions: Array<{ id: string; title: string; status: string }>
+        onCreateSession: (session: unknown) => void
+        onUpdateSession: (id: string, session: unknown) => void
+    }) => (
         <div>
             <div>Schedule View</div>
-            <button onClick={() => onCreateSession({ title: 'Created Session', trainerId: 'trainer-1', recurrence: { pattern: 'weekly' } })}>Create Session</button>
-            <button onClick={() => onUpdateSession('session-1', { status: 'completed' })}>Update Session</button>
+            <div>Session Count: {sessions.length}</div>
+            {sessions.map((session) => (
+                <div key={session.id}>{session.title} ({session.status})</div>
+            ))}
+            <button onClick={() => {
+                const payload = { title: 'Created Session', trainerId: 'trainer-1', recurrence: { pattern: 'weekly' } }
+                callbackSpies.onCreateSession(payload)
+                onCreateSession(payload)
+            }}>Create Session</button>
+            <button onClick={() => {
+                const payload = { status: 'completed' }
+                callbackSpies.onUpdateSession('session-1', payload)
+                onUpdateSession('session-1', payload)
+            }}>Update Session</button>
         </div>
     ),
 }))
@@ -132,19 +168,48 @@ vi.mock('@/components/views/ScheduleTemplates', () => ({
     ScheduleTemplates: ({ onCreateSessions }: { onCreateSessions: (sessions: unknown[]) => void }) => (
         <div>
             <div>Schedule Templates View</div>
-            <button onClick={() => onCreateSessions([{ title: 'Template Session', recurrence: { pattern: 'monthly' } }])}>Create Template Sessions</button>
+            <button onClick={() => {
+                const payload = [{ title: 'Template Session', recurrence: { pattern: 'monthly' } }]
+                callbackSpies.onCreateTemplateSessions(payload)
+                onCreateSessions(payload)
+            }}>Create Template Sessions</button>
         </div>
     ),
 }))
 
 vi.mock('@/components/views/Courses', () => ({ Courses: () => <div>Courses View</div> }))
 vi.mock('@/components/views/People', () => ({
-    People: ({ onAddUser, onUpdateUser, onDeleteUser }: { onAddUser: (user: unknown) => void; onUpdateUser: (user: unknown) => void; onDeleteUser: (userId: string) => void }) => (
+    People: ({
+        users,
+        onAddUser,
+        onUpdateUser,
+        onDeleteUser,
+    }: {
+        users: Array<{ id: string; name: string }>
+        onAddUser: (user: unknown) => void
+        onUpdateUser: (user: unknown) => void
+        onDeleteUser: (userId: string) => void
+    }) => (
         <div>
             <div>People View</div>
-            <button onClick={() => onAddUser({ id: 'employee-2', role: 'employee', name: 'Added User', email: 'added@example.com', department: 'Ops', certifications: [], hireDate: '2024-01-01T00:00:00.000Z' })}>Add User</button>
-            <button onClick={() => onUpdateUser({ id: 'trainer-1', role: 'trainer', name: 'Updated Trainer', email: 'trainer1@example.com', department: 'Ops', certifications: [], hireDate: '2024-01-01T00:00:00.000Z', trainerProfile: { authorizedRoles: [], shiftSchedules: [], tenure: { hireDate: '2024-01-01T00:00:00.000Z', yearsOfService: 1, monthsOfService: 12 }, specializations: [] } })}>Update User</button>
-            <button onClick={() => onDeleteUser('trainer-1')}>Delete User</button>
+            <div>Users Count: {users.length}</div>
+            {users.map((user) => (
+                <div key={user.id}>{user.name}</div>
+            ))}
+            <button onClick={() => {
+                const payload = { id: 'employee-2', role: 'employee', name: 'Added User', email: 'added@example.com', department: 'Ops', certifications: [], hireDate: '2024-01-01T00:00:00.000Z' }
+                callbackSpies.onAddUser(payload)
+                onAddUser(payload)
+            }}>Add User</button>
+            <button onClick={() => {
+                const payload = { id: 'trainer-1', role: 'trainer', name: 'Updated Trainer', email: 'trainer1@example.com', department: 'Ops', certifications: [], hireDate: '2024-01-01T00:00:00.000Z', trainerProfile: { authorizedRoles: [], shiftSchedules: [], tenure: { hireDate: '2024-01-01T00:00:00.000Z', yearsOfService: 1, monthsOfService: 12 }, specializations: [] } }
+                callbackSpies.onUpdateUser(payload)
+                onUpdateUser(payload)
+            }}>Update User</button>
+            <button onClick={() => {
+                callbackSpies.onDeleteUser('trainer-1')
+                onDeleteUser('trainer-1')
+            }}>Delete User</button>
         </div>
     ),
 }))
@@ -153,38 +218,85 @@ vi.mock('@/components/views/TrainerAvailability', () => ({ TrainerAvailability: 
 vi.mock('@/components/views/BurnoutDashboard', () => ({ BurnoutDashboard: () => <div>Burnout Dashboard View</div> }))
 vi.mock('@/components/views/TrainerWellness', () => ({ TrainerWellness: () => <div>Trainer Wellness View</div> }))
 vi.mock('@/components/views/CertificationDashboard', () => ({
-    CertificationDashboard: ({ onAddCertification }: { onAddCertification: (trainerIds: string[], cert: unknown) => void }) => (
-        <div>
-            <div>Certification Dashboard View</div>
-            <button onClick={() => onAddCertification(['trainer-1'], { certificationName: 'CPR', issuedDate: '2026-01-01', expirationDate: '2027-01-01' })}>Add Certification</button>
-        </div>
-    ),
+    CertificationDashboard: ({
+        users,
+        onAddCertification,
+    }: {
+        users: Array<{ id: string; trainerProfile?: { certificationRecords?: Array<{ certificationName: string }> } }>
+        onAddCertification: (trainerIds: string[], cert: unknown) => void
+    }) => {
+        const certificationRecords = users
+            .find((user) => user.id === 'trainer-1')
+            ?.trainerProfile?.certificationRecords || []
+
+        return (
+            <div>
+                <div>Certification Dashboard View</div>
+                <div>Certification Records: {certificationRecords.length}</div>
+                {certificationRecords.map((record) => (
+                    <div key={record.certificationName}>{record.certificationName}</div>
+                ))}
+                <button onClick={() => {
+                    const payload = { certificationName: 'CPR', issuedDate: '2026-01-01', expirationDate: '2027-01-01' }
+                    callbackSpies.onAddCertification(['trainer-1'], payload)
+                    onAddCertification(['trainer-1'], payload)
+                }}>Add Certification</button>
+            </div>
+        )
+    },
 }))
 vi.mock('@/components/views/UserGuide', () => ({ UserGuide: () => <div>User Guide View</div> }))
 vi.mock('@/components/views/Notifications', () => ({
     Notifications: ({
+        notifications,
         onMarkAsRead,
         onMarkAsUnread,
         onMarkAllAsRead,
         onDismiss,
         onDismissAll,
     }: {
+        notifications: Array<{ id: string; read: boolean }>
         onMarkAsRead: (id: string) => void
         onMarkAsUnread: (id: string) => void
         onMarkAllAsRead: () => void
         onDismiss: (id: string) => void
         onDismissAll: (filter?: 'all' | 'read') => void
-    }) => (
-        <div>
-            <div>Notifications View</div>
-            <button onClick={() => onMarkAsRead('notif-1')}>Mark Read</button>
-            <button onClick={() => onMarkAsUnread('notif-1')}>Mark Unread</button>
-            <button onClick={() => onMarkAllAsRead()}>Mark All Read</button>
-            <button onClick={() => onDismiss('notif-1')}>Dismiss One</button>
-            <button onClick={() => onDismissAll('read')}>Dismiss Read</button>
-            <button onClick={() => onDismissAll('all')}>Dismiss All</button>
-        </div>
-    ),
+    }) => {
+        const firstNotificationId = notifications[0]?.id ?? 'missing-id'
+        const unreadCount = notifications.filter((notification) => !notification.read).length
+
+        return (
+            <div>
+                <div>Notifications View</div>
+                <div>Notifications Total: {notifications.length}</div>
+                <div>Notifications Unread: {unreadCount}</div>
+                <button onClick={() => {
+                    callbackSpies.onMarkAsRead(firstNotificationId)
+                    onMarkAsRead(firstNotificationId)
+                }}>Mark Read</button>
+                <button onClick={() => {
+                    callbackSpies.onMarkAsUnread(firstNotificationId)
+                    onMarkAsUnread(firstNotificationId)
+                }}>Mark Unread</button>
+                <button onClick={() => {
+                    callbackSpies.onMarkAllAsRead()
+                    onMarkAllAsRead()
+                }}>Mark All Read</button>
+                <button onClick={() => {
+                    callbackSpies.onDismissOne(firstNotificationId)
+                    onDismiss(firstNotificationId)
+                }}>Dismiss One</button>
+                <button onClick={() => {
+                    callbackSpies.onDismissRead()
+                    onDismissAll('read')
+                }}>Dismiss Read</button>
+                <button onClick={() => {
+                    callbackSpies.onDismissAll()
+                    onDismissAll('all')
+                }}>Dismiss All</button>
+            </div>
+        )
+    },
 }))
 
 vi.mock('@/hooks/use-push-notifications', () => ({
@@ -410,30 +522,98 @@ describe('App', () => {
 
         render(<App />)
 
+        await waitFor(() => {
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
+
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/session count:\s*2/i)).toBeInTheDocument()
+
         await user.click(screen.getByRole('button', { name: /create session/i }))
+        expect(screen.getByText(/session count:\s*3/i)).toBeInTheDocument()
+        expect(screen.getByText(/created session \(scheduled\)/i)).toBeInTheDocument()
+        expect(callbackSpies.onCreateSession).toHaveBeenCalledWith(
+            expect.objectContaining({ title: 'Created Session', trainerId: 'trainer-1' })
+        )
+
         await user.click(screen.getByRole('button', { name: /update session/i }))
+        expect(screen.getByText(/upcoming session a \(completed\)/i)).toBeInTheDocument()
+        expect(callbackSpies.onUpdateSession).toHaveBeenCalledWith(
+            'session-1',
+            expect.objectContaining({ status: 'completed' })
+        )
 
         await user.click(screen.getByRole('button', { name: /^go schedule templates$/i }))
         await user.click(screen.getByRole('button', { name: /create template sessions/i }))
+        expect(callbackSpies.onCreateTemplateSessions).toHaveBeenCalledWith(
+            expect.arrayContaining([expect.objectContaining({ title: 'Template Session' })])
+        )
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/session count:\s*4/i)).toBeInTheDocument()
+        expect(screen.getByText(/template session \(scheduled\)/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        expect(screen.getByText(/users count:\s*2/i)).toBeInTheDocument()
+
         await user.click(screen.getByRole('button', { name: /add user/i }))
+        expect(screen.getByText(/users count:\s*3/i)).toBeInTheDocument()
+        expect(screen.getByText('Added User')).toBeInTheDocument()
+        expect(callbackSpies.onAddUser).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 'employee-2', name: 'Added User' })
+        )
+
         await user.click(screen.getByRole('button', { name: /update user/i }))
+        expect(screen.getByText('Updated Trainer')).toBeInTheDocument()
+        expect(screen.queryByText('Trainer One')).not.toBeInTheDocument()
+        expect(callbackSpies.onUpdateUser).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 'trainer-1', name: 'Updated Trainer' })
+        )
 
         await user.click(screen.getByRole('button', { name: /^go certifications$/i }))
+        expect(screen.getByText(/certification records:\s*0/i)).toBeInTheDocument()
+
         await user.click(screen.getByRole('button', { name: /add certification/i }))
+        expect(screen.getByText(/certification records:\s*1/i)).toBeInTheDocument()
+        expect(screen.getByText('CPR')).toBeInTheDocument()
+        expect(callbackSpies.onAddCertification).toHaveBeenCalledWith(
+            ['trainer-1'],
+            expect.objectContaining({ certificationName: 'CPR' })
+        )
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         await user.click(screen.getByRole('button', { name: /delete user/i }))
+        expect(screen.queryByText('Updated Trainer')).not.toBeInTheDocument()
+        expect(screen.getByText(/users count:\s*2/i)).toBeInTheDocument()
+        expect(callbackSpies.onDeleteUser).toHaveBeenCalledWith('trainer-1')
 
         await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
+        expect(screen.getByText(/notifications total:\s*1/i)).toBeInTheDocument()
+        expect(screen.getByText(/notifications unread:\s*1/i)).toBeInTheDocument()
+
         await user.click(screen.getByRole('button', { name: /mark read/i }))
+        expect(screen.getByText(/notifications unread:\s*0/i)).toBeInTheDocument()
+        expect(callbackSpies.onMarkAsRead).toHaveBeenCalledWith(expect.any(String))
+
         await user.click(screen.getByRole('button', { name: /mark unread/i }))
+        expect(screen.getByText(/notifications unread:\s*1/i)).toBeInTheDocument()
+        expect(callbackSpies.onMarkAsUnread).toHaveBeenCalledWith(expect.any(String))
+
         await user.click(screen.getByRole('button', { name: /mark all read/i }))
+        expect(screen.getByText(/notifications unread:\s*0/i)).toBeInTheDocument()
+        expect(callbackSpies.onMarkAllAsRead).toHaveBeenCalledOnce()
+
         await user.click(screen.getByRole('button', { name: /dismiss one/i }))
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+        expect(callbackSpies.onDismissOne).toHaveBeenCalledWith(expect.any(String))
+
         await user.click(screen.getByRole('button', { name: /dismiss read/i }))
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+        expect(callbackSpies.onDismissRead).toHaveBeenCalledOnce()
+
         await user.click(screen.getByRole('button', { name: /dismiss all/i }))
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+        expect(callbackSpies.onDismissAll).toHaveBeenCalledOnce()
 
         expect(screen.getByText(/notificationpermissionbanner mock/i)).toBeInTheDocument()
         expect(screen.getByText(/toaster mock/i)).toBeInTheDocument()

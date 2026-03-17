@@ -16,6 +16,17 @@ vi.mock('@/lib/risk-history-tracker', () => ({
 
 import { useRiskHistory } from './use-risk-history'
 
+type UseKVReturn = ReturnType<typeof useKV>
+const SNAPSHOT_EFFECT_DELAY_MS = 5000
+
+function createUseKVReturn<T>(value: T, setter?: ReturnType<typeof vi.fn>): UseKVReturn {
+    return [
+        value as UseKVReturn[0],
+        (setter ?? vi.fn()) as UseKVReturn[1],
+        vi.fn() as UseKVReturn[2],
+    ]
+}
+
 function makeTrainer(id: string): User {
     return {
         id,
@@ -51,7 +62,7 @@ describe('use-risk-history snapshot flows', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         vi.useFakeTimers()
-        vi.mocked(useKV).mockImplementation((_key, defaultValue) => [defaultValue as any, vi.fn()] as any)
+        vi.mocked(useKV).mockImplementation((_key, defaultValue) => createUseKVReturn(defaultValue))
         vi.mocked(shouldTakeSnapshot).mockReturnValue(false)
     })
 
@@ -61,7 +72,7 @@ describe('use-risk-history snapshot flows', () => {
 
     it('returns early when there are no users', () => {
         const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([[], setter] as any)
+        vi.mocked(useKV).mockReturnValue(createUseKVReturn([], setter))
 
         const { result } = renderHook(() => useRiskHistory([], sessions, courses, checkIns))
         act(() => result.current.takeSnapshots())
@@ -71,7 +82,7 @@ describe('use-risk-history snapshot flows', () => {
 
     it('returns early when users exist but none are trainers', () => {
         const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([[], setter] as any)
+        vi.mocked(useKV).mockReturnValue(createUseKVReturn([], setter))
 
         const users: User[] = [
             {
@@ -93,7 +104,7 @@ describe('use-risk-history snapshot flows', () => {
 
     it('keeps existing history when no trainer requires a new snapshot', () => {
         const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([[], setter] as any)
+        vi.mocked(useKV).mockReturnValue(createUseKVReturn([], setter))
 
         const users = [makeTrainer('trainer-1')]
         const current = [makeSnapshot('s-1', 'trainer-1', '2026-03-15T00:00:00.000Z')]
@@ -104,11 +115,12 @@ describe('use-risk-history snapshot flows', () => {
         expect(setter).toHaveBeenCalledWith(expect.any(Function))
         const updater = setter.mock.calls[0][0] as (prev: RiskHistorySnapshot[]) => RiskHistorySnapshot[]
         expect(updater(current)).toEqual(current)
+        expect(createRiskSnapshot).not.toHaveBeenCalled()
     })
 
     it('adds snapshots only for trainers that pass shouldTakeSnapshot', () => {
         const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([[], setter] as any)
+        vi.mocked(useKV).mockReturnValue(createUseKVReturn([], setter))
 
         const users = [makeTrainer('trainer-1'), makeTrainer('trainer-2')]
 
@@ -130,7 +142,7 @@ describe('use-risk-history snapshot flows', () => {
 
     it('keeps history capped at 1000 entries when snapshots are added', () => {
         const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([[], setter] as any)
+        vi.mocked(useKV).mockReturnValue(createUseKVReturn([], setter))
 
         const users = [makeTrainer('trainer-1')]
         vi.mocked(shouldTakeSnapshot).mockReturnValue(true)
@@ -155,20 +167,32 @@ describe('use-risk-history snapshot flows', () => {
 
     it('runs snapshot collection from the delayed effect timer', () => {
         const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([[], setter] as any)
+        vi.mocked(useKV).mockReturnValue(createUseKVReturn([], setter))
 
         const users = [makeTrainer('trainer-1')]
         vi.mocked(shouldTakeSnapshot).mockReturnValue(true)
-        vi.mocked(createRiskSnapshot).mockReturnValue(
-            makeSnapshot('timer-snapshot', 'trainer-1', '2026-03-16T00:00:00.000Z')
-        )
+        const timerSnapshot = makeSnapshot('timer-snapshot', 'trainer-1', '2026-03-16T00:00:00.000Z')
+        vi.mocked(createRiskSnapshot).mockReturnValue(timerSnapshot)
 
         renderHook(() => useRiskHistory(users, sessions, courses, checkIns))
 
         act(() => {
-            vi.advanceTimersByTime(5000)
+            // Matches the delayed initial snapshot timer in useRiskHistory.
+            vi.advanceTimersByTime(SNAPSHOT_EFFECT_DELAY_MS)
         })
 
         expect(setter).toHaveBeenCalledWith(expect.any(Function))
+        const updaterCall = setter.mock.calls.find((call) => typeof call[0] === 'function')
+        if (!updaterCall) {
+            throw new Error('Expected updater function to be passed to setRiskHistory')
+        }
+
+        const updater = updaterCall[0] as (prev: RiskHistorySnapshot[]) => RiskHistorySnapshot[]
+        const existing = [makeSnapshot('existing-snapshot', 'trainer-1', '2026-03-15T00:00:00.000Z')]
+        const updated = updater(existing)
+
+        expect(shouldTakeSnapshot).toHaveBeenCalledWith('trainer-1', existing[0], 24)
+        expect(createRiskSnapshot).toHaveBeenCalledWith(users[0], sessions, courses, checkIns)
+        expect(updated).toEqual([...existing, timerSnapshot])
     })
 })

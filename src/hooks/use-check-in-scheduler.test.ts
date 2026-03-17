@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useKV } from '@github/spark/hooks'
-import type { CheckInSchedule, User } from '@/lib/types'
+import type { CheckInSchedule, User, WellnessCheckIn } from '@/lib/types'
 
 vi.mock('@github/spark/hooks', () => ({
     useKV: vi.fn()
@@ -45,6 +45,32 @@ function createSchedule(overrides: Partial<CheckInSchedule> = {}): CheckInSchedu
         missedCheckIns: 0,
         ...overrides
     }
+}
+
+function createCheckIn(overrides: Partial<WellnessCheckIn> = {}): WellnessCheckIn {
+    return {
+        id: 'check-1',
+        trainerId: 'trainer-1',
+        timestamp: '2026-03-15T00:00:00.000Z',
+        mood: 3,
+        stress: 'moderate',
+        energy: 'neutral',
+        workloadSatisfaction: 3,
+        sleepQuality: 3,
+        physicalWellbeing: 3,
+        mentalClarity: 3,
+        followUpRequired: false,
+        ...overrides,
+    }
+}
+
+function getUpdaterFn<T>(setter: ReturnType<typeof vi.fn>): (prev: T) => T {
+    const updaterCall = [...vi.mocked(setter).mock.calls].reverse().find((call) => typeof call[0] === 'function')
+    if (!updaterCall) {
+        throw new Error('Expected setter to be called with an updater function')
+    }
+
+    return updaterCall[0] as (prev: T) => T
 }
 
 describe('use-check-in-scheduler', () => {
@@ -115,7 +141,7 @@ describe('use-check-in-scheduler', () => {
         )
 
         expect(setter).toHaveBeenCalledWith(expect.any(Function))
-        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: CheckInSchedule[]) => CheckInSchedule[]
+        const updaterFn = getUpdaterFn<CheckInSchedule[]>(setter)
         const updated = updaterFn([schedule])
         expect(updated[0].missedCheckIns).toBe(1)
         expect(schedule.missedCheckIns).toBe(0)
@@ -143,7 +169,7 @@ describe('use-check-in-scheduler', () => {
         )
 
         expect(setter).toHaveBeenCalledWith(expect.any(Function))
-        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: CheckInSchedule[]) => CheckInSchedule[]
+        const updaterFn = getUpdaterFn<CheckInSchedule[]>(setter)
         const updated = updaterFn([overdueSchedule, activeSchedule])
 
         const updatedOverdue = updated.find((schedule) => schedule.id === 'schedule-overdue')
@@ -171,7 +197,7 @@ describe('use-check-in-scheduler', () => {
         result.current.updateScheduleNextDate('schedule-complete', '2026-03-04T00:00:00.000Z')
 
         expect(setter).toHaveBeenCalledWith(expect.any(Function))
-        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: CheckInSchedule[]) => CheckInSchedule[]
+        const updaterFn = getUpdaterFn<CheckInSchedule[]>(setter)
         const updated = updaterFn([schedule])
 
         expect(updated[0].status).toBe('completed')
@@ -195,17 +221,31 @@ describe('use-check-in-scheduler', () => {
 
         result.current.updateScheduleNextDate('schedule-unknown', '2026-03-01T00:00:00.000Z')
 
-        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: CheckInSchedule[]) => CheckInSchedule[]
+        const updaterFn = getUpdaterFn<CheckInSchedule[]>(setter)
         const updated = updaterFn([schedule])
         expect(updated[0].nextScheduledDate).toBe('2026-03-08T00:00:00.000Z')
     })
 
-    it('ignores inactive schedules and schedules with missing trainers', () => {
+    it('ignores inactive schedules', () => {
         const inactiveSchedule = createSchedule({
             id: 'inactive',
             status: 'paused',
             nextScheduledDate: new Date(NOW.getTime() - 2 * 60 * 60 * 1000).toISOString(),
         })
+        const setter = vi.fn()
+        const onTriggerCheckIn = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[inactiveSchedule], setter] as any)
+
+        renderHook(() =>
+            useCheckInScheduler([createTrainer('trainer-1')], [], onTriggerCheckIn)
+        )
+
+        expect(onTriggerCheckIn).not.toHaveBeenCalled()
+        expect(toast.info).not.toHaveBeenCalled()
+        expect(setter).not.toHaveBeenCalled()
+    })
+
+    it('ignores schedules with missing trainers', () => {
         const missingTrainerSchedule = createSchedule({
             id: 'missing-trainer',
             trainerId: 'trainer-missing',
@@ -214,7 +254,7 @@ describe('use-check-in-scheduler', () => {
 
         const setter = vi.fn()
         const onTriggerCheckIn = vi.fn()
-        vi.mocked(useKV).mockReturnValue([[inactiveSchedule, missingTrainerSchedule], setter] as any)
+        vi.mocked(useKV).mockReturnValue([[missingTrainerSchedule], setter] as any)
 
         renderHook(() =>
             useCheckInScheduler([createTrainer('trainer-1')], [], onTriggerCheckIn)
@@ -243,26 +283,14 @@ describe('use-check-in-scheduler', () => {
             useCheckInScheduler(
                 [createTrainer('trainer-1')],
                 [
-                    {
-                        id: 'check-1',
-                        trainerId: 'trainer-1',
-                        timestamp: '2026-03-15T00:00:00.000Z',
-                        mood: 3,
-                        stress: 'moderate',
-                        energy: 'neutral',
-                        workloadSatisfaction: 3,
-                        sleepQuality: 3,
-                        physicalWellbeing: 3,
-                        mentalClarity: 3,
-                        followUpRequired: false,
-                    },
+                    createCheckIn(),
                 ],
                 undefined
             )
         )
 
         expect(setter).toHaveBeenCalledWith(expect.any(Function))
-        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: CheckInSchedule[]) => CheckInSchedule[]
+        const updaterFn = getUpdaterFn<CheckInSchedule[]>(setter)
         const updated = updaterFn([schedule])
 
         expect(updated[0].lastCheckInDate).toBe('2026-03-15T00:00:00.000Z')
@@ -287,19 +315,7 @@ describe('use-check-in-scheduler', () => {
             useCheckInScheduler(
                 [createTrainer('trainer-1')],
                 [
-                    {
-                        id: 'check-1',
-                        trainerId: 'trainer-1',
-                        timestamp: '2026-03-15T00:00:00.000Z',
-                        mood: 3,
-                        stress: 'moderate',
-                        energy: 'neutral',
-                        workloadSatisfaction: 3,
-                        sleepQuality: 3,
-                        physicalWellbeing: 3,
-                        mentalClarity: 3,
-                        followUpRequired: false,
-                    },
+                    createCheckIn(),
                 ],
                 undefined
             )

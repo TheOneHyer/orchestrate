@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -89,7 +89,11 @@ describe('TrainerProfileDialog', () => {
 
         await user.click(await screen.findByRole('button', { name: /add schedule/i }))
 
-        const [startInput, endInput] = Array.from(document.querySelectorAll('input[type="time"]')) as HTMLInputElement[]
+        const startInput = screen.getByLabelText(/schedule 1 start time/i)
+        const endInput = screen.getByLabelText(/schedule 1 end time/i)
+
+        expect(startInput).toBeInTheDocument()
+        expect(endInput).toBeInTheDocument()
 
         await user.clear(startInput)
         await user.type(startInput, '22:00')
@@ -100,7 +104,7 @@ describe('TrainerProfileDialog', () => {
     })
 
     it('updates certification records through the manage certifications flow', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ pointerEventsCheck: 0 })
 
         render(
             <TrainerProfileDialog
@@ -112,7 +116,7 @@ describe('TrainerProfileDialog', () => {
         )
 
         await user.click(await screen.findByRole('button', { name: /manage certifications/i }))
-        fireEvent.click(screen.getByText(/mock save certifications/i))
+        await user.click(await screen.findByText(/mock save certifications/i))
 
         expect(screen.getByText('First Aid')).toBeInTheDocument()
         expect(screen.getByText(/active/i)).toBeInTheDocument()
@@ -134,15 +138,11 @@ describe('TrainerProfileDialog', () => {
 
         const roleInput = await screen.findByPlaceholderText(/add authorized role/i)
         await user.type(roleInput, 'Safety Instructor')
-        const roleAddButton = roleInput.parentElement?.querySelector('button')
-        if (!roleAddButton) throw new Error('Role add button not found')
-        await user.click(roleAddButton)
+        await user.click(screen.getByRole('button', { name: /add role/i }))
 
         const specializationInput = screen.getByPlaceholderText(/add specialization/i)
         await user.type(specializationInput, 'Incident Response')
-        const specializationAddButton = specializationInput.parentElement?.querySelector('button')
-        if (!specializationAddButton) throw new Error('Specialization add button not found')
-        await user.click(specializationAddButton)
+        await user.click(screen.getByRole('button', { name: /add specialization/i }))
 
         await user.click(screen.getByRole('button', { name: /save changes/i }))
 

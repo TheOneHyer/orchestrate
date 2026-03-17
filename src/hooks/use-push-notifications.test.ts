@@ -229,6 +229,7 @@ describe('usePushNotifications', () => {
         const notification = result.current.sendNotification('Interactive', { onClick }) as any
 
         expect(notification).not.toBeNull()
+        expect(typeof notification.onclick).toBe('function')
         notification.onclick()
 
         expect(onClick).toHaveBeenCalledOnce()
@@ -254,6 +255,33 @@ describe('usePushNotifications', () => {
         expect(timeoutSpy).not.toHaveBeenCalled()
 
         timeoutSpy.mockRestore()
+    })
+
+    it('auto-dismisses non-critical notifications after the configured timeout', () => {
+        vi.useFakeTimers()
+
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            vi.fn(),
+        ] as any)
+
+        const { result } = renderHook(() => usePushNotifications())
+        const notification = result.current.sendNotification('High', { priority: 'high' }) as any
+
+        expect(notification).not.toBeNull()
+        expect(notification.close).not.toHaveBeenCalled()
+
+        act(() => {
+            vi.advanceTimersByTime(10000)
+        })
+
+        expect(notification.close).toHaveBeenCalledOnce()
+
+        vi.useRealTimers()
     })
 
     it('merges partial settings updates through updateSettings', () => {

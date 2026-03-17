@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -14,7 +14,7 @@ describe('ScheduleTemplateDialog', () => {
         vi.clearAllMocks()
     })
 
-    it('keeps create disabled until required fields are provided', () => {
+    it('keeps create disabled until required fields are provided', async () => {
         render(
             <ScheduleTemplateDialog
                 open
@@ -24,7 +24,7 @@ describe('ScheduleTemplateDialog', () => {
             />
         )
 
-        expect(screen.getByRole('button', { name: /create template/i })).toBeDisabled()
+        expect(await screen.findByRole('button', { name: /create template/i })).toBeDisabled()
     })
 
     it('adds tags only once when duplicate input is submitted', async () => {
@@ -46,7 +46,12 @@ describe('ScheduleTemplateDialog', () => {
         await user.type(tagInput, 'critical{enter}')
         await user.type(tagInput, 'critical{enter}')
 
-        expect(screen.getAllByText('critical')).toHaveLength(1)
+        const tagsSection = screen.getByText(/^tags$/i).closest('div')
+        if (!tagsSection) {
+            throw new Error('Tags section was not found')
+        }
+
+        expect(within(tagsSection).getAllByText('critical')).toHaveLength(1)
         expect(screen.getByRole('button', { name: /create template/i })).toBeEnabled()
     })
 
