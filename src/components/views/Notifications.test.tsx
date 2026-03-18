@@ -519,4 +519,31 @@ describe('Notifications', () => {
     expect(screen.getByRole('tab', { name: /^unread/i })).toBeInTheDocument()
     expect(screen.getByText(/2 unread • 3 total/i)).toBeInTheDocument()
   })
+
+  it('applies the correct icon class for each notification type from notificationIconClassNames', () => {
+    const typeNotifications: Notification[] = [
+      { ...baseNotification, id: 'n-workload', type: 'workload', title: 'Workload Note', read: true },
+      { ...baseNotification, id: 'n-system', type: 'system', title: 'System Note', read: true },
+      { ...baseNotification, id: 'n-reminder', type: 'reminder', title: 'Reminder Note', read: true },
+    ]
+
+    const { container } = render(
+      <Notifications
+        notifications={typeNotifications}
+        onMarkAsRead={vi.fn()}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    // workload type uses text-destructive from notificationIconClassNames
+    expect(container.querySelector('svg.text-destructive')).toBeInTheDocument()
+    // system type uses text-muted-foreground from notificationIconClassNames
+    expect(container.querySelector('svg.text-muted-foreground')).toBeInTheDocument()
+    // reminder type uses text-accent from notificationIconClassNames
+    expect(container.querySelector('svg.text-accent')).toBeInTheDocument()
+  })
 })

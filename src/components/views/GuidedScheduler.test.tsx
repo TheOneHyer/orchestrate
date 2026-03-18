@@ -624,4 +624,18 @@ describe('GuidedScheduler', () => {
         expect(within(confirmationCard).getByText(/90\/100/i)).toBeInTheDocument()
         expect(within(confirmationCard).getByText(/26\.0h/i)).toBeInTheDocument()
     })
+
+    it('displays burnout risk as value/100 using BURNOUT_RISK_MAX constant', async () => {
+        const user = userEvent.setup()
+
+        renderGuidedScheduler()
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        // Default mock returns riskScore 22 for t1 and 82 for t2
+        // New format is `${riskScore.toFixed(0)}/${BURNOUT_RISK_MAX}` = e.g. "22/100"
+        expect(screen.getByText('22/100')).toBeInTheDocument()
+        expect(screen.getByText('82/100')).toBeInTheDocument()
+    })
 })
