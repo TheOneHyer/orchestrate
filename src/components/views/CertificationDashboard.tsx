@@ -216,59 +216,60 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
               const certificationCount = certificationRecords.length
 
               return (
-              <div key={trainer.id} className="border rounded-lg p-4">
-                <div
-                  className="flex items-center justify-between mb-3 cursor-pointer"
-                  onClick={() => onNavigate('people', { userId: trainer.id })}
-                >
-                  <div>
-                    <h4 className="font-semibold text-foreground">{trainer.name}</h4>
-                    <p className="text-sm text-muted-foreground">{trainer.email}</p>
+                <div key={trainer.id} className="border rounded-lg p-4">
+                  <div
+                    className="flex items-center justify-between mb-3 cursor-pointer"
+                    onClick={() => onNavigate('people', { userId: trainer.id })}
+                  >
+                    <div>
+                      <h4 className="font-semibold text-foreground">{trainer.name}</h4>
+                      <p className="text-sm text-muted-foreground">{trainer.email}</p>
+                    </div>
+                    <Badge variant="outline">
+                      {certificationCount} certification
+                      {certificationCount !== 1 ? 's' : ''}
+                    </Badge>
                   </div>
-                  <Badge variant="outline">
-                    {certificationCount} certification
-                    {certificationCount !== 1 ? 's' : ''}
-                  </Badge>
-                </div>
 
-                <div className="space-y-2">
-                  {certificationRecords.map((cert, certIdx) => {
-                    const status = calculateCertificationStatus(cert)
-                    const isUnknownStatus = status !== 'expired' && status !== 'expiring-soon' && status !== 'active'
-                    const daysUntil = Math.floor(
-                      (new Date(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-                    )
+                  <div className="space-y-2">
+                    {certificationRecords.map((cert, certIdx) => {
+                      const status = calculateCertificationStatus(cert)
+                      const isUnknownStatus = status !== 'expired' && status !== 'expiring-soon' && status !== 'active'
+                      const daysUntil = Math.floor(
+                        (new Date(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                      )
 
-                    return (
-                      <div
-                        key={certIdx}
-                        className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
-                      >
-                        <div className="flex-1">
-                          <p className="font-medium text-sm">{cert.certificationName}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Expires: {format(parseISO(cert.expirationDate), 'MMM d, yyyy')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {cert.renewalInProgress && (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                              Renewal in Progress
+                      return (
+                        <div
+                          key={certIdx}
+                          className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <p className="font-medium text-sm">{cert.certificationName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Expires: {format(parseISO(cert.expirationDate), 'MMM d, yyyy')}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {cert.renewalInProgress && (
+                              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                Renewal in Progress
+                              </Badge>
+                            )}
+                            <Badge className={getStatusColor(status)} data-testid={isUnknownStatus ? 'status-badge-unknown' : undefined}>
+                              {status === 'expired' && 'Expired'}
+                              {status === 'expiring-soon' && `${daysUntil}d left`}
+                              {status === 'active' && 'Active'}
+                              {isUnknownStatus && 'Unknown'}
                             </Badge>
-                          )}
-                          <Badge className={getStatusColor(status)} data-testid={isUnknownStatus ? 'status-badge-unknown' : undefined}>
-                            {status === 'expired' && 'Expired'}
-                            {status === 'expiring-soon' && `${daysUntil}d left`}
-                            {status === 'active' && 'Active'}
-                            {isUnknownStatus && 'Unknown'}
-                          </Badge>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
-            )})}
+              )
+            })}
 
           {users.filter(u => u.role === 'trainer' && u.trainerProfile?.certificationRecords?.length).length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
