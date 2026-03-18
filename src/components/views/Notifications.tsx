@@ -33,6 +33,15 @@ interface NotificationsProps {
   onNavigate: (view: string, data?: any) => void
 }
 
+const notificationIconClassNames: Record<Notification['type'], string> = {
+  session: 'text-primary',
+  assignment: 'text-primary',
+  reminder: 'text-accent',
+  system: 'text-muted-foreground',
+  workload: 'text-destructive',
+  completion: 'text-primary'
+}
+
 export function Notifications({
   notifications,
   onMarkAsRead,
@@ -117,21 +126,21 @@ export function Notifications({
   const groupedNotifications = groupNotificationsByDate(filteredNotifications)
 
   const getNotificationIcon = (notification: Notification) => {
+    const className = notificationIconClassNames[notification.type]
+
     switch (notification.type) {
       case 'session':
-        return <CalendarDots size={20} className="text-primary" />
+        return <CalendarDots size={20} className={className} />
       case 'assignment':
-        return <GraduationCap size={20} className="text-primary" />
+        return <GraduationCap size={20} className={className} />
       case 'reminder':
-        return <Clock size={20} className="text-accent" />
+        return <Clock size={20} className={className} />
       case 'system':
-        return <Gear size={20} className="text-muted-foreground" />
+        return <Gear size={20} className={className} />
       case 'workload':
-        return <Heart size={20} className="text-destructive" />
+        return <Heart size={20} className={className} />
       case 'completion':
-        return <CheckCircleFilled size={20} className="text-primary" />
-      default:
-        return <Info size={20} className="text-muted-foreground" />
+        return <CheckCircleFilled size={20} className={className} />
     }
   }
 

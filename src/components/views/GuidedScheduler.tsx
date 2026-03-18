@@ -53,6 +53,20 @@ interface TrainerInsights extends TrainerMatch {
   recommendationLevel: 'optimal' | 'good' | 'caution' | 'avoid'
 }
 
+const recommendationColorClasses: Record<TrainerInsights['recommendationLevel'], string> = {
+  optimal: 'text-green-600 bg-green-50 border-green-200',
+  good: 'text-blue-600 bg-blue-50 border-blue-200',
+  caution: 'text-orange-600 bg-orange-50 border-orange-200',
+  avoid: 'text-red-600 bg-red-50 border-red-200'
+}
+
+const recommendationLabels: Record<TrainerInsights['recommendationLevel'], string> = {
+  optimal: 'Optimal Choice',
+  good: 'Good Choice',
+  caution: 'Use with Caution',
+  avoid: 'Not Recommended'
+}
+
 export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, prefilledDate }: GuidedSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])
   const [wellnessCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
@@ -369,35 +383,18 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     </Card>
   )
 
-  const getRecommendationColor = (level: string) => {
-    switch (level) {
-      case 'optimal': return 'text-green-600 bg-green-50 border-green-200'
-      case 'good': return 'text-blue-600 bg-blue-50 border-blue-200'
-      case 'caution': return 'text-orange-600 bg-orange-50 border-orange-200'
-      case 'avoid': return 'text-red-600 bg-red-50 border-red-200'
-      default: return 'text-gray-600 bg-gray-50 border-gray-200'
-    }
-  }
+  const getRecommendationColor = (level: TrainerInsights['recommendationLevel']) => recommendationColorClasses[level]
 
-  const getRecommendationIcon = (level: string) => {
+  const getRecommendationIcon = (level: TrainerInsights['recommendationLevel']) => {
     switch (level) {
       case 'optimal': return <Sparkle size={20} weight="fill" className="text-green-600" />
       case 'good': return <CheckCircle size={20} weight="fill" className="text-blue-600" />
       case 'caution': return <WarningCircle size={20} weight="fill" className="text-orange-600" />
       case 'avoid': return <WarningCircle size={20} weight="fill" className="text-red-600" />
-      default: return <Info size={20} />
     }
   }
 
-  const getRecommendationText = (level: string) => {
-    switch (level) {
-      case 'optimal': return 'Optimal Choice'
-      case 'good': return 'Good Choice'
-      case 'caution': return 'Use with Caution'
-      case 'avoid': return 'Not Recommended'
-      default: return 'Unknown'
-    }
-  }
+  const getRecommendationText = (level: TrainerInsights['recommendationLevel']) => recommendationLabels[level]
 
   const renderTrainerSelectionStep = () => {
     const filteredInsights = hideUnconfigured 

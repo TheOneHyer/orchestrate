@@ -1,9 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { GuidedScheduler } from './GuidedScheduler'
-import type { Course, User } from '@/lib/types'
+import type { Course, User, WellnessCheckIn } from '@/lib/types'
 
 const useKVMock = vi.fn()
 const findAvailableTrainersMock = vi.fn()
@@ -93,6 +93,16 @@ const users: User[] = [
     }),
 ]
 
+function renderGuidedScheduler(overrides: Partial<React.ComponentProps<typeof GuidedScheduler>> = {}) {
+    const defaultProps: React.ComponentProps<typeof GuidedScheduler> = {
+        users,
+        courses,
+        onSessionsCreated: vi.fn(),
+    }
+
+    return render(<GuidedScheduler {...defaultProps} {...overrides} />)
+}
+
 describe('GuidedScheduler', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -150,14 +160,7 @@ describe('GuidedScheduler', () => {
     }
 
     it('prefills start date when prefilledDate is provided', () => {
-        render(
-            <GuidedScheduler
-                users={users}
-                courses={courses}
-                onSessionsCreated={vi.fn()}
-                prefilledDate={new Date('2026-03-20T12:00:00.000Z')}
-            />
-        )
+        renderGuidedScheduler({ prefilledDate: new Date('2026-03-20T12:00:00.000Z') })
 
         expect(screen.getByLabelText(/start date/i)).toHaveValue('2026-03-20')
     })
@@ -165,13 +168,7 @@ describe('GuidedScheduler', () => {
     it('analyzes and shows ranked trainer recommendations', async () => {
         const user = userEvent.setup()
 
-        render(
-            <GuidedScheduler
-                users={users}
-                courses={courses}
-                onSessionsCreated={vi.fn()}
-            />
-        )
+        renderGuidedScheduler()
 
         await fillParameters(user)
         await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
@@ -203,13 +200,7 @@ describe('GuidedScheduler', () => {
     it('filters out unconfigured trainers when hide toggle is enabled', async () => {
         const user = userEvent.setup()
 
-        render(
-            <GuidedScheduler
-                users={users}
-                courses={courses}
-                onSessionsCreated={vi.fn()}
-            />
-        )
+        renderGuidedScheduler()
 
         await fillParameters(user)
         await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
@@ -225,13 +216,7 @@ describe('GuidedScheduler', () => {
         const user = userEvent.setup()
         const onSessionsCreated = vi.fn()
 
-        render(
-            <GuidedScheduler
-                users={users}
-                courses={courses}
-                onSessionsCreated={onSessionsCreated}
-            />
-        )
+        renderGuidedScheduler({ onSessionsCreated })
 
         await fillParameters(user)
         await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
@@ -264,13 +249,7 @@ describe('GuidedScheduler', () => {
         const user = userEvent.setup()
         findAvailableTrainersMock.mockReturnValueOnce([])
 
-        render(
-            <GuidedScheduler
-                users={users}
-                courses={courses}
-                onSessionsCreated={vi.fn()}
-            />
-        )
+        renderGuidedScheduler()
 
         await fillParameters(user)
         await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
@@ -295,13 +274,7 @@ describe('GuidedScheduler', () => {
         calculateTrainerWorkloadMock.mockReturnValueOnce({ totalHours: 34, utilizationRate: 82 })
         calculateBurnoutRiskMock.mockReturnValueOnce({ risk: 'moderate', riskScore: 58 })
 
-        render(
-            <GuidedScheduler
-                users={users}
-                courses={courses}
-                onSessionsCreated={vi.fn()}
-            />
-        )
+        renderGuidedScheduler()
 
         await fillParameters(user)
         await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
@@ -335,13 +308,7 @@ describe('GuidedScheduler', () => {
             },
         ])
 
-        render(
-            <GuidedScheduler
-                users={noScheduleUsers}
-                courses={courses}
-                onSessionsCreated={vi.fn()}
-            />
-        )
+        renderGuidedScheduler({ users: noScheduleUsers })
 
         await fillParameters(user)
         await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
@@ -354,13 +321,7 @@ describe('GuidedScheduler', () => {
         const user = userEvent.setup()
         const onSessionsCreated = vi.fn()
 
-        render(
-            <GuidedScheduler
-                users={users}
-                courses={courses}
-                onSessionsCreated={onSessionsCreated}
-            />
-        )
+        renderGuidedScheduler({ onSessionsCreated })
 
         await fillParameters(user)
 
@@ -391,5 +352,184 @@ describe('GuidedScheduler', () => {
         expect(createdSessions[0].recurrence).toEqual(
             expect.objectContaining({ frequency: 'daily', endDate: '2026-03-22' })
         )
+    })
+
+    it('renders good recommendations with low utilization, unavailable status, and fallback kv arrays', async () => {
+        const user = userEvent.setup()
+
+        useKVMock.mockImplementation((key: string) => {
+            if (key === 'sessions') return [undefined, vi.fn()]
+            if (key === 'wellness-check-ins') return [undefined, vi.fn()]
+            if (key === 'recovery-plans') return [undefined, vi.fn()]
+            return ['', vi.fn()]
+        })
+
+        findAvailableTrainersMock.mockReturnValueOnce([
+            {
+                trainer: users[0],
+                score: 70,
+                matchReasons: ['Steady schedule coverage'],
+                conflicts: [],
+                availability: 'unavailable',
+            },
+        ])
+
+        calculateTrainerWorkloadMock.mockReturnValueOnce({ totalHours: 18, utilizationRate: 45 })
+        calculateBurnoutRiskMock.mockReturnValueOnce({ risk: 'low', riskScore: 18 })
+
+        renderGuidedScheduler()
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        expect(screen.getByText(/good choice/i)).toBeInTheDocument()
+        expect(screen.getByText(/^unavailable$/i)).toBeInTheDocument()
+        expect(screen.getByText(/^45%$/i)).toHaveClass('text-blue-600')
+        expect(calculateTrainerWorkloadMock).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 't1' }),
+            [],
+            expect.any(Date),
+            expect.any(Date)
+        )
+        expect(calculateBurnoutRiskMock).toHaveBeenCalledWith('t1', [], [], users, courses)
+    })
+
+    it('uses recent wellness check-ins to compute trainer insights', async () => {
+        const user = userEvent.setup()
+        const wellnessCheckIns: WellnessCheckIn[] = [
+            {
+                id: 'check-1',
+                trainerId: 't1',
+                timestamp: '2026-03-19T10:00:00.000Z',
+                mood: 5,
+                stress: '2',
+                workloadSatisfaction: 4,
+                notes: 'Feeling solid',
+            },
+        ]
+
+        useKVMock.mockImplementation((key: string, initialValue: unknown) => {
+            if (key === 'sessions') return [[], vi.fn()]
+            if (key === 'wellness-check-ins') return [wellnessCheckIns, vi.fn()]
+            if (key === 'recovery-plans') return [[], vi.fn()]
+            return [initialValue, vi.fn()]
+        })
+
+        renderGuidedScheduler()
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        expect(calculateBurnoutRiskMock).toHaveBeenCalledWith(
+            't1',
+            [],
+            [expect.objectContaining({ id: 'check-1', stress: '2' })],
+            users,
+            courses
+        )
+    })
+
+    it('handles recent wellness check-ins without a stress value', async () => {
+        const user = userEvent.setup()
+        const wellnessCheckIns: WellnessCheckIn[] = [
+            {
+                id: 'check-no-stress',
+                trainerId: 't1',
+                timestamp: '2026-03-19T12:00:00.000Z',
+                mood: 4,
+                workloadSatisfaction: 5,
+                notes: 'No stress score submitted',
+            },
+        ]
+
+        useKVMock.mockImplementation((key: string, initialValue: unknown) => {
+            if (key === 'sessions') return [[], vi.fn()]
+            if (key === 'wellness-check-ins') return [wellnessCheckIns, vi.fn()]
+            if (key === 'recovery-plans') return [[], vi.fn()]
+            return [initialValue, vi.fn()]
+        })
+
+        renderGuidedScheduler()
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        expect(screen.getByText(/taylor trainer/i)).toBeInTheDocument()
+        expect(calculateBurnoutRiskMock).toHaveBeenCalledWith(
+            't1',
+            [],
+            [expect.objectContaining({ id: 'check-no-stress' })],
+            users,
+            courses
+        )
+    })
+
+    it('shows overflow date badges when more than five sessions will be created', async () => {
+        const user = userEvent.setup()
+
+        renderGuidedScheduler()
+
+        await fillParameters(user)
+
+        const endDateInput = screen.getByLabelText(/end date/i)
+        await user.click(endDateInput)
+        await user.clear(endDateInput)
+        await user.type(endDateInput, '2026-03-26')
+        await user.tab()
+
+        await user.click(screen.getByRole('combobox', { name: /recurrence pattern/i }))
+        await user.click(screen.getByRole('option', { name: /daily/i }))
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+        await user.click(screen.getByText(/1\. taylor trainer/i))
+
+        expect(screen.getByText(/7 session\(s\)/i)).toBeInTheDocument()
+        expect(screen.getByText('+2 more')).toBeInTheDocument()
+    })
+
+    it('shows a success toast even when the selected trainer is no longer resolvable', async () => {
+        const user = userEvent.setup()
+        const onSessionsCreated = vi.fn()
+        const truncatedUsers = [users[0]]
+
+        findAvailableTrainersMock.mockReturnValueOnce([
+            {
+                trainer: users[1],
+                score: 72,
+                matchReasons: ['Fallback match'],
+                conflicts: [],
+                availability: 'available',
+            },
+        ])
+
+        renderGuidedScheduler({ users: truncatedUsers, onSessionsCreated })
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+        await user.click(screen.getByText(/1\. uma trainer/i))
+        await user.click(screen.getByRole('button', { name: /confirm & schedule/i }))
+
+        expect(onSessionsCreated).toHaveBeenCalledWith(
+            expect.arrayContaining([expect.objectContaining({ trainerId: 't2' })])
+        )
+        expect(toastSuccess).toHaveBeenCalledWith('Successfully scheduled 1 session(s) with undefined!')
+    })
+
+    it('renders confirmation details for the selected trainer', async () => {
+        const user = userEvent.setup()
+
+        renderGuidedScheduler()
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+        await user.click(screen.getByText(/1\. taylor trainer/i))
+
+        const confirmationCard = screen.getByText(/confirm schedule/i).closest('[data-slot="card"]')
+        if (!(confirmationCard instanceof HTMLElement)) {
+            throw new Error('Unable to locate confirmation card')
+        }
+
+        expect(within(confirmationCard).getByText((_, element) => element?.textContent === 'Match Score:90/100')).toBeInTheDocument()
+        expect(within(confirmationCard).getByText(/90\/100/i)).toBeInTheDocument()
+        expect(within(confirmationCard).getByText(/26\.0h/i)).toBeInTheDocument()
     })
 })

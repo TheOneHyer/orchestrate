@@ -174,6 +174,10 @@ vi.mock('@/components/views/Schedule', () => ({
                 onCreateSession(payload)
             }}>Create Session</button>
             <button onClick={() => {
+                const payload = { courseId: 'course-1' }
+                onCreateSession(payload)
+            }}>Create Minimal Session</button>
+            <button onClick={() => {
                 const payload = { status: 'completed' }
                 callbackSpies.onUpdateSession('session-1', payload)
                 onUpdateSession('session-1', payload)
@@ -191,6 +195,9 @@ vi.mock('@/components/views/ScheduleTemplates', () => ({
                 callbackSpies.onCreateTemplateSessions(payload)
                 onCreateSessions(payload)
             }}>Create Template Sessions</button>
+            <button onClick={() => {
+                onCreateSessions([{ courseId: 'course-1' }])
+            }}>Create Minimal Template Sessions</button>
         </div>
     ),
 }))
@@ -927,6 +934,70 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /dismiss all/i }))
 
         expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('creates a notification when notification state is initially undefined', async () => {
+        kvSeed['notifications'] = undefined
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(sendNotificationMock).toHaveBeenCalledWith(
+                'Critical Alert',
+                expect.objectContaining({ priority: 'critical' })
+            )
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
+    })
+
+    it('creates a minimal session with fallback defaults when sessions are undefined', async () => {
+        const user = userEvent.setup()
+        utilizationNotified = true
+        kvSeed['sessions'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create minimal session/i }))
+
+        expect(screen.getByText(/session count:\s*1/i)).toBeInTheDocument()
+        expect(screen.getByText(/untitled session \(scheduled\)/i)).toBeInTheDocument()
+    })
+
+    it('creates minimal template sessions with fallback defaults when sessions are undefined', async () => {
+        const user = userEvent.setup()
+        utilizationNotified = true
+        kvSeed['sessions'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule templates$/i }))
+        await user.click(screen.getByRole('button', { name: /create minimal template sessions/i }))
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+
+        expect(screen.getByText(/session count:\s*1/i)).toBeInTheDocument()
+        expect(screen.getByText(/untitled session \(scheduled\)/i)).toBeInTheDocument()
+    })
+
+    it('handles deleting users when users and sessions are undefined', async () => {
+        const user = userEvent.setup()
+        utilizationNotified = true
+        kvSeed['users'] = undefined
+        kvSeed['sessions'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /delete user/i }))
+
+        expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
     })
 
     it('removes reminder-* localStorage keys when resetting preview data', async () => {

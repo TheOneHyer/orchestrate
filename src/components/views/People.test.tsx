@@ -330,5 +330,19 @@ describe('People', () => {
         expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User Updated')
     })
 
+    it('does not expose edit or delete actions in profile view for non-admin viewers', async () => {
+        const user = userEvent.setup()
+
+        renderPeople({
+            currentUser: createUser({ id: 'u-trainer-self', role: 'trainer', name: 'Trainer Self' }),
+        })
+
+        await user.click(screen.getByText('Trainer User'))
+
+        expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User')
+        expect(screen.queryByRole('button', { name: /mock edit profile/i })).toBeNull()
+        expect(screen.queryByRole('button', { name: /mock delete person/i })).toBeNull()
+    })
+
 
 })
