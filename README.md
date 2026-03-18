@@ -28,8 +28,12 @@
 
 ### Prerequisites
 
-- **Node.js** ≥ 18
+- **Node.js** 24.14.0 (see `.node-version` for the exact required version)
 - **pnpm** 10.32.1 via Corepack
+
+> **pnpm is the only supported package manager for this project.**  
+> Do **not** use `npm install` or `yarn install` — they will create a `package-lock.json` or `yarn.lock` and produce a different dependency graph than the committed `pnpm-lock.yaml`.  
+> Both files are listed in `.gitignore`; only `pnpm-lock.yaml` is committed.
 
 ### Installation
 
@@ -38,8 +42,10 @@
 git clone https://github.com/TheOneHyer/orchestrate.git
 cd orchestrate
 
-# Install dependencies
+# Enable Corepack so the correct pnpm version is used automatically
 corepack enable
+
+# Install dependencies
 pnpm install
 ```
 
