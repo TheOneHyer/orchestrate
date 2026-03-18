@@ -244,9 +244,11 @@ describe('Notifications', () => {
 
     const notifications: Notification[] = [
       { ...baseNotification, id: 'n-1', type: 'session', title: 'Session Type' },
+      { ...baseNotification, id: 'n-assignment', type: 'assignment', title: 'Assignment Type', read: true },
       { ...baseNotification, id: 'n-2', type: 'system', title: 'System Type', read: true },
       { ...baseNotification, id: 'n-3', type: 'reminder', title: 'Reminder Type', read: true },
       { ...baseNotification, id: 'n-4', type: 'workload', title: 'Workload Type', read: true },
+      { ...baseNotification, id: 'n-complete', type: 'completion', title: 'Completion Type', read: true },
     ]
 
     render(
@@ -262,13 +264,19 @@ describe('Notifications', () => {
     )
 
     expect(screen.getByText('Session Type')).toBeInTheDocument()
+    expect(screen.getByText('Assignment Type')).toBeInTheDocument()
     expect(screen.getByText('System Type')).toBeInTheDocument()
     expect(screen.getByText('Reminder Type')).toBeInTheDocument()
     expect(screen.getByText('Workload Type')).toBeInTheDocument()
+    expect(screen.getByText('Completion Type')).toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: /^sessions/i }))
     expect(screen.getByText('Session Type')).toBeInTheDocument()
     expect(screen.queryByText('System Type')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: /^assignments/i }))
+    expect(screen.getByText('Assignment Type')).toBeInTheDocument()
+    expect(screen.queryByText('Session Type')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('tab', { name: /^system/i }))
     expect(screen.getByText('System Type')).toBeInTheDocument()
@@ -281,6 +289,32 @@ describe('Notifications', () => {
     await user.click(screen.getByRole('tab', { name: /^workload/i }))
     expect(screen.getByText('Workload Type')).toBeInTheDocument()
     expect(screen.queryByText('Session Type')).not.toBeInTheDocument()
+  })
+
+  it('filters notifications by high priority tab', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <Notifications
+        notifications={[
+          { ...baseNotification, id: 'n-high', title: 'High Priority Item', priority: 'high' },
+          { ...baseNotification, id: 'n-critical', title: 'Critical Item', priority: 'critical', read: true },
+          { ...baseNotification, id: 'n-medium', title: 'Medium Item', priority: 'medium', read: true },
+        ]}
+        onMarkAsRead={vi.fn()}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('tab', { name: /^priority/i }))
+
+    expect(screen.getByText('High Priority Item')).toBeInTheDocument()
+    expect(screen.getByText('Critical Item')).toBeInTheDocument()
+    expect(screen.queryByText('Medium Item')).not.toBeInTheDocument()
   })
 
   it('handles notifications with different priority levels', () => {
@@ -484,5 +518,32 @@ describe('Notifications', () => {
 
     expect(screen.getByRole('tab', { name: /^unread/i })).toBeInTheDocument()
     expect(screen.getByText(/2 unread • 3 total/i)).toBeInTheDocument()
+  })
+
+  it('applies the correct icon class for each notification type from notificationIconClassNames', () => {
+    const typeNotifications: Notification[] = [
+      { ...baseNotification, id: 'n-workload', type: 'workload', title: 'Workload Note', read: true },
+      { ...baseNotification, id: 'n-system', type: 'system', title: 'System Note', read: true },
+      { ...baseNotification, id: 'n-reminder', type: 'reminder', title: 'Reminder Note', read: true },
+    ]
+
+    const { container } = render(
+      <Notifications
+        notifications={typeNotifications}
+        onMarkAsRead={vi.fn()}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    // workload type uses text-destructive from notificationIconClassNames
+    expect(container.querySelector('svg.text-destructive')).toBeInTheDocument()
+    // system type uses text-muted-foreground from notificationIconClassNames
+    expect(container.querySelector('svg.text-muted-foreground')).toBeInTheDocument()
+    // reminder type uses text-accent from notificationIconClassNames
+    expect(container.querySelector('svg.text-accent')).toBeInTheDocument()
   })
 })

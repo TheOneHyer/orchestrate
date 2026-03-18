@@ -81,6 +81,19 @@ describe('AddCertificationDialog', () => {
     expect(screen.getByText(/1 trainer selected/i)).toBeInTheDocument()
   })
 
+  it('deselects an individually selected trainer', async () => {
+    render(<AddCertificationDialog users={trainers} onAddCertification={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
+
+    const checkbox = screen.getByRole('checkbox', { name: /alex trainer/i })
+    await user.click(checkbox)
+    expect(screen.getByText(/1 trainer selected/i)).toBeInTheDocument()
+
+    await user.click(checkbox)
+
+    expect(screen.queryByText(/\d+\s+trainers?\s+selected/i)).not.toBeInTheDocument()
+  })
+
   it('select-all button selects all trainers', async () => {
     render(<AddCertificationDialog users={trainers} onAddCertification={vi.fn()} />)
     await user.click(screen.getByRole('button', { name: /add certification/i }))

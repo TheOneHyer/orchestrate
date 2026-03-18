@@ -287,6 +287,31 @@ describe('CertificationDashboard', () => {
         statusSpy.mockRestore()
     })
 
+    it('renders two certifications with the same name but different issued dates', () => {
+        const users: User[] = [
+            createTrainer(
+                { id: 'trainer-dup', name: 'Dup Trainer', email: 'dup@example.com' },
+                [
+                    createRecord({ certificationName: 'CPR', issuedDate: '2023-01-01', expirationDate: '2026-09-01T00:00:00.000Z' }),
+                    createRecord({ certificationName: 'CPR', issuedDate: '2025-01-01', expirationDate: '2027-09-01T00:00:00.000Z' }),
+                ]
+            ),
+        ]
+
+        render(
+            <CertificationDashboard
+                users={users}
+                onNavigate={vi.fn()}
+                onAddCertification={vi.fn()}
+            />
+        )
+
+        // Both records should render since composite key certificationName+issuedDate is unique
+        expect(screen.getAllByText('CPR')).toHaveLength(2)
+        // Trainer badge shows 2 certifications
+        expect(screen.getByText(/2 certifications$/i)).toBeInTheDocument()
+    })
+
     it('navigates to people view when clicking a trainer row in all certifications', () => {
         const onNavigate = vi.fn()
         const users: User[] = [

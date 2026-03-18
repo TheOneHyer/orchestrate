@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CertificationRecord, Notification, User } from '@/lib/types'
+import * as certificationTracker from '@/lib/certification-tracker'
 
 import { useCertificationNotifications } from './use-certification-notifications'
 
@@ -428,6 +429,66 @@ describe('use-certification-notifications', () => {
         expect(updatedUsers).not.toBe(inputUsers)
         expect(updatedUsers[0]).not.toBe(trainer)
         expect(updatedUsers[0].trainerProfile!.certificationRecords![0]).not.toBe(originalCertRef)
+    })
+
+    it('safely skips mocked alerts when a trainer profile has undefined certificationRecords', () => {
+        const trainer = createTrainer('trainer-no-records', createCertRecord(45, 0))
+        trainer.trainerProfile = {
+            ...trainer.trainerProfile!,
+            certificationRecords: undefined,
+        }
+
+        const expiringSpy = vi.spyOn(certificationTracker, 'getExpiringCertifications').mockReturnValue([
+            {
+                userId: trainer.id,
+                userName: trainer.name,
+                certification: createCertRecord(10, 0),
+                daysUntilExpiration: 10,
+                urgency: 'high',
+            },
+        ])
+
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications([trainer], onCreateNotification, onUpdateUsers))
+
+        expect(onCreateNotification).not.toHaveBeenCalled()
+        expect(onUpdateUsers).not.toHaveBeenCalled()
+
+        expiringSpy.mockRestore()
+    })
+
+    it('safely skips mocked alerts when trainerProfile is missing entirely', () => {
+        const trainerWithoutProfile: User = {
+            id: 'trainer-no-profile',
+            name: 'No Profile Trainer',
+            email: 'no-profile@example.com',
+            role: 'trainer',
+            department: 'Operations',
+            certifications: [],
+            hireDate: '2020-01-01T00:00:00.000Z',
+        }
+
+        const expiringSpy = vi.spyOn(certificationTracker, 'getExpiringCertifications').mockReturnValue([
+            {
+                userId: trainerWithoutProfile.id,
+                userName: trainerWithoutProfile.name,
+                certification: createCertRecord(10, 0),
+                daysUntilExpiration: 10,
+                urgency: 'high',
+            },
+        ])
+
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications([trainerWithoutProfile], onCreateNotification, onUpdateUsers))
+
+        expect(onCreateNotification).not.toHaveBeenCalled()
+        expect(onUpdateUsers).not.toHaveBeenCalled()
+
+        expiringSpy.mockRestore()
     })
 })
 

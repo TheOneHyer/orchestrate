@@ -244,4 +244,21 @@ describe('WorkloadRecommendations', () => {
     expect(screen.getByText('Reduce Session Load')).toBeInTheDocument()
     expect(screen.getByText(/^low$/i)).toBeInTheDocument()
   })
+
+  it('renders potential savings and skips unknown affected trainers', () => {
+    const analysis = makeAnalysis({
+      balanceScore: 48,
+      recommendations: [makeRecommendation({
+        title: 'Recover Hours',
+        affectedTrainers: ['missing-trainer'],
+        potentialSavings: 3.5,
+      })],
+    })
+
+    render(<WorkloadRecommendations analysis={analysis} users={[]} />)
+
+    expect(screen.getByText('Recover Hours')).toBeInTheDocument()
+    expect(screen.getByText(/can free up 3\.5 hours/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /missing-trainer/i })).not.toBeInTheDocument()
+  })
 })

@@ -37,6 +37,10 @@ import { format } from 'date-fns'
 import { calculateTrainerWorkload } from '@/lib/workload-balancer'
 import { calculateBurnoutRisk } from '@/lib/burnout-analytics'
 
+// NOTE: This is a GuidedScheduler-specific, normalized 1–5 weighting for stress levels,
+// used when computing `recentWellnessScore` for ranking trainers in this UI.
+// It intentionally differs from the 0–100 stress scoring used in wellness analytics
+// (e.g., `getStressScore`) and should not be directly compared or mixed with that scale.
 const STRESS_LEVEL_TO_SCORE: Record<StressLevel, number> = {
   low: 1, moderate: 2, high: 4, critical: 5,
 }
@@ -76,18 +80,6 @@ const BURNOUT_RISK_MAX = 100
 
 const guidedSchedulerSteps = ['parameters', 'trainer-selection', 'confirmation'] as const
 
-/**
- * Interactive UI for configuring sessions, finding recommended trainers, and creating scheduled sessions.
- *
- * Presents a multi-step flow to specify course and session parameters, compares available trainers using data-driven insights (workload, utilization, wellness, and recovery plans), and confirms scheduling.
- *
- * @param props.users - List of users (trainers and staff) used to evaluate availability and compute insights.
- * @param props.courses - Available courses that can be scheduled.
- * @param props.onSessionsCreated - Callback invoked with an array of session objects when the user confirms scheduling.
- * @param props.onClose - Optional callback invoked when the scheduler UI should be closed.
- * @param props.prefilledDate - Optional initial date to prefill the start date input (local Date object).
- * @returns The scheduler component UI that handles parameter entry, trainer recommendation and selection, and session creation. 
- */
 export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, prefilledDate }: GuidedSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])
   const [wellnessCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
@@ -289,7 +281,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
     const selectedTrainer = users.find(u => u.id === selectedTrainerId)
     toast.success(
-      `Successfully scheduled ${sessionsToCreate.length} session(s) with ${selectedTrainer?.name}!`
+      `Successfully scheduled ${sessionsToCreate.length} session(s) with ${selectedTrainer?.name || selectedTrainerId || 'the selected trainer'}!`
     )
   }
 

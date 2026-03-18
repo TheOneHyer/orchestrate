@@ -93,6 +93,13 @@ describe('wellness-analytics', () => {
             expect(expected).toBe(78)
             expect(score).toBe(expected)
         })
+
+        it('supports the excellent energy branch when calculating wellness score', () => {
+            const excellentScore = calculateWellnessScore(createCheckIn({ energy: 'excellent' }))
+            const energizedScore = calculateWellnessScore(createCheckIn({ energy: 'energized' }))
+
+            expect(excellentScore).toBeGreaterThan(energizedScore)
+        })
     })
 
     describe('analyzeWellnessTrend', () => {
@@ -151,6 +158,21 @@ describe('wellness-analytics', () => {
             expect(trend.averageEnergy).toBe(60)
             expect(trend.concernsRaised).toBe(1)
             expect(trend.followUpsRequired).toBe(1)
+        })
+
+        it('supports quarter-range filtering for older in-range check-ins', () => {
+            const trend = analyzeWellnessTrend(
+                [
+                    createCheckIn({ id: 'quarter-hit', timestamp: '2026-01-25T12:00:00.000Z', mood: 3, stress: 'moderate', energy: 'neutral' }),
+                    createCheckIn({ id: 'quarter-miss', timestamp: '2025-12-01T12:00:00.000Z', mood: 5, stress: 'low', energy: 'excellent' }),
+                ],
+                'trainer-1',
+                'quarter'
+            )
+
+            expect(trend.checkInCount).toBe(1)
+            expect(trend.averageMood).toBe(3)
+            expect(trend.averageStress).toBe(70)
         })
     })
 
@@ -259,6 +281,18 @@ describe('wellness-analytics', () => {
                 'Continue current wellness monitoring',
                 'Maintain regular check-in schedule',
             ])
+        })
+
+        it('generates mid-tier recommendations for high stress with elevated utilization', () => {
+            const recommendations = getRecoveryPlanRecommendations(88, 65, 'high', 'neutral')
+
+            expect(recommendations).toEqual(
+                expect.arrayContaining([
+                    'Reduce workload by 10-15% over next 2 weeks',
+                    'Schedule wellness consultation with HR',
+                    'Bi-weekly wellness check-ins',
+                ])
+            )
         })
     })
 
@@ -387,6 +421,26 @@ describe('wellness-analytics', () => {
                     severity: 'info',
                 },
             ])
+        })
+
+        it('returns a warning insight for below-average mood before critical thresholds are reached', () => {
+            const insights = getWellnessInsights(
+                [
+                    createCheckIn({ id: 'mood-1', mood: 3, stress: 'moderate', energy: 'neutral', concerns: [] }),
+                    createCheckIn({ id: 'mood-2', timestamp: '2026-03-14T12:00:00.000Z', mood: 3, stress: 'moderate', energy: 'neutral', concerns: [] }),
+                    createCheckIn({ id: 'mood-3', timestamp: '2026-03-13T12:00:00.000Z', mood: 4, stress: 'low', energy: 'energized', concerns: [] }),
+                ],
+                'trainer-1'
+            )
+
+            expect(insights).toEqual(
+                expect.arrayContaining([
+                    {
+                        insight: 'Below-average mood scores - monitor closely',
+                        severity: 'warning',
+                    },
+                ])
+            )
         })
     })
 })

@@ -1207,6 +1207,34 @@ describe('Schedule', () => {
     expect(onUpdateSession).not.toHaveBeenCalled()
   })
 
+  it('uses plural "students" in the capacity error message when multiple students are enrolled', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+    const crowdedSession: Session = {
+      ...baseSession,
+      enrolledStudents: ['u-employee', 'u-trainer'],
+      capacity: 3,
+    }
+
+    renderSchedule({ sessions: [crowdedSession], onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    await user.clear(screen.getByLabelText(/capacity/i))
+    await user.type(screen.getByLabelText(/capacity/i), '1')
+    await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+    expect(toastError).toHaveBeenCalledWith(
+      'Invalid capacity',
+      expect.objectContaining({
+        description: 'Capacity cannot be less than the 2 currently enrolled students.',
+      })
+    )
+    expect(onUpdateSession).not.toHaveBeenCalled()
+  })
+
   it('blocks save when edited session conflicts with another session', async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 })
     const onUpdateSession = vi.fn()

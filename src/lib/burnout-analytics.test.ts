@@ -53,6 +53,98 @@ function createSession(id: string, courseId: string, startTime: string, endTime:
     }
 }
 
+/**
+ * Creates multiple sessions with a repeating time-slot pattern, useful for aggregate analytics testing.
+ *
+ * Session distribution:
+ * - startHour cycles as "8 + (index % 8)" → start times 08:00–15:00 (8 distinct hourly start slots)
+ * - startMinute alternates as "(index % 2) * 30" → starts on :00 or :30
+ * - Combined start slots repeat every 16 sessions (8 hours × 2 minute variants)
+ * - Sessions beyond 16 in the same generated day reuse earlier start slots (e.g., session 17 starts at 08:00 again, matching session 1)
+ * - Actual end times and real overlaps depend on `durationHours`, since duration is added after the start slot is chosen
+ *
+ * Intended use: Sufficient for aggregate analytics (total sessions, utilization trends, enrollments)
+ * where overlaps are acceptable. Not suitable for real-time scheduling or conflict detection.
+ *
+ * dayCount and gapDays behavior:
+ * - Sessions are distributed evenly across `dayCount` days, with `gapDays` spacing between each day
+ * - Default gapDays=1 places sessions on consecutive days
+ * - Increase gapDays if non-overlapping sessions are needed (e.g., gapDays=2 spreads across 2× days)
+ * - If more granular control is needed (e.g., time-based validation, non-overlapping constraints),
+ *   update the algorithm to use disjoint time windows or extend the slot pool beyond 16
+ */
+function createRepeatedSessions(options: {
+    count: number
+    courseIds: string[]
+    dayStart: number
+    dayCount: number
+    durationHours: number
+    gapDays?: number
+}): Session[] {
+    const { count, courseIds, dayStart, dayCount, durationHours, gapDays = 1 } = options
+    const durationMinutes = Math.round(durationHours * 60)
+
+    return Array.from({ length: count }, (_, index) => {
+        const dayOffset = Math.floor(index / Math.ceil(count / dayCount))
+        const sessionDay = dayStart + (dayOffset * gapDays)
+        const startHour = 8 + (index % 8)
+        const startMinute = (index % 2) * 30
+        const start = new Date(Date.UTC(2026, 2, sessionDay, startHour, startMinute, 0, 0))
+        const end = new Date(start.getTime() + durationMinutes * 60 * 1000)
+
+        return createSession(
+            `session-${index + 1}`,
+            courseIds[index % courseIds.length],
+            start.toISOString(),
+            end.toISOString()
+        )
+    })
+}
+
+/**
+ * Creates multiple non-overlapping sessions, ensuring each session has its own unique time slot.
+ * Useful for tests requiring accurate hour-based calculations (utilization, burnout risk).
+ *
+ * Slot distribution:
+ * - Sessions are spaced sequentially: each starts after the previous ends
+ * - Sessions per day = count / dayCount
+ * - Each day starts at 08:00; sessions pile sequentially with no gaps
+ * - Example: 16 sessions across 2 days = 8 per day, same time slots on each day
+ *
+ * Intended use: Accurate workload calculation for tests that feed into `calculateTrainerUtilization`
+ * and `calculateBurnoutRisk`, where overlapping time slots would skew hour totals.
+ */
+function createNonOverlappingSessions(options: {
+    count: number
+    courseIds: string[]
+    dayStart: number
+    dayCount: number
+    durationHours: number
+    gapDays?: number
+}): Session[] {
+    const { count, courseIds, dayStart, dayCount, durationHours, gapDays = 1 } = options
+    const durationMinutes = Math.round(durationHours * 60)
+    const sessionsPerDay = Math.ceil(count / dayCount)
+
+    return Array.from({ length: count }, (_, index) => {
+        const dayOffset = Math.floor(index / sessionsPerDay)
+        const sessionDay = dayStart + (dayOffset * gapDays)
+        const sessionIndexOnDay = index % sessionsPerDay
+        const startMinutes = 8 * 60 + sessionIndexOnDay * durationMinutes
+        const startHour = Math.floor(startMinutes / 60)
+        const startMinute = startMinutes % 60
+        const start = new Date(Date.UTC(2026, 2, sessionDay, startHour, startMinute, 0, 0))
+        const end = new Date(start.getTime() + durationMinutes * 60 * 1000)
+
+        return createSession(
+            `session-${index + 1}`,
+            courseIds[index % courseIds.length],
+            start.toISOString(),
+            end.toISOString()
+        )
+    })
+}
+
 function createCheckIn(id: string, overrides: Partial<WellnessCheckIn> = {}): WellnessCheckIn {
     return {
         id,
@@ -267,6 +359,134 @@ describe('burnout-analytics', () => {
         expect(trend.trend).toBe('increasing')
         expect(Number.isFinite(trend.changeRate)).toBe(true)
         expect(trend.dataPoints.length).toBeGreaterThan(1)
+    })
+
+    it('supports week and quarter utilization windows', () => {
+        const trainer = createTrainer()
+        const courses = [createCourse('course-1')]
+        const sessions = [
+            createSession('recent', 'course-1', '2026-03-14T08:00:00.000Z', '2026-03-14T12:00:00.000Z'),
+            createSession('within-quarter', 'course-1', '2026-01-20T08:00:00.000Z', '2026-01-20T12:00:00.000Z'),
+        ]
+
+        const weekUtilization = calculateTrainerUtilization(trainer, sessions, courses, 'week')
+        const quarterUtilization = calculateTrainerUtilization(trainer, sessions, courses, 'quarter')
+
+        expect(weekUtilization.sessionCount).toBe(1)
+        expect(quarterUtilization.sessionCount).toBe(2)
+        expect(quarterUtilization.hoursScheduled).toBeGreaterThan(weekUtilization.hoursScheduled)
+    })
+
+    it('computes stable weekly trend and zero change rate with no sessions', () => {
+        const trainer = createTrainer()
+
+        const weekTrend = getUtilizationTrend(trainer, [], 'week')
+        const quarterTrend = getUtilizationTrend(trainer, [], 'quarter')
+
+        expect(weekTrend.trend).toBe('stable')
+        expect(weekTrend.changeRate).toBe(0)
+        expect(quarterTrend.trend).toBe('stable')
+        expect(quarterTrend.changeRate).toBe(0)
+    })
+
+    it('adds session frequency and course variety recommendations without escalating to critical risk', () => {
+        const trainer = createTrainer()
+        const courses = ['course-1', 'course-2', 'course-3', 'course-4', 'course-5', 'course-6'].map(createCourse)
+        const sessions = createNonOverlappingSessions({
+            count: 65,
+            courseIds: courses.map((course) => course.id),
+            dayStart: 1,
+            dayCount: 4,
+            durationHours: 2.4,
+            gapDays: 4,
+        })
+
+        const result = calculateTrainerUtilization(trainer, sessions, courses, 'month')
+
+        expect(result.riskLevel).toBe('high')
+        expect(result.factors.map((factor) => factor.factor)).toEqual(
+            expect.arrayContaining([
+                'High Utilization',
+                'High Session Frequency',
+                'Course Variety Overload',
+            ])
+        )
+        expect(result.recommendations).toEqual(
+            expect.arrayContaining([
+                'Space out sessions more evenly across the week',
+                'Consider longer session blocks instead of many short sessions',
+                'Focus trainer on 3-4 core courses to reduce context switching',
+            ])
+        )
+    })
+
+    it('reports utilization trends as decreasing when recent weekly load drops sharply', () => {
+        const trainer = createTrainer()
+        const sessions = [
+            createSession('dec-1', 'course-1', '2026-02-18T08:00:00.000Z', '2026-02-19T04:00:00.000Z'),
+            createSession('dec-2', 'course-1', '2026-02-26T08:00:00.000Z', '2026-02-26T20:00:00.000Z'),
+            createSession('dec-3', 'course-1', '2026-03-05T08:00:00.000Z', '2026-03-05T16:00:00.000Z'),
+            createSession('dec-4', 'course-1', '2026-03-13T08:00:00.000Z', '2026-03-13T12:00:00.000Z'),
+        ]
+
+        const trend = getUtilizationTrend(trainer, sessions, 'month')
+
+        expect(trend.trend).toBe('decreasing')
+        expect(trend.changeRate).toBeLessThan(0)
+        expect(trend.dataPoints.length).toBeGreaterThan(1)
+    })
+
+    it('classifies burnout risk as moderate when workload pressure combines with repeated concerns', () => {
+        const trainer = createTrainer()
+        const courses = [createCourse('course-1')]
+        const sessions = createRepeatedSessions({
+            count: 54,
+            courseIds: ['course-1'],
+            dayStart: 1,
+            dayCount: 4,
+            durationHours: 2.8,
+            gapDays: 3,
+        })
+        const checkIns = [
+            createCheckIn('moderate-1', { concerns: ['Workload'], mood: 4, stress: 'low', energy: 'neutral' }),
+            createCheckIn('moderate-2', { timestamp: '2026-03-14T09:00:00.000Z', concerns: ['Coverage'], mood: 4, stress: 'low', energy: 'neutral' }),
+            createCheckIn('moderate-3', { timestamp: '2026-03-13T09:00:00.000Z', concerns: ['Context switching'], mood: 4, stress: 'moderate', energy: 'neutral' }),
+        ]
+
+        const result = calculateBurnoutRisk(trainer.id, sessions, checkIns, [trainer], courses)
+
+        expect(result.risk).toBe('moderate')
+        expect(result.riskScore).toBe(40)
+        expect(result.factors).toEqual(expect.arrayContaining(['Multiple concerns raised']))
+    })
+
+    it('classifies burnout risk as high before reaching the critical threshold', () => {
+        const trainer = createTrainer()
+        const courses = [createCourse('course-1')]
+        const sessions = createRepeatedSessions({
+            count: 54,
+            courseIds: ['course-1'],
+            dayStart: 1,
+            dayCount: 4,
+            durationHours: 2.8,
+            gapDays: 3,
+        })
+        const checkIns = [
+            createCheckIn('high-1', { mood: 2, concerns: ['Workload'], stress: 'moderate', energy: 'tired' }),
+            createCheckIn('high-2', { timestamp: '2026-03-14T09:00:00.000Z', mood: 2, concerns: ['Coverage'], stress: 'moderate', energy: 'neutral' }),
+            createCheckIn('high-3', { timestamp: '2026-03-13T09:00:00.000Z', mood: 2, concerns: ['Fatigue'], stress: 'low', energy: 'neutral' }),
+        ]
+
+        const result = calculateBurnoutRisk(trainer.id, sessions, checkIns, [trainer], courses)
+
+        expect(result.risk).toBe('high')
+        expect(result.riskScore).toBe(60)
+        expect(result.factors).toEqual(
+            expect.arrayContaining([
+                'Low mood reported in recent check-ins',
+                'Multiple concerns raised',
+            ])
+        )
     })
 
     it('returns a low risk assessment when trainer id is unknown', () => {

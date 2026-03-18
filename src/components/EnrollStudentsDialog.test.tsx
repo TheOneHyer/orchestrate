@@ -123,6 +123,40 @@ describe('EnrollStudentsDialog', () => {
         expect(screen.queryByText('Alice Adams')).not.toBeInTheDocument()
     })
 
+    it('shows a no-results message when search returns no matching students', async () => {
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        await userEvent.type(screen.getByPlaceholderText(/search by name, email, or department/i), 'zzz')
+
+        expect(screen.getByText(/no students found matching your search/i)).toBeInTheDocument()
+    })
+
+    it('shows no-available-students state when every student is already enrolled', () => {
+        const enrolledSession = { ...session, enrolledStudents: students.map((student) => student.id) }
+
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={enrolledSession}
+                allSessions={[enrolledSession]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText(/no students available to enroll/i)).toBeInTheDocument()
+    })
+
     it('supports select all and deselect all', async () => {
         render(
             <EnrollStudentsDialog
@@ -140,6 +174,27 @@ describe('EnrollStudentsDialog', () => {
         expect(screen.getByRole('button', { name: /deselect all/i })).toBeInTheDocument()
 
         await userEvent.click(screen.getByRole('button', { name: /deselect all/i }))
+        expect(screen.getByText(/0 selected/i)).toBeInTheDocument()
+    })
+
+    it('allows deselecting an already selected student', async () => {
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        const aliceCheckbox = screen.getByRole('checkbox', { name: /alice adams/i })
+
+        await userEvent.click(aliceCheckbox)
+        expect(screen.getByText(/1 selected/i)).toBeInTheDocument()
+
+        await userEvent.click(aliceCheckbox)
         expect(screen.getByText(/0 selected/i)).toBeInTheDocument()
     })
 
@@ -213,6 +268,69 @@ describe('EnrollStudentsDialog', () => {
         await userEvent.click(screen.getByRole('button', { name: /enroll 1 student/i }))
         expect(onEnrollStudents).toHaveBeenCalledWith(['stu-1'])
         expect(onOpenChange).toHaveBeenLastCalledWith(false)
+    })
+
+    it('shows plural conflict summaries, truncates long conflict lists, and pluralizes allowed students', async () => {
+        const extendedStudents = [
+            makeStudent('stu-1', 'Alice Adams', 'Ops'),
+            makeStudent('stu-2', 'Ben Brown', 'HR'),
+            makeStudent('stu-3', 'Cara Cole', 'Finance'),
+            makeStudent('stu-4', 'Drew Dunn', 'Ops'),
+            makeStudent('stu-5', 'Elle Evans', 'IT'),
+            makeStudent('stu-6', 'Finn Frost', 'Sales'),
+        ]
+
+        mockCheckStudentEnrollmentConflicts.mockReturnValue({
+            hasConflicts: true,
+            conflicts: [
+                {
+                    studentId: 'stu-1',
+                    studentName: 'Alice Adams',
+                    conflictingSession: { ...session, id: 'sess-2', title: 'Conflict One' },
+                    message: 'Alice conflict',
+                },
+                {
+                    studentId: 'stu-2',
+                    studentName: 'Ben Brown',
+                    conflictingSession: { ...session, id: 'sess-3', title: 'Conflict Two' },
+                    message: 'Ben conflict',
+                },
+                {
+                    studentId: 'stu-3',
+                    studentName: 'Cara Cole',
+                    conflictingSession: { ...session, id: 'sess-4', title: 'Conflict Three' },
+                    message: 'Cara conflict',
+                },
+                {
+                    studentId: 'stu-4',
+                    studentName: 'Drew Dunn',
+                    conflictingSession: { ...session, id: 'sess-5', title: 'Conflict Four' },
+                    message: 'Drew conflict',
+                },
+            ],
+            allowedStudents: ['stu-5', 'stu-6'],
+        })
+
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={extendedStudents}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /select all/i }))
+
+        expect(screen.getByText(/4 students have scheduling conflicts/i)).toBeInTheDocument()
+        expect(screen.getByText(/alice adams\s*→\s*conflict one/i)).toBeInTheDocument()
+        expect(screen.getByText(/ben brown\s*→\s*conflict two/i)).toBeInTheDocument()
+        expect(screen.getByText(/cara cole\s*→\s*conflict three/i)).toBeInTheDocument()
+        expect(screen.getByText(/and 1 more/i)).toBeInTheDocument()
+        expect(screen.queryByText(/drew dunn\s*→\s*conflict four/i)).not.toBeInTheDocument()
+        expect(screen.getByText(/2 students can still be enrolled/i)).toBeInTheDocument()
     })
 
     it('disables enroll when selection exceeds remaining capacity', async () => {

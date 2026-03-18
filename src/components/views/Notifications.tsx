@@ -42,20 +42,6 @@ const notificationIconClassNames: Record<Notification['type'], string> = {
   completion: 'text-primary'
 }
 
-/**
- * Renders a notifications center with filtering, grouping by date, and actions for marking or dismissing items.
- *
- * Displays tabs (All, Unread, Read, Priority, Sessions, Assignments, Reminders, Workload, System), groups notifications into Today/Yesterday/This Week/Earlier, shows per-item controls (mark read/unread, dismiss), and provides bulk actions (mark all read, clear read, clear all) with confirmation.
- *
- * @param notifications - Array of notification objects to display; each notification should include at least `id`, `title`, `message`, `type`, `priority?`, `read`, `createdAt`, and optional `link`.
- * @param onMarkAsRead - Called with a notification id to mark that notification as read.
- * @param onMarkAsUnread - Called with a notification id to mark that notification as unread.
- * @param onMarkAllAsRead - Called to mark all notifications as read.
- * @param onDismiss - Called with a notification id to dismiss (delete) that notification.
- * @param onDismissAll - Called with `'all'` or `'read'` to dismiss all or only read notifications.
- * @param onNavigate - Called with a notification link when the user activates a notification that has a link.
- * @returns The notifications UI as a React element.
- */
 export function Notifications({
   notifications,
   onMarkAsRead,
