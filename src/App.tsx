@@ -39,7 +39,7 @@ import { getPreviewSeedMode, isPreviewSeedEnabled, PreviewSeedMode } from '@/lib
 import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 
 /**
- * Root application component for the Orchestrate training management platform.
+ * Root application component for the TrainSync training management platform.
  *
  * Manages all persistent application state (users, sessions, courses,
  * enrollments, notifications, wellness records, and more) via KV-backed hooks,

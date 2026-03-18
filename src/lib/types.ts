@@ -1,8 +1,3 @@
-export type ShiftType = string;
-
-export interface ShiftSchedule {
-  shiftType: ShiftType;
-}
 /** Represents the access role of a user within the system. */
 export type UserRole = 'admin' | 'trainer' | 'employee'
 
@@ -19,6 +14,8 @@ export type ShiftType = 'day' | 'evening' | 'night'
 export interface ShiftSchedule {
   /** Short identifier code for the shift (e.g. "D1", "N2"). */
   shiftCode: string
+  /** The shift period (day / evening / night) this schedule covers. */
+  shiftType: ShiftType
   /** The days of the week on which this shift is worked. */
   daysWorked: DayOfWeek[]
   /** Shift start time in ISO 8601 or HH:mm format. */
@@ -27,36 +24,6 @@ export interface ShiftSchedule {
   endTime: string
   /** Cumulative hours worked per week under this schedule. */
   totalHoursPerWeek: number
-}
-
-/**
- * Represents a user account in the system.
- * The first declaration includes the `shifts` discriminant field used in certain union contexts;
- * the second (re-declared) form is the canonical shape used throughout the application.
- */
-export interface User {
-  /** Unique identifier for the user. */
-  id: string
-  /** Full display name of the user. */
-  name: string
-  /** Email address of the user. */
-  email: string
-  /** Access role that determines the user's permissions. */
-  role: UserRole
-  /** Optional URL to the user's avatar image. */
-  avatar?: string
-  /** Optional physical badge identifier. */
-  badgeId?: string
-  /** Department the user belongs to. */
-  department: string
-  /** List of certification names held by the user. */
-  certifications: string[]
-  /** ISO 8601 date string of the user's hire date. */
-  hireDate: string
-  /** Extended profile data, present only for trainers. */
-  trainerProfile?: TrainerProfile
-  /** Discriminant field; always absent (`never`) on this interface variant. */
-  shifts?: never
 }
 
 /**
@@ -139,6 +106,8 @@ export interface User {
   hireDate: string
   /** Extended profile data, present only for trainers. */
   trainerProfile?: TrainerProfile
+  /** Shift periods (day / evening / night) this user is scheduled for; populated for trainers. */
+  shifts?: ShiftType[]
 }
 
 /**
@@ -213,6 +182,8 @@ export interface Session {
   enrolledStudents: string[]
   /** Current lifecycle state of the session. */
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
+  /** Shift period during which this session runs. */
+  shift?: ShiftType
   /** Optional recurrence rule for repeating sessions. */
   recurrence?: {
     /** How often the session repeats. */
@@ -535,6 +506,8 @@ export interface ScheduleTemplateSession {
   requiresCertifications: string[]
   /** Optional list of preferred trainer user IDs for this session. */
   preferredTrainers?: string[]
+  /** Shift period during which this template session is intended to run. */
+  shift?: ShiftType
 }
 
 /**

@@ -95,12 +95,14 @@ function assertRiskLevelBoundary(score: number, expected: RiskHistorySnapshot['r
 }
 
 // Edge cases around threshold boundaries: 24/25, 44/45, 69/70.
-assertRiskLevelBoundary(24, 'low')
-assertRiskLevelBoundary(25, 'medium')
-assertRiskLevelBoundary(44, 'medium')
-assertRiskLevelBoundary(45, 'high')
-assertRiskLevelBoundary(69, 'high')
-assertRiskLevelBoundary(70, 'critical')
+if (import.meta.env.DEV) {
+  assertRiskLevelBoundary(24, 'low')
+  assertRiskLevelBoundary(25, 'medium')
+  assertRiskLevelBoundary(44, 'medium')
+  assertRiskLevelBoundary(45, 'high')
+  assertRiskLevelBoundary(69, 'high')
+  assertRiskLevelBoundary(70, 'critical')
+}
 
 /**
  * Creates a point-in-time {@link RiskHistorySnapshot} for a trainer by computing

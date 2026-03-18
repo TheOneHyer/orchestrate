@@ -18,7 +18,7 @@ export interface TrainerWorkload {
   availableHours: number
   /** Map of course ID to the number of sessions for that course. */
   sessionsByCourse: Map<string, number>
-  /** Map of shift code to the number of sessions in that shift. */
+  /** Map of shift code to the number of sessions in that shift (currently not populated). */
   sessionsPerShift: Map<string, number>
 }
 

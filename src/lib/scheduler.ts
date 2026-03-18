@@ -27,6 +27,8 @@ export interface SchedulingConstraints {
     /** ISO date string after which no more recurring sessions are generated. */
     endDate: string
   }
+  /** Shift periods (day / evening / night) that the session must be scheduled during. */
+  shifts?: ShiftType[]
 }
 
 /**
@@ -612,7 +614,7 @@ export class TrainerScheduler {
   }
 
   /**
-   * Returns the Sunday that begins the ISO week containing `date`, expressed
+   * Returns the Sunday that begins the week containing `date`, expressed
    * in UTC midnight.
    *
    * @param date - Any date within the week of interest.
