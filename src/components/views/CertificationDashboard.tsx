@@ -16,6 +16,16 @@ interface CertificationDashboardProps {
   onAddCertification: (trainerIds: string[], certification: Omit<CertificationRecord, 'status' | 'renewalRequired' | 'remindersSent'>) => void
 }
 
+/**
+ * Render the certification management dashboard with summary cards, alert sections, and a per-trainer certification list.
+ *
+ * Renders overview cards (total, active, expiring soon, expired, compliance), conditional Critical and High Priority alert panels, and a list of trainers with their certification records and status badges.
+ *
+ * @param users - Array of users used to compute summaries, alerts, and per-trainer certification listings.
+ * @param onNavigate - Navigation callback invoked with a view name and optional data (e.g., called with 'people' and { userId }) when rows are clicked.
+ * @param onAddCertification - Handler invoked when a new certification is added; receives trainer IDs and a certification object (excluding automatically computed fields such as `status`, `renewalRequired`, and `remindersSent`).
+ * @returns The rendered certification dashboard JSX element.
+ */
 export function CertificationDashboard({ users, onNavigate, onAddCertification }: CertificationDashboardProps) {
   const summary = getCertificationSummary(users)
   const expiringAlerts = getExpiringCertifications(users)
