@@ -18,20 +18,41 @@ import { WorkloadRecommendations } from '@/components/WorkloadRecommendations'
 import { UnconfiguredScheduleAlert } from '@/components/UnconfiguredScheduleAlert'
 import { TrainerCoverageHeatmap } from '@/components/TrainerCoverageHeatmap'
 
+/** Props for the TrainerAvailability component. */
 interface TrainerAvailabilityProps {
+  /** All users in the system; trainers are filtered from this list. */
   users: User[]
+  /** All training sessions used to compute each trainer's weekly workload. */
   sessions: Session[]
+  /** All available courses (used in the detailed trainer side-panel). */
   courses: Course[]
+  /**
+   * Callback for navigating to another view.
+   * @param view - Target view name.
+   * @param data - Optional payload for the target view.
+   */
   onNavigate: (view: string, data?: any) => void
 }
 
+/** Aggregated schedule information for a single trainer within the selected week. */
 interface TrainerSchedule {
+  /** The trainer user record. */
   trainer: User
+  /** Sessions assigned to this trainer during the selected week. */
   sessions: Session[]
+  /** Total available working hours for the trainer in the selected week. */
   availableHours: number
+  /** Fraction of available hours already committed (0–1+). */
   utilizationRate: number
 }
 
+/**
+ * Renders the Trainer Availability view.
+ *
+ * Displays a weekly grid of trainer schedules, allowing admins to see workload distribution,
+ * filter by certification, search by name, and inspect detailed availability in a side panel.
+ * Trainers without configured shift schedules can be hidden via a toggle.
+ */
 export function TrainerAvailability({ users, sessions, courses, onNavigate }: TrainerAvailabilityProps) {
   const [currentWeek, setCurrentWeek] = useState(new Date())
   const [searchTerm, setSearchTerm] = useState('')

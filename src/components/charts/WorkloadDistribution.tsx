@@ -3,11 +3,26 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { TrainerUtilization } from '@/lib/burnout-analytics'
 import { User } from '@/lib/types'
 
+/** Props for the {@link WorkloadDistribution} component. */
 interface WorkloadDistributionProps {
+  /** Utilization records, one per trainer, used to build chart bars. */
   data: TrainerUtilization[]
+  /** Full user list used to resolve trainer display names from IDs. */
   trainers: User[]
 }
 
+/**
+ * Horizontal bar chart comparing utilization across all trainers.
+ *
+ * Bars are colour-coded by risk tier (low / medium / high / critical) and sorted
+ * descending by utilization.  Reference lines at 85 % and 95 % mark the
+ * over-utilization and critical thresholds respectively.
+ *
+ * @param props - Component props.
+ * @param props.data - Utilization records sorted and rendered as bars.
+ * @param props.trainers - User records used to look up trainer names.
+ * @returns A responsive bar chart, or an empty-state div when there is no data.
+ */
 export function WorkloadDistribution({ data, trainers }: WorkloadDistributionProps) {
   const chartData = useMemo(() => {
     return data.map(utilization => {

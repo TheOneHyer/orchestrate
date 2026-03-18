@@ -39,13 +39,29 @@ import { calculateTrainerUtilization } from '@/lib/burnout-analytics'
 import { useCheckInScheduler } from '@/hooks/use-check-in-scheduler'
 import { toast } from 'sonner'
 
+/** Props for the TrainerWellness component. */
 interface TrainerWellnessProps {
+  /** All users in the system; trainers are derived from this list. */
   users: User[]
+  /** All training sessions used to compute utilisation and burnout risk. */
   sessions: Session[]
+  /** The currently authenticated user; determines available actions. */
   currentUser: User
+  /**
+   * Callback for navigating to another view.
+   * @param view - Target view name.
+   * @param data - Optional payload for the target view.
+   */
   onNavigate: (view: string, data?: any) => void
 }
 
+/**
+ * Renders the Trainer Wellness dashboard.
+ *
+ * Aggregates wellness check-in data, burnout risk scores, and recovery plans for each
+ * trainer. Admins can trigger ad-hoc check-ins, create or edit recovery plans, and
+ * configure automated check-in schedules. Data is persisted via the Spark KV store.
+ */
 export function TrainerWellness({ users, sessions, currentUser, onNavigate }: TrainerWellnessProps) {
   const [checkIns, setCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const [recoveryPlans, setRecoveryPlans] = useKV<RecoveryPlan[]>('recovery-plans', [])

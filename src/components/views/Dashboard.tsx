@@ -8,17 +8,43 @@ import { User, Session, Notification, Enrollment, Course } from '@/lib/types'
 import { formatDuration } from '@/lib/helpers'
 import { format } from 'date-fns'
 
+/** Props for the Dashboard home view component. */
 interface DashboardProps {
+  /** The currently authenticated user whose data is highlighted. */
   currentUser: User
+  /** Upcoming training sessions relevant to the current user. */
   upcomingSessions: Session[]
+  /** Recent notifications displayed in the dashboard notification panel. */
   notifications: Notification[]
+  /** All enrollments used to compute progress summaries. */
   enrollments: Enrollment[]
+  /** All courses referenced by sessions and enrollments. */
   courses: Course[]
+  /** Navigation callback invoked with a view name and optional data. */
   onNavigate: (view: string, data?: any) => void
+  /** Optional callback to mark a notification as read by its ID. */
   onMarkNotificationAsRead?: (id: string) => void
+  /** Optional callback to dismiss a notification by its ID. */
   onDismissNotification?: (id: string) => void
 }
 
+/**
+ * Renders the main Dashboard home view for the currently authenticated user.
+ *
+ * Shows a personalized welcome section, upcoming session cards, a notification feed
+ * with mark-as-read and dismiss actions, and an enrollment progress summary with
+ * per-course progress bars. Navigation links direct users to detailed views.
+ *
+ * @param currentUser - The logged-in user; name and role are displayed.
+ * @param upcomingSessions - Sessions scheduled in the near future.
+ * @param notifications - In-app notifications for the current user.
+ * @param enrollments - Enrollment records for tracking course progress.
+ * @param courses - Course catalog used to resolve enrollment course names.
+ * @param onNavigate - Callback to navigate to another view.
+ * @param onMarkNotificationAsRead - Callback to mark a notification as read.
+ * @param onDismissNotification - Callback to dismiss a notification.
+ * @returns The rendered Dashboard JSX element.
+ */
 export function Dashboard({
   currentUser,
   upcomingSessions,

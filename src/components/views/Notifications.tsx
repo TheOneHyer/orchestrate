@@ -23,16 +23,32 @@ import { format, isToday, isYesterday, isThisWeek } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 
+/** Props for the Notifications component. */
 interface NotificationsProps {
+  /** The full list of notifications to display. */
   notifications: Notification[]
+  /** Callback invoked when a single notification is marked as read. @param id - The notification ID. */
   onMarkAsRead: (id: string) => void
+  /** Callback invoked when a single notification is marked as unread. @param id - The notification ID. */
   onMarkAsUnread: (id: string) => void
+  /** Callback invoked to mark every notification as read. */
   onMarkAllAsRead: () => void
+  /** Callback invoked to dismiss (delete) a single notification. @param id - The notification ID. */
   onDismiss: (id: string) => void
+  /**
+   * Callback invoked to dismiss a batch of notifications.
+   * @param filter - `'all'` removes every notification; `'read'` removes only read ones.
+   */
   onDismissAll: (filter?: 'all' | 'read') => void
+  /**
+   * Callback invoked when the user navigates away via a notification link.
+   * @param view - Target view name.
+   * @param data - Optional payload passed to the target view.
+   */
   onNavigate: (view: string, data?: any) => void
 }
 
+/** Maps each notification type to the Tailwind colour class used for its icon. */
 const notificationIconClassNames: Record<Notification['type'], string> = {
   session: 'text-primary',
   assignment: 'text-primary',
@@ -42,6 +58,13 @@ const notificationIconClassNames: Record<Notification['type'], string> = {
   completion: 'text-primary'
 }
 
+/**
+ * Renders the full-page Notifications centre.
+ *
+ * Displays all application notifications grouped by date (Today, Yesterday, This Week,
+ * Earlier) and filterable by type or read/unread state. Supports bulk mark-as-read and
+ * bulk dismiss actions with a confirmation dialog.
+ */
 export function Notifications({
   notifications,
   onMarkAsRead,

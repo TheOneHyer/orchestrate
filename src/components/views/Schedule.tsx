@@ -18,16 +18,33 @@ import { EnrollStudentsDialog } from '@/components/EnrollStudentsDialog'
 import { toast } from 'sonner'
 import { checkSessionConflicts, formatConflictMessage } from '@/lib/conflict-detection'
 
+/** Props for the Schedule component. */
 interface ScheduleProps {
+  /** All training sessions to display on the schedule. */
   sessions: Session[]
+  /** All available courses (used when creating or editing a session). */
   courses: Course[]
+  /** All users, used to resolve trainer names and for assignment. */
   users: User[]
+  /** The currently authenticated user; controls which scheduling actions are available. */
   currentUser: User
+  /** Callback invoked when a new session is to be created. @param session - Partial session data. */
   onCreateSession: (session: Partial<Session>) => void
+  /**
+   * Callback invoked when an existing session is updated.
+   * @param id - ID of the session to update.
+   * @param updates - Partial updates to apply.
+   */
   onUpdateSession: (id: string, updates: Partial<Session>) => void
+  /**
+   * Callback for navigating to another view.
+   * @param view - Target view name.
+   * @param data - Optional payload for the target view.
+   */
   onNavigate: (view: string, data?: any) => void
 }
 
+/** Roles that are allowed to create or modify schedule entries. */
 const allowedScheduleManagers: ReadonlyArray<User['role']> = ['admin', 'trainer']
 
 /**

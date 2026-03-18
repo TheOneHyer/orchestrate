@@ -45,14 +45,24 @@ const STRESS_LEVEL_TO_SCORE: Record<StressLevel, number> = {
   low: 1, moderate: 2, high: 4, critical: 5,
 }
 
+/** Props for the GuidedScheduler component. */
 interface GuidedSchedulerProps {
+  /** All users; trainers are filtered and scored for the selection step. */
   users: User[]
+  /** Available courses for session scheduling. */
   courses: Course[]
+  /** Callback invoked with the scheduled session objects on successful completion. */
   onSessionsCreated: (sessions: Partial<Session>[]) => void
+  /** Optional callback to close/dismiss the scheduler panel. */
   onClose?: () => void
+  /** Optional pre-selected date to pre-fill the start date field. */
   prefilledDate?: Date | null
 }
 
+/**
+ * Extends `TrainerMatch` with burnout, wellness, and recommendation metadata
+ * used to rank and present trainer options in the guided scheduling flow.
+ */
 interface TrainerInsights extends TrainerMatch {
   workloadHours: number
   utilizationRate: number
@@ -80,6 +90,21 @@ const BURNOUT_RISK_MAX = 100
 
 const guidedSchedulerSteps = ['parameters', 'trainer-selection', 'confirmation'] as const
 
+/**
+ * Renders a step-by-step Guided Trainer Scheduler panel.
+ *
+ * Walks the user through three steps: (1) session parameters (course, dates, time, location,
+ * capacity, recurrence), (2) trainer selection ranked by certification match, availability,
+ * workload, and wellness, and (3) a confirmation summary before committing. Calls
+ * `onSessionsCreated` with the resulting sessions on confirmation.
+ *
+ * @param users - All users; trainers are scored and ranked for selection.
+ * @param courses - Available courses to schedule.
+ * @param onSessionsCreated - Called with new session objects on successful scheduling.
+ * @param onClose - Optional handler to dismiss the panel.
+ * @param prefilledDate - Optional date to pre-populate the start date field.
+ * @returns The rendered GuidedScheduler JSX element.
+ */
 export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, prefilledDate }: GuidedSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])
   const [wellnessCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
