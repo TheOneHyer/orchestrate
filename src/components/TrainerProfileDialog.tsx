@@ -14,13 +14,24 @@ import { differenceInMonths, differenceInYears, format, parseISO } from 'date-fn
 import { ManageCertificationsDialog } from '@/components/ManageCertificationsDialog'
 import { calculateCertificationStatus } from '@/lib/certification-tracker'
 
+/**
+ * Props for the {@link TrainerProfileDialog} component.
+ */
 interface TrainerProfileDialogProps {
+  /** The trainer user whose profile is being edited. */
   user: User
+  /** Whether the dialog is open. */
   open: boolean
+  /** Callback to update the open state of the dialog. */
   onOpenChange: (open: boolean) => void
+  /**
+   * Callback invoked with the updated user object when the user clicks "Save Changes".
+   * @param user - The fully updated user, including all trainer profile edits.
+   */
   onSave: (user: User) => void
 }
 
+/** All days of the week with their full label, used to build the "Days Worked" checkbox group. */
 const DAYS_OF_WEEK: { value: DayOfWeek; label: string }[] = [
   { value: 'sunday', label: 'Sunday' },
   { value: 'monday', label: 'Monday' },
@@ -31,6 +42,15 @@ const DAYS_OF_WEEK: { value: DayOfWeek; label: string }[] = [
   { value: 'saturday', label: 'Saturday' },
 ]
 
+/**
+ * Dialog for editing a trainer's profile, including shift schedules, authorised roles,
+ * specializations, certifications, and miscellaneous settings.
+ *
+ * If the user lacks a `trainerProfile`, one is automatically scaffolded from their hire date
+ * when the component mounts. All edits are kept in local state and only committed to the
+ * parent when the user clicks "Save Changes". The embedded {@link ManageCertificationsDialog}
+ * opens as a nested dialog for full certification CRUD.
+ */
 export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: TrainerProfileDialogProps) {
   const [editedUser, setEditedUser] = useState<User>(user)
   const [newRole, setNewRole] = useState('')
@@ -58,6 +78,14 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     }
   }, [])
 
+  /**
+   * Calculates the total hours worked per week for a shift schedule.
+   *
+   * Handles overnight shifts (end time < start time) by adding 24 hours to the duration.
+   *
+   * @param schedule - The shift schedule to evaluate.
+   * @returns Total hours per week (shift duration × number of days worked).
+   */
   const calculateHoursPerWeek = (schedule: ShiftSchedule): number => {
     const [startHour, startMinute] = schedule.startTime.split(':').map(Number)
     const [endHour, endMinute] = schedule.endTime.split(':').map(Number)
@@ -205,6 +233,12 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     })
   }
 
+  /**
+   * Returns the Tailwind CSS class string for a certification status badge.
+   *
+   * @param status - Certification status: `"active"`, `"expiring-soon"`, or `"expired"`.
+   * @returns Space-separated Tailwind classes for background, text, and border colours.
+   */
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':

@@ -9,18 +9,45 @@ import { User, DayOfWeek } from '@/lib/types'
 import { Gear, X } from '@phosphor-icons/react'
 import { useKV } from '@github/spark/hooks'
 
+/**
+ * Props for the {@link TrainerCoverageHeatmap} component.
+ */
 interface TrainerCoverageHeatmapProps {
+  /** Full list of users; the component internally filters to trainers with configured schedules. */
   users: User[]
+  /**
+   * When provided, the heatmap is filtered to trainers who hold this certification.
+   * If omitted, the component manages the filter internally.
+   */
   selectedCertification?: string
+  /**
+   * Callback invoked when the certification filter changes.
+   * When provided, the parent owns filter state and the internal selector is hidden.
+   * @param certification - The selected certification name, or `"all"` to clear the filter.
+   */
   onCertificationChange?: (certification: string) => void
 }
 
+/**
+ * Shape of a single cell in the coverage grid.
+ */
 interface HourCoverage {
+  /** Hour of the day (0–23). */
   hour: number
+  /** Names of trainers working during this hour. */
   trainersWorking: string[]
+  /** Total number of trainers working during this hour. */
   count: number
 }
 
+/**
+ * Card component that renders a 7×24 heatmap of trainer coverage across every hour of the week.
+ *
+ * Cells are colour-coded green/yellow/orange/red/grey based on how close coverage is to the
+ * user-configurable target (persisted in KV storage). Hovering a cell shows a tooltip listing
+ * which trainers are working. Supports optional filtering by certification, either controlled
+ * externally via props or managed internally via an embedded dropdown.
+ */
 export function TrainerCoverageHeatmap({ users, selectedCertification, onCertificationChange }: TrainerCoverageHeatmapProps) {
   const [targetCoverage, setTargetCoverage] = useKV<number>('target-trainer-coverage', 4)
   const [isEditingTarget, setIsEditingTarget] = useState(false)
@@ -49,6 +76,12 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     })
   }, [allTrainers, certFilter])
 
+/**
+ * Parses a time string in "HH:MM" or "h:mm AM/PM" format and returns a decimal hour.
+ *
+ * @param timeStr - Time string to parse (e.g., "09:30", "2:45 PM").
+ * @returns The time expressed as a decimal hour (e.g., 9.5 for 09:30, 14.75 for 2:45 PM).
+ */
   const parseTime = (timeStr: string): number => {
     const [time, period] = timeStr.split(' ')
     let [hours, minutes] = time.split(':').map(Number)
@@ -112,6 +145,13 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     return coverage
   }, [trainers])
 
+/**
+ * Returns the Tailwind CSS class string for a heatmap cell based on coverage ratio.
+ *
+ * @param count - Number of trainers working during the cell's time slot.
+ * @param target - Target number of trainers required per hour.
+ * @returns A space-separated string of Tailwind classes representing the cell's colour.
+ */
   const getHeatmapColor = (count: number, target: number) => {
     const ratio = count / target
 
@@ -132,6 +172,13 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     return 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800'
   }
 
+/**
+ * Returns a numeric coverage tier (0–4) used as a `data-coverage-tier` attribute for testing.
+ *
+ * @param count - Number of trainers working during the cell's time slot.
+ * @param target - Target number of trainers required per hour.
+ * @returns 0 = no coverage, 1 = below 50%, 2 = 50–74%, 3 = 75–99%, 4 = at/above target.
+ */
   const getCoverageTier = (count: number, target: number) => {
     if (count === 0) return 0
 
@@ -144,6 +191,12 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     return 0
   }
 
+/**
+ * Formats a 24-hour integer as a compact AM/PM label (e.g., 0 → "12a", 13 → "1p").
+ *
+ * @param hour - Hour value from 0 to 23.
+ * @returns A short string suitable for the heatmap column header.
+ */
   const formatHour = (hour: number) => {
     if (hour === 0) return '12a'
     if (hour === 12) return '12p'

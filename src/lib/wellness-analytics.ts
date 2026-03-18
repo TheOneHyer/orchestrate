@@ -1,6 +1,14 @@
 import { WellnessCheckIn, StressLevel, EnergyLevel, RecoveryPlan, RecoveryPlanStatus, WellnessTrend, User } from './types'
 import { subDays, startOfWeek, endOfWeek, eachWeekOfInterval, isWithinInterval, format } from 'date-fns'
 
+/**
+ * Calculates a composite wellness score (0–100) for a single check-in by
+ * weighting mood, stress, energy, workload satisfaction, sleep quality,
+ * physical wellbeing, and mental clarity.
+ *
+ * @param checkIn - The wellness check-in record to score.
+ * @returns A rounded integer wellness score between 0 and 100.
+ */
 export function calculateWellnessScore(checkIn: WellnessCheckIn): number {
   const moodScore = checkIn.mood * 20
   const stressScore = getStressScore(checkIn.stress)
@@ -21,6 +29,13 @@ export function calculateWellnessScore(checkIn: WellnessCheckIn): number {
   )
 }
 
+/**
+ * Converts a {@link StressLevel} value to a numeric score (0–100)
+ * where higher values indicate lower stress.
+ *
+ * @param stress - The stress level to convert.
+ * @returns 100 for `'low'`, 70 for `'moderate'`, 40 for `'high'`, 10 for `'critical'`.
+ */
 function getStressScore(stress: StressLevel): number {
   switch (stress) {
     case 'low': return 100
@@ -30,6 +45,13 @@ function getStressScore(stress: StressLevel): number {
   }
 }
 
+/**
+ * Converts an {@link EnergyLevel} value to a numeric score (0–100)
+ * where higher values indicate better energy.
+ *
+ * @param energy - The energy level to convert.
+ * @returns 100 for `'excellent'`, 80 for `'energized'`, 60 for `'neutral'`, 40 for `'tired'`, 20 for `'exhausted'`.
+ */
 function getEnergyScore(energy: EnergyLevel): number {
   switch (energy) {
     case 'excellent': return 100
@@ -40,6 +62,16 @@ function getEnergyScore(energy: EnergyLevel): number {
   }
 }
 
+/**
+ * Aggregates wellness check-in data for a trainer over a given period into a
+ * {@link WellnessTrend} summary, including average mood, stress, energy levels,
+ * and outstanding follow-up counts.
+ *
+ * @param checkIns - All wellness check-in records to filter from.
+ * @param trainerId - The identifier of the trainer whose trend to compute.
+ * @param timeRange - The look-back window: `'week'` (7 days), `'month'` (30 days), or `'quarter'` (90 days).
+ * @returns A {@link WellnessTrend} object. When no check-ins exist in the period, all numeric fields are 0.
+ */
 export function analyzeWellnessTrend(
   checkIns: WellnessCheckIn[],
   trainerId: string,
@@ -90,6 +122,12 @@ export function analyzeWellnessTrend(
   }
 }
 
+/**
+ * Maps a numeric wellness score to a human-readable status category.
+ *
+ * @param score - The wellness score to evaluate (typically 0–100).
+ * @returns `'excellent'` (≥85), `'good'` (≥70), `'fair'` (≥55), `'poor'` (≥40), or `'critical'`.
+ */
 export function getWellnessStatus(score: number): 'excellent' | 'good' | 'fair' | 'poor' | 'critical' {
   if (score >= 85) return 'excellent'
   if (score >= 70) return 'good'
@@ -98,6 +136,16 @@ export function getWellnessStatus(score: number): 'excellent' | 'good' | 'fair' 
   return 'critical'
 }
 
+/**
+ * Determines whether a recovery plan should be initiated for a trainer based on
+ * their most recent wellness check-ins and current utilization rate.
+ *
+ * @param checkIns - All wellness check-in records to filter from.
+ * @param trainerId - The identifier of the trainer to evaluate.
+ * @param utilizationRate - The trainer's current utilization percentage.
+ * @returns An object with `shouldTrigger` indicating whether a plan is warranted
+ *          and `reasons` listing the conditions that led to the decision.
+ */
 export function shouldTriggerRecoveryPlan(
   checkIns: WellnessCheckIn[],
   trainerId: string,
@@ -161,6 +209,13 @@ export function shouldTriggerRecoveryPlan(
   return { shouldTrigger, reasons }
 }
 
+/**
+ * Estimates the overall completion progress of a recovery plan as a percentage (0–100)
+ * by combining the proportion of completed actions with utilization improvement progress.
+ *
+ * @param plan - The recovery plan to evaluate.
+ * @returns A rounded integer representing the plan's progress percentage.
+ */
 export function calculateRecoveryProgress(plan: RecoveryPlan): number {
   if (plan.actions.length === 0) return 0
   
@@ -176,6 +231,16 @@ export function calculateRecoveryProgress(plan: RecoveryPlan): number {
   return Math.round(actionProgress + utilizationImprovement)
 }
 
+/**
+ * Generates a prioritised list of recovery recommendations for a trainer based
+ * on utilization rate, wellness score, stress level, and energy level.
+ *
+ * @param utilizationRate - The trainer's current utilization as a percentage.
+ * @param wellnessScore - The trainer's most recent composite wellness score (0–100).
+ * @param stress - The trainer's current reported stress level.
+ * @param energy - The trainer's current reported energy level.
+ * @returns An ordered array of recommendation strings, from most to least urgent.
+ */
 export function getRecoveryPlanRecommendations(
   utilizationRate: number,
   wellnessScore: number,
@@ -226,6 +291,17 @@ export function getRecoveryPlanRecommendations(
   return recommendations
 }
 
+/**
+ * Generates a week-by-week set of utilization targets for a recovery plan by
+ * linearly interpolating from the current to the target utilization over the
+ * specified number of weeks.
+ *
+ * @param currentUtilization - The trainer's current utilization percentage.
+ * @param targetUtilization - The desired end-of-plan utilization percentage.
+ * @param durationWeeks - Total number of weeks in the recovery plan.
+ * @returns An array of milestone objects, one per week, each containing the week
+ *          number, target utilization, and a descriptive label.
+ */
 export function generateRecoveryMilestones(
   currentUtilization: number,
   targetUtilization: number,
@@ -259,6 +335,16 @@ export function generateRecoveryMilestones(
   return milestones
 }
 
+/**
+ * Analyses all available wellness check-ins for a trainer and returns a list of
+ * actionable insights with severity ratings based on mood, stress, energy, and
+ * recurring concerns.
+ *
+ * @param checkIns - All wellness check-in records to filter from.
+ * @param trainerId - The identifier of the trainer to evaluate.
+ * @returns An array of insight objects each containing a descriptive message and
+ *          a severity of `'info'`, `'warning'`, or `'critical'`.
+ */
 export function getWellnessInsights(
   checkIns: WellnessCheckIn[],
   trainerId: string

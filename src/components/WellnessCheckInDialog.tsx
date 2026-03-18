@@ -20,15 +20,31 @@ import {
   Heart
 } from '@phosphor-icons/react'
 
+/**
+ * Props for the {@link WellnessCheckInDialog} component.
+ */
 interface WellnessCheckInDialogProps {
+  /** Whether the dialog is open. */
   open: boolean
+  /** Callback to close the dialog and reset its internal state. */
   onClose: () => void
+  /** The ID of the trainer completing the check-in. */
   trainerId: string
+  /** Display name of the trainer shown in the dialog header. */
   trainerName: string
+  /**
+   * Callback invoked with the completed check-in data when the user submits.
+   * @param checkIn - The wellness check-in record without auto-generated `id` and `timestamp`.
+   */
   onSubmit: (checkIn: Omit<WellnessCheckIn, 'id' | 'timestamp'>) => void
+  /** The trainer's current utilization percentage; recorded alongside the check-in data. */
   currentUtilization?: number
 }
 
+/**
+ * List of common workplace concerns presented as checkboxes during the wellness check-in.
+ * Exported so it can be used in tests and other UI surfaces.
+ */
 export const COMMON_CONCERNS = [
   'Too many sessions scheduled',
   'Insufficient preparation time',
@@ -42,6 +58,14 @@ export const COMMON_CONCERNS = [
   'Work-life balance'
 ]
 
+/**
+ * Dialog for recording a trainer wellness check-in.
+ *
+ * Collects overall mood, stress level, energy level, and four slider-based sub-scores
+ * (workload satisfaction, sleep quality, physical wellbeing, mental clarity). Users can
+ * select pre-defined concerns, add free-text comments, and request a follow-up with
+ * management. State is reset to defaults when the dialog is closed.
+ */
 export function WellnessCheckInDialog({
   open,
   onClose,
@@ -95,6 +119,11 @@ export function WellnessCheckInDialog({
     onClose()
   }
 
+  /**
+   * Toggles a concern string in the `selectedConcerns` list.
+   *
+   * @param concern - The concern label to add or remove.
+   */
   const toggleConcern = (concern: string) => {
     setSelectedConcerns(prev =>
       prev.includes(concern)
@@ -103,6 +132,12 @@ export function WellnessCheckInDialog({
     )
   }
 
+  /**
+   * Returns a mood icon element appropriate for the given mood level.
+   *
+   * @param value - Numeric mood level from 1 (Very Poor) to 5 (Excellent).
+   * @returns A coloured icon JSX element with a `data-testid` attribute.
+   */
   const getMoodIcon = (value: MoodLevel) => {
     switch (value) {
       case 5: return <Smiley size={32} weight="fill" className="text-green-500" data-testid="mood-icon-excellent" />
@@ -113,6 +148,11 @@ export function WellnessCheckInDialog({
     }
   }
 
+  /**
+   * Returns an energy icon element appropriate for the current `energy` state.
+   *
+   * @returns A coloured icon JSX element with a `data-testid` attribute reflecting the energy level.
+   */
   const getEnergyIcon = () => {
     switch (energy) {
       case 'excellent': return <Lightning size={24} weight="fill" className="text-green-500" data-testid="energy-icon-excellent" />

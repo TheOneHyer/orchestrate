@@ -19,14 +19,24 @@ import {
   CaretRight,
 } from '@phosphor-icons/react'
 
+/** Describes a single section entry in the User Guide sidebar. */
 interface Section {
+  /** Unique identifier used to track the active section. */
   id: string
+  /** Human-readable label shown in the sidebar navigation. */
   label: string
+  /** Phosphor icon component rendered next to the label. */
   icon: React.ComponentType<{ size?: number; weight?: string }>
+  /** User roles that this section is relevant to (e.g. `['admin', 'trainer']`). */
   roles: string[]
+  /** JSX content rendered in the main panel when this section is active. */
   content: React.ReactNode
 }
 
+/**
+ * Renders a row of role badges indicating which user roles a guide section applies to.
+ * @param roles - Array of role strings to display as badges.
+ */
 function SectionBadge({ roles }: { roles: string[] }) {
   return (
     <div className="flex gap-1.5 flex-wrap">
@@ -44,6 +54,11 @@ function SectionBadge({ roles }: { roles: string[] }) {
   )
 }
 
+/**
+ * Renders a titled subsection within a guide page with a heading and styled body.
+ * @param title - The subsection heading text.
+ * @param children - Body content for the subsection.
+ */
 function GuideSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
@@ -53,6 +68,10 @@ function GuideSection({ title, children }: { title: string; children: React.Reac
   )
 }
 
+/**
+ * Renders an unordered list of guide bullet points.
+ * @param items - Array of strings to display as list items.
+ */
 function GuideList({ items }: { items: string[] }) {
   return (
     <ul className="list-disc list-inside space-y-1">
@@ -63,6 +82,11 @@ function GuideList({ items }: { items: string[] }) {
   )
 }
 
+/**
+ * Renders a single label–value pair used in guide reference tables.
+ * @param label - The field label text.
+ * @param value - The field value text.
+ */
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-2 text-sm">
@@ -800,6 +824,13 @@ const sections: Section[] = [
   },
 ]
 
+/**
+ * Renders the full-page User Guide for TrainSync.
+ *
+ * Provides a sidebar-navigated reference covering every major feature of the application,
+ * organised into role-tagged sections (Overview, Schedule, Templates, People, Reports,
+ * Trainer Availability, Wellness, Courses, Notifications, Settings, and Glossary).
+ */
 export function UserGuide() {
   const [activeSection, setActiveSection] = useState('overview')
 

@@ -11,15 +11,36 @@ import { checkStudentEnrollmentConflicts } from '@/lib/conflict-detection'
 import { MagnifyingGlass, Warning, UserPlus, Clock } from '@phosphor-icons/react'
 import { format } from 'date-fns'
 
+/**
+ * Props for the {@link EnrollStudentsDialog} component.
+ */
 interface EnrollStudentsDialogProps {
+  /** Whether the dialog is open. */
   open: boolean
+  /** Callback to update the open state of the dialog. */
   onOpenChange: (open: boolean) => void
+  /** The session into which students will be enrolled. */
   session: Session
+  /** All sessions in the system, used for conflict detection. */
   allSessions: Session[]
+  /** Users who are eligible for enrollment (typically employees not yet enrolled). */
   availableStudents: User[]
+  /**
+   * Callback invoked with the IDs of students to enroll when the user confirms.
+   * When there are scheduling conflicts, only conflict-free student IDs are included.
+   * @param studentIds - Array of student IDs to enroll in the session.
+   */
   onEnrollStudents: (studentIds: string[]) => void
 }
 
+/**
+ * Dialog for searching and enrolling students into a training session.
+ *
+ * Displays a searchable, scrollable list of available students (excluding those already
+ * enrolled). As students are selected, scheduling conflicts are detected in real time via
+ * `checkStudentEnrollmentConflicts`. Conflicting students are highlighted and excluded from
+ * the final enrollment call. The dialog also enforces the session's remaining capacity.
+ */
 export function EnrollStudentsDialog({
   open,
   onOpenChange,
@@ -85,6 +106,12 @@ export function EnrollStudentsDialog({
     onOpenChange(false)
   }
 
+  /**
+   * Looks up a student by ID from the `availableStudents` prop array.
+   *
+   * @param id - The user ID to search for.
+   * @returns The matching {@link User} or `undefined` if not found.
+   */
   const getStudentById = (id: string) => {
     return availableStudents.find(s => s.id === id)
   }

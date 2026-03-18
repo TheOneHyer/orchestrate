@@ -3,16 +3,38 @@ import { format, parseISO, isValid } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { DataPoint } from '@/lib/burnout-analytics'
 
+/** Props for the {@link UtilizationChart} component. */
 interface UtilizationChartProps {
+  /** Ordered array of weekly utilization data points to plot. */
   data: DataPoint[]
+  /** Display name of the trainer, used in the chart heading and ARIA label. */
   trainerName: string
 }
 
+/**
+ * Formats an ISO-8601 date string to a short month/day label (e.g. "Jan 5").
+ *
+ * @param dateValue - ISO-8601 date string.
+ * @returns A formatted label, or `"Invalid date"` when parsing fails.
+ */
 function formatDate(dateValue: string) {
   const d = parseISO(dateValue)
   return isValid(d) ? format(d, 'MMM d') : 'Invalid date'
 }
 
+/**
+ * Dual-axis line chart displaying a single trainer's weekly utilization percentage
+ * and scheduled hours over time.
+ *
+ * The left Y-axis tracks utilization (%), the right Y-axis tracks hours.  An
+ * accessible summary is rendered via a `<span className="sr-only">` element.
+ * When `data` is empty an inline empty-state message is displayed.
+ *
+ * @param props - Component props.
+ * @param props.data - Weekly data points to plot.
+ * @param props.trainerName - Trainer name surfaced in heading and ARIA label.
+ * @returns A responsive figure element containing the chart.
+ */
 export function UtilizationChart({ data, trainerName }: UtilizationChartProps) {
   const chartData = useMemo(() => {
     return data.map(point => ({

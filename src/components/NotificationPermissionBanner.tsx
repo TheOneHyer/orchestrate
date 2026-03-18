@@ -5,6 +5,17 @@ import { Card } from '@/components/ui/card'
 import { Bell, X } from '@phosphor-icons/react'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 
+/**
+ * Floating banner prompting the user to enable browser push notifications.
+ *
+ * The banner is displayed only when:
+ * - Push notifications are supported in the current browser.
+ * - The permission state is neither "granted" nor "denied" (i.e., it is still "default").
+ * - The user has not previously dismissed the banner (persisted via KV storage).
+ *
+ * Clicking "Enable" calls `requestPermission` and then dismisses the banner regardless
+ * of the outcome. The banner can also be dismissed without granting permission.
+ */
 export function NotificationPermissionBanner() {
   const { isSupported, settings, requestPermission } = usePushNotifications()
   const [dismissed, setDismissed] = useKV<boolean>('notification-banner-dismissed', false)

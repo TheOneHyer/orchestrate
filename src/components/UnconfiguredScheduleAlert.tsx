@@ -3,12 +3,33 @@ import { Button } from '@/components/ui/button'
 import { WarningCircle, CalendarX } from '@phosphor-icons/react'
 import { User } from '@/lib/types'
 
+/**
+ * Props for the {@link UnconfiguredScheduleAlert} component.
+ */
 interface UnconfiguredScheduleAlertProps {
+  /** The trainer user to check for a configured schedule. */
   user: User
+  /** Optional callback invoked when the user clicks the "Configure" or "Configure Schedule Now" button. */
   onEdit?: () => void
+  /**
+   * Visual variant controlling the alert's presentation:
+   * - `"default"` – Full alert with a bulleted list of benefits and a primary action button.
+   * - `"compact"` – Condensed row with an icon, short label, and an optional "Configure" button.
+   * - `"inline"` – Minimal inline text with a warning icon, no action button.
+   * @default "default"
+   */
   variant?: 'default' | 'compact' | 'inline'
 }
 
+/**
+ * Alert component displayed when a trainer does not have any shift schedules configured.
+ *
+ * Returns `null` when the user already has at least one shift schedule. Otherwise renders
+ * in one of three visual styles controlled by the `variant` prop:
+ * - **default** – Full {@link Alert} with an icon, title, benefit list, and a configure button.
+ * - **compact** – A bordered row suitable for use inside a table or card.
+ * - **inline** – A minimal inline warning badge with no action.
+ */
 export function UnconfiguredScheduleAlert({ user, onEdit, variant = 'default' }: UnconfiguredScheduleAlertProps) {
   const hasSchedule = user.trainerProfile?.shiftSchedules && user.trainerProfile.shiftSchedules.length > 0
 

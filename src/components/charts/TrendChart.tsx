@@ -3,12 +3,17 @@ import { format } from 'date-fns'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
 import { UtilizationTrend } from '@/lib/burnout-analytics'
 
+/** Props for the {@link TrendChart} component. */
 interface TrendChartProps {
+  /** Array of per-trainer utilization trend data to render. */
   data: UtilizationTrend[]
+  /** Time range that controls how many historical data points are included. */
   timeRange: 'week' | 'month' | 'quarter'
+  /** When `true`, up to six trainers are rendered; otherwise only the first trainer is shown. */
   showAll?: boolean
 }
 
+/** Ordered palette of CSS custom-property colour strings for up to six trend lines. */
 const TREND_COLORS = [
   'hsl(var(--primary))',
   'hsl(var(--accent))',
@@ -18,6 +23,20 @@ const TREND_COLORS = [
   'hsl(var(--chart-5))'
 ]
 
+/**
+ * Multi-series line chart visualising utilization trends for one or more trainers.
+ *
+ * Data points are filtered to the selected `timeRange` before rendering.
+ * When `showAll` is `false` (the default) only the first trainer's series is
+ * displayed; when `true` up to six trainers are overlaid with distinct colours
+ * from {@link TREND_COLORS}.
+ *
+ * @param props - Component props.
+ * @param props.data - Utilization trend data for each trainer.
+ * @param props.timeRange - Controls the date window applied to each trend's data points.
+ * @param props.showAll - Whether to show all trainers or just the first.
+ * @returns A responsive line chart, or an empty-state div when there is no data.
+ */
 export function TrendChart({ data, timeRange, showAll = false }: TrendChartProps) {
   const filteredData = useMemo(() => {
     if (data.length === 0) {

@@ -9,13 +9,31 @@ import { Course, Enrollment, User } from '@/lib/types'
 import { formatDuration } from '@/lib/helpers'
 import { useState } from 'react'
 
+/** Props for the Courses view component. */
 interface CoursesProps {
+  /** All available courses to display and filter. */
   courses: Course[]
+  /** All enrollment records used to show per-course enrollment progress for the current user. */
   enrollments: Enrollment[]
+  /** The currently authenticated user; determines whether admin/trainer actions are shown. */
   currentUser: User
+  /** Navigation callback invoked with a view name and optional data when a card is clicked. */
   onNavigate: (view: string, data?: any) => void
 }
 
+/**
+ * Renders the Courses library view with search, filtering, and per-course enrollment progress.
+ *
+ * Displays a searchable grid of course cards showing title, description, duration, module
+ * count, required certifications, and enrollment progress for the current user. Admins and
+ * trainers additionally see a "Create Course" button.
+ *
+ * @param courses - All courses to display.
+ * @param enrollments - Enrollment records used to render per-course progress.
+ * @param currentUser - The authenticated user; role determines visible actions.
+ * @param onNavigate - Navigation callback invoked on card click or create-course action.
+ * @returns The rendered Courses page element.
+ */
 export function Courses({ courses, enrollments, currentUser, onNavigate }: CoursesProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -24,6 +42,11 @@ export function Courses({ courses, enrollments, currentUser, onNavigate }: Cours
     course.description.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+/**
+ * Finds the current user's enrollment record for a specific course.
+ * @param courseId - The ID of the course to look up.
+ * @returns The matching `Enrollment` for the current user, or `undefined` if not enrolled.
+ */
   const getEnrollmentForCourse = (courseId: string) => {
     return enrollments.find(e => e.courseId === courseId && e.userId === currentUser.id)
   }

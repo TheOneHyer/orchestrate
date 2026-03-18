@@ -13,17 +13,36 @@ import { Plus, Trash, FirstAid } from '@phosphor-icons/react'
 import { RecoveryPlan, RecoveryAction, RecoveryPlanAction, WellnessCheckIn, User } from '@/lib/types'
 import { getRecoveryPlanRecommendations, calculateWellnessScore } from '@/lib/wellness-analytics'
 
+/**
+ * Props for the {@link RecoveryPlanDialog} component.
+ */
 interface RecoveryPlanDialogProps {
+  /** Whether the dialog is open. */
   open: boolean
+  /** Callback to close the dialog. */
   onClose: () => void
+  /** The ID of the trainer for whom the plan is being created. */
   trainerId: string
+  /** Display name of the trainer shown in the dialog header. */
   trainerName: string
+  /** The currently authenticated user; stored as `createdBy` on the plan. */
   currentUser: User
+  /**
+   * Callback invoked with the completed plan data when the user saves.
+   * @param plan - The new recovery plan without auto-generated `id` and `createdAt` fields.
+   */
   onSubmit: (plan: Omit<RecoveryPlan, 'id' | 'createdAt'>) => void
+  /** The trainer's most recent wellness check-in, used to pre-populate the trigger reason and suggest actions. */
   latestCheckIn?: WellnessCheckIn
+  /** The trainer's current utilization percentage; defaults to 75 if not provided. */
   currentUtilization?: number
 }
 
+/**
+ * Lookup table mapping each {@link RecoveryAction} type to a default description string.
+ *
+ * Used to seed new action items with sensible descriptions that the user can then customise.
+ */
 const RECOVERY_ACTION_TEMPLATES: Record<RecoveryAction, string> = {
   'workload-reduction': 'Reduce weekly teaching hours by 20%',
   'time-off': 'Provide 3-5 consecutive days of paid time off',
@@ -33,6 +52,14 @@ const RECOVERY_ACTION_TEMPLATES: Record<RecoveryAction, string> = {
   'custom': 'Custom action'
 }
 
+/**
+ * Dialog for creating a structured recovery plan to support trainer wellbeing.
+ *
+ * When opened with a `latestCheckIn`, the form is automatically pre-populated: the trigger
+ * reason is generated from wellness score, stress level, and utilization, and relevant
+ * recovery actions are suggested. The user can add/remove/edit actions, set target utilization
+ * and plan duration, and add free-text notes before submitting.
+ */
 export function RecoveryPlanDialog({
   open,
   onClose,

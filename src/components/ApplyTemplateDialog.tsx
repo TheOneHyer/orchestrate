@@ -11,13 +11,31 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { addDays, addWeeks, addMonths, format } from 'date-fns'
 
+/**
+ * Props for the {@link ApplyTemplateDialog} component.
+ */
 interface ApplyTemplateDialogProps {
+  /** Whether the dialog is open. */
   open: boolean
+  /** Callback to update the open state of the dialog. */
   onOpenChange: (open: boolean) => void
+  /** The schedule template to apply, or `null` when no template has been selected yet. */
   template: ScheduleTemplate | null
+  /**
+   * Callback invoked with the generated session stubs when the user confirms.
+   * @param sessions - Partially-constructed {@link Session} objects ready to be persisted.
+   */
   onApply: (sessions: Partial<Session>[]) => void
 }
 
+/**
+ * Dialog for configuring and applying a {@link ScheduleTemplate} to create training sessions.
+ *
+ * Lets the user select a start date, number of recurrence cycles, and optional overrides
+ * (course, location, capacity). A live preview of the first five generated sessions is shown
+ * before the user confirms. On confirmation, {@link ApplyTemplateDialogProps.onApply} receives
+ * the full list of generated session stubs.
+ */
 export function ApplyTemplateDialog({ open, onOpenChange, template, onApply }: ApplyTemplateDialogProps) {
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [occurrences, setOccurrences] = useState('4')
@@ -27,6 +45,17 @@ export function ApplyTemplateDialog({ open, onOpenChange, template, onApply }: A
   const [useAutoAssign, setUseAutoAssign] = useState(template?.autoAssignTrainers ?? true)
   const [sendNotifications, setSendNotifications] = useState(template?.notifyParticipants ?? true)
 
+/**
+ * Generates an array of partial {@link Session} objects from a {@link ScheduleTemplate}.
+ *
+ * Iterates over the requested number of recurrence cycles starting from `startDate`,
+ * computes the concrete date/time for each template session slot (respecting `dayOfWeek`
+ * and the template's `recurrenceType`), and applies any user-supplied overrides for
+ * course, location, and capacity.
+ *
+ * @returns An array of partial session objects, or an empty array when `template` is null
+ *          or `startDate` is invalid.
+ */
   const generateSessions = (): Partial<Session>[] => {
     if (!template) return []
 

@@ -22,14 +22,33 @@ import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/use-theme'
 import { NotificationSettingsDialog } from '@/components/NotificationSettingsDialog'
 
+/**
+ * Props for the {@link Layout} component.
+ */
 interface LayoutProps {
+  /** Page content rendered inside the main scrollable area. */
   children: ReactNode
+  /** The ID of the currently active navigation view, used to highlight the active nav item. */
   activeView: string
+  /**
+   * Callback invoked when the user clicks a navigation item.
+   * @param view - The ID of the destination view.
+   */
   onNavigate: (view: string) => void
+  /** Number of unread notifications; displayed as a badge on the Notifications nav item. Defaults to 0. */
   notificationCount?: number
+  /** Role of the currently signed-in user; controls which nav items are rendered. */
   userRole: 'admin' | 'trainer' | 'employee'
 }
 
+/**
+ * Root application layout component.
+ *
+ * Renders a fixed left sidebar with role-filtered navigation items and a top header with
+ * theme-toggle and notification-settings controls. The main content area is scrollable and
+ * renders `children`. Role-based filtering ensures admins see all nav items while trainers
+ * and employees see only the views relevant to them.
+ */
 export function Layout({ children, activeView, onNavigate, notificationCount = 0, userRole }: LayoutProps) {
   const { theme, toggleTheme } = useTheme()
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)

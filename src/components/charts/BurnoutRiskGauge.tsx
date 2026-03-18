@@ -2,10 +2,13 @@ import { useMemo } from 'react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { TrainerUtilization } from '@/lib/burnout-analytics'
 
+/** Props for the {@link BurnoutRiskGauge} component. */
 interface BurnoutRiskGaugeProps {
+  /** Array of trainer utilization records used to compute risk-level distribution. */
   data: TrainerUtilization[]
 }
 
+/** Color map keyed by risk level used to fill pie-chart cells. */
 const COLORS = {
   low: '#22c55e',
   medium: '#eab308',
@@ -13,6 +16,17 @@ const COLORS = {
   critical: '#ef4444'
 }
 
+/**
+ * Pie chart that visualises the distribution of trainer burnout risk levels.
+ *
+ * Trainers are bucketed into four risk categories (low / medium / high / critical)
+ * and rendered as proportional pie slices.  When there is no data the component
+ * renders an empty-state placeholder instead.
+ *
+ * @param props - Component props.
+ * @param props.data - Utilization records for each trainer.
+ * @returns A responsive pie chart element, or an empty-state div.
+ */
 export function BurnoutRiskGauge({ data }: BurnoutRiskGaugeProps) {
   const chartData = useMemo(() => {
     const counts = {

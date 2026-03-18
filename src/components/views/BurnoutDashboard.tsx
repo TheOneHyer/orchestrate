@@ -36,13 +36,31 @@ import { RiskTrendChart } from '@/components/charts/RiskTrendChart'
 import { useRiskHistory } from '@/hooks/use-risk-history'
 import { aggregateSnapshotsByDay } from '@/lib/risk-history-tracker'
 
+/** Props for the BurnoutDashboard view component. */
 interface BurnoutDashboardProps {
+  /** All users; trainers are extracted to compute utilization and risk metrics. */
   users: User[]
+  /** Training sessions used to calculate workload and utilization rates. */
   sessions: Session[]
+  /** Courses associated with sessions, used for duration and workload calculations. */
   courses: Course[]
+  /** Callback invoked with a view name (and optional data) when navigating to another view. */
   onNavigate: (view: string, data?: any) => void
 }
 
+/**
+ * Renders the Burnout & Wellness Dashboard for monitoring trainer workload and risk.
+ *
+ * Displays fleet-wide utilization and burnout risk summaries with charts (gauge, trend,
+ * workload distribution, risk trend), a per-trainer drill-down with wellness check-in
+ * history, and actionable alerts for high/critical-risk trainers.
+ *
+ * @param users - All users; trainers are filtered for analytics.
+ * @param sessions - All training sessions used for utilization calculations.
+ * @param courses - All courses referenced by sessions.
+ * @param onNavigate - Navigation callback to redirect to other views (e.g., trainer profile).
+ * @returns The rendered BurnoutDashboard JSX element.
+ */
 export function BurnoutDashboard({ users, sessions, courses, onNavigate }: BurnoutDashboardProps) {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('month')
   const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null)

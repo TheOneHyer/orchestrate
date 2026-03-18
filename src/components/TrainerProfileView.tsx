@@ -12,17 +12,33 @@ import { ManageCertificationsDialog } from '@/components/ManageCertificationsDia
 import { useState } from 'react'
 import { calculateCertificationStatus } from '@/lib/certification-tracker'
 
+/**
+ * Props for the {@link TrainerProfileView} component.
+ */
 interface TrainerProfileViewProps {
+  /** The user whose profile is displayed. */
   user: User
+  /** All sessions in the system; filtered internally to those assigned to this trainer. */
   sessions: Session[]
+  /** All courses in the system; available for future cross-referencing. */
   courses: Course[]
+  /** All enrollment records; available for future analytics. */
   enrollments: Enrollment[]
+  /** Optional callback to open the edit profile dialog. */
   onEdit?: () => void
+  /** Optional callback to trigger the delete confirmation flow. */
   onDelete?: () => void
+  /**
+   * Optional callback invoked with an updated user object when inline edits are saved
+   * (e.g., from the embedded {@link ManageCertificationsDialog}).
+   * @param user - The updated user data.
+   */
   onUpdateUser?: (user: User) => void
 }
 
+/** Canonical sort order for days of the week, used when rendering shift schedule day chips. */
 const DAY_ORDER: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+/** Maps each {@link DayOfWeek} key to a three-character display abbreviation. */
 const DAY_ABBREV: Record<DayOfWeek, string> = {
   sunday: 'Sun',
   monday: 'Mon',
@@ -33,6 +49,16 @@ const DAY_ABBREV: Record<DayOfWeek, string> = {
   saturday: 'Sat',
 }
 
+/**
+ * Read-only profile view for a trainer or employee.
+ *
+ * Displays a header with the user's avatar, name, email, role, and department alongside
+ * Edit/Delete action buttons (when callbacks are provided). Below the header, summary stat
+ * cards show upcoming sessions, completed sessions, distinct courses taught, and current
+ * utilization. Sections for tenure, certifications, shift schedules, specializations, and
+ * authorized roles are rendered for trainer users. An {@link UnconfiguredScheduleAlert} is
+ * shown when a trainer has no configured shift schedule.
+ */
 export function TrainerProfileView({ user, sessions, courses, enrollments, onEdit, onDelete, onUpdateUser }: TrainerProfileViewProps) {
   const [certDialogOpen, setCertDialogOpen] = useState(false)
   
