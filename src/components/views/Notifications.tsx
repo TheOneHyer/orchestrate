@@ -141,6 +141,8 @@ export function Notifications({
         return <Heart size={20} className={className} />
       case 'completion':
         return <CheckCircleFilled size={20} className={className} />
+      default:
+        return <Info size={20} className={className} />
     }
   }
 
