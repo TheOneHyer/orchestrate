@@ -20,6 +20,29 @@ let checkInsState: WellnessCheckIn[] = []
 let recoveryPlansState: RecoveryPlan[] = []
 let schedulesState: CheckInSchedule[] = []
 
+type ArrayStateUpdater<T> = T[] | ((current: T[] | undefined) => T[])
+
+function resolveArrayStateUpdate<T>(
+    current: T[] | undefined,
+    updater: ArrayStateUpdater<T>
+): T[] {
+    return typeof updater === 'function'
+        ? updater(current)
+        : updater
+}
+
+setCheckInsMock.mockImplementation((updater: ArrayStateUpdater<WellnessCheckIn>) => {
+    checkInsState = resolveArrayStateUpdate(checkInsState, updater)
+})
+
+setRecoveryPlansMock.mockImplementation((updater: ArrayStateUpdater<RecoveryPlan>) => {
+    recoveryPlansState = resolveArrayStateUpdate(recoveryPlansState, updater)
+})
+
+setSchedulesMock.mockImplementation((updater: ArrayStateUpdater<CheckInSchedule>) => {
+    schedulesState = resolveArrayStateUpdate(schedulesState, updater)
+})
+
 vi.mock('@github/spark/hooks', () => ({
     useKV: (...args: unknown[]) => useKVMock(...args),
 }))
@@ -193,6 +216,9 @@ function renderTrainerWellness(currentUser: User) {
 describe('TrainerWellness', () => {
     beforeEach(() => {
         triggerCheckInFromScheduler = null
+        setCheckInsMock.mockClear()
+        setRecoveryPlansMock.mockClear()
+        setSchedulesMock.mockClear()
         checkInsState = [
             {
                 id: 'checkin-1',
@@ -698,7 +724,38 @@ describe('TrainerWellness', () => {
             expect.objectContaining({ description: expect.stringMatching(/recommended for/i) })
         )
 
+        const action = toastWarning.mock.calls[0]?.[1]?.action
+        expect(action).toBeDefined()
+
+        await act(async () => {
+            await action.onClick()
+        })
+
+        expect(await screen.findByRole('button', { name: /mock submit recovery plan/i })).toBeInTheDocument()
+
         triggerSpy.mockRestore()
+    })
+
+    it('changes the time range filter and updates the selected value', async () => {
+        const user = userEvent.setup()
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('combobox'))
+        await user.click(screen.getByRole('option', { name: /last 90 days/i }))
+
+        expect(screen.getByRole('combobox')).toHaveTextContent(/last 90 days/i)
+    })
+
+    it('opens the manual check-in action from automated schedules', async () => {
+        const user = userEvent.setup()
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /automated schedules/i }))
+        await user.click(screen.getByRole('button', { name: /manual check-in/i }))
+
+        expect(await screen.findByRole('button', { name: /mock submit check-in/i })).toBeInTheDocument()
     })
 
     it('closes check-in and schedule dialogs via onClose callbacks', async () => {

@@ -354,6 +354,93 @@ describe('GuidedScheduler', () => {
         )
     })
 
+    it('uses updated time, location, and capacity values when scheduling sessions', async () => {
+        const user = userEvent.setup()
+        const onSessionsCreated = vi.fn()
+
+        renderGuidedScheduler({ onSessionsCreated })
+
+        await fillParameters(user)
+
+        const startTimeInput = screen.getByLabelText(/start time/i)
+        await user.clear(startTimeInput)
+        await user.type(startTimeInput, '08:30')
+
+        const endTimeInput = screen.getByLabelText(/end time/i)
+        await user.clear(endTimeInput)
+        await user.type(endTimeInput, '12:15')
+
+        const locationInput = screen.getByLabelText(/location/i)
+        await user.type(locationInput, 'Room 301')
+
+        const capacityInput = screen.getByLabelText(/capacity/i)
+        await user.clear(capacityInput)
+        await user.type(capacityInput, '12')
+
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+        await user.click(screen.getByText(/1\. taylor trainer/i))
+        await user.click(screen.getByRole('button', { name: /confirm & schedule/i }))
+
+        expect(onSessionsCreated).toHaveBeenCalledWith(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    location: 'Room 301',
+                    capacity: 12,
+                }),
+            ])
+        )
+
+        const createdSessions = onSessionsCreated.mock.calls[0][0] as Array<Partial<{ startTime: string; endTime: string }>>
+        const expectedStartTime = new Date('2026-03-20')
+        expectedStartTime.setHours(8, 30, 0, 0)
+
+        const expectedEndTime = new Date('2026-03-20')
+        expectedEndTime.setHours(12, 15, 0, 0)
+
+        expect(createdSessions[0].startTime).toBe(expectedStartTime.toISOString())
+        expect(createdSessions[0].endTime).toBe(expectedEndTime.toISOString())
+    })
+
+    it('sorts equally recommended trainers by descending score', async () => {
+        const user = userEvent.setup()
+
+        useKVMock.mockImplementation((key: string, initialValue: unknown) => {
+            if (key === 'sessions') return [[], vi.fn()]
+            if (key === 'wellness-check-ins') return [[], vi.fn()]
+            if (key === 'recovery-plans') return [[], vi.fn()]
+            return [initialValue, vi.fn()]
+        })
+
+        findAvailableTrainersMock.mockReturnValueOnce([
+            {
+                trainer: users[1],
+                score: 78,
+                matchReasons: ['Qualified trainer'],
+                conflicts: [],
+                availability: 'available',
+            },
+            {
+                trainer: users[0],
+                score: 92,
+                matchReasons: ['Qualified trainer'],
+                conflicts: [],
+                availability: 'available',
+            },
+        ])
+
+        calculateTrainerWorkloadMock.mockImplementation(() => ({ totalHours: 20, utilizationRate: 45 }))
+        calculateBurnoutRiskMock.mockImplementation(() => ({ risk: 'low', riskScore: 15 }))
+
+        renderGuidedScheduler()
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        const rankedNames = screen.getAllByText(/\. .*trainer/i).map(element => element.textContent)
+        expect(rankedNames[0]).toMatch(/1\. Taylor Trainer/i)
+        expect(rankedNames[1]).toMatch(/2\. Uma Trainer/i)
+    })
+
     it('renders good recommendations with low utilization, unavailable status, and fallback kv arrays', async () => {
         const user = userEvent.setup()
 
