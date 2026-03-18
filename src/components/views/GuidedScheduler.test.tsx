@@ -603,7 +603,7 @@ describe('GuidedScheduler', () => {
         expect(onSessionsCreated).toHaveBeenCalledWith(
             expect.arrayContaining([expect.objectContaining({ trainerId: 't2' })])
         )
-        expect(toastSuccess).toHaveBeenCalledWith('Successfully scheduled 1 session(s) with undefined!')
+        expect(toastSuccess).toHaveBeenCalledWith('Successfully scheduled 1 session(s) with t2!')
     })
 
     it('renders confirmation details for the selected trainer', async () => {

@@ -91,7 +91,7 @@ describe('AddCertificationDialog', () => {
 
     await user.click(checkbox)
 
-    expect(screen.queryByText(/trainer selected/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\d+\s+trainers?\s+selected/i)).not.toBeInTheDocument()
   })
 
   it('select-all button selects all trainers', async () => {
