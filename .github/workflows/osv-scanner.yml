@@ -40,4 +40,4 @@ jobs:
           sudo mv osv-scanner /usr/local/bin/osv-scanner
 
       - name: Run OSV scan
-        run: osv-scanner scan -r --skip-git ./
+        run: osv-scanner scan -r ./
