@@ -1,3 +1,8 @@
+export type ShiftType = string;
+
+export interface ShiftSchedule {
+  shiftType: ShiftType;
+}
 /** Represents the access role of a user within the system. */
 export type UserRole = 'admin' | 'trainer' | 'employee'
 
