@@ -12,12 +12,13 @@ import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { 
-  UserCircleGear, 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Users, 
-  CheckCircle, 
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import {
+  UserCircleGear,
+  Calendar as CalendarIcon,
+  Clock,
+  Users,
+  CheckCircle,
   WarningCircle,
   Lightning,
   ArrowRight,
@@ -30,11 +31,15 @@ import {
   BatteryCharging
 } from '@phosphor-icons/react'
 import { TrainerScheduler, SchedulingConstraints, TrainerMatch } from '@/lib/scheduler'
-import { User, Course, Session, WellnessCheckIn, RecoveryPlan } from '@/lib/types'
+import { User, Course, Session, WellnessCheckIn, RecoveryPlan, StressLevel } from '@/lib/types'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { calculateTrainerWorkload } from '@/lib/workload-balancer'
 import { calculateBurnoutRisk } from '@/lib/burnout-analytics'
+
+const STRESS_LEVEL_TO_SCORE: Record<StressLevel, number> = {
+  low: 1, moderate: 2, high: 4, critical: 5,
+}
 
 interface GuidedSchedulerProps {
   users: User[]
@@ -53,13 +58,43 @@ interface TrainerInsights extends TrainerMatch {
   recommendationLevel: 'optimal' | 'good' | 'caution' | 'avoid'
 }
 
+const recommendationColorClasses: Record<TrainerInsights['recommendationLevel'], string> = {
+  optimal: 'text-green-600 bg-green-50 border-green-200',
+  good: 'text-blue-600 bg-blue-50 border-blue-200',
+  caution: 'text-orange-600 bg-orange-50 border-orange-200',
+  avoid: 'text-red-600 bg-red-50 border-red-200'
+}
+
+const recommendationLabels: Record<TrainerInsights['recommendationLevel'], string> = {
+  optimal: 'Optimal Choice',
+  good: 'Good Choice',
+  caution: 'Use with Caution',
+  avoid: 'Not Recommended'
+}
+
+const BURNOUT_RISK_MAX = 100
+
+const guidedSchedulerSteps = ['parameters', 'trainer-selection', 'confirmation'] as const
+
+/**
+ * Interactive UI for configuring sessions, finding recommended trainers, and creating scheduled sessions.
+ *
+ * Presents a multi-step flow to specify course and session parameters, compares available trainers using data-driven insights (workload, utilization, wellness, and recovery plans), and confirms scheduling.
+ *
+ * @param props.users - List of users (trainers and staff) used to evaluate availability and compute insights.
+ * @param props.courses - Available courses that can be scheduled.
+ * @param props.onSessionsCreated - Callback invoked with an array of session objects when the user confirms scheduling.
+ * @param props.onClose - Optional callback invoked when the scheduler UI should be closed.
+ * @param props.prefilledDate - Optional initial date to prefill the start date input (local Date object).
+ * @returns The scheduler component UI that handles parameter entry, trainer recommendation and selection, and session creation. 
+ */
 export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, prefilledDate }: GuidedSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])
   const [wellnessCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const [recoveryPlans] = useKV<RecoveryPlan[]>('recovery-plans', [])
-  
+
   const initialDate = prefilledDate ? format(prefilledDate, 'yyyy-MM-dd') : ''
-  
+
   const [selectedCourse, setSelectedCourse] = useState<string>('')
   const [startDate, setStartDate] = useState(initialDate)
   const [endDate, setEndDate] = useState('')
@@ -68,7 +103,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
   const [location, setLocation] = useState('')
   const [capacity, setCapacity] = useState(20)
   const [recurrenceType, setRecurrenceType] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none')
-  
+
   const [step, setStep] = useState<'parameters' | 'trainer-selection' | 'confirmation'>(
     'parameters'
   )
@@ -97,7 +132,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     const dates: string[] = []
     const start = new Date(startDate)
     const end = endDate ? new Date(endDate) : new Date(startDate)
-    
+
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       dates.push(new Date(d).toISOString().split('T')[0])
     }
@@ -137,10 +172,28 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
         courses
       )
 
-      const recentWellnessScore = recentCheckIns.length > 0
-        ? (recentCheckIns[0].mood + 
-           (6 - parseFloat(recentCheckIns[0].stress || '0')) + 
-           recentCheckIns[0].workloadSatisfaction) / 3
+      const recentStressValue = recentCheckIns.length > 0 && recentCheckIns[0].stress != null
+        ? STRESS_LEVEL_TO_SCORE[recentCheckIns[0].stress]
+        : undefined
+
+      const recentMoodValue = recentCheckIns.length > 0 && recentCheckIns[0].mood != null
+        ? Number(recentCheckIns[0].mood)
+        : undefined
+
+      const recentWorkloadSatisfactionValue = recentCheckIns.length > 0 && recentCheckIns[0].workloadSatisfaction != null
+        ? Number(recentCheckIns[0].workloadSatisfaction)
+        : undefined
+
+      const recentWellnessScore = recentCheckIns.length > 0 &&
+        recentMoodValue !== undefined &&
+        !Number.isNaN(recentMoodValue) &&
+        recentStressValue !== undefined &&
+        !Number.isNaN(recentStressValue) &&
+        recentWorkloadSatisfactionValue !== undefined &&
+        !Number.isNaN(recentWorkloadSatisfactionValue)
+        ? (recentMoodValue +
+          (6 - recentStressValue) +
+          recentWorkloadSatisfactionValue) / 3
         : undefined
 
       const hasActiveRecoveryPlan = (recoveryPlans || []).some(
@@ -148,7 +201,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
       )
 
       let recommendationLevel: 'optimal' | 'good' | 'caution' | 'avoid' = 'good'
-      
+
       if (hasActiveRecoveryPlan || burnoutRisk.risk === 'high' || burnoutRisk.risk === 'critical') {
         recommendationLevel = 'avoid'
       } else if (workload.utilizationRate > 85 || burnoutRisk.risk === 'moderate') {
@@ -205,11 +258,11 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     const sessionsToCreate: Partial<Session>[] = sessionDates.map(dateStr => {
       const [startHour, startMin] = startTime.split(':').map(Number)
       const [endHour, endMin] = endTime.split(':').map(Number)
-      
+
       const date = new Date(dateStr)
       const startDateTime = new Date(date)
       startDateTime.setHours(startHour, startMin, 0, 0)
-      
+
       const endDateTime = new Date(date)
       endDateTime.setHours(endHour, endMin, 0, 0)
 
@@ -233,7 +286,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     })
 
     onSessionsCreated(sessionsToCreate)
-    
+
     const selectedTrainer = users.find(u => u.id === selectedTrainerId)
     toast.success(
       `Successfully scheduled ${sessionsToCreate.length} session(s) with ${selectedTrainer?.name}!`
@@ -369,42 +422,25 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     </Card>
   )
 
-  const getRecommendationColor = (level: string) => {
-    switch (level) {
-      case 'optimal': return 'text-green-600 bg-green-50 border-green-200'
-      case 'good': return 'text-blue-600 bg-blue-50 border-blue-200'
-      case 'caution': return 'text-orange-600 bg-orange-50 border-orange-200'
-      case 'avoid': return 'text-red-600 bg-red-50 border-red-200'
-      default: return 'text-gray-600 bg-gray-50 border-gray-200'
-    }
-  }
+  const getRecommendationColor = (level: TrainerInsights['recommendationLevel']) => recommendationColorClasses[level]
 
-  const getRecommendationIcon = (level: string) => {
+  const getRecommendationIcon = (level: TrainerInsights['recommendationLevel']) => {
     switch (level) {
       case 'optimal': return <Sparkle size={20} weight="fill" className="text-green-600" />
       case 'good': return <CheckCircle size={20} weight="fill" className="text-blue-600" />
       case 'caution': return <WarningCircle size={20} weight="fill" className="text-orange-600" />
       case 'avoid': return <WarningCircle size={20} weight="fill" className="text-red-600" />
-      default: return <Info size={20} />
     }
   }
 
-  const getRecommendationText = (level: string) => {
-    switch (level) {
-      case 'optimal': return 'Optimal Choice'
-      case 'good': return 'Good Choice'
-      case 'caution': return 'Use with Caution'
-      case 'avoid': return 'Not Recommended'
-      default: return 'Unknown'
-    }
-  }
+  const getRecommendationText = (level: TrainerInsights['recommendationLevel']) => recommendationLabels[level]
 
   const renderTrainerSelectionStep = () => {
-    const filteredInsights = hideUnconfigured 
-      ? trainerInsights.filter(insights => 
-          insights.trainer.trainerProfile?.shiftSchedules && 
-          insights.trainer.trainerProfile.shiftSchedules.length > 0
-        )
+    const filteredInsights = hideUnconfigured
+      ? trainerInsights.filter(insights =>
+        insights.trainer.trainerProfile?.shiftSchedules &&
+        insights.trainer.trainerProfile.shiftSchedules.length > 0
+      )
       : trainerInsights
 
     return (
@@ -439,151 +475,156 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
         <ScrollArea className="h-[600px]">
           <div className="space-y-3 pr-4">
             {filteredInsights.map((insights, index) => {
-            const hasSchedule = insights.trainer.trainerProfile?.shiftSchedules && 
-              insights.trainer.trainerProfile.shiftSchedules.length > 0
-            
-            return (
-              <Card
-                key={insights.trainer.id}
-                className={`cursor-pointer transition-all hover:shadow-md border-2 ${
-                  insights.recommendationLevel === 'optimal' 
-                    ? 'border-green-200 bg-green-50/30' 
+              const hasSchedule = insights.trainer.trainerProfile?.shiftSchedules &&
+                insights.trainer.trainerProfile.shiftSchedules.length > 0
+
+              return (
+                <Card
+                  key={insights.trainer.id}
+                  className={`cursor-pointer transition-all hover:shadow-md border-2 ${insights.recommendationLevel === 'optimal'
+                    ? 'border-green-200 bg-green-50/30'
                     : insights.recommendationLevel === 'avoid'
-                    ? 'border-red-200 bg-red-50/30'
-                    : 'border-border'
-                }`}
-                onClick={() => handleTrainerSelect(insights.trainer.id)}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-lg font-semibold text-foreground flex items-center gap-2">
-                          {index + 1}. {insights.trainer.name}
-                          {!hasSchedule && (
-                            <WarningCircle size={18} weight="fill" className="text-amber-600 dark:text-amber-500" />
+                      ? 'border-red-200 bg-red-50/30'
+                      : 'border-border'
+                    }`}
+                  onClick={() => handleTrainerSelect(insights.trainer.id)}
+                >
+                  <CardContent className="p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="text-lg font-semibold text-foreground flex items-center gap-2">
+                            {index + 1}. {insights.trainer.name}
+                            {!hasSchedule && (
+                              <WarningCircle size={18} weight="fill" className="text-amber-600 dark:text-amber-500" />
+                            )}
+                          </span>
+                          <Badge
+                            variant={
+                              insights.availability === 'available' ? 'default' :
+                                insights.availability === 'partial' ? 'secondary' :
+                                  'outline'
+                            }
+                          >
+                            {insights.availability}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {insights.trainer.department}
+                          {hasSchedule && insights.trainer.trainerProfile?.shiftSchedules && (
+                            <> • {insights.trainer.trainerProfile.shiftSchedules.map(s => s.shiftCode).join(', ')}</>
                           )}
-                        </span>
-                        <Badge 
-                          variant={
-                            insights.availability === 'available' ? 'default' :
-                            insights.availability === 'partial' ? 'secondary' :
-                            'outline'
-                          }
-                        >
-                          {insights.availability}
-                        </Badge>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {insights.trainer.department}
-                        {hasSchedule && insights.trainer.trainerProfile?.shiftSchedules && (
-                          <> • {insights.trainer.trainerProfile.shiftSchedules.map(s => s.shiftCode).join(', ')}</>
+                        </div>
+                        {!hasSchedule && (
+                          <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500 font-medium">
+                            <WarningCircle size={14} weight="fill" />
+                            Work schedule not configured - availability data may be incomplete
+                          </div>
                         )}
                       </div>
-                      {!hasSchedule && (
-                        <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-500 font-medium">
-                          <WarningCircle size={14} weight="fill" />
-                          Work schedule not configured - availability data may be incomplete
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getRecommendationColor(insights.recommendationLevel)}`}>
-                      {getRecommendationIcon(insights.recommendationLevel)}
-                      <span className="text-sm font-semibold">
-                        {getRecommendationText(insights.recommendationLevel)}
-                      </span>
-                    </div>
-                  </div>
 
-                <div className="grid grid-cols-4 gap-4 mb-4">
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                      <ChartLine size={14} />
-                      Match Score
+                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border-2 ${getRecommendationColor(insights.recommendationLevel)}`}>
+                        {getRecommendationIcon(insights.recommendationLevel)}
+                        <span className="text-sm font-semibold">
+                          {getRecommendationText(insights.recommendationLevel)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-2xl font-bold text-primary">{insights.score}</div>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                      <BatteryCharging size={14} />
-                      Utilization
-                    </div>
-                    <div className={`text-2xl font-bold ${
-                      insights.utilizationRate > 85 ? 'text-red-600' :
-                      insights.utilizationRate > 75 ? 'text-orange-600' :
-                      insights.utilizationRate >= 60 ? 'text-green-600' :
-                      'text-blue-600'
-                    }`}>
-                      {insights.utilizationRate.toFixed(0)}%
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Fire size={14} />
-                      Burnout Risk
-                    </div>
-                    <div className={`text-2xl font-bold ${
-                      insights.burnoutRisk > 70 ? 'text-red-600' :
-                      insights.burnoutRisk > 50 ? 'text-orange-600' :
-                      'text-green-600'
-                    }`}>
-                      {insights.burnoutRisk.toFixed(0)}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-1">
-                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock size={14} />
-                      Weekly Hours
-                    </div>
-                    <div className="text-2xl font-bold text-foreground">
-                      {insights.workloadHours.toFixed(1)}h
-                    </div>
-                  </div>
-                </div>
 
-                {insights.hasActiveRecoveryPlan && (
-                  <Alert className="mb-3 border-red-200 bg-red-50">
-                    <WarningCircle size={16} className="text-red-600" />
-                    <AlertDescription className="text-sm text-red-800">
-                      This trainer has an active recovery plan and should not be assigned additional work.
-                    </AlertDescription>
-                  </Alert>
-                )}
+                    <div className="grid grid-cols-4 gap-4 mb-4">
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <ChartLine size={14} />
+                          Match Score
+                        </div>
+                        <div className="text-2xl font-bold text-primary">{insights.score}</div>
+                      </div>
 
-                {insights.matchReasons.length > 0 && (
-                  <div className="mb-3">
-                    <div className="text-xs font-semibold text-foreground mb-1">Strengths:</div>
-                    <div className="space-y-1">
-                      {insights.matchReasons.slice(0, 3).map((reason, i) => (
-                        <div key={i} className="flex items-start gap-2 text-sm">
-                          <CheckCircle size={14} className="text-green-600 mt-0.5 shrink-0" />
-                          <span className="text-muted-foreground text-xs">{reason}</span>
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <BatteryCharging size={14} />
+                          Utilization
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {insights.conflicts.length > 0 && (
-                  <div>
-                    <div className="text-xs font-semibold text-foreground mb-1">Concerns:</div>
-                    <div className="space-y-1">
-                      {insights.conflicts.slice(0, 3).map((conflict, i) => (
-                        <div key={i} className="flex items-start gap-2 text-sm">
-                          <WarningCircle size={14} className="text-orange-600 mt-0.5 shrink-0" />
-                          <span className="text-muted-foreground text-xs">{conflict}</span>
+                        <div className={`text-2xl font-bold ${insights.utilizationRate > 85 ? 'text-red-600' :
+                          insights.utilizationRate > 75 ? 'text-orange-600' :
+                            insights.utilizationRate >= 60 ? 'text-green-600' :
+                              'text-blue-600'
+                          }`}>
+                          {insights.utilizationRate.toFixed(0)}%
                         </div>
-                      ))}
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Fire size={14} />
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help">Burnout Risk</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              Scale: 0-{BURNOUT_RISK_MAX}. Higher values indicate greater burnout risk based on workload, wellness, and trends.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div className={`text-2xl font-bold ${insights.burnoutRisk > 70 ? 'text-red-600' :
+                          insights.burnoutRisk > 50 ? 'text-orange-600' :
+                            'text-green-600'
+                          }`}>
+                          {insights.burnoutRisk.toFixed(0)}/{BURNOUT_RISK_MAX}
+                        </div>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock size={14} />
+                          Weekly Hours
+                        </div>
+                        <div className="text-2xl font-bold text-foreground">
+                          {insights.workloadHours.toFixed(1)}h
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            )})}
+
+                    {insights.hasActiveRecoveryPlan && (
+                      <Alert className="mb-3 border-red-200 bg-red-50">
+                        <WarningCircle size={16} className="text-red-600" />
+                        <AlertDescription className="text-sm text-red-800">
+                          This trainer has an active recovery plan and should not be assigned additional work.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {insights.matchReasons.length > 0 && (
+                      <div className="mb-3">
+                        <div className="text-xs font-semibold text-foreground mb-1">Strengths:</div>
+                        <div className="space-y-1">
+                          {insights.matchReasons.slice(0, 3).map((reason, i) => (
+                            <div key={i} className="flex items-start gap-2 text-sm">
+                              <CheckCircle size={14} className="text-green-600 mt-0.5 shrink-0" />
+                              <span className="text-muted-foreground text-xs">{reason}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {insights.conflicts.length > 0 && (
+                      <div>
+                        <div className="text-xs font-semibold text-foreground mb-1">Concerns:</div>
+                        <div className="space-y-1">
+                          {insights.conflicts.slice(0, 3).map((conflict, i) => (
+                            <div key={i} className="flex items-start gap-2 text-sm">
+                              <WarningCircle size={14} className="text-orange-600 mt-0.5 shrink-0" />
+                              <span className="text-muted-foreground text-xs">{conflict}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         </ScrollArea>
 
@@ -715,14 +756,14 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
       </Card>
 
       <div className="flex gap-3">
-        <Button 
-          variant="outline" 
-          onClick={() => setStep('trainer-selection')} 
+        <Button
+          variant="outline"
+          onClick={() => setStep('trainer-selection')}
           className="flex-1"
         >
           Back to Trainers
         </Button>
-        <Button 
+        <Button
           onClick={confirmAndSchedule}
           className="flex-1"
         >
@@ -732,6 +773,8 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
       </div>
     </div>
   )
+
+  const currentStepIndex = guidedSchedulerSteps.indexOf(step)
 
   return (
     <div className="space-y-6">
@@ -746,21 +789,19 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
       </div>
 
       <div className="flex items-center gap-2 mb-6">
-        {['parameters', 'trainer-selection', 'confirmation'].map((s, i) => (
+        {guidedSchedulerSteps.map((s, i) => (
           <div key={s} className="flex items-center flex-1">
-            <div className={`flex items-center gap-2 ${
-              step === s ? 'text-primary' : 
-              ['parameters', 'trainer-selection', 'confirmation'].indexOf(step) > i 
-                ? 'text-foreground' 
+            <div className={`flex items-center gap-2 ${step === s ? 'text-primary' :
+              currentStepIndex > i
+                ? 'text-foreground'
                 : 'text-muted-foreground'
-            }`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 font-semibold ${
-                step === s 
-                  ? 'border-primary bg-primary text-primary-foreground' 
-                  : ['parameters', 'trainer-selection', 'confirmation'].indexOf(step) > i
+              }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 font-semibold ${step === s
+                ? 'border-primary bg-primary text-primary-foreground'
+                : currentStepIndex > i
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border bg-background'
-              }`}>
+                }`}>
                 {i + 1}
               </div>
               <span className="text-sm font-medium capitalize hidden sm:inline">
@@ -768,11 +809,10 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
               </span>
             </div>
             {i < 2 && (
-              <div className={`flex-1 h-0.5 mx-2 ${
-                ['parameters', 'trainer-selection', 'confirmation'].indexOf(step) > i 
-                  ? 'bg-primary' 
-                  : 'bg-border'
-              }`} />
+              <div className={`flex-1 h-0.5 mx-2 ${currentStepIndex > i
+                ? 'bg-primary'
+                : 'bg-border'
+                }`} />
             )}
           </div>
         ))}

@@ -30,6 +30,12 @@ interface ScheduleProps {
 
 const allowedScheduleManagers: ReadonlyArray<User['role']> = ['admin', 'trainer']
 
+/**
+ * Renders the schedule management UI with calendar, list, and board views and handles session creation, editing, enrollment, drag-and-drop rescheduling, and conflict detection.
+ *
+ * @param props - Properties including `sessions`, `courses`, `users`, `currentUser`, and callbacks `onCreateSession`, `onUpdateSession`, and `onNavigate`.
+ * @returns The Schedule component's React element.
+ */
 export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate }: ScheduleProps) {
   const [viewType, setViewType] = useState<'calendar' | 'list' | 'gantt' | 'board'>('calendar')
   const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('month')
@@ -160,8 +166,13 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
     const enrolledCount = editingSession.enrolledStudents.length
     if (parsedCapacity < enrolledCount) {
+      const enrolledStudentLabel = {
+        one: 'student',
+        other: 'students',
+      }[new Intl.PluralRules('en').select(enrolledCount)]
+
       toast.error('Invalid capacity', {
-        description: `Capacity cannot be less than the ${enrolledCount} currently enrolled student${enrolledCount === 1 ? '' : 's'}.`,
+        description: `Capacity cannot be less than the ${enrolledCount} currently enrolled ${enrolledStudentLabel}.`,
       })
       return
     }
