@@ -79,6 +79,95 @@ describe('AddPersonDialog', () => {
         expect(screen.queryByText('CPR')).not.toBeInTheDocument()
     })
 
+    it('shows an error for invalid email format', async () => {
+        render(<AddPersonDialog {...baseProps} />)
+
+        await userEvent.type(screen.getByLabelText(/full name/i), 'Alex Example')
+        await userEvent.type(screen.getByLabelText(/email address/i), 'not-an-email')
+        await userEvent.type(screen.getByLabelText(/department/i), 'Ops')
+        await userEvent.click(screen.getByRole('checkbox', { name: /day/i }))
+        await userEvent.click(screen.getByRole('button', { name: /add person/i }))
+
+        expect(screen.getByText(/invalid email format/i)).toBeInTheDocument()
+        expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/please fix the errors/i))
+        expect(baseProps.onSave).not.toHaveBeenCalled()
+    })
+
+    it('creates a trainer profile with specializations when role is set to trainer', async () => {
+        render(<AddPersonDialog {...baseProps} />)
+
+        await userEvent.type(screen.getByLabelText(/full name/i), 'Taylor Trainer')
+        await userEvent.type(screen.getByLabelText(/email address/i), 'Taylor.Trainer@Example.com')
+
+        await userEvent.click(screen.getByRole('combobox'))
+        await userEvent.click(await screen.findByRole('option', { name: /trainer/i }))
+
+        expect(screen.getByText(/trainer profile will be created automatically/i)).toBeInTheDocument()
+
+        await userEvent.type(screen.getByLabelText(/department/i), 'Operations')
+        await userEvent.click(screen.getByRole('checkbox', { name: /evening/i }))
+
+        await userEvent.type(screen.getByLabelText(/certifications/i), 'CPR')
+        await userEvent.click(screen.getByRole('button', { name: /^add$/i }))
+
+        await userEvent.click(screen.getByRole('button', { name: /add person/i }))
+
+        expect(baseProps.onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                role: 'trainer',
+                email: 'taylor.trainer@example.com',
+                shifts: ['evening'],
+                certifications: ['CPR'],
+                trainerProfile: expect.objectContaining({
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    specializations: ['CPR'],
+                }),
+            })
+        )
+    })
+
+    it('supports enter-to-add certification', async () => {
+        render(<AddPersonDialog {...baseProps} />)
+
+        await userEvent.type(screen.getByLabelText(/full name/i), 'Morgan Learn')
+        await userEvent.type(screen.getByLabelText(/email address/i), 'morgan@example.com')
+        await userEvent.type(screen.getByLabelText(/department/i), 'Training')
+        await userEvent.click(screen.getByRole('checkbox', { name: /day/i }))
+
+        await userEvent.type(screen.getByLabelText(/certifications/i), 'CPR{Enter}')
+
+        expect(screen.getByText('CPR')).toBeInTheDocument()
+
+        await userEvent.click(screen.getByRole('button', { name: /add person/i }))
+
+        expect(baseProps.onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                certifications: ['CPR'],
+            })
+        )
+    })
+
+    it('removes previously selected shifts', async () => {
+        render(<AddPersonDialog {...baseProps} />)
+
+        await userEvent.type(screen.getByLabelText(/full name/i), 'Casey Change')
+        await userEvent.type(screen.getByLabelText(/email address/i), 'casey@example.com')
+        await userEvent.type(screen.getByLabelText(/department/i), 'Operations')
+
+        await userEvent.click(screen.getByRole('checkbox', { name: /day/i }))
+        await userEvent.click(screen.getByRole('checkbox', { name: /day/i }))
+        await userEvent.click(screen.getByRole('checkbox', { name: /evening/i }))
+
+        await userEvent.click(screen.getByRole('button', { name: /add person/i }))
+
+        expect(baseProps.onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                shifts: ['evening'],
+            })
+        )
+    })
+
     it('submits a valid person and normalizes email casing', async () => {
         render(<AddPersonDialog {...baseProps} />)
 

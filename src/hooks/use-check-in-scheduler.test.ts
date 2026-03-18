@@ -438,6 +438,21 @@ describe('use-check-in-scheduler', () => {
         expect(updated[0]).toEqual(schedule)
     })
 
+    it('returns an empty array when updateScheduleNextDate updater receives undefined schedules', () => {
+        const schedule = createSchedule({ id: 'existing' })
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[schedule], setter] as any)
+
+        const { result } = renderHook(() => useCheckInScheduler([createTrainer('trainer-1')], [], undefined))
+
+        result.current.updateScheduleNextDate('existing', '2026-03-15T00:00:00.000Z')
+
+        const updaterFn = getUpdaterFn<CheckInSchedule[]>(setter)
+        const updated = updaterFn(undefined as unknown as CheckInSchedule[])
+
+        expect(updated).toEqual([])
+    })
+
     it('re-checks due schedules on the 30-minute interval', () => {
         const dueTime = new Date(NOW.getTime() - 60 * 60 * 1000).toISOString()
         const schedule = createSchedule({ id: 'interval-schedule', nextScheduledDate: dueTime })

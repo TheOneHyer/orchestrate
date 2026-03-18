@@ -135,4 +135,39 @@ describe('use-risk-history (unit)', () => {
 
         expect(setter).toHaveBeenCalledWith([])
     })
+
+    it('returns fallback empty history structures when persisted history is undefined', () => {
+        vi.mocked(useKV).mockReturnValue([undefined, vi.fn(), vi.fn()] as unknown as ReturnType<typeof useKV>)
+
+        const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
+
+        expect(result.current.riskHistory).toEqual([])
+        expect(result.current.getTrainerHistory('trainer-a')).toEqual([])
+    })
+
+    it('treats undefined current history as an empty array when taking snapshots', () => {
+        const setter = vi.fn() as unknown as (newValue: RiskHistorySnapshot[] | ((current: RiskHistorySnapshot[]) => RiskHistorySnapshot[])) => void
+        vi.mocked(useKV).mockReturnValue([undefined, setter, vi.fn()] as unknown as ReturnType<typeof useKV>)
+
+        const trainer: User = {
+            id: 'trainer-1',
+            name: 'Trainer One',
+            email: 'trainer1@example.com',
+            role: 'trainer',
+            department: 'Ops',
+            certifications: [],
+            hireDate: '2024-01-01T00:00:00.000Z',
+        }
+
+        const { result } = renderHook(() => useRiskHistory([trainer], emptySessions, emptyCourses, emptyWellnessCheckIns))
+
+        act(() => result.current.takeSnapshots())
+
+        expect(setter).toHaveBeenCalledWith(expect.any(Function))
+        const updater = setter.mock.calls[0][0] as (current: RiskHistorySnapshot[] | undefined) => RiskHistorySnapshot[]
+        const updated = updater(undefined)
+
+        expect(updated).toHaveLength(1)
+        expect(updated[0].trainerId).toBe('trainer-1')
+    })
 })

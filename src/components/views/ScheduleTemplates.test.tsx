@@ -251,6 +251,31 @@ describe('ScheduleTemplates', () => {
         expect(setTemplatesMock).not.toHaveBeenCalled()
     })
 
+    it('handles undefined persisted templates and creates a template from an empty fallback array', async () => {
+        const user = userEvent.setup()
+        useKVMock.mockImplementation((key: string, initial: unknown[]) => {
+            if (key === 'schedule-templates') {
+                return [undefined, setTemplatesMock]
+            }
+            return [initial, vi.fn()]
+        })
+
+        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+
+        expect(screen.getByText(/no templates found/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /new template/i }))
+        await user.click(screen.getByRole('button', { name: /mock save template/i }))
+
+        expect(setTemplatesMock).toHaveBeenCalledWith(expect.any(Function))
+
+        const updater = setTemplatesMock.mock.calls[0][0] as (current: ScheduleTemplate[] | undefined) => ScheduleTemplate[]
+        const updated = updater(undefined)
+
+        expect(updated).toHaveLength(1)
+        expect(updated[0]).toEqual(expect.objectContaining({ name: 'Mock Template Name' }))
+    })
+
     it('shows empty-state create CTA and opens creation dialog', async () => {
         const user = userEvent.setup()
         kvTemplates = []

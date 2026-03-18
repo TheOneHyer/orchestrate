@@ -213,6 +213,40 @@ describe('scheduler', () => {
         expect(matches).toEqual([])
     })
 
+    it('treats sessions that fully cover a shift schedule as overlapping availability', () => {
+        const trainer = createTrainer('trainer-full-overlap', 'Avery', ['Forklift'])
+        const scheduler = new TrainerScheduler([trainer], [], [createCourse()])
+
+        const matches = scheduler.findAvailableTrainers(
+            createConstraints({ startTime: '07:00', endTime: '18:00' }),
+            new Date('2026-03-16T00:00:00.000Z')
+        )
+
+        expect(matches).toHaveLength(1)
+        expect(matches[0].matchReasons).toEqual(
+            expect.arrayContaining([expect.stringContaining('Working during session time')])
+        )
+    })
+
+    it('flags a conflict when the proposed session fully contains an existing session', () => {
+        const trainer = createTrainer('trainer-contained', 'Avery', ['Forklift'])
+        const scheduler = new TrainerScheduler(
+            [trainer],
+            [createSession('contained', trainer.id, '2026-03-16T10:00:00.000Z', '2026-03-16T11:00:00.000Z')],
+            [createCourse()]
+        )
+
+        const matches = scheduler.findAvailableTrainers(
+            createConstraints({ startTime: '09:00', endTime: '12:00' }),
+            new Date('2026-03-16T00:00:00.000Z')
+        )
+
+        expect(matches).toHaveLength(1)
+        expect(matches[0].conflicts).toEqual(
+            expect.arrayContaining([expect.stringContaining('Conflict with session "Existing Session"')])
+        )
+    })
+
     it('keeps deterministic trainer ordering when availability is identical', () => {
         const trainerA = createTrainer('trainer-a', 'Avery', ['Forklift'])
         const trainerB = createTrainer('trainer-b', 'Blake', ['Forklift'])
@@ -238,6 +272,35 @@ describe('scheduler', () => {
             })
         )
         expect(result.recommendations).toContain('Select a valid course before scheduling sessions')
+    })
+
+    it('falls back to a generic title when the matched course title is missing', () => {
+        const trainer = createTrainer('trainer-available', 'Avery', ['Forklift'])
+        const courseWithoutTitle = {
+            ...createCourse(),
+            title: undefined,
+        } as unknown as Course
+        const scheduler = new TrainerScheduler([trainer], [], [courseWithoutTitle])
+
+        const result = scheduler.autoScheduleSessions({
+            courseId: courseWithoutTitle.id,
+            requiredCertifications: ['Forklift'],
+            dates: ['2026-03-16T00:00:00.000Z'],
+            startTime: '09:00',
+            endTime: '11:00',
+            location: 'Room 101',
+            capacity: 20
+        })
+
+        expect(result.success).toBe(true)
+        expect(result.sessions).toHaveLength(1)
+        expect(result.sessions[0].title).toBe('Training Session')
+    })
+
+    it('returns the day shift when day is present among candidate shifts', () => {
+        const scheduler = new TrainerScheduler([], [], [])
+
+        expect((scheduler as any).getPrimaryShift(['night', 'day'])).toBe('day')
     })
 
     it('adds a partial-assignment recommendation when the best trainer has conflicts', () => {

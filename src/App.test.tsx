@@ -1000,6 +1000,74 @@ describe('App', () => {
         expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
     })
 
+    it('uses the fallback empty users array when adding a user from undefined state', async () => {
+        const user = userEvent.setup()
+        utilizationNotified = true
+        kvSeed['users'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /add user/i }))
+
+        expect(screen.getByText(/users count:\s*1/i)).toBeInTheDocument()
+        expect(screen.getByText('Added User')).toBeInTheDocument()
+    })
+
+    it('uses the fallback empty users array when adding certifications from undefined state', async () => {
+        const user = userEvent.setup()
+        utilizationNotified = true
+        kvSeed['users'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go certifications$/i }))
+        expect(screen.getByText(/certification records:\s*0/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /add certification/i }))
+
+        expect(screen.getByText(/certification records:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('uses fallback notification arrays for individual actions when notifications are undefined', async () => {
+        const user = userEvent.setup()
+        utilizationNotified = true
+
+        // Each iteration mounts/unmounts a fresh component instance to isolate actions:
+        // renderWithUndefinedNotifications resets kvSeed['notifications'] to undefined before render,
+        // ensuring each action test starts with clean state and preventing kvSeed changes from leaking between steps.
+        const renderWithUndefinedNotifications = () => {
+            kvSeed['notifications'] = undefined
+            return render(<App />)
+        }
+
+        let view = renderWithUndefinedNotifications()
+        await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
+        await user.click(screen.getByRole('button', { name: /mark unread/i }))
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+        view.unmount()
+
+        view = renderWithUndefinedNotifications()
+        await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
+        await user.click(screen.getByRole('button', { name: /mark all read/i }))
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+        view.unmount()
+
+        view = renderWithUndefinedNotifications()
+        await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
+        await user.click(screen.getByRole('button', { name: /dismiss one/i }))
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+        view.unmount()
+
+        view = renderWithUndefinedNotifications()
+        await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
+        await user.click(screen.getByRole('button', { name: /dismiss read/i }))
+        expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+        view.unmount()
+    })
+
     it('removes reminder-* localStorage keys when resetting preview data', async () => {
         const user = userEvent.setup()
         localStorage.setItem('reminder-schedule-1-2099-01-01T09:00:00.000Z', 'true')

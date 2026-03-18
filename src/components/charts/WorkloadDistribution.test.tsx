@@ -147,4 +147,15 @@ describe('WorkloadDistribution', () => {
         expect(container.querySelector('.risk-indicator-high')).toBeTruthy()
         expect(container.querySelector('.risk-indicator-critical')).toBeTruthy()
     })
+
+    it('falls back to Unknown when trainer metadata is missing', () => {
+        render(
+            <WorkloadDistribution
+                trainers={[]}
+                data={[mockWorkloadData]}
+            />
+        )
+
+        expect(screen.getByText(/unknown: 96% utilization, 43\.5 hours/i)).toBeInTheDocument()
+    })
 })

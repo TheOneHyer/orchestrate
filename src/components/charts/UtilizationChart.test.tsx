@@ -128,4 +128,17 @@ describe('UtilizationChart', () => {
         expect(screen.getByTestId('utilization-chart')).toBeInTheDocument()
         expect(screen.getByText(/min 0%, max 0%, average 0%/i)).toBeInTheDocument()
     })
+
+    it('shows invalid date text when a data point date cannot be parsed', () => {
+        render(
+            <UtilizationChart
+                trainerName="Taylor"
+                data={[
+                    { date: 'not-a-date', utilization: 50, hours: 20, sessions: 4 },
+                ]}
+            />
+        )
+
+        expect(screen.getByText(/invalid date: 50%/i)).toBeInTheDocument()
+    })
 })

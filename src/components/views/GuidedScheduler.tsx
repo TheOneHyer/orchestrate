@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import {
   UserCircleGear,
   Calendar as CalendarIcon,
@@ -66,6 +67,10 @@ const recommendationLabels: Record<TrainerInsights['recommendationLevel'], strin
   caution: 'Use with Caution',
   avoid: 'Not Recommended'
 }
+
+const BURNOUT_RISK_MAX = 100
+
+const guidedSchedulerSteps = ['parameters', 'trainer-selection', 'confirmation'] as const
 
 export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, prefilledDate }: GuidedSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])
@@ -155,12 +160,24 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
         ? parseFloat(String(recentCheckIns[0].stress))
         : undefined
 
+      const recentMoodValue = recentCheckIns.length > 0 && recentCheckIns[0].mood != null
+        ? Number(recentCheckIns[0].mood)
+        : undefined
+
+      const recentWorkloadSatisfactionValue = recentCheckIns.length > 0 && recentCheckIns[0].workloadSatisfaction != null
+        ? Number(recentCheckIns[0].workloadSatisfaction)
+        : undefined
+
       const recentWellnessScore = recentCheckIns.length > 0 &&
+        recentMoodValue !== undefined &&
+        !Number.isNaN(recentMoodValue) &&
         recentStressValue !== undefined &&
-        !Number.isNaN(recentStressValue)
-        ? (recentCheckIns[0].mood +
+        !Number.isNaN(recentStressValue) &&
+        recentWorkloadSatisfactionValue !== undefined &&
+        !Number.isNaN(recentWorkloadSatisfactionValue)
+        ? (recentMoodValue +
           (6 - recentStressValue) +
-          recentCheckIns[0].workloadSatisfaction) / 3
+          recentWorkloadSatisfactionValue) / 3
         : undefined
 
       const hasActiveRecoveryPlan = (recoveryPlans || []).some(
@@ -524,13 +541,20 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
                       <div className="space-y-1">
                         <div className="text-xs text-muted-foreground flex items-center gap-1">
                           <Fire size={14} />
-                          Burnout Risk
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="cursor-help">Burnout Risk</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              Scale: 0-{BURNOUT_RISK_MAX}. Higher values indicate greater burnout risk based on workload, wellness, and trends.
+                            </TooltipContent>
+                          </Tooltip>
                         </div>
                         <div className={`text-2xl font-bold ${insights.burnoutRisk > 70 ? 'text-red-600' :
                           insights.burnoutRisk > 50 ? 'text-orange-600' :
                             'text-green-600'
                           }`}>
-                          {insights.burnoutRisk.toFixed(0)}
+                          {insights.burnoutRisk.toFixed(0)}/{BURNOUT_RISK_MAX}
                         </div>
                       </div>
 
@@ -734,6 +758,8 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     </div>
   )
 
+  const currentStepIndex = guidedSchedulerSteps.indexOf(step)
+
   return (
     <div className="space-y-6">
       <div>
@@ -747,16 +773,16 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
       </div>
 
       <div className="flex items-center gap-2 mb-6">
-        {['parameters', 'trainer-selection', 'confirmation'].map((s, i) => (
+        {guidedSchedulerSteps.map((s, i) => (
           <div key={s} className="flex items-center flex-1">
             <div className={`flex items-center gap-2 ${step === s ? 'text-primary' :
-              ['parameters', 'trainer-selection', 'confirmation'].indexOf(step) > i
+              currentStepIndex > i
                 ? 'text-foreground'
                 : 'text-muted-foreground'
               }`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 font-semibold ${step === s
                 ? 'border-primary bg-primary text-primary-foreground'
-                : ['parameters', 'trainer-selection', 'confirmation'].indexOf(step) > i
+                : currentStepIndex > i
                   ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border bg-background'
                 }`}>
@@ -767,7 +793,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
               </span>
             </div>
             {i < 2 && (
-              <div className={`flex-1 h-0.5 mx-2 ${['parameters', 'trainer-selection', 'confirmation'].indexOf(step) > i
+              <div className={`flex-1 h-0.5 mx-2 ${currentStepIndex > i
                 ? 'bg-primary'
                 : 'bg-border'
                 }`} />

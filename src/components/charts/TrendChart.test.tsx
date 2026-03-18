@@ -119,4 +119,64 @@ describe('TrendChart', () => {
         expect(screen.getByTestId('trend-series-trainer-1')).toBeInTheDocument()
         expect(screen.queryByTestId('trend-series-trainer-2')).not.toBeInTheDocument()
     })
+
+    it('uses quarter range and falls back to zero-summary values for invalid-date secondary series', () => {
+        render(
+            <TrendChart
+                timeRange="quarter"
+                showAll={true}
+                data={[
+                    {
+                        trainerId: 'trainer-1',
+                        trend: 'increasing' as const,
+                        changeRate: 6,
+                        dataPoints: [
+                            { date: '2026-01-10', utilization: 62, hours: 25, sessions: 6 },
+                            { date: '2026-03-11', utilization: 74, hours: 30, sessions: 8 },
+                        ],
+                    },
+                    {
+                        trainerId: 'trainer-2',
+                        trend: 'stable' as const,
+                        changeRate: 0,
+                        dataPoints: [
+                            { date: 'invalid-date', utilization: 99, hours: 40, sessions: 10 },
+                        ],
+                    },
+                ]}
+            />
+        )
+
+        expect(screen.getByTestId('trend-series-trainer-1')).toHaveTextContent(/average 68\.0%, trend up/i)
+        expect(screen.getByTestId('trend-series-trainer-2')).toHaveTextContent(/latest 0\.0%, average 0\.0%, trend flat/i)
+    })
+
+    it('falls back to zero-summary values for truly empty secondary series', () => {
+        render(
+            <TrendChart
+                timeRange="quarter"
+                showAll={true}
+                data={[
+                    {
+                        trainerId: 'trainer-1',
+                        trend: 'increasing' as const,
+                        changeRate: 6,
+                        dataPoints: [
+                            { date: '2026-01-10', utilization: 62, hours: 25, sessions: 6 },
+                            { date: '2026-03-11', utilization: 74, hours: 30, sessions: 8 },
+                        ],
+                    },
+                    {
+                        trainerId: 'trainer-2',
+                        trend: 'stable' as const,
+                        changeRate: 0,
+                        dataPoints: [],
+                    },
+                ]}
+            />
+        )
+
+        expect(screen.getByTestId('trend-series-trainer-1')).toHaveTextContent(/average 68\.0%, trend up/i)
+        expect(screen.getByTestId('trend-series-trainer-2')).toHaveTextContent(/latest 0\.0%, average 0\.0%, trend flat/i)
+    })
 })

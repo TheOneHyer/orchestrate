@@ -98,4 +98,20 @@ describe('RiskTrendChart', () => {
 
         expect(screen.getByTestId('utilization-summary')).toHaveTextContent('trend down')
     })
+
+    it('falls back to zero utilization when a point has a non-numeric utilization value', () => {
+        render(
+            <RiskTrendChart
+                showUtilization={true}
+                data={[
+                    {
+                        ...mockDataPoint,
+                        utilizationRate: undefined as unknown as number,
+                    },
+                ]}
+            />
+        )
+
+        expect(screen.getByTestId('utilization-summary')).toHaveTextContent('average 0.0% trend flat')
+    })
 })

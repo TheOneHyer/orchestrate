@@ -232,7 +232,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                   </div>
 
                   <div className="space-y-2">
-                    {certificationRecords.map((cert, certIdx) => {
+                    {certificationRecords.map((cert) => {
                       const status = calculateCertificationStatus(cert)
                       const isUnknownStatus = status !== 'expired' && status !== 'expiring-soon' && status !== 'active'
                       const daysUntil = Math.floor(
@@ -241,7 +241,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
 
                       return (
                         <div
-                          key={certIdx}
+                          key={`${cert.certificationName}-${cert.issuedDate}`}
                           className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
                         >
                           <div className="flex-1">
