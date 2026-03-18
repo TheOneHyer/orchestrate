@@ -329,6 +329,7 @@ describe('EnrollStudentsDialog', () => {
         expect(screen.getByText(/ben brown\s*→\s*conflict two/i)).toBeInTheDocument()
         expect(screen.getByText(/cara cole\s*→\s*conflict three/i)).toBeInTheDocument()
         expect(screen.getByText(/and 1 more/i)).toBeInTheDocument()
+        expect(screen.queryByText(/drew dunn\s*→\s*conflict four/i)).not.toBeInTheDocument()
         expect(screen.getByText(/2 students can still be enrolled/i)).toBeInTheDocument()
     })
 

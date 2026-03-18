@@ -277,7 +277,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
     const selectedTrainer = users.find(u => u.id === selectedTrainerId)
     toast.success(
-      `Successfully scheduled ${sessionsToCreate.length} session(s) with ${selectedTrainer?.name}!`
+      `Successfully scheduled ${sessionsToCreate.length} session(s) with ${selectedTrainer?.name || selectedTrainerId || 'the selected trainer'}!`
     )
   }
 
