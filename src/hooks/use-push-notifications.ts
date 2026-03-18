@@ -1,13 +1,23 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useKV } from '@github/spark/hooks'
 
+/**
+ * Persisted user preferences for browser push notifications.
+ */
 interface PushNotificationSettings {
+  /** Whether push notifications are globally enabled by the user. */
   enabled: boolean
+  /** The current browser notification permission state (`'default'`, `'granted'`, or `'denied'`). */
   permission: NotificationPermission
+  /** Controls which priority levels trigger a push notification. */
   showForPriorities: {
+    /** Show notifications for low-priority alerts. */
     low: boolean
+    /** Show notifications for medium-priority alerts. */
     medium: boolean
+    /** Show notifications for high-priority alerts. */
     high: boolean
+    /** Show notifications for critical-priority alerts. */
     critical: boolean
   }
 }
@@ -23,6 +33,21 @@ const DEFAULT_SETTINGS: PushNotificationSettings = {
   }
 }
 
+/**
+ * Hook that manages browser push notification permissions and delivery.
+ *
+ * Settings (enabled state, permission, per-priority toggles) are persisted via
+ * KV storage. The hook syncs the stored permission value with the browser's
+ * current `Notification.permission` on every render cycle.
+ *
+ * @returns An object containing:
+ *   - `isSupported` – Whether the Notifications API is available in this browser.
+ *   - `settings` – Current {@link PushNotificationSettings}.
+ *   - `requestPermission` – Prompt the user for notification permission; returns the resulting {@link NotificationPermission}.
+ *   - `sendNotification` – Fire a push notification if permissions and priority filters allow.
+ *   - `updateSettings` – Merge partial settings updates into the persisted store.
+ *   - `testNotification` – Send a sample notification to verify the setup.
+ */
 export function usePushNotifications() {
   const [settings, setSettings] = useKV<PushNotificationSettings>(
     'push-notification-settings',
