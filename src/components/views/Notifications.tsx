@@ -33,6 +33,29 @@ interface NotificationsProps {
   onNavigate: (view: string, data?: any) => void
 }
 
+const notificationIconClassNames: Record<Notification['type'], string> = {
+  session: 'text-primary',
+  assignment: 'text-primary',
+  reminder: 'text-accent',
+  system: 'text-muted-foreground',
+  workload: 'text-destructive',
+  completion: 'text-primary'
+}
+
+/**
+ * Renders a notifications center with filtering, grouping by date, and actions for marking or dismissing items.
+ *
+ * Displays tabs (All, Unread, Read, Priority, Sessions, Assignments, Reminders, Workload, System), groups notifications into Today/Yesterday/This Week/Earlier, shows per-item controls (mark read/unread, dismiss), and provides bulk actions (mark all read, clear read, clear all) with confirmation.
+ *
+ * @param notifications - Array of notification objects to display; each notification should include at least `id`, `title`, `message`, `type`, `priority?`, `read`, `createdAt`, and optional `link`.
+ * @param onMarkAsRead - Called with a notification id to mark that notification as read.
+ * @param onMarkAsUnread - Called with a notification id to mark that notification as unread.
+ * @param onMarkAllAsRead - Called to mark all notifications as read.
+ * @param onDismiss - Called with a notification id to dismiss (delete) that notification.
+ * @param onDismissAll - Called with `'all'` or `'read'` to dismiss all or only read notifications.
+ * @param onNavigate - Called with a notification link when the user activates a notification that has a link.
+ * @returns The notifications UI as a React element.
+ */
 export function Notifications({
   notifications,
   onMarkAsRead,
@@ -117,21 +140,23 @@ export function Notifications({
   const groupedNotifications = groupNotificationsByDate(filteredNotifications)
 
   const getNotificationIcon = (notification: Notification) => {
+    const className = notificationIconClassNames[notification.type]
+
     switch (notification.type) {
       case 'session':
-        return <CalendarDots size={20} className="text-primary" />
+        return <CalendarDots size={20} className={className} />
       case 'assignment':
-        return <GraduationCap size={20} className="text-primary" />
+        return <GraduationCap size={20} className={className} />
       case 'reminder':
-        return <Clock size={20} className="text-accent" />
+        return <Clock size={20} className={className} />
       case 'system':
-        return <Gear size={20} className="text-muted-foreground" />
+        return <Gear size={20} className={className} />
       case 'workload':
-        return <Heart size={20} className="text-destructive" />
+        return <Heart size={20} className={className} />
       case 'completion':
-        return <CheckCircleFilled size={20} className="text-primary" />
+        return <CheckCircleFilled size={20} className={className} />
       default:
-        return <Info size={20} className="text-muted-foreground" />
+        return <Info size={20} className={className} />
     }
   }
 
