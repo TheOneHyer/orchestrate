@@ -11,9 +11,14 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -25,8 +30,27 @@ jobs:
         with:
           version: 10.32.1
 
-      - name: Install dependencies
+      - name: Install dependencies (standard)
+        if: github.actor != 'dependabot[bot]'
         run: pnpm install --frozen-lockfile
+
+      - name: Regenerate lockfile (Dependabot)
+        if: github.actor == 'dependabot[bot]'
+        run: pnpm install
+
+      - name: Commit updated lockfile (Dependabot)
+        if: github.actor == 'dependabot[bot]'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! git diff --quiet pnpm-lock.yaml; then
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            git add pnpm-lock.yaml
+            git commit -m "ci: update pnpm-lock.yaml for dependabot"
+            git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}
+            git push
+          fi
 
       - name: Build
         run: pnpm build
