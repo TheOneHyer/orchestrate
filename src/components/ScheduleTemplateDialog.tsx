@@ -11,16 +11,36 @@ import { Plus, Trash } from '@phosphor-icons/react'
 import { ScheduleTemplate, ScheduleTemplateSession, ShiftType, TemplateRecurrenceType } from '@/lib/types'
 import { Card } from '@/components/ui/card'
 
+/**
+ * Props for the {@link ScheduleTemplateDialog} component.
+ */
 interface ScheduleTemplateDialogProps {
+  /** Whether the dialog is open. */
   open: boolean
+  /** Callback to update the open state of the dialog. */
   onOpenChange: (open: boolean) => void
+  /** When provided, the dialog operates in edit mode and pre-populates its fields from this template. */
   template?: ScheduleTemplate | null
+  /**
+   * Callback invoked with the template data when the user saves.
+   * @param template - The new or updated template without server-managed fields.
+   */
   onSave: (template: Omit<ScheduleTemplate, 'id' | 'createdAt' | 'createdBy' | 'lastUsed' | 'usageCount'>) => void
+  /** Available courses to optionally associate with the template. */
   courses: Array<{ id: string; title: string }>
 }
 
+/** Ordered list of day names used to populate the "Day of Week" selector for template sessions. */
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
+/**
+ * Dialog for creating or editing a reusable {@link ScheduleTemplate}.
+ *
+ * Lets the user define a template name, description, optional course association, category,
+ * recurrence type, tags, and one or more session slots (each with a day-of-week, time,
+ * duration, shift, capacity, and optional location). Handles both create and edit modes;
+ * in edit mode the form is pre-populated from the `template` prop.
+ */
 export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, courses }: ScheduleTemplateDialogProps) {
   const [name, setName] = useState(template?.name || '')
   const [description, setDescription] = useState(template?.description || '')

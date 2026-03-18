@@ -6,6 +6,15 @@ import { Switch } from '@/components/ui/switch'
 import { usePushNotifications } from '@/hooks/use-push-notifications'
 import { Bell } from '@phosphor-icons/react'
 
+/**
+ * Settings panel for managing browser push notification preferences.
+ *
+ * Renders a card-based UI that reflects the current push-notification permission state.
+ * When permission is not yet granted, a button to request it is shown. When granted,
+ * toggles for enabling notifications and filtering by priority level (low, medium, high,
+ * critical) are displayed, along with a "Send Test Notification" button. Errors from
+ * permission requests or settings updates are surfaced via an inline alert.
+ */
 export function NotificationSoundSettings() {
   const { settings: pushSettings, updateSettings: updatePushSettings, requestPermission, testNotification, isSupported } = usePushNotifications()
   const [errorMessage, setErrorMessage] = useState<string | null>(null)

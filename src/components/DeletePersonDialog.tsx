@@ -10,13 +10,28 @@ import {
 } from '@/components/ui/alert-dialog'
 import { User } from '@/lib/types'
 
+/**
+ * Props for the {@link DeletePersonDialog} component.
+ */
 interface DeletePersonDialogProps {
+  /** The user to be deleted, or `null` when no user has been selected. */
   user: User | null
+  /** Whether the confirmation dialog is open. */
   open: boolean
+  /** Callback to update the open state of the dialog. */
   onOpenChange: (open: boolean) => void
+  /** Callback invoked when the user clicks the destructive "Delete" action. */
   onConfirm: () => void
 }
 
+/**
+ * Confirmation dialog shown before permanently deleting a user.
+ *
+ * Renders an accessible {@link AlertDialog} that displays the user's name and a
+ * role-specific warning (trainers are removed from sessions, employees from enrolled
+ * courses). Returns `null` when `user` is `null`. The delete action is only executed
+ * when the user explicitly clicks "Delete".
+ */
 export function DeletePersonDialog({ user, open, onOpenChange, onConfirm }: DeletePersonDialogProps) {
   if (!user) return null
 

@@ -15,11 +15,25 @@ import { Bell, Warning } from '@phosphor-icons/react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
+/**
+ * Props for the {@link NotificationSettingsDialog} component.
+ */
 interface NotificationSettingsDialogProps {
+  /** Whether the dialog is open. */
   open: boolean
+  /** Callback to update the open state of the dialog. */
   onOpenChange: (open: boolean) => void
 }
 
+/**
+ * Dialog for configuring browser push notification preferences.
+ *
+ * Handles the full permission lifecycle: prompts for permission when it is "default",
+ * shows a blocked warning when it is "denied", and exposes granular priority-level
+ * toggles (low / medium / high / critical) when permission is "granted". A test
+ * notification can be sent to verify the current configuration. If push notifications
+ * are not supported by the browser, an informational message is shown instead.
+ */
 export function NotificationSettingsDialog({ open, onOpenChange }: NotificationSettingsDialogProps) {
   const {
     isSupported,
