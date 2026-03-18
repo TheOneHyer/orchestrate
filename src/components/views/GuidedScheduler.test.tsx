@@ -489,9 +489,14 @@ describe('GuidedScheduler', () => {
                 trainerId: 't1',
                 timestamp: '2026-03-19T10:00:00.000Z',
                 mood: 5,
-                stress: '2',
+                stress: 'moderate',
+                energy: 'neutral',
                 workloadSatisfaction: 4,
-                notes: 'Feeling solid',
+                sleepQuality: 3,
+                physicalWellbeing: 3,
+                mentalClarity: 3,
+                followUpRequired: false,
+                comments: 'Feeling solid',
             },
         ]
 
@@ -510,7 +515,7 @@ describe('GuidedScheduler', () => {
         expect(calculateBurnoutRiskMock).toHaveBeenCalledWith(
             't1',
             [],
-            [expect.objectContaining({ id: 'check-1', stress: '2' })],
+            [expect.objectContaining({ id: 'check-1', stress: 'moderate' })],
             users,
             courses
         )
@@ -518,15 +523,15 @@ describe('GuidedScheduler', () => {
 
     it('handles recent wellness check-ins without a stress value', async () => {
         const user = userEvent.setup()
-        const wellnessCheckIns: WellnessCheckIn[] = [
+        const wellnessCheckIns = [
             {
                 id: 'check-no-stress',
                 trainerId: 't1',
                 timestamp: '2026-03-19T12:00:00.000Z',
                 mood: 4,
                 workloadSatisfaction: 5,
-                notes: 'No stress score submitted',
-            },
+                comments: 'No stress score submitted',
+            } as Partial<WellnessCheckIn>,
         ]
 
         useKVMock.mockImplementation((key: string, initialValue: unknown) => {

@@ -31,11 +31,15 @@ import {
   BatteryCharging
 } from '@phosphor-icons/react'
 import { TrainerScheduler, SchedulingConstraints, TrainerMatch } from '@/lib/scheduler'
-import { User, Course, Session, WellnessCheckIn, RecoveryPlan } from '@/lib/types'
+import { User, Course, Session, WellnessCheckIn, RecoveryPlan, StressLevel } from '@/lib/types'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { calculateTrainerWorkload } from '@/lib/workload-balancer'
 import { calculateBurnoutRisk } from '@/lib/burnout-analytics'
+
+const STRESS_LEVEL_TO_SCORE: Record<StressLevel, number> = {
+  low: 1, moderate: 2, high: 4, critical: 5,
+}
 
 interface GuidedSchedulerProps {
   users: User[]
@@ -157,7 +161,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
       )
 
       const recentStressValue = recentCheckIns.length > 0 && recentCheckIns[0].stress != null
-        ? parseFloat(String(recentCheckIns[0].stress))
+        ? STRESS_LEVEL_TO_SCORE[recentCheckIns[0].stress]
         : undefined
 
       const recentMoodValue = recentCheckIns.length > 0 && recentCheckIns[0].mood != null

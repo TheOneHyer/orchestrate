@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
     analyzeWorkloadBalance,
@@ -107,6 +107,9 @@ function generateSessions(
 }
 
 describe('workload-balancer', () => {
+    afterEach(() => {
+        vi.useRealTimers()
+    })
     it('uses default weekly window when explicit dates are omitted', () => {
         vi.useFakeTimers()
         vi.setSystemTime(new Date('2026-03-12T12:00:00.000Z'))
@@ -123,8 +126,6 @@ describe('workload-balancer', () => {
 
         expect(analysis.workloads[0].sessionCount).toBe(1)
         expect(analysis.totalUtilization).toBe(4)
-
-        vi.useRealTimers()
     })
 
     it('calculates trainer workload totals and per-course counts', () => {
