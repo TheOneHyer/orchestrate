@@ -37,6 +37,10 @@ import { format } from 'date-fns'
 import { calculateTrainerWorkload } from '@/lib/workload-balancer'
 import { calculateBurnoutRisk } from '@/lib/burnout-analytics'
 
+// NOTE: This is a GuidedScheduler-specific, normalized 1–5 weighting for stress levels,
+// used when computing `recentWellnessScore` for ranking trainers in this UI.
+// It intentionally differs from the 0–100 stress scoring used in wellness analytics
+// (e.g., `getStressScore`) and should not be directly compared or mixed with that scale.
 const STRESS_LEVEL_TO_SCORE: Record<StressLevel, number> = {
   low: 1, moderate: 2, high: 4, critical: 5,
 }
