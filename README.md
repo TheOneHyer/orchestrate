@@ -28,7 +28,7 @@
 
 ### Prerequisites
 
-- **Node.js** ≥ 18
+- **Node.js** 24.14.0 (see `.node-version` for the exact required version)
 - **pnpm** 10.32.1 via Corepack
 
 > **pnpm is the only supported package manager for this project.**  
