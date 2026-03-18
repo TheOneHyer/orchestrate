@@ -211,7 +211,11 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
         <div className="space-y-4">
           {users
             .filter(u => u.role === 'trainer' && u.trainerProfile?.certificationRecords?.length)
-            .map(trainer => (
+            .map(trainer => {
+              const certificationRecords = trainer.trainerProfile!.certificationRecords!
+              const certificationCount = certificationRecords.length
+
+              return (
               <div key={trainer.id} className="border rounded-lg p-4">
                 <div
                   className="flex items-center justify-between mb-3 cursor-pointer"
@@ -222,13 +226,13 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                     <p className="text-sm text-muted-foreground">{trainer.email}</p>
                   </div>
                   <Badge variant="outline">
-                    {trainer.trainerProfile?.certificationRecords?.length || 0} certification
-                    {(trainer.trainerProfile?.certificationRecords?.length || 0) !== 1 ? 's' : ''}
+                    {certificationCount} certification
+                    {certificationCount !== 1 ? 's' : ''}
                   </Badge>
                 </div>
 
                 <div className="space-y-2">
-                  {trainer.trainerProfile?.certificationRecords?.map((cert, certIdx) => {
+                  {certificationRecords.map((cert, certIdx) => {
                     const status = calculateCertificationStatus(cert)
                     const isUnknownStatus = status !== 'expired' && status !== 'expiring-soon' && status !== 'active'
                     const daysUntil = Math.floor(
@@ -264,7 +268,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                   })}
                 </div>
               </div>
-            ))}
+            )})}
 
           {users.filter(u => u.role === 'trainer' && u.trainerProfile?.certificationRecords?.length).length === 0 && (
             <div className="text-center py-8 text-muted-foreground">

@@ -140,6 +140,22 @@ describe('certification-tracker', () => {
         expect(notification.message).toContain('expired 5 days ago')
     })
 
+    it('builds expired trainer notification copy with renewal guidance', () => {
+        const alert: CertificationAlert = {
+            userId: 'trainer-1',
+            userName: 'Taylor Trainer',
+            certification: createCertification({ certificationName: 'CPR', expirationDate: isoInDays(-5) }),
+            daysUntilExpiration: -5,
+            urgency: 'critical',
+        }
+
+        const notification = generateCertificationNotification(alert, false)
+
+        expect(notification.userId).toBe('trainer-1')
+        expect(notification.title).toBe('Your CPR Certification Has Expired')
+        expect(notification.message).toContain('Please renew immediately.')
+    })
+
     it('builds same-day trainer notification with critical priority', () => {
         const alert: CertificationAlert = {
             userId: 'trainer-1',
@@ -158,6 +174,22 @@ describe('certification-tracker', () => {
             link: '/people',
         })
         expect(notification.title).toBe('Your Safety Certification Expires Today')
+    })
+
+    it('builds same-day admin notification with explicit trainer action text', () => {
+        const alert: CertificationAlert = {
+            userId: 'trainer-1',
+            userName: 'Taylor Trainer',
+            certification: createCertification({ certificationName: 'Safety', expirationDate: isoInDays(0) }),
+            daysUntilExpiration: 0,
+            urgency: 'critical',
+        }
+
+        const notification = generateCertificationNotification(alert, true)
+
+        expect(notification.userId).toBe('admin')
+        expect(notification.title).toBe("Taylor Trainer's Safety Expires Today")
+        expect(notification.message).toContain('Taylor Trainer must renew this certification today')
     })
 
     it('builds medium-priority notice for 60-day horizon', () => {

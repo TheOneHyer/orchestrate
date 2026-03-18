@@ -103,6 +103,31 @@ describe('risk-history-tracker', () => {
         expect(trend).toBeNull()
     })
 
+    it('applies week cutoff by excluding snapshots older than 7 days', () => {
+        const trainer = createTrainer()
+        const trend = analyzeRiskTrend(trainer, [
+            createSnapshot({ id: 'old-week', timestamp: '2026-03-08T12:00:00.000Z', riskScore: 20, riskLevel: 'low' }),
+            createSnapshot({ id: 'in-week', timestamp: '2026-03-15T12:00:00.000Z', riskScore: 55, riskLevel: 'high' }),
+        ], 'week')
+
+        expect(trend).not.toBeNull()
+        expect(trend?.historicalData.map((snapshot) => snapshot.id)).toEqual(['in-week'])
+        expect(trend?.currentRisk.id).toBe('in-week')
+    })
+
+    it('uses the quarter range cutoff for snapshots between 30 and 90 days old', () => {
+        const trainer = createTrainer()
+        const snapshots = [
+            createSnapshot({ id: 'sixty-days', timestamp: '2026-01-20T12:00:00.000Z', riskScore: 42, riskLevel: 'medium' }),
+        ]
+
+        expect(analyzeRiskTrend(trainer, snapshots, 'month')).toBeNull()
+        const quarterTrend = analyzeRiskTrend(trainer, snapshots, 'quarter')
+        expect(quarterTrend).not.toBeNull()
+        expect(quarterTrend?.historicalData).toHaveLength(1)
+        expect(quarterTrend?.historicalData[0].id).toBe('sixty-days')
+    })
+
     it('detects worsening trends from older to recent risk averages', () => {
         const trainer = createTrainer()
         const trend = analyzeRiskTrend(trainer, [
@@ -226,5 +251,15 @@ describe('risk-history-tracker', () => {
         ])
 
         expect(aggregated.map(snapshot => snapshot.id)).toEqual(['d1-b', 'd2-b', 'd3'])
+    })
+
+    it('keeps the current latest snapshot when reduce compares against an older timestamp', () => {
+        const aggregated = aggregateSnapshotsByDay([
+            createSnapshot({ id: 'same-day-latest-first', timestamp: '2026-03-10T20:00:00.000Z', riskScore: 55 }),
+            createSnapshot({ id: 'same-day-older-second', timestamp: '2026-03-10T09:00:00.000Z', riskScore: 35 }),
+        ])
+
+        expect(aggregated).toHaveLength(1)
+        expect(aggregated[0].id).toBe('same-day-latest-first')
     })
 })

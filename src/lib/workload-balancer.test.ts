@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
     analyzeWorkloadBalance,
@@ -39,6 +39,18 @@ function createTrainer(id: string, name: string, certifications: string[], shift
             },
             specializations: ['Safety']
         }
+    }
+}
+
+function createTrainerWithoutProfile(id: string, name: string, certifications: string[]): User {
+    return {
+        id,
+        name,
+        email: `${id}@example.com`,
+        role: 'trainer',
+        department: 'Operations',
+        certifications,
+        hireDate: '2020-01-01T00:00:00.000Z',
     }
 }
 
@@ -95,6 +107,26 @@ function generateSessions(
 }
 
 describe('workload-balancer', () => {
+    it('uses default weekly window when explicit dates are omitted', () => {
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-03-12T12:00:00.000Z'))
+
+        const trainer = createTrainer('trainer-default-window', 'Avery', ['Forklift'])
+        const users = [trainer]
+        const courses = [createCourse('course-a', ['Forklift'])]
+        const sessions = [
+            createSession('in-window', trainer.id, 'course-a', '2026-03-10T08:00:00.000Z', '2026-03-10T12:00:00.000Z'),
+            createSession('out-window', trainer.id, 'course-a', '2026-03-02T08:00:00.000Z', '2026-03-02T12:00:00.000Z'),
+        ]
+
+        const analysis = analyzeWorkloadBalance(users, sessions, courses)
+
+        expect(analysis.workloads[0].sessionCount).toBe(1)
+        expect(analysis.totalUtilization).toBe(4)
+
+        vi.useRealTimers()
+    })
+
     it('calculates trainer workload totals and per-course counts', () => {
         const trainer = createTrainer('trainer-a', 'Avery', ['Forklift'])
         const sessions = [
@@ -152,6 +184,25 @@ describe('workload-balancer', () => {
         )
     })
 
+    it('uses medium-priority redistribution when trainer is overutilized but not critical', () => {
+        const overutilized = createTrainer('trainer-overutilized', 'Morgan', ['Forklift'])
+        const underutilized = createTrainer('trainer-underutilized', 'Casey', ['Forklift'])
+        const users = [overutilized, underutilized]
+        const courses = [createCourse('course-a', ['Forklift'])]
+
+        const sessions = [
+            ...generateSessions(9, overutilized.id, 'course-a', 9, 'over-'), // 36h => 90%
+            createSession('under-1', underutilized.id, 'course-a', '2026-03-11T08:00:00.000Z', '2026-03-11T12:00:00.000Z'),
+        ]
+
+        const analysis = analyzeWorkloadBalance(users, sessions, courses, WEEK_START, WEEK_END)
+        const redistribute = analysis.recommendations.find((recommendation) => recommendation.type === 'redistribute')
+
+        expect(redistribute).toBeDefined()
+        expect(redistribute?.priority).toBe('medium')
+        expect(redistribute?.affectedTrainers).toEqual([overutilized.id, underutilized.id])
+    })
+
     it('finds a bounded set of sessions to move to a compatible trainer', () => {
         const overloaded = createTrainer('trainer-overloaded', 'Olivia', ['Forklift'])
         const available = createTrainer('trainer-available', 'Parker', ['Forklift'])
@@ -200,6 +251,39 @@ describe('workload-balancer', () => {
         )
     })
 
+    it('creates hire recommendation without shift suffix when overloaded trainer has no shift profile', () => {
+        const overloaded = createTrainerWithoutProfile('trainer-overloaded', 'No Profile Overload', ['Forklift'])
+        const incompatible = createTrainer('trainer-incompatible', 'Shifted Quinn', ['Hazmat'], 'NIGHT')
+        const users = [overloaded, incompatible]
+        const courses = [createCourse('course-a', ['Forklift'])]
+
+        const sessions = [
+            ...generateSessions(10, overloaded.id, 'course-a', 9, 'overloaded-'),
+            createSession('other-1', incompatible.id, 'course-a', '2026-03-10T08:00:00.000Z', '2026-03-10T12:00:00.000Z'),
+        ]
+
+        const analysis = analyzeWorkloadBalance(users, sessions, courses, WEEK_START, WEEK_END)
+        const hire = analysis.recommendations.find((recommendation) => recommendation.type === 'hire')
+
+        expect(hire).toBeDefined()
+        expect(hire?.description).not.toContain('for NIGHT shifts')
+    })
+
+    it('evaluates duplicate-course redistribution with profile-less trainers without crashing', () => {
+        const overloaded = createTrainerWithoutProfile('trainer-overloaded', 'No Profile Overload', ['Forklift'])
+        const available = createTrainerWithoutProfile('trainer-available', 'No Profile Available', ['Forklift'])
+        const users = [overloaded, available]
+        const courses = [createCourse('course-a', ['Forklift'])]
+
+        const sessions = [
+            ...generateSessions(10, overloaded.id, 'course-a', 9, 'dup-'),
+            createSession('available-1', available.id, 'course-a', '2026-03-10T08:00:00.000Z', '2026-03-10T12:00:00.000Z'),
+        ]
+
+        const analysis = analyzeWorkloadBalance(users, sessions, courses, WEEK_START, WEEK_END)
+        expect(analysis.recommendations.length).toBeGreaterThan(0)
+    })
+
     it('adds recurring-session redistribution guidance when duplicate course load is concentrated', () => {
         const overloaded = createTrainer('trainer-overloaded', 'Olivia', ['Forklift'])
         const available = createTrainer('trainer-available', 'Parker', ['Forklift'])
@@ -237,5 +321,24 @@ describe('workload-balancer', () => {
         )
 
         expect(opportunities).toEqual([])
+    })
+
+    it('handles underutilized trainers without shift schedules in redistribution scan', () => {
+        const overloaded = createTrainer('trainer-overloaded', 'Olivia', ['Forklift'])
+        const underNoProfile = createTrainerWithoutProfile('trainer-under', 'Taylor', ['Forklift'])
+        const sessions = generateSessions(10, overloaded.id, 'course-a', 9, 'session-')
+        const courses = [createCourse('course-a', ['Forklift'])]
+
+        const overloadedWorkload = calculateTrainerWorkload(overloaded, sessions, WEEK_START, WEEK_END)
+        const underWorkload = calculateTrainerWorkload(underNoProfile, [], WEEK_START, WEEK_END)
+
+        const opportunities = findRedistributionOpportunities(
+            overloadedWorkload,
+            underWorkload,
+            sessions,
+            courses
+        )
+
+        expect(opportunities.length).toBeGreaterThan(0)
     })
 })

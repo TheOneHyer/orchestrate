@@ -269,6 +269,34 @@ describe('burnout-analytics', () => {
         expect(trend.dataPoints.length).toBeGreaterThan(1)
     })
 
+    it('supports week and quarter utilization windows', () => {
+        const trainer = createTrainer()
+        const courses = [createCourse('course-1')]
+        const sessions = [
+            createSession('recent', 'course-1', '2026-03-14T08:00:00.000Z', '2026-03-14T12:00:00.000Z'),
+            createSession('within-quarter', 'course-1', '2026-01-20T08:00:00.000Z', '2026-01-20T12:00:00.000Z'),
+        ]
+
+        const weekUtilization = calculateTrainerUtilization(trainer, sessions, courses, 'week')
+        const quarterUtilization = calculateTrainerUtilization(trainer, sessions, courses, 'quarter')
+
+        expect(weekUtilization.sessionCount).toBe(1)
+        expect(quarterUtilization.sessionCount).toBe(2)
+        expect(quarterUtilization.hoursScheduled).toBeGreaterThan(weekUtilization.hoursScheduled)
+    })
+
+    it('computes stable weekly trend and zero change rate with no sessions', () => {
+        const trainer = createTrainer()
+
+        const weekTrend = getUtilizationTrend(trainer, [], 'week')
+        const quarterTrend = getUtilizationTrend(trainer, [], 'quarter')
+
+        expect(weekTrend.trend).toBe('stable')
+        expect(weekTrend.changeRate).toBe(0)
+        expect(quarterTrend.trend).toBe('stable')
+        expect(quarterTrend.changeRate).toBe(0)
+    })
+
     it('returns a low risk assessment when trainer id is unknown', () => {
         const assessment = calculateBurnoutRisk('missing-trainer', [], [], [], [])
 

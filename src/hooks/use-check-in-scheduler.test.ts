@@ -103,6 +103,19 @@ describe('use-check-in-scheduler', () => {
         expect(setter).not.toHaveBeenCalled()
     })
 
+    it('returns an empty schedules array when persisted schedules are undefined', () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([undefined, setter] as any)
+
+        const { result } = renderHook(() =>
+            useCheckInScheduler([createTrainer('trainer-1')], [], undefined)
+        )
+
+        expect(result.current.schedules).toEqual([])
+        expect(toast.info).not.toHaveBeenCalled()
+        expect(setter).not.toHaveBeenCalled()
+    })
+
     it('shows a toast reminder when check-in is approaching within reminderHoursBefore window', () => {
         const upcomingTime = new Date(NOW.getTime() + 2 * 60 * 60 * 1000).toISOString() // 2 hours from now
         const schedule = createSchedule({ nextScheduledDate: upcomingTime, reminderHoursBefore: 4 })
@@ -145,6 +158,9 @@ describe('use-check-in-scheduler', () => {
         const updated = updaterFn([schedule])
         expect(updated[0].missedCheckIns).toBe(1)
         expect(schedule.missedCheckIns).toBe(0)
+
+        const updatedFromUndefined = updaterFn(undefined as unknown as CheckInSchedule[])
+        expect(updatedFromUndefined).toEqual([])
     })
 
     it('increments only the overdue schedule when updater runs against mixed schedules', () => {
@@ -295,6 +311,55 @@ describe('use-check-in-scheduler', () => {
 
         expect(updated[0].lastCheckInDate).toBe('2026-03-15T00:00:00.000Z')
         expect(updated[0].completedCheckIns).toBe(1)
+    })
+
+    it('does not attempt schedule synchronization when checkIns is undefined', () => {
+        const schedule = createSchedule({
+            id: 'undefined-checkins',
+            trainerId: 'trainer-1',
+            nextScheduledDate: new Date(NOW.getTime() + 48 * 60 * 60 * 1000).toISOString(),
+            notificationEnabled: false,
+            autoReminders: false,
+        })
+
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[schedule], setter] as any)
+
+        renderHook(() =>
+            useCheckInScheduler(
+                [createTrainer('trainer-1')],
+                undefined as unknown as WellnessCheckIn[],
+                undefined
+            )
+        )
+
+        expect(setter).not.toHaveBeenCalled()
+    })
+
+    it('uses startDate as fallback when lastCheckInDate is missing and avoids duplicate updates', () => {
+        const sharedDate = '2026-03-10T00:00:00.000Z'
+        const schedule = createSchedule({
+            id: 'start-fallback',
+            trainerId: 'trainer-1',
+            startDate: sharedDate,
+            lastCheckInDate: undefined,
+            nextScheduledDate: new Date(NOW.getTime() + 48 * 60 * 60 * 1000).toISOString(),
+            notificationEnabled: false,
+            autoReminders: false,
+        })
+
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[schedule], setter] as any)
+
+        renderHook(() =>
+            useCheckInScheduler(
+                [createTrainer('trainer-1')],
+                [createCheckIn({ timestamp: sharedDate })],
+                undefined
+            )
+        )
+
+        expect(setter).not.toHaveBeenCalled()
     })
 
     it('does not update schedule when latest check-in timestamp matches the recorded date', () => {

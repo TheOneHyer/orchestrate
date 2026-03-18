@@ -30,6 +30,33 @@ afterEach(() => {
 })
 
 describe('usePushNotifications', () => {
+    it('falls back to default settings when persisted settings are undefined', () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([undefined, setter] as any)
+
+        const NotificationMock = globalThis.Notification as any
+        NotificationMock.permission = 'granted'
+
+        const { result } = renderHook(() => usePushNotifications())
+
+        expect(result.current.settings).toMatchObject({
+            enabled: false,
+            permission: 'default',
+            showForPriorities: {
+                low: false,
+                medium: true,
+                high: true,
+                critical: true,
+            },
+        })
+
+        expect(setter).toHaveBeenCalledWith(expect.any(Function))
+        const updater = setter.mock.calls[0][0] as (prev: any) => any
+        const updated = updater(undefined)
+        expect(updated.permission).toBe('granted')
+        expect(updated.showForPriorities.medium).toBe(true)
+    })
+
     it('syncs stored permission to the browser permission on mount when different', () => {
         const setter = vi.fn()
         vi.mocked(useKV).mockReturnValue([
@@ -93,6 +120,23 @@ describe('usePushNotifications', () => {
         const updated = lastUpdater({ enabled: false, permission: 'granted', showForPriorities: {} })
         expect(updated.permission).toBe('granted')
         expect(updated.enabled).toBe(true)
+    })
+
+    it('requestPermission merges from DEFAULT_SETTINGS when current settings are undefined', async () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([undefined, setter] as any)
+
+        const { result } = renderHook(() => usePushNotifications())
+        await act(async () => {
+            await result.current.requestPermission()
+        })
+
+        const calls = setter.mock.calls
+        const permissionUpdater = calls[calls.length - 1][0] as (prev: any) => any
+        const updated = permissionUpdater(undefined)
+        expect(updated.permission).toBe('granted')
+        expect(updated.enabled).toBe(true)
+        expect(updated.showForPriorities.critical).toBe(true)
     })
 
     it('requestPermission returns "denied" and keeps notifications disabled', async () => {
@@ -284,6 +328,33 @@ describe('usePushNotifications', () => {
         vi.useRealTimers()
     })
 
+    it('auto-dismisses low-priority notifications after 3000ms', () => {
+        vi.useFakeTimers()
+
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                permission: 'granted',
+                showForPriorities: { low: true, medium: true, high: true, critical: true },
+            },
+            vi.fn(),
+        ] as any)
+
+        const { result } = renderHook(() => usePushNotifications())
+        const notification = result.current.sendNotification('Low', { priority: 'low' }) as any
+
+        expect(notification).not.toBeNull()
+        expect(notification.close).not.toHaveBeenCalled()
+
+        act(() => {
+            vi.advanceTimersByTime(3000)
+        })
+
+        expect(notification.close).toHaveBeenCalledOnce()
+
+        vi.useRealTimers()
+    })
+
     it('merges partial settings updates through updateSettings', () => {
         const setter = vi.fn()
         vi.mocked(useKV).mockReturnValue([
@@ -306,6 +377,23 @@ describe('usePushNotifications', () => {
         const updated = updater({ enabled: false, permission: 'granted', showForPriorities: { low: false, medium: true, high: true, critical: true } })
         expect(updated.enabled).toBe(true)
         expect(updated.permission).toBe('granted')
+    })
+
+    it('updateSettings merges with default settings when current is undefined', () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([undefined, setter] as any)
+
+        const { result } = renderHook(() => usePushNotifications())
+
+        act(() => {
+            result.current.updateSettings({ enabled: true })
+        })
+
+        const updater = setter.mock.calls[setter.mock.calls.length - 1][0] as (prev: any) => any
+        const updated = updater(undefined)
+        expect(updated.enabled).toBe(true)
+        expect(updated.permission).toBe('default')
+        expect(updated.showForPriorities.medium).toBe(true)
     })
 
     it('testNotification sends a medium-priority test message', () => {

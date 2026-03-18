@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { addDays, addMonths, addWeeks } from 'date-fns'
 import { describe, expect, it, vi } from 'vitest'
 
 import { ApplyTemplateDialog } from './ApplyTemplateDialog'
@@ -41,6 +42,17 @@ const template: ScheduleTemplate = {
     usageCount: 0,
     tags: [],
     isActive: true,
+}
+
+function createTemplate(overrides: Partial<ScheduleTemplate> = {}): ScheduleTemplate {
+    return {
+        ...template,
+        ...overrides,
+    }
+}
+
+function getCreateButton() {
+    return screen.getByRole('button', { name: /create/i })
 }
 
 describe('ApplyTemplateDialog', () => {
@@ -143,4 +155,139 @@ describe('ApplyTemplateDialog', () => {
         expect(await screen.findByText(/and 1 more session/i)).toBeInTheDocument()
         expect(await screen.findByRole('button', { name: /create 6 sessions/i })).toBeInTheDocument()
     })
+
+    it('uses singular copy for one session per cycle and one total session', () => {
+        const singleSessionTemplate = createTemplate({
+            sessions: [
+                {
+                    dayOfWeek: 2,
+                    time: '10:00',
+                    duration: 45,
+                    location: 'Solo Room',
+                    capacity: 10,
+                    requiresCertifications: [],
+                    shift: 'day',
+                },
+            ],
+        })
+
+        render(
+            <ApplyTemplateDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                template={singleSessionTemplate}
+                onApply={vi.fn()}
+            />
+        )
+
+        fireEvent.change(screen.getByLabelText(/number of cycles/i), { target: { value: '1' } })
+
+        expect(screen.getByText(/1 session per cycle/i)).toBeInTheDocument()
+        const totalSessionCopyMatches = screen.queryAllByText((_, element) =>
+            element?.textContent?.replace(/\s+/g, ' ').includes('Will create 1 total session') ?? false
+        )
+        expect(totalSessionCopyMatches.length).toBeGreaterThan(0)
+        expect(screen.getByRole('button', { name: /create 1 session/i })).toBeEnabled()
+    })
+
+    it('shows course override placeholder for templates without a default course id', () => {
+        render(
+            <ApplyTemplateDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                template={createTemplate({ courseId: undefined })}
+                onApply={vi.fn()}
+            />
+        )
+
+        expect(screen.getByPlaceholderText(/leave empty to set later/i)).toBeInTheDocument()
+    })
+
+    it('falls back to empty courseId and TBD location when template and overrides omit values', async () => {
+        const onApply = vi.fn()
+        const user = userEvent.setup()
+        const noDefaultsTemplate = createTemplate({
+            courseId: undefined,
+            sessions: [
+                {
+                    dayOfWeek: 1,
+                    time: '09:00',
+                    duration: 30,
+                    location: undefined,
+                    capacity: 12,
+                    requiresCertifications: [],
+                    shift: 'day',
+                },
+            ],
+        })
+
+        render(
+            <ApplyTemplateDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                template={noDefaultsTemplate}
+                onApply={onApply}
+            />
+        )
+
+        await user.click(getCreateButton())
+
+        expect(onApply).toHaveBeenCalledOnce()
+        expect(onApply.mock.calls[0][0][0]).toEqual(
+            expect.objectContaining({
+                courseId: '',
+                location: 'TBD',
+            })
+        )
+    })
+
+    it.each([
+        ['daily', undefined, (base: Date) => addDays(base, 1)],
+        ['biweekly', undefined, (base: Date) => addWeeks(base, 2)],
+        ['monthly', undefined, (base: Date) => addMonths(base, 1)],
+        ['custom', 3, (base: Date) => addDays(base, 3)],
+        ['unexpected', undefined, (base: Date) => addWeeks(base, 1)],
+    ] as const)(
+        'generates the next cycle correctly for %s recurrence',
+        async (recurrenceType, cycleDays, getExpectedSecondStart) => {
+            const onApply = vi.fn()
+            const user = userEvent.setup()
+            const recurrenceTemplate = createTemplate({
+                recurrenceType: recurrenceType as unknown as ScheduleTemplate['recurrenceType'],
+                cycleDays,
+                sessions: [
+                    {
+                        time: '09:00',
+                        duration: 60,
+                        capacity: 10,
+                        requiresCertifications: [],
+                        shift: 'day',
+                    },
+                ],
+            })
+
+            render(
+                <ApplyTemplateDialog
+                    open={true}
+                    onOpenChange={vi.fn()}
+                    template={recurrenceTemplate}
+                    onApply={onApply}
+                />
+            )
+
+            const startDateInput = screen.getByLabelText(/start date/i)
+            fireEvent.change(startDateInput, { target: { value: '2026-03-17' } })
+            fireEvent.change(screen.getByLabelText(/number of cycles/i), { target: { value: '2' } })
+
+            await user.click(getCreateButton())
+
+            expect(onApply).toHaveBeenCalledOnce()
+            const sessions = onApply.mock.calls[0][0]
+            expect(sessions).toHaveLength(2)
+
+            const baseStart = new Date(2026, 2, 17, 9, 0, 0, 0)
+            const expectedSecondStart = getExpectedSecondStart(baseStart)
+            expect(new Date(sessions[1].startTime).getTime()).toBe(expectedSecondStart.getTime())
+        }
+    )
 })
