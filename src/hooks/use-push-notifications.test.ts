@@ -25,6 +25,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+    vi.useRealTimers()
     vi.unstubAllGlobals()
     vi.clearAllMocks()
 })
@@ -324,8 +325,6 @@ describe('usePushNotifications', () => {
         })
 
         expect(notification.close).toHaveBeenCalledOnce()
-
-        vi.useRealTimers()
     })
 
     it('auto-dismisses low-priority notifications after 3000ms', () => {
@@ -351,8 +350,6 @@ describe('usePushNotifications', () => {
         })
 
         expect(notification.close).toHaveBeenCalledOnce()
-
-        vi.useRealTimers()
     })
 
     it('merges partial settings updates through updateSettings', () => {
