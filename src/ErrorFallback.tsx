@@ -3,6 +3,21 @@ import { Button } from "./components/ui/button";
 
 import { AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
 
+/**
+ * Fallback UI rendered by the top-level React {@link ErrorBoundary} when an
+ * unhandled runtime error is thrown by any descendant component.
+ *
+ * In development mode the error is re-thrown immediately so that framework
+ * overlay tooling (e.g., Vite's error overlay) can display a richer
+ * diagnostic. In production, a user-facing alert is shown along with the
+ * error message and a "Try Again" button that resets the boundary.
+ *
+ * @param props - Props injected by `react-error-boundary`.
+ * @param props.error - The error object that was caught by the boundary.
+ * @param props.resetErrorBoundary - Callback that resets the error boundary
+ *   state, allowing the application to attempt re-rendering.
+ * @returns A full-screen error card, or re-throws in development.
+ */
 export const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => {
   // When encountering an error in the development mode, rethrow it and don't display the boundary.
   // The parent UI will take care of showing a more helpful dialog.
