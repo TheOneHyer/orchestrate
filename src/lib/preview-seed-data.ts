@@ -12,26 +12,79 @@ import {
 } from '@/lib/types'
 import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 
+/** Unique version tag for the preview seed data schema, used to detect stale cached seeds. */
 export const PREVIEW_SEED_VERSION = 'preview-seed-v1'
 
+/**
+ * The complete set of demo entities injected into the application store when
+ * preview seeding is active. Every collection maps directly to the corresponding
+ * store slice.
+ */
 export interface PreviewSeedData {
+    /** Users covering admin, trainer, and employee roles. */
     users: User[]
+    /** Training sessions in various states (completed, in-progress, scheduled, cancelled). */
     sessions: Session[]
+    /** Available training courses, including an unpublished draft for edge-case testing. */
     courses: Course[]
+    /** Student enrollments linking users to courses and sessions. */
     enrollments: Enrollment[]
+    /** System and user-facing notifications at various priority levels. */
     notifications: Notification[]
+    /** Trainer wellness check-in records with mood, stress, and energy ratings. */
     wellnessCheckIns: WellnessCheckIn[]
+    /** Active recovery plans for at-risk trainers. */
     recoveryPlans: RecoveryPlan[]
+    /** Scheduled cadences for recurring trainer wellness check-ins. */
     checkInSchedules: CheckInSchedule[]
+    /** Reusable schedule templates for recurring training programs. */
     scheduleTemplates: ScheduleTemplate[]
+    /** Point-in-time burnout-risk history snapshots for trend analysis. */
     riskHistorySnapshots: RiskHistorySnapshot[]
+    /** Target number of trainer-coverage slots used by coverage calculations. */
     targetTrainerCoverage: number
 }
 
+/**
+ * Converts a `Date` to its ISO 8601 string representation.
+ *
+ * @param date - The date to serialise.
+ * @returns The ISO 8601 string (e.g. `"2024-06-01T08:00:00.000Z"`).
+ */
 function iso(date: Date): string {
     return date.toISOString()
 }
 
+/**
+ * Generates a complete, self-consistent set of preview seed data anchored to
+ * `referenceDate` (defaults to the current moment).
+ *
+ * All dates within the seed data are computed relative to `referenceDate`, so
+ * the data stays temporally accurate on every page load. The returned object
+ * includes:
+ *
+ * - **Users** – 1 admin, 3 trainers (each with a distinct risk profile), and
+ *   6 employees spread across Warehouse, Production, and Logistics.
+ * - **Courses** – 3 published courses and 1 unpublished draft.
+ * - **Sessions** – 8 sessions spanning past, present, and future states
+ *   (completed, in-progress, scheduled, and cancelled), including one
+ *   over-capacity session for edge-case testing.
+ * - **Enrollments** – 5 enrollment records covering all status variants.
+ * - **Notifications** – 4 notifications at critical, high, medium, and low
+ *   priority.
+ * - **Wellness check-ins** – 4 records depicting healthy through critical
+ *   burnout states.
+ * - **Recovery plans** – 1 active recovery plan for the critically overloaded
+ *   trainer.
+ * - **Check-in schedules** – Daily, biweekly, and weekly cadences for the
+ *   three trainers.
+ * - **Schedule templates** – 2 templates (weekly forklift, biweekly safety).
+ * - **Risk history snapshots** – 6 snapshots (2 per trainer) for trend charts.
+ *
+ * @param referenceDate - The anchor date from which all relative dates are
+ *   calculated. Defaults to `new Date()`.
+ * @returns A fully populated {@link PreviewSeedData} object.
+ */
 export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedData {
     const now = referenceDate
 
