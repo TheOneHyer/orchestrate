@@ -765,11 +765,22 @@ export class TrainerScheduler {
       suggestions.push('Review certification requirements or train additional staff')
     }
 
-    const shiftMatchedTrainers = certifiedTrainers.filter(trainer =>
-      !constraints.shifts ||
-      constraints.shifts.length === 0 ||
-      constraints.shifts.some(shift => trainer.shifts?.includes(shift))
-    )
+    const shiftMatchedTrainers = certifiedTrainers.filter(trainer => {
+      if (!constraints.shifts || constraints.shifts.length === 0) return true
+      // Check trainer.shifts first (directly assigned shift periods)
+      if (trainer.shifts && trainer.shifts.length > 0) {
+        return constraints.shifts.some(shift => trainer.shifts.includes(shift))
+      }
+      // Fall back to trainerProfile.shiftSchedules for seeded/persisted trainers
+      // that omit User.shifts but carry shift type info in their schedule entries
+      const shiftSchedules = trainer.trainerProfile?.shiftSchedules
+      if (shiftSchedules && shiftSchedules.length > 0) {
+        return constraints.shifts.some(shift =>
+          shiftSchedules.some(s => s.shiftType === shift)
+        )
+      }
+      return false
+    })
 
     if (shiftMatchedTrainers.length === 0 && certifiedTrainers.length > 0) {
       issues.push('Certified trainers do not work the required shifts')

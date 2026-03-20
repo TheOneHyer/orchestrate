@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { NotificationSoundSettings } from './NotificationSoundSettings'
+import { PushNotificationSettings as NotificationSoundSettings } from './PushNotificationSettings'
 
 const mockUsePushNotifications = vi.fn()
 
