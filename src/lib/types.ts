@@ -15,7 +15,7 @@ export interface ShiftSchedule {
   /** Short identifier code for the shift (e.g. "D1", "N2"). */
   shiftCode: string
   /** The shift period (day / evening / night) this schedule covers. */
-  shiftType: ShiftType
+  shiftType?: ShiftType
   /** The days of the week on which this shift is worked. */
   daysWorked: DayOfWeek[]
   /** Shift start time in ISO 8601 or HH:mm format. */
@@ -66,7 +66,7 @@ export interface TrainerProfile {
     hireDate: string
     /** Whole years of service completed. */
     yearsOfService: number
-    /** Additional months of service beyond whole years. */
+    /** Total months of service from hire date. */
     monthsOfService: number
   }
   /** Areas of expertise or subject-matter focus for this trainer. */
@@ -106,7 +106,7 @@ export interface User {
   hireDate: string
   /** Extended profile data, present only for trainers. */
   trainerProfile?: TrainerProfile
-  /** Shift periods (day / evening / night) this user is scheduled for; populated for trainers. */
+  /** Shift periods (day / evening / night) this user is scheduled for; always present for trainers, absent for other roles. */
   shifts?: ShiftType[]
 }
 
@@ -182,7 +182,7 @@ export interface Session {
   enrolledStudents: string[]
   /** Current lifecycle state of the session. */
   status: 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
-  /** Shift period during which this session runs. */
+  /** Shift period during which this session runs; derived from session start time when not explicitly set. */
   shift?: ShiftType
   /** Optional recurrence rule for repeating sessions. */
   recurrence?: {

@@ -4,9 +4,10 @@ import { differenceInYears, differenceInMonths } from 'date-fns'
 export type { ShiftType }
 
 /**
- * A `User` variant that is narrowed to the `'trainer'` role and guarantees
- * that the `shifts` field is typed as `ShiftType[]` (rather than the broader
- * union that `User` allows).
+ * A `User` variant narrowed to the `'trainer'` role that makes the `shifts`
+ * field required (non-optional). While `User.shifts` is declared optional
+ * (absent for non-trainer roles), trainer users are always expected to have
+ * shifts assigned. This type enforces that guarantee at the type level.
  */
 export type TrainerWithShifts = Omit<User, 'shifts'> & {
   role: 'trainer'
@@ -45,7 +46,7 @@ export function generateTrainerProfile(user: User): User {
 
   const shiftSchedules: ShiftSchedule[] = []
 
-  user.shifts.forEach((shiftType, index) => {
+  user.shifts?.forEach((shiftType, index) => {
     const schedule = createShiftSchedule(shiftType, index)
     shiftSchedules.push(schedule)
   })

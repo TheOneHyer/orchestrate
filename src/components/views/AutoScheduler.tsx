@@ -368,7 +368,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        {match.trainer.department} • Works: {match.trainer.shifts.join(', ')}
+                        {match.trainer.department} • Works: {match.trainer.shifts?.join(', ') ?? 'N/A'}
                       </div>
                       
                       <div className="mt-3 space-y-1">
