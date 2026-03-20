@@ -33,12 +33,12 @@ export function useCheckInScheduler(
 ) {
   const [schedules, setSchedules] = useKV<CheckInSchedule[]>('check-in-schedules', [])
 
-/**
- * Computes the next check-in date for a given schedule based on its frequency setting.
- *
- * @param schedule - The check-in schedule to compute the next date for.
- * @returns The calculated next scheduled {@link Date}.
- */
+  /**
+   * Computes the next check-in date for a given schedule based on its frequency setting.
+   *
+   * @param schedule - The check-in schedule to compute the next date for.
+   * @returns The calculated next scheduled {@link Date}.
+   */
   const getNextScheduledDate = useCallback((schedule: CheckInSchedule): Date => {
     const baseDate = schedule.lastCheckInDate
       ? new Date(schedule.lastCheckInDate)

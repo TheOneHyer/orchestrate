@@ -38,8 +38,8 @@ interface ScheduleProps {
   onUpdateSession: (id: string, updates: Partial<Session>) => void
   /**
    * Callback for navigating to another view.
-   * `@param` view - Target view name.
-   * `@param` data - Optional payload for the target view.
+   * @param view - Target view name.
+   * @param data - Optional payload for the target view.
    */
   onNavigate: (view: string, data?: unknown) => void
 }

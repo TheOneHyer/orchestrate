@@ -12,9 +12,9 @@ export interface SchedulingConstraints {
   requiredCertifications: string[]
   /** ISO date strings (e.g. `"2024-06-01"`) on which sessions should be scheduled. */
   dates: string[]
-  /** Wall-clock start time of each session in `HH:MM` 24-hour format. */
+  /** Wall-clock start time of each session in `HH:mm` 24-hour format. */
   startTime: string
-  /** Wall-clock end time of each session in `HH:MM` 24-hour format. */
+  /** Wall-clock end time of each session in `HH:mm` 24-hour format. */
   endTime: string
   /** Physical or virtual location where the session will be held. */
   location: string
@@ -98,7 +98,7 @@ export class TrainerScheduler {
   /** Available courses used to validate course IDs and look up titles. */
   private courses: Course[]
 
-  /** Lookup array mapping `Date.getUTCDay()` index to lowercase day name. */
+  /** Lookup array mapping a `Date` instance's `.getUTCDay()` return value to a lowercase day name. */
   private readonly dayOfWeekMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'] as const
 
   /**

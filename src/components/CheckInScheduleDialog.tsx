@@ -108,12 +108,12 @@ export function CheckInScheduleDialog({
     onClose()
   }
 
-/**
- * Returns a human-readable label for a {@link CheckInFrequency} value.
- *
- * @param freq - The frequency value to convert.
- * @returns A short descriptive string such as "Every Week" or "Custom Interval".
- */
+  /**
+   * Returns a human-readable label for a {@link CheckInFrequency} value.
+   *
+   * @param freq - The frequency value to convert.
+   * @returns A short descriptive string such as "Every Week" or "Custom Interval".
+   */
   const getFrequencyLabel = (freq: CheckInFrequency) => {
     switch (freq) {
       case 'daily': return 'Every Day'
