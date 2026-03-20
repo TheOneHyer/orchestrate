@@ -17,28 +17,7 @@ import {
   Gear,
   BookOpen,
   CaretRight,
-} from '@phosphor-icons/react'
-
-import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { cn } from '@/lib/utils'
-import {
   type IconProps,
-  House,
-  CalendarDots,
-  Repeat,
-  GraduationCap,
-  Users,
-  ChartBar,
-  Calendar,
-  Heart,
-  Certificate,
-  Bell,
-  Gear,
-  BookOpen,
-  CaretRight,
 } from '@phosphor-icons/react'
 
 /** Describes a single section entry in the User Guide sidebar. */
@@ -53,7 +32,6 @@ interface Section {
   roles: string[]
   /** JSX content rendered in the main panel when this section is active. */
   content: React.ReactNode
-}
 }
 
 /**
