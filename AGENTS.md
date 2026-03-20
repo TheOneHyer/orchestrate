@@ -1,4 +1,4 @@
-# AI Agent Instructions — TrainSync (orchestrate)
+# AI Agent Instructions — Orchestrate
 
 This document provides coding standards, tooling constraints, and quality
 requirements for every AI agent or coding assistant working in this repository.

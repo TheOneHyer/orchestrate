@@ -412,7 +412,7 @@ describe('usePushNotifications', () => {
         expect(NotificationMock).toHaveBeenCalledWith(
             'Test Notification',
             expect.objectContaining({
-                body: 'This is a test notification from TrainSync',
+                body: 'This is a test notification from Orchestrate',
                 tag: 'test-notification',
             })
         )

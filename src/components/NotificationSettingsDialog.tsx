@@ -71,7 +71,7 @@ export function NotificationSettingsDialog({ open, onOpenChange }: NotificationS
         <DialogHeader>
           <DialogTitle>Notification Settings</DialogTitle>
           <DialogDescription>
-            Configure browser push notifications for TrainSync
+            Configure browser push notifications for Orchestrate
           </DialogDescription>
         </DialogHeader>
 
@@ -96,7 +96,7 @@ export function NotificationSettingsDialog({ open, onOpenChange }: NotificationS
                 {pushSettings.permission === 'default' && (
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      Browser notifications allow you to receive alerts even when TrainSync is not in focus.
+                      Browser notifications allow you to receive alerts even when Orchestrate is not in focus.
                     </p>
                     {permissionError && (
                       <p className="text-sm text-destructive" role="alert">

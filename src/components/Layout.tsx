@@ -73,7 +73,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
     <div className="flex h-screen bg-secondary">
       <aside className="w-64 bg-card border-r border-border flex flex-col">
         <div className="p-6 border-b border-border">
-          <h1 className="text-2xl font-semibold text-primary">TrainSync</h1>
+          <h1 className="text-2xl font-semibold text-primary">Orchestrate</h1>
           <p className="text-sm text-muted-foreground mt-1">Training Management</p>
         </div>
 
