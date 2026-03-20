@@ -162,7 +162,7 @@ export function usePushNotifications() {
 
   const testNotification = useCallback(() => {
     sendNotification('Test Notification', {
-      body: 'This is a test notification from TrainSync',
+      body: 'This is a test notification from Orchestrate',
       priority: 'medium',
       tag: 'test-notification'
     })

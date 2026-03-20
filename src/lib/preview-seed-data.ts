@@ -92,7 +92,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         {
             id: 'admin-1',
             name: 'Admin User',
-            email: 'admin@trainsync.test',
+            email: 'admin@orchestrate.test',
             role: 'admin',
             department: 'Operations',
             certifications: [],
@@ -101,7 +101,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         {
             id: 'trainer-1',
             name: 'Avery Stone',
-            email: 'avery.stone@trainsync.test',
+            email: 'avery.stone@orchestrate.test',
             role: 'trainer',
             department: 'Warehouse Training',
             certifications: ['Forklift Operator', 'Safety Training'],
@@ -149,7 +149,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         {
             id: 'trainer-2',
             name: 'Jordan Kim',
-            email: 'jordan.kim@trainsync.test',
+            email: 'jordan.kim@orchestrate.test',
             role: 'trainer',
             department: 'Quality Training',
             certifications: ['Quality Control', 'Lean Manufacturing'],
@@ -197,7 +197,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         {
             id: 'trainer-3',
             name: 'Casey Brooks',
-            email: 'casey.brooks@trainsync.test',
+            email: 'casey.brooks@orchestrate.test',
             role: 'trainer',
             department: 'Safety and Compliance',
             certifications: ['Safety Training', 'First Aid'],
@@ -245,7 +245,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         {
             id: 'employee-1',
             name: 'Taylor Brown',
-            email: 'taylor.brown@trainsync.test',
+            email: 'taylor.brown@orchestrate.test',
             role: 'employee',
             department: 'Warehouse',
             certifications: [],
@@ -254,7 +254,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         {
             id: 'employee-2',
             name: 'Jamie Flores',
-            email: 'jamie.flores@trainsync.test',
+            email: 'jamie.flores@orchestrate.test',
             role: 'employee',
             department: 'Warehouse',
             certifications: [],
@@ -263,7 +263,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         {
             id: 'employee-3',
             name: 'Devin Wright',
-            email: 'devin.wright@trainsync.test',
+            email: 'devin.wright@orchestrate.test',
             role: 'employee',
             department: 'Production',
             certifications: [],
@@ -272,7 +272,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         {
             id: 'employee-4',
             name: 'Alex Martinez',
-            email: 'alex.martinez@trainsync.test',
+            email: 'alex.martinez@orchestrate.test',
             role: 'employee',
             department: 'Production',
             certifications: [],
@@ -281,7 +281,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         {
             id: 'employee-5',
             name: 'Robin Kim',
-            email: 'robin.kim@trainsync.test',
+            email: 'robin.kim@orchestrate.test',
             role: 'employee',
             department: 'Logistics',
             certifications: [],
@@ -290,7 +290,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         {
             id: 'employee-6',
             name: 'Drew Wilson',
-            email: 'drew.wilson@trainsync.test',
+            email: 'drew.wilson@orchestrate.test',
             role: 'employee',
             department: 'Logistics',
             certifications: [],

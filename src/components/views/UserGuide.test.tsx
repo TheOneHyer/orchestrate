@@ -9,8 +9,8 @@ describe('UserGuide', () => {
     render(<UserGuide />)
 
     expect(screen.getByText(/user guide/i)).toBeInTheDocument()
-    expect(screen.getByText(/what is trainsync/i)).toBeInTheDocument()
-    expect(screen.getByText(/a complete reference for every feature in trainsync/i)).toBeInTheDocument()
+    expect(screen.getByText(/what is orchestrate/i)).toBeInTheDocument()
+    expect(screen.getByText(/a complete reference for every feature in orchestrate/i)).toBeInTheDocument()
   })
 
   it('switches sections from the sidebar and shows updated content', async () => {

@@ -1,6 +1,6 @@
-# TrainSync — Corporate Training Management System
+# Orchestrate — Corporate Training Management System
 
-**TrainSync** (project codename: *orchestrate*) is an enterprise-grade web application for managing, scheduling, and tracking corporate training programs. It gives training administrators, trainers, and employees a single place to coordinate sessions, monitor trainer wellness, track certifications, and gain data-driven insights into training effectiveness.
+**Orchestrate** is an enterprise-grade web application for managing, scheduling, and tracking corporate training programs. It gives training administrators, trainers, and employees a single place to coordinate sessions, monitor trainer wellness, track certifications, and gain data-driven insights into training effectiveness.
 
 ---
 
@@ -38,7 +38,7 @@
 ### Installation
 
 ```bash
-# Clone the repository (repository name: orchestrate, application name: TrainSync)
+# Clone the repository
 git clone https://github.com/TheOneHyer/orchestrate.git
 cd orchestrate
 
@@ -141,7 +141,7 @@ orchestrate/
 
 ## 👥 User Roles
 
-TrainSync supports three role levels that control which navigation items and actions are visible:
+Orchestrate supports three role levels that control which navigation items and actions are visible:
 
 | Role | Access |
 | --- | --- |
@@ -153,7 +153,7 @@ TrainSync supports three role levels that control which navigation items and act
 
 ## 🔔 Notifications
 
-TrainSync delivers alerts through three channels:
+Orchestrate delivers alerts through three channels:
 
 1. **In-app notification center** — persistent, filterable notification list
 2. **Toast messages** — ephemeral pop-ups for high/critical-priority events

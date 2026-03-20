@@ -105,9 +105,9 @@ const sections: Section[] = [
     roles: ['admin', 'trainer', 'employee'],
     content: (
       <div className="space-y-6">
-        <GuideSection title="What is TrainSync?">
+        <GuideSection title="What is Orchestrate?">
           <p>
-            TrainSync is a comprehensive corporate training management system. It allows
+            Orchestrate is a comprehensive corporate training management system. It allows
             organisations to schedule training sessions, manage trainer workloads, track
             employee certifications, and monitor trainer wellness — all from a single
             application.
@@ -115,7 +115,7 @@ const sections: Section[] = [
         </GuideSection>
 
         <GuideSection title="User Roles">
-          <p>TrainSync has three role levels. Each role sees a tailored set of navigation items and actions:</p>
+          <p>Orchestrate has three role levels. Each role sees a tailored set of navigation items and actions:</p>
           <div className="overflow-auto rounded-md border">
             <table className="w-full text-sm">
               <thead>
@@ -785,7 +785,7 @@ const sections: Section[] = [
             'Sound Type — choose from Default, Chime, Bell, or Alert.',
             'Volume — slide to your preferred level and test immediately.',
             'Per-priority toggles — enable or disable sounds for each priority level independently.',
-            'Browser push notifications — grant permission once and receive alerts even when TrainSync is not in focus.',
+            'Browser push notifications — grant permission once and receive alerts even when Orchestrate is not in focus.',
           ]} />
         </GuideSection>
       </div>
@@ -826,7 +826,7 @@ const sections: Section[] = [
 ]
 
 /**
- * Renders the full-page User Guide for TrainSync.
+ * Renders the full-page User Guide for Orchestrate.
  *
  * Provides a sidebar-navigated reference covering every major feature of the application,
  * organised into role-tagged sections (Overview, Schedule, Templates, People, Reports,
@@ -842,7 +842,7 @@ export function UserGuide() {
       <div>
         <h1 className="text-3xl font-semibold text-foreground">User Guide</h1>
         <p className="text-muted-foreground mt-1">
-          A complete reference for every feature in TrainSync
+          A complete reference for every feature in Orchestrate
         </p>
       </div>
 

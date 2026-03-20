@@ -1,4 +1,4 @@
-# GitHub Copilot Instructions — TrainSync (orchestrate)
+# GitHub Copilot Instructions — Orchestrate
 
 These instructions apply to every Copilot suggestion, edit, and chat response
 in this repository. Follow all rules below precisely.
