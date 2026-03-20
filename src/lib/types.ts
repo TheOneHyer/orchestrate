@@ -138,6 +138,51 @@ export interface Course {
 }
 
 /**
+ * Content payload for a video module.
+ * @see {@link Module}
+ */
+export interface VideoContent {
+  /** URL of the video resource. */
+  url: string
+  /** Duration of the video in seconds. */
+  durationSeconds?: number
+}
+
+/**
+ * Content payload for a slideshow module.
+ * @see {@link Module}
+ */
+export interface SlideshowContent {
+  /** Ordered list of slide image URLs or markup strings. */
+  slides: string[]
+}
+
+/**
+ * Content payload for a quiz module.
+ * @see {@link Module}
+ */
+export interface QuizContent {
+  /** Ordered list of quiz questions. */
+  questions: Array<{
+    /** The question prompt. */
+    prompt: string
+    /** Available answer choices. */
+    choices: string[]
+    /** Zero-based index of the correct choice. */
+    correctIndex: number
+  }>
+}
+
+/**
+ * Content payload for a text module.
+ * @see {@link Module}
+ */
+export interface TextContent {
+  /** The body text (may contain Markdown or HTML). */
+  body: string
+}
+
+/**
  * A single content module within a course, holding typed instructional material.
  */
 export interface Module {
@@ -149,8 +194,11 @@ export interface Module {
   description: string
   /** The type of content delivered by this module. */
   contentType: 'video' | 'slideshow' | 'quiz' | 'text'
-  /** The raw module content; shape depends on `contentType`. */
-  content: any
+  /**
+   * The raw module content; callers must narrow on `contentType` before
+   * accessing type-specific properties.
+   */
+  content: VideoContent | SlideshowContent | QuizContent | TextContent
   /** Estimated duration of the module in minutes. */
   duration: number
   /** Zero-based position of this module within its parent course. */
