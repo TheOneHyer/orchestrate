@@ -90,7 +90,6 @@ export function PushNotificationSettings() {
                     Notifications are blocked in your browser/site settings.
                   </p>
                 )}
-                )}
               </div>
 
               {pushSettings.permission === 'granted' && (
