@@ -18,9 +18,9 @@ export interface ShiftSchedule {
   shiftType: ShiftType
   /** The days of the week on which this shift is worked. */
   daysWorked: DayOfWeek[]
-  /** Shift start time in ISO 8601 or HH:mm format. */
+  /** Shift start time as a 24-hour `HH:mm` string or a 12-hour `h:mm AM/PM` string. */
   startTime: string
-  /** Shift end time in ISO 8601 or HH:mm format. */
+  /** Shift end time as a 24-hour `HH:mm` string or a 12-hour `h:mm AM/PM` string. */
   endTime: string
   /** Cumulative hours worked per week under this schedule. */
   totalHoursPerWeek: number
@@ -344,7 +344,7 @@ export interface SessionScheduleConflict {
 }
 
 /** The display mode used to render the scheduling interface. */
-export type ViewType = 'calendar' | 'gantt' | 'list' | 'board'
+export type ViewType = 'calendar' | 'list' | 'board'
 
 /** A numeric mood rating on a 1–5 scale (1 = very low, 5 = excellent). */
 export type MoodLevel = 1 | 2 | 3 | 4 | 5

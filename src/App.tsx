@@ -357,8 +357,8 @@ function App() {
    *
    * @param view - The key of the view to navigate to (e.g. `'dashboard'`,
    *   `'schedule'`, `'people'`).
-   * @param data - Optional contextual data passed by the originating view
-   *   (currently unused but forwarded for future extensibility).
+   * @param _data - Optional contextual data passed by the originating view
+   *   (currently ignored; reserved for future extensibility).
    */
   const handleNavigate = (view: string, _data?: unknown) => {
     setActiveView(view)
