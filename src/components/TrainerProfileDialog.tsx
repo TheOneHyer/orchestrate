@@ -109,6 +109,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
 
     const newSchedule: ShiftSchedule = {
       shiftCode: `SHIFT-${Date.now()}`,
+      shiftType: 'day',
       daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
       startTime: '09:00',
       endTime: '17:00',

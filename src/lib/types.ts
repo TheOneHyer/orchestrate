@@ -15,7 +15,7 @@ export interface ShiftSchedule {
   /** Short identifier code for the shift (e.g. "D1", "N2"). */
   shiftCode: string
   /** The shift period (day / evening / night) this schedule covers. */
-  shiftType?: ShiftType
+  shiftType: ShiftType
   /** The days of the week on which this shift is worked. */
   daysWorked: DayOfWeek[]
   /** Shift start time in ISO 8601 or HH:mm format. */
