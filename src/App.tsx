@@ -79,9 +79,8 @@ function App() {
    * {@link createPreviewSeedData}, then records a versioned seed marker so the
    * seeding logic does not run again for the same mode.
    *
-   * Passing `'off'` is a no-op. Passing `'manual'` (the default) seeds data
-   * without changing the stored seed-version marker, allowing repeated manual
-   * reloads from the Settings page.
+   * Passing `'off'` is a no-op. For all other modes (including `'manual'`),
+   * the stored seed-version marker is always updated to reflect the applied mode.
    *
    * @param seedMode - The preview seed mode to apply. One of the
    *   {@link PreviewSeedMode} values or `'manual'`.

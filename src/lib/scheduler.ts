@@ -766,7 +766,9 @@ export class TrainerScheduler {
     }
 
     const shiftMatchedTrainers = certifiedTrainers.filter(trainer =>
-      constraints.shifts.some(shift => trainer.shifts.includes(shift))
+      !constraints.shifts ||
+      constraints.shifts.length === 0 ||
+      constraints.shifts.some(shift => trainer.shifts?.includes(shift))
     )
 
     if (shiftMatchedTrainers.length === 0 && certifiedTrainers.length > 0) {
@@ -825,7 +827,9 @@ export class TrainerScheduler {
     let totalHours = 0
 
     for (const session of trainerSessions) {
-      sessionsByShift[session.shift]++
+      if (session.shift) {
+        sessionsByShift[session.shift]++
+      }
       const duration = (new Date(session.endTime).getTime() - new Date(session.startTime).getTime()) / (1000 * 60 * 60)
       totalHours += duration
     }
