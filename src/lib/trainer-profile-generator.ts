@@ -5,9 +5,9 @@ export type { ShiftType }
 
 /**
  * A `User` variant narrowed to the `'trainer'` role that makes the `shifts`
- * field required (non-optional). While `User.shifts` is declared optional
- * (absent for non-trainer roles), trainer users are always expected to have
- * shifts assigned. This type enforces that guarantee at the type level.
+ * field required (non-optional). Use this type at call sites where shifts are
+ * known to be present. When shifts may be absent, use the base `User` type and
+ * handle the optional `shifts` field accordingly.
  */
 export type TrainerWithShifts = Omit<User, 'shifts'> & {
   role: 'trainer'
@@ -20,7 +20,8 @@ export type TrainerWithShifts = Omit<User, 'shifts'> & {
  *
  * The generated profile includes:
  * - Authorised training roles derived from the trainer's certifications.
- * - A {@link ShiftSchedule} for each shift type assigned to the user.
+ * - A {@link ShiftSchedule} for each shift type in `user.shifts` (produces an
+ *   empty `shiftSchedules` array when `shifts` is absent or empty).
  * - Tenure information (years and months of service) calculated from `hireDate`.
  * - Specialisations derived from the trainer's certifications.
  * - A default `maxWeeklyHours` of 40.
