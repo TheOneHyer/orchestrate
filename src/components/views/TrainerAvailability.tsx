@@ -42,7 +42,7 @@ interface TrainerSchedule {
   sessions: Session[]
   /** Total available working hours for the trainer in the selected week. */
   availableHours: number
-  /** Fraction of available hours already committed (0–1+). */
+  /** Percentage of weekly capacity already committed (0–100+). */
   utilizationRate: number
 }
 
