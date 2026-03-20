@@ -80,10 +80,16 @@ export function PushNotificationSettings() {
                     {pushSettings.permission === 'default' && 'Not yet requested'}
                   </p>
                 </div>
-                {pushSettings.permission !== 'granted' && (
+                {pushSettings.permission === 'default' && (
                   <Button onClick={handleRequestPushPermission}>
                     Enable Notifications
                   </Button>
+                )}
+                {pushSettings.permission === 'denied' && (
+                  <p className="text-sm text-muted-foreground">
+                    Notifications are blocked in your browser/site settings.
+                  </p>
+                )}
                 )}
               </div>
 
