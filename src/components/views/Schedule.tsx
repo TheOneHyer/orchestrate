@@ -47,6 +47,14 @@ interface ScheduleProps {
 /** Roles that are allowed to create or modify schedule entries. */
 const allowedScheduleManagers: ReadonlyArray<User['role']> = ['admin', 'trainer']
 
+/** The available view modes for the schedule. */
+type ViewType = 'calendar' | 'list' | 'board'
+
+/** Type guard that narrows a string to {@link ViewType}. */
+function isViewType(v: string): v is ViewType {
+  return v === 'calendar' || v === 'list' || v === 'board'
+}
+
 /**
  * Renders the schedule management UI with calendar, list, and board views and handles session creation, editing, enrollment, drag-and-drop rescheduling, and conflict detection.
  *
@@ -54,7 +62,7 @@ const allowedScheduleManagers: ReadonlyArray<User['role']> = ['admin', 'trainer'
  * @returns The Schedule component's React element.
  */
 export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate }: ScheduleProps) {
-  const [viewType, setViewType] = useState<'calendar' | 'list' | 'gantt' | 'board'>('calendar')
+  const [viewType, setViewType] = useState<ViewType>('calendar')
   const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('month')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -842,7 +850,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
         )}
       </div>
 
-      <Tabs value={viewType} onValueChange={(v) => setViewType(v as any)}>
+      <Tabs value={viewType} onValueChange={(v) => { if (isViewType(v)) { setViewType(v) } else { console.warn(`Unknown view type: "${v}"`) } }}>
         <div className="flex items-center justify-between">
           <TabsList>
             <TabsTrigger value="calendar">
