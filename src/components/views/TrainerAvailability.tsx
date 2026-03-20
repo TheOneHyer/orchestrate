@@ -31,7 +31,7 @@ interface TrainerAvailabilityProps {
    * @param view - Target view name.
    * @param data - Optional payload for the target view.
    */
-  onNavigate: (view: string, data?: any) => void
+  onNavigate: (view: string, data?: unknown) => void
 }
 
 /** Aggregated schedule information for a single trainer within the selected week. */
