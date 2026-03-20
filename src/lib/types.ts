@@ -106,7 +106,7 @@ export interface User {
   hireDate: string
   /** Extended profile data, present only for trainers. */
   trainerProfile?: TrainerProfile
-  /** Shift periods (day / evening / night) this user is scheduled for; always present for trainers, absent for other roles. */
+  /** Shift periods (day / evening / night) this user is scheduled for; typically populated for trainer roles, absent for other roles. */
   shifts?: ShiftType[]
 }
 
