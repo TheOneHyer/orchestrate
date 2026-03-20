@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ComponentType, type ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -17,8 +17,8 @@ import {
   Gear,
   BookOpen,
   CaretRight,
-  type IconProps,
 } from '@phosphor-icons/react'
+import type { IconProps } from '@phosphor-icons/react'
 
 /** Describes a single section entry in the User Guide sidebar. */
 interface Section {
@@ -27,11 +27,11 @@ interface Section {
   /** Human-readable label shown in the sidebar navigation. */
   label: string
   /** Phosphor icon component rendered next to the label. */
-  icon: React.ComponentType<IconProps>
+  icon: ComponentType<IconProps>
   /** User roles that this section is relevant to (e.g. `['admin', 'trainer']`). */
   roles: string[]
   /** JSX content rendered in the main panel when this section is active. */
-  content: React.ReactNode
+  content: ReactNode
 }
 
 /**
@@ -60,7 +60,7 @@ function SectionBadge({ roles }: { roles: string[] }) {
  * @param title - The subsection heading text.
  * @param children - Body content for the subsection.
  */
-function GuideSection({ title, children }: { title: string; children: React.ReactNode }) {
+function GuideSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="space-y-2">
       <h3 className="text-base font-semibold text-foreground">{title}</h3>
