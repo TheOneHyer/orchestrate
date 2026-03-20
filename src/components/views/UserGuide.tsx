@@ -17,8 +17,8 @@ import {
   Gear,
   BookOpen,
   CaretRight,
-  type IconProps,
 } from '@phosphor-icons/react'
+import type { IconProps } from '@phosphor-icons/react'
 
 /** Describes a single section entry in the User Guide sidebar. */
 interface Section {
@@ -60,7 +60,7 @@ function SectionBadge({ roles }: { roles: string[] }) {
  * @param title - The subsection heading text.
  * @param children - Body content for the subsection.
  */
-function GuideSection({ title, children }: { title: string; children: React.ReactNode }) {
+function GuideSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="space-y-2">
       <h3 className="text-base font-semibold text-foreground">{title}</h3>
