@@ -360,7 +360,7 @@ function App() {
    * @param data - Optional contextual data passed by the originating view
    *   (currently unused but forwarded for future extensibility).
    */
-  const handleNavigate = (view: string, data?: any) => {
+  const handleNavigate = (view: string, _data?: unknown) => {
     setActiveView(view)
   }
 
