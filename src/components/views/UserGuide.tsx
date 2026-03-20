@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ComponentType, type ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -27,11 +27,11 @@ interface Section {
   /** Human-readable label shown in the sidebar navigation. */
   label: string
   /** Phosphor icon component rendered next to the label. */
-  icon: React.ComponentType<IconProps>
+  icon: ComponentType<IconProps>
   /** User roles that this section is relevant to (e.g. `['admin', 'trainer']`). */
   roles: string[]
   /** JSX content rendered in the main panel when this section is active. */
-  content: React.ReactNode
+  content: ReactNode
 }
 
 /**

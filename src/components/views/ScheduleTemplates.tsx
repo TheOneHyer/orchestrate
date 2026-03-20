@@ -46,7 +46,7 @@ interface ScheduleTemplatesProps {
  *
  * Allows admins to create, edit, duplicate, delete, and apply reusable training-schedule
  * templates. Templates are persisted via the Spark KV store. Applying a template opens a
- * dialog that generates concrete {`@link` Session} stubs and, when
+ * dialog that generates concrete {@link Session} stubs and, when
  * `onCreateSessions` is provided, passes them upstream.
  */
 export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: ScheduleTemplatesProps) {

@@ -284,7 +284,7 @@ export interface Quiz {
  * Describes a scheduling conflict detected between two sessions
  * for a shared resource (trainer, student, or room).
  */
-export interface ScheduleConflict {
+export interface SessionScheduleConflict {
   /** The type of resource involved in the conflict. */
   type: 'trainer' | 'student' | 'room'
   /** ID of the conflicting resource (user ID or room identifier). */
