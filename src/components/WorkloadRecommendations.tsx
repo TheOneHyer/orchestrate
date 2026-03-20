@@ -17,13 +17,36 @@ import {
 import { WorkloadRecommendation, WorkloadAnalysis } from '@/lib/workload-balancer'
 import { User } from '@/lib/types'
 
+/**
+ * Props for the {@link WorkloadRecommendations} component.
+ */
 interface WorkloadRecommendationsProps {
+  /** Workload analysis result produced by the workload-balancer library. */
   analysis: WorkloadAnalysis
+  /** Full list of users; used to resolve trainer names from IDs in recommendation cards. */
   users: User[]
+  /**
+   * Optional callback invoked when the user clicks a trainer's name badge.
+   * @param trainerId - ID of the trainer whose profile should be opened.
+   */
   onViewTrainer?: (trainerId: string) => void
+  /**
+   * Optional callback invoked when the user clicks "View Details" on an actionable recommendation.
+   * @param recommendation - The specific recommendation the user wants to act on.
+   */
   onApplyRecommendation?: (recommendation: WorkloadRecommendation) => void
 }
 
+/**
+ * Component that renders workload balance analysis and actionable recommendations.
+ *
+ * Shows a summary card with a numeric balance score (0–100), progress bar, and counts of
+ * over/balanced/under-utilised trainers. When recommendations exist, each is displayed as
+ * an alert with a priority badge, affected-trainer buttons, and an optional "View Details"
+ * action. Separate cards list the top overutilised and underutilised trainers. When the
+ * workload is already well balanced (score ≥ 80 and no recommendations), a success state
+ * card is rendered instead.
+ */
 export function WorkloadRecommendations({
   analysis,
   users,
@@ -32,6 +55,12 @@ export function WorkloadRecommendations({
 }: WorkloadRecommendationsProps) {
   const { recommendations, balanceScore, overutilizedTrainers, underutilizedTrainers } = analysis
 
+  /**
+   * Returns a priority-coloured icon element for a recommendation priority level.
+   *
+   * @param priority - The recommendation priority: `"high"`, `"medium"`, or `"low"`.
+   * @returns An icon JSX element with appropriate colour styling.
+   */
   const getPriorityIcon = (priority: 'high' | 'medium' | 'low') => {
     switch (priority) {
       case 'high':
@@ -43,6 +72,12 @@ export function WorkloadRecommendations({
     }
   }
 
+  /**
+   * Returns the Tailwind CSS class string for a priority badge background and text.
+   *
+   * @param priority - The recommendation priority: `"high"`, `"medium"`, or `"low"`.
+   * @returns Space-separated Tailwind classes for the badge colour.
+   */
   const getPriorityBadgeColor = (priority: 'high' | 'medium' | 'low') => {
     switch (priority) {
       case 'high':
@@ -54,6 +89,12 @@ export function WorkloadRecommendations({
     }
   }
 
+  /**
+   * Returns a small icon element representing the type of a workload recommendation.
+   *
+   * @param type - The recommendation type from {@link WorkloadRecommendation}.
+   * @returns An icon JSX element matching the recommendation category.
+   */
   const getTypeIcon = (type: WorkloadRecommendation['type']) => {
     switch (type) {
       case 'redistribute':
@@ -67,18 +108,36 @@ export function WorkloadRecommendations({
     }
   }
 
+  /**
+   * Returns a Tailwind text-colour class based on the balance score value.
+   *
+   * @param score - Numeric balance score from 0 to 100.
+   * @returns A Tailwind CSS class for green (≥80), amber (60–79), or red (<60) text.
+   */
   const getBalanceScoreColor = (score: number) => {
     if (score >= 80) return 'text-green-600'
     if (score >= 60) return 'text-amber-600'
     return 'text-red-600'
   }
 
+  /**
+   * Returns a human-readable label for the balance score range.
+   *
+   * @param score - Numeric balance score from 0 to 100.
+   * @returns `"Excellent Balance"`, `"Moderate Balance"`, or `"Poor Balance"`.
+   */
   const getBalanceScoreLabel = (score: number) => {
     if (score >= 80) return 'Excellent Balance'
     if (score >= 60) return 'Moderate Balance'
     return 'Poor Balance'
   }
 
+  /**
+   * Looks up a user by ID from the `users` prop array.
+   *
+   * @param id - The user ID to search for.
+   * @returns The matching {@link User} or `undefined` if not found.
+   */
   const getUserById = (id: string) => users.find(u => u.id === id)
 
   if (recommendations.length === 0 && balanceScore >= 80) {

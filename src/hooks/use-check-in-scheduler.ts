@@ -4,6 +4,28 @@ import { toast } from 'sonner'
 import { CheckInSchedule, User, WellnessCheckIn } from '@/lib/types'
 import { differenceInHours, addDays, addWeeks, addMonths, isAfter } from 'date-fns'
 
+/**
+ * Hook that manages scheduled wellness check-ins for trainers.
+ *
+ * Persists check-in schedules via KV storage and polls every 30 minutes to:
+ * - Trigger due check-ins by calling `onTriggerCheckIn`.
+ * - Show toast reminders ahead of scheduled check-ins when auto-reminders are enabled.
+ * - Increment the missed check-in counter for overdue, unaddressed schedules.
+ *
+ * When new wellness check-in data arrives it automatically advances the next
+ * scheduled date for the matching active schedule.
+ *
+ * @param users - Array of all application users, used to resolve trainer names.
+ * @param checkIns - Array of completed wellness check-ins; the latest entry is
+ *   used to advance matching schedule dates automatically.
+ * @param onTriggerCheckIn - Optional callback invoked when a check-in becomes due,
+ *   receiving the trainer's ID and display name.
+ * @returns An object containing:
+ *   - `schedules` – The current list of persisted check-in schedules.
+ *   - `setSchedules` – Setter for directly updating the schedules list.
+ *   - `updateScheduleNextDate` – Advances a schedule's next date after a check-in is recorded.
+ *   - `checkForDueCheckIns` – Manually trigger a due-check evaluation.
+ */
 export function useCheckInScheduler(
   users: User[],
   checkIns: WellnessCheckIn[],
@@ -11,6 +33,12 @@ export function useCheckInScheduler(
 ) {
   const [schedules, setSchedules] = useKV<CheckInSchedule[]>('check-in-schedules', [])
 
+  /**
+   * Computes the next check-in date for a given schedule based on its frequency setting.
+   *
+   * @param schedule - The check-in schedule to compute the next date for.
+   * @returns The calculated next scheduled {@link Date}.
+   */
   const getNextScheduledDate = useCallback((schedule: CheckInSchedule): Date => {
     const baseDate = schedule.lastCheckInDate
       ? new Date(schedule.lastCheckInDate)

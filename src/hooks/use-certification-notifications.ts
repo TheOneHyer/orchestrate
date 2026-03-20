@@ -6,6 +6,13 @@ import {
   generateCertificationNotification
 } from '@/lib/certification-tracker'
 
+/**
+ * Creates a deep clone of a User object, duplicating nested certification records
+ * to prevent unintended mutations when updating certification state.
+ *
+ * @param user - The user to clone.
+ * @returns A new User object with independently cloned trainer profile data.
+ */
 function cloneUserForCertificationUpdate(user: User): User {
   if (!user.trainerProfile) {
     return { ...user }
@@ -22,6 +29,22 @@ function cloneUserForCertificationUpdate(user: User): User {
   }
 }
 
+/**
+ * Hook that monitors trainer certifications and dispatches renewal reminder
+ * notifications when certifications are approaching expiry.
+ *
+ * On mount and whenever the `users` list changes, it checks all trainers for
+ * expiring certifications. A periodic 24-hour interval repeats the check while
+ * the component is mounted. When a reminder is due, the hook:
+ * - Creates a notification for the trainer themselves.
+ * - Creates a separate notification for the admin.
+ * - Increments the `remindersSent` counter on the certification record.
+ *
+ * @param users - Array of all application users to scan for expiring certifications.
+ * @param onCreateNotification - Callback invoked to persist each new notification.
+ * @param onUpdateUsers - Callback invoked to persist the updated users array after
+ *   incrementing reminder counters on certification records.
+ */
 export function useCertificationNotifications(
   users: User[],
   onCreateNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => void,

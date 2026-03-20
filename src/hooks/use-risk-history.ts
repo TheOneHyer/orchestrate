@@ -6,6 +6,25 @@ import { RiskHistorySnapshot, createRiskSnapshot, shouldTakeSnapshot } from '@/l
 const SNAPSHOT_FREQUENCY_HOURS = 24
 const MAX_HISTORY = 1000
 
+/**
+ * Hook that periodically captures risk snapshots for all trainers and exposes
+ * the accumulated history for trend analysis.
+ *
+ * Five seconds after mount (and whenever the input data changes) it checks
+ * whether each trainer is due a new snapshot based on `SNAPSHOT_FREQUENCY_HOURS`.
+ * The history is bounded to `MAX_HISTORY` entries so KV storage does not grow
+ * without limit over long-running sessions.
+ *
+ * @param users - Full list of application users; only those with role `'trainer'` are snapshotted.
+ * @param sessions - All training sessions, used to compute workload metrics for each snapshot.
+ * @param courses - All courses, used alongside sessions for risk calculation.
+ * @param wellnessCheckIns - Completed wellness check-ins, factored into trainer risk scores.
+ * @returns An object containing:
+ *   - `riskHistory` – The complete array of persisted {@link RiskHistorySnapshot} records.
+ *   - `getTrainerHistory` – Returns snapshots for a specific trainer, sorted chronologically.
+ *   - `clearHistory` – Wipes all stored snapshots.
+ *   - `takeSnapshots` – Manually trigger a snapshot evaluation cycle.
+ */
 export function useRiskHistory(
   users: User[],
   sessions: Session[],

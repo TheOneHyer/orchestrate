@@ -1,17 +1,31 @@
 import { useCallback, useRef } from 'react'
 import { useKV } from '@github/spark/hooks'
 
+/**
+ * Configuration for a quiet-hours window during which notification sounds are suppressed.
+ */
 export interface QuietHours {
+  /** Whether the quiet-hours feature is currently active. */
   enabled: boolean
+  /** Start of the quiet period in `HH:mm` 24-hour format (e.g. `"22:00"`). */
   startTime: string
+  /** End of the quiet period in `HH:mm` 24-hour format (e.g. `"08:00"`). */
   endTime: string
+  /** When `true`, critical-priority notifications still play a sound during quiet hours. */
   allowCritical: boolean
 }
 
+/**
+ * Persisted user preferences for in-app notification sounds.
+ */
 export interface NotificationSoundSettings {
+  /** Whether notification sounds are globally enabled. */
   enabled: boolean
+  /** Playback volume, expressed as a value between `0` (silent) and `1` (full volume). */
   volume: number
+  /** The tone palette to use when playing notification sounds. */
   soundType: 'soft' | 'pleasant' | 'gentle' | 'musical' | 'minimal'
+  /** Quiet-hours configuration that suppresses sounds during specified time windows. */
   quietHours: QuietHours
 }
 
@@ -27,6 +41,19 @@ const DEFAULT_SETTINGS: NotificationSoundSettings = {
   }
 }
 
+/**
+ * Hook that provides Web Audio API–based notification sounds with configurable
+ * tone palettes, volume, and quiet-hours scheduling.
+ *
+ * Sound settings are persisted via KV storage so they survive page reloads.
+ * The Web Audio context is initialised lazily on first sound playback.
+ *
+ * @returns An object containing:
+ *   - `settings` – Current {@link NotificationSoundSettings}.
+ *   - `playSound` – Play a notification tone for the given priority level.
+ *   - `updateSettings` – Merge partial settings updates into the persisted store.
+ *   - `testSound` – Play a test tone for the given priority (delegates to `playSound`).
+ */
 export function useNotificationSound() {
   const [settings, setSettings] = useKV<NotificationSoundSettings>(
     'notification-sound-settings',
@@ -138,21 +165,45 @@ export function useNotificationSound() {
   }
 }
 
+/**
+ * Describes a single oscillator tone used to build a notification sound.
+ */
 interface SoundTone {
+  /** Oscillator waveform shape. */
   waveType: OscillatorType
+  /** Starting frequency of the tone in Hz. */
   startFreq: number
+  /** Optional ending frequency in Hz; when set, the pitch glides from `startFreq` to `endFreq`. */
   endFreq?: number
+  /** Total duration of the tone in seconds. */
   duration: number
+  /** Peak amplitude of the tone (0–1 scale applied before the master gain node). */
   volume: number
+  /** Attack time in seconds – how quickly the tone ramps up to full volume. */
   attack: number
+  /** Delay in milliseconds before the tone starts (used to sequence chords/arpeggios). */
   delay?: number
+  /** Low-pass filter cut-off frequency in Hz applied to the tone. */
   filterFreq?: number
 }
 
+/**
+ * A collection of tones that together make up a single notification sound.
+ */
 interface SoundConfiguration {
+  /** Ordered list of oscillator tones to play for this sound. */
   tones: SoundTone[]
 }
 
+/**
+ * Returns the {@link SoundConfiguration} for the given sound type and notification priority.
+ *
+ * Falls back to the `pleasant` palette if `soundType` is unrecognised.
+ *
+ * @param soundType - One of the named sound palettes (`'soft'`, `'pleasant'`, `'gentle'`, `'musical'`, `'minimal'`).
+ * @param priority - Notification priority level (`'low'`, `'medium'`, `'high'`, `'critical'`).
+ * @returns The matching {@link SoundConfiguration} containing the tones to play.
+ */
 function getSoundConfig(soundType: string, priority: string): SoundConfiguration {
   const configs: Record<string, Record<string, SoundConfiguration>> = {
     soft: {

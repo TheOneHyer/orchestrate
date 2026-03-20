@@ -9,11 +9,28 @@ import { Plus } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 
+/**
+ * Props for the {@link AddCertificationDialog} component.
+ */
 interface AddCertificationDialogProps {
+  /** Full list of users; the dialog filters this down to trainers. */
   users: User[]
+  /**
+   * Callback invoked when the form is submitted successfully.
+   * @param trainerIds - IDs of the trainers who will receive the certification.
+   * @param certification - Certification details (name, dates, notes) without derived fields.
+   */
   onAddCertification: (trainerIds: string[], certification: Omit<CertificationRecord, 'status' | 'renewalRequired' | 'remindersSent'>) => void
 }
 
+/**
+ * Dialog that allows an admin to add a certification record to one or more trainers.
+ *
+ * Renders a trigger button ("Add Certification") that opens a modal containing a
+ * form for entering the certification name, issued/expiration dates, optional notes,
+ * and a multi-select list of trainers. On submission, {@link AddCertificationDialogProps.onAddCertification}
+ * is called with the selected trainer IDs and the certification data.
+ */
 export function AddCertificationDialog({ users, onAddCertification }: AddCertificationDialogProps) {
   const [open, setOpen] = useState(false)
   const [certificationName, setCertificationName] = useState('')

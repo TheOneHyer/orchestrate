@@ -10,9 +10,13 @@ import { Certificate, Warning, CheckCircle, XCircle, Clock } from '@phosphor-ico
 import { format, parseISO } from 'date-fns'
 import { AddCertificationDialog } from '@/components/AddCertificationDialog'
 
+/** Props for the CertificationDashboard view component. */
 interface CertificationDashboardProps {
+  /** All users in the system; trainer records are filtered to build certification listings. */
   users: User[]
+  /** Navigation callback invoked with a view name and optional payload (e.g., `{ userId }`). */
   onNavigate: (view: string, data?: any) => void
+  /** Callback invoked when a new certification is added for one or more trainers. */
   onAddCertification: (trainerIds: string[], certification: Omit<CertificationRecord, 'status' | 'renewalRequired' | 'remindersSent'>) => void
 }
 

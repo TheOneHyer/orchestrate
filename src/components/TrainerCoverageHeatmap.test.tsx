@@ -193,6 +193,7 @@ describe('TrainerCoverageHeatmap', () => {
 
         const overnightSchedule: ShiftSchedule = {
             shiftCode: 'overnight',
+            shiftType: 'night',
             daysWorked: ['monday'],
             startTime: '11:00 PM',
             endTime: '01:00 AM',
@@ -200,6 +201,7 @@ describe('TrainerCoverageHeatmap', () => {
         }
         const midnightSchedule: ShiftSchedule = {
             shiftCode: 'midnight',
+            shiftType: 'night',
             daysWorked: ['monday'],
             startTime: '12:00 AM',
             endTime: '02:00 AM',

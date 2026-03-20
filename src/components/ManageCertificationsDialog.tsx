@@ -16,13 +16,28 @@ import { CertificationRecord } from '@/lib/types'
 import { Plus, X } from '@phosphor-icons/react'
 import { format } from 'date-fns'
 
+/**
+ * Props for the {@link ManageCertificationsDialog} component.
+ */
 interface ManageCertificationsDialogProps {
+  /** Whether the dialog is open. */
   open: boolean
+  /** Callback to update the open state of the dialog. */
   onOpenChange: (open: boolean) => void
+  /** Current certification records to seed the dialog's local state. */
   certifications: CertificationRecord[]
+  /**
+   * Callback invoked with the updated list of certifications when the user saves.
+   * @param certifications - The full set of certification records after edits.
+   */
   onSave: (certifications: CertificationRecord[]) => void
 }
 
+/**
+ * Returns a blank {@link CertificationRecord} template used to reset the inline form.
+ *
+ * @returns A partial certification record with default field values.
+ */
 const getEmptyFormData = (): Partial<CertificationRecord> => ({
   certificationName: '',
   issuedDate: '',
@@ -34,6 +49,14 @@ const getEmptyFormData = (): Partial<CertificationRecord> => ({
   notes: ''
 })
 
+/**
+ * Dialog for adding, editing, and removing a trainer's certification records.
+ *
+ * Embeds an inline form (add/edit mode) alongside a list of existing certifications.
+ * Local state is used for edits and is only committed to the parent when the user clicks
+ * "Save Changes". Cancelling reverts local state to the original `certifications` prop.
+ * The dialog resets and re-seeds its local state each time it is opened.
+ */
 export function ManageCertificationsDialog({
   open,
   onOpenChange,

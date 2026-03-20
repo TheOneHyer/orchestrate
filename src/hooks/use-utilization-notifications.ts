@@ -6,13 +6,37 @@ import { startOfWeek, addDays } from 'date-fns'
 const OVERUTILIZED_THRESHOLD = 85
 const CRITICALLY_OVERUTILIZED_THRESHOLD = 95
 
+/**
+ * Tracks the most-recently observed utilization state for a single trainer,
+ * used to detect transitions between utilization bands across render cycles.
+ */
 interface UtilizationState {
+  /** The trainer's unique identifier. */
   trainerId: string
+  /** The trainer's utilization rate as a percentage (0–100+). */
   utilizationRate: number
+  /** Whether the trainer was considered overutilized in the last evaluation. */
   wasOverutilized: boolean
+  /** Whether the trainer was at critical utilization in the last evaluation. */
   wasCritical: boolean
 }
 
+/**
+ * Hook that monitors trainer workload utilization for the current week and
+ * dispatches notifications when trainers cross utilization thresholds.
+ *
+ * Runs a workload analysis on every render when `users` or `sessions` change.
+ * Notifications are only created on threshold *transitions* (not repeatedly):
+ * - Trainer enters overutilized zone (≥ 85 %) → high-priority alert.
+ * - Trainer enters critical zone (≥ 95 %) → critical-priority alert.
+ * - Trainer returns below the overutilized threshold → resolved notification.
+ *
+ * Both the trainer and the admin receive a notification for each event.
+ *
+ * @param users - Full list of application users; trainers are identified by their role.
+ * @param sessions - All sessions for the current week, used to compute utilization rates.
+ * @param onCreateNotification - Callback invoked to persist each generated notification.
+ */
 export function useUtilizationNotifications(
   users: User[],
   sessions: Session[],
@@ -66,6 +90,16 @@ export function useUtilizationNotifications(
   }, [users, sessions, onCreateNotification])
 }
 
+/**
+ * Creates high-priority overutilization notifications for both the affected trainer
+ * and the admin when a trainer's utilization reaches or exceeds the overutilization threshold.
+ *
+ * @param trainer - The trainer who is overutilized.
+ * @param utilizationRate - The trainer's current utilization percentage.
+ * @param totalHours - Total scheduled hours for the current week.
+ * @param sessionCount - Number of sessions scheduled this week.
+ * @param onCreateNotification - Callback used to persist each created notification.
+ */
 function createOverutilizationNotification(
   trainer: User,
   utilizationRate: number,
@@ -94,6 +128,16 @@ function createOverutilizationNotification(
   })
 }
 
+/**
+ * Creates critical-priority notifications for both the affected trainer and the
+ * admin when a trainer's utilization reaches or exceeds the critical threshold.
+ *
+ * @param trainer - The trainer who is critically overutilized.
+ * @param utilizationRate - The trainer's current utilization percentage.
+ * @param totalHours - Total scheduled hours for the current week.
+ * @param sessionCount - Number of sessions scheduled this week.
+ * @param onCreateNotification - Callback used to persist each created notification.
+ */
 function createCriticalUtilizationNotification(
   trainer: User,
   utilizationRate: number,
@@ -122,6 +166,14 @@ function createCriticalUtilizationNotification(
   })
 }
 
+/**
+ * Creates low-priority resolution notifications for both the affected trainer and
+ * the admin when a trainer's utilization drops back below the overutilization threshold.
+ *
+ * @param trainer - The trainer whose workload has been balanced.
+ * @param utilizationRate - The trainer's new (normal) utilization percentage.
+ * @param onCreateNotification - Callback used to persist each created notification.
+ */
 function createUtilizationResolvedNotification(
   trainer: User,
   utilizationRate: number,

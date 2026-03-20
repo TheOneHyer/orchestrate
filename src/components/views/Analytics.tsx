@@ -3,13 +3,24 @@ import { Progress } from '@/components/ui/progress'
 import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
 import { User, Enrollment, Session, Course } from '@/lib/types'
 
+/** Props for the Analytics view component. */
 interface AnalyticsProps {
+  /** All users in the system (employees and trainers). */
   users: User[]
+  /** All enrollment records used to compute completion and score metrics. */
   enrollments: Enrollment[]
+  /** All training sessions used to compute session completion metrics. */
   sessions: Session[]
+  /** All courses used to compute per-course performance metrics. */
   courses: Course[]
 }
 
+/**
+ * Converts an arbitrary string value into a URL-safe, lowercase slug.
+ * Replaces non-alphanumeric characters with hyphens and trims leading/trailing hyphens.
+ * @param value - The source string to slugify.
+ * @returns A stable, kebab-case slug derived from the input.
+ */
 function toStableSlug(value: string): string {
   return value
     .toLowerCase()
@@ -18,10 +29,28 @@ function toStableSlug(value: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
+/**
+ * Returns a human-readable label describing a trainer count, handling singular/plural form.
+ * @param count - Number of trainers.
+ * @returns A formatted string such as "1 trainer" or "3 trainers".
+ */
 function trainerLabel(count: number): string {
   return `${count} trainer${count === 1 ? '' : 's'}`
 }
 
+/**
+ * Renders the Analytics view with training performance metrics and insights.
+ *
+ * Displays summary KPI cards (total employees, completion rate, average score, sessions),
+ * a top-courses-by-completion table with progress bars, a department distribution breakdown,
+ * and a trainer schedule configuration status panel.
+ *
+ * @param users - All users for computing employee/trainer counts and department distribution.
+ * @param enrollments - All enrollments for completion and score calculations.
+ * @param sessions - All sessions for session completion metrics.
+ * @param courses - All courses for per-course performance analysis.
+ * @returns The rendered Analytics page element.
+ */
 export function Analytics({ users, enrollments, sessions, courses }: AnalyticsProps) {
   const totalEnrollments = enrollments.length
   const completedEnrollments = enrollments.filter(e => e.status === 'completed').length

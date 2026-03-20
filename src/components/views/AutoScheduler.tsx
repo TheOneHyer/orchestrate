@@ -24,13 +24,32 @@ import { TrainerScheduler, SchedulingConstraints, TrainerMatch } from '@/lib/sch
 import { User, Course, Session } from '@/lib/types'
 import { toast } from 'sonner'
 
+/** Props for the AutoScheduler component. */
 interface AutoSchedulerProps {
+  /** All users (trainers and employees) available for scheduling. */
   users: User[]
+  /** Available courses to schedule sessions for. */
   courses: Course[]
+  /** Callback invoked with the newly created session objects after auto-scheduling succeeds. */
   onSessionsCreated: (sessions: Partial<Session>[]) => void
+  /** Optional callback to close/dismiss the scheduler panel. */
   onClose?: () => void
 }
 
+/**
+ * Renders the Automatic Trainer Scheduler panel.
+ *
+ * Provides a form for configuring course, date range, time window, recurrence, location,
+ * and capacity. Offers two actions: "Analyze Feasibility" (ranks available trainers and
+ * highlights conflicts without committing) and "Auto-Schedule Sessions" (creates sessions
+ * via `onSessionsCreated` using the best-matching trainer).
+ *
+ * @param users - All users in the system; trainers are filtered internally.
+ * @param courses - Available courses to select for scheduling.
+ * @param onSessionsCreated - Called with generated session objects on successful scheduling.
+ * @param onClose - Optional handler to close the scheduler panel.
+ * @returns The rendered AutoScheduler JSX element.
+ */
 export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: AutoSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])
   
@@ -349,7 +368,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
                         </Badge>
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
-                        {match.trainer.department} • Works: {match.trainer.shifts.join(', ')}
+                        {match.trainer.department} • Works: {match.trainer.shifts?.join(', ') ?? 'N/A'}
                       </div>
                       
                       <div className="mt-3 space-y-1">

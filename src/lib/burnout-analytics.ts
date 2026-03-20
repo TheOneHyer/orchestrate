@@ -2,35 +2,69 @@ import { User, Session, Course, WellnessCheckIn } from './types'
 import { differenceInDays, startOfDay, startOfWeek, endOfWeek, eachWeekOfInterval, subDays } from 'date-fns'
 import { calculateSessionDuration } from './helpers'
 
+/**
+ * Computed utilization metrics and burnout risk assessment for a single trainer
+ * over a given time range.
+ */
 export interface TrainerUtilization {
+  /** The unique identifier of the trainer. */
   trainerId: string
+  /** Utilization rate as a percentage of standard working hours for the period. */
   utilizationRate: number
+  /** Total hours scheduled within the analysed time range. */
   hoursScheduled: number
+  /** Total number of sessions (excluding cancelled) in the time range. */
   sessionCount: number
+  /** Length of the longest consecutive working-day streak in the time range. */
   consecutiveDays: number
+  /** Composite burnout risk score (0–100+). Higher values indicate greater risk. */
   riskScore: number
+  /** Categorical risk level derived from the risk score. */
   riskLevel: 'low' | 'medium' | 'high' | 'critical'
+  /** Individual risk factors that contributed to the overall score. */
   factors: RiskFactor[]
+  /** Actionable recommendations to address identified risks. */
   recommendations: string[]
 }
 
+/**
+ * Describes a single contributing factor to a trainer's burnout risk score.
+ */
 export interface RiskFactor {
+  /** Short label identifying the risk factor. */
   factor: string
+  /** Human-readable explanation of how the factor manifests for this trainer. */
   description: string
+  /** Relative impact of the factor on the overall risk score. */
   impact: 'low' | 'medium' | 'high'
 }
 
+/**
+ * Represents the directional utilization trend for a trainer over time,
+ * broken down into weekly data points.
+ */
 export interface UtilizationTrend {
+  /** The unique identifier of the trainer. */
   trainerId: string
+  /** Overall direction of utilization across the analysed period. */
   trend: 'increasing' | 'decreasing' | 'stable'
+  /** Numeric rate of change in utilization percentage between the oldest and newest data window. */
   changeRate: number
+  /** Weekly breakdown of utilization statistics. */
   dataPoints: DataPoint[]
 }
 
+/**
+ * A single weekly data point capturing utilization statistics for a trainer.
+ */
 export interface DataPoint {
+  /** ISO 8601 string representing the start of the week. */
   date: string
+  /** Utilization rate for the week as a percentage of standard hours. */
   utilization: number
+  /** Total hours worked in the week. */
   hours: number
+  /** Total number of sessions in the week. */
   sessions: number
 }
 
@@ -40,6 +74,17 @@ const OVERUTILIZATION_THRESHOLD = 85
 const CRITICAL_THRESHOLD = 95
 const MAX_CONSECUTIVE_DAYS_HEALTHY = 10
 
+/**
+ * Calculates the utilization rate and burnout risk metrics for a single trainer
+ * by analysing their scheduled sessions and optional wellness check-in data.
+ *
+ * @param trainer - The trainer whose utilization is being calculated.
+ * @param allSessions - The complete list of sessions from which trainer sessions are filtered.
+ * @param courses - All available courses (used for course-variety context-switching analysis).
+ * @param timeRange - The look-back window: `'week'` (7 days), `'month'` (30 days), or `'quarter'` (90 days).
+ * @param wellnessCheckIns - Optional wellness check-in records used to incorporate subjective wellbeing signals.
+ * @returns A {@link TrainerUtilization} object containing utilization metrics, risk score, factors, and recommendations.
+ */
 export function calculateTrainerUtilization(
   trainer: User,
   allSessions: Session[],
@@ -234,6 +279,13 @@ export function calculateTrainerUtilization(
   }
 }
 
+/**
+ * Calculates the longest streak of consecutive working days present in the
+ * supplied session list.
+ *
+ * @param sessions - Sessions to analyse (must all belong to the same trainer).
+ * @returns The maximum number of back-to-back working days found.
+ */
 function calculateConsecutiveDays(sessions: Session[]): number {
   if (sessions.length === 0) return 0
 
@@ -262,6 +314,12 @@ function calculateConsecutiveDays(sessions: Session[]): number {
   return maxStreak
 }
 
+/**
+ * Maps a numeric risk score to a categorical risk level.
+ *
+ * @param score - The composite risk score to evaluate.
+ * @returns `'critical'` (≥70), `'high'` (≥45), `'medium'` (≥25), or `'low'`.
+ */
 function getRiskLevel(score: number): 'low' | 'medium' | 'high' | 'critical' {
   if (score >= 70) return 'critical'
   if (score >= 45) return 'high'
@@ -269,6 +327,12 @@ function getRiskLevel(score: number): 'low' | 'medium' | 'high' | 'critical' {
   return 'low'
 }
 
+/**
+ * Returns the burnout risk level inferred solely from a trainer's utilization rate.
+ *
+ * @param utilizationRate - Utilization as a percentage of standard weekly hours.
+ * @returns `'critical'` (≥95%), `'high'` (≥85%), `'medium'` (≥70%), or `'low'`.
+ */
 export function getBurnoutRiskLevel(utilizationRate: number): 'low' | 'medium' | 'high' | 'critical' {
   if (utilizationRate >= CRITICAL_THRESHOLD) return 'critical'
   if (utilizationRate >= OVERUTILIZATION_THRESHOLD) return 'high'
@@ -276,6 +340,17 @@ export function getBurnoutRiskLevel(utilizationRate: number): 'low' | 'medium' |
   return 'low'
 }
 
+/**
+ * Generates a list of human-readable action recommendations based on the
+ * identified risk factors and wellness data for a trainer.
+ *
+ * @param factors - Risk factors detected for the trainer.
+ * @param utilizationRate - Current utilization percentage.
+ * @param consecutiveDays - Longest consecutive working-day streak.
+ * @param trainer - The trainer being evaluated.
+ * @param wellnessCheckIns - Optional wellness check-in records for additional context-specific recommendations.
+ * @returns An array of recommendation strings ordered by severity.
+ */
 function generateRecommendations(
   factors: RiskFactor[],
   utilizationRate: number,
@@ -337,6 +412,14 @@ function generateRecommendations(
   return recommendations
 }
 
+/**
+ * Computes weekly utilization trend data for a trainer over the specified time range.
+ *
+ * @param trainer - The trainer to analyse.
+ * @param allSessions - All sessions from which the trainer's sessions are filtered.
+ * @param timeRange - The look-back window: `'week'` (7 days), `'month'` (30 days), or `'quarter'` (90 days).
+ * @returns A {@link UtilizationTrend} containing the trend direction, rate of change, and weekly data points.
+ */
 export function getUtilizationTrend(
   trainer: User,
   allSessions: Session[],
@@ -390,6 +473,13 @@ export function getUtilizationTrend(
   }
 }
 
+/**
+ * Determines the overall trend direction from a series of weekly utilization data points
+ * by examining how utilization changes across the most recent four data points.
+ *
+ * @param dataPoints - Chronologically ordered weekly data points.
+ * @returns `'increasing'`, `'decreasing'`, or `'stable'`.
+ */
 function calculateTrend(dataPoints: DataPoint[]): 'increasing' | 'decreasing' | 'stable' {
   if (dataPoints.length < 2) return 'stable'
 
@@ -408,6 +498,13 @@ function calculateTrend(dataPoints: DataPoint[]): 'increasing' | 'decreasing' | 
   return 'stable'
 }
 
+/**
+ * Calculates the rate of change in utilization between the beginning and end
+ * of the most recent four data points.
+ *
+ * @param dataPoints - Chronologically ordered weekly data points.
+ * @returns The difference in average utilization (percentage points) between the latest and earliest windows.
+ */
 function calculateChangeRate(dataPoints: DataPoint[]): number {
   if (dataPoints.length < 2) return 0
 
@@ -418,14 +515,35 @@ function calculateChangeRate(dataPoints: DataPoint[]): number {
   return lastAvg - firstAvg
 }
 
+/**
+ * A consolidated burnout risk assessment for a trainer combining utilization
+ * metrics and subjective wellness signals.
+ */
 export interface BurnoutRiskAssessment {
+  /** The unique identifier of the trainer. */
   trainerId: string
+  /** Composite burnout risk score capped at 100. */
   riskScore: number
+  /** Categorical risk level derived from the overall score. */
   risk: 'low' | 'moderate' | 'high' | 'critical'
+  /** Plain-text descriptions of the factors driving the risk score. */
   factors: string[]
+  /** Actionable recommendations to reduce burnout risk. */
   recommendations: string[]
 }
 
+/**
+ * Produces a comprehensive burnout risk assessment for the specified trainer
+ * by combining utilization analysis with recent wellness check-in data.
+ *
+ * @param trainerId - The identifier of the trainer to assess.
+ * @param allSessions - All sessions used to calculate utilization metrics.
+ * @param wellnessCheckIns - Wellness check-in records for subjective wellbeing signals.
+ * @param allUsers - Full user list used to look up the trainer record.
+ * @param allCourses - Full course list passed to the utilization calculator.
+ * @returns A {@link BurnoutRiskAssessment} with a capped risk score, risk level, factors, and recommendations.
+ *          Returns a default low-risk assessment when the trainer cannot be found.
+ */
 export function calculateBurnoutRisk(
   trainerId: string,
   allSessions: Session[],

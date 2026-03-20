@@ -13,6 +13,7 @@ const WEEK_END = new Date('2026-03-15T23:59:59.999Z')
 function createShiftSchedule(shiftCode: string): ShiftSchedule {
     return {
         shiftCode,
+        shiftType: 'day',
         daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         startTime: '08:00',
         endTime: '16:00',

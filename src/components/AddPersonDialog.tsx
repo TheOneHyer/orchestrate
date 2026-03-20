@@ -11,13 +11,30 @@ import { User, UserRole, ShiftType } from '@/lib/types'
 import { X } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
+/**
+ * Props for the {@link AddPersonDialog} component.
+ */
 interface AddPersonDialogProps {
+  /** Whether the dialog is open. */
   open: boolean
+  /** Callback to update the open state of the dialog. */
   onOpenChange: (open: boolean) => void
+  /**
+   * Callback invoked with the fully constructed {@link User} object when the form is saved.
+   * @param user - The new user to add to the system.
+   */
   onSave: (user: User) => void
+  /** List of already-registered email addresses used to prevent duplicate entries. */
   existingEmails: string[]
 }
 
+/**
+ * Modal dialog for adding a new person (employee, trainer, or admin) to the system.
+ *
+ * Provides a form with fields for name, email, role, department, badge ID, shifts, and
+ * certifications. For trainers, a basic {@link TrainerProfile} is automatically scaffolded.
+ * Client-side validation is performed before {@link AddPersonDialogProps.onSave} is called.
+ */
 export function AddPersonDialog({ open, onOpenChange, onSave, existingEmails }: AddPersonDialogProps) {
   const [formData, setFormData] = useState({
     name: '',

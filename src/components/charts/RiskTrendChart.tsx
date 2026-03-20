@@ -2,21 +2,45 @@ import { useMemo } from 'react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Area, AreaChart } from 'recharts'
 import { format, parseISO } from 'date-fns'
 
+/** A single data point derived from a {@link RiskHistorySnapshot} for chart rendering. */
 interface RiskHistoryPoint {
+  /** ISO-8601 date string for the snapshot. */
   date: string
+  /** Composite risk score (0–100). */
   riskScore: number
+  /** Categorical risk level derived from `riskScore`. */
   riskLevel: 'low' | 'medium' | 'high' | 'critical'
+  /** Trainer utilization rate as a percentage (0–100). */
   utilizationRate: number
+  /** Number of sessions in the snapshot period. */
   sessionCount: number
+  /** Total hours scheduled in the snapshot period. */
   hoursScheduled: number
 }
 
+/** Props for the {@link RiskTrendChart} component. */
 interface RiskTrendChartProps {
+  /** Historical risk data points to render. */
   data: RiskHistoryPoint[]
+  /** Optional trainer name used in accessible labels. */
   trainerName?: string
+  /** When `true`, a second line for utilization percentage is overlaid. */
   showUtilization?: boolean
 }
 
+/**
+ * Area/line chart that visualises a trainer's burnout risk score trend over time.
+ *
+ * Optionally overlays the utilization-rate series when `showUtilization` is
+ * `true`.  An inline `CustomTooltip` enriches hover interactions with session
+ * count, hours, and full date.
+ *
+ * @param props - Component props.
+ * @param props.data - Ordered historical risk data points.
+ * @param props.trainerName - Trainer name used in accessible label text.
+ * @param props.showUtilization - Whether to render the utilization line.
+ * @returns A responsive chart element or an empty-state placeholder.
+ */
 export function RiskTrendChart({ data, trainerName, showUtilization = false }: RiskTrendChartProps) {
   const chartData = useMemo(() => {
     return data.map(point => ({

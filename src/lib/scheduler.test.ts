@@ -7,6 +7,7 @@ import type { Course, Session, ShiftSchedule, User } from './types'
 function createShiftSchedule(shiftCode: string): ShiftSchedule {
     return {
         shiftCode,
+        shiftType: 'day',
         daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         startTime: '08:00',
         endTime: '17:00',
@@ -434,6 +435,53 @@ describe('scheduler', () => {
         expect(feasibility.feasible).toBe(true)
         expect(feasibility.availableTrainerCount).toBe(1)
         expect(feasibility.issues).toEqual([])
+    })
+
+    it('matches shift via trainerProfile.shiftSchedules when trainer.shifts is absent', () => {
+        // Seeded/persisted trainers may omit User.shifts and only carry
+        // shift type info in trainerProfile.shiftSchedules
+        const trainerWithSchedule: User = {
+            ...createTrainer('trainer-a', 'Avery', ['Forklift']),
+            // No trainer.shifts property — relies on shiftSchedules
+            trainerProfile: {
+                authorizedRoles: ['trainer'],
+                shiftSchedules: [{ ...createShiftSchedule('EVE-B-1'), shiftType: 'evening' }],
+                tenure: { hireDate: '2020-01-01T00:00:00.000Z', yearsOfService: 6, monthsOfService: 72 },
+                specializations: ['Safety']
+            }
+        }
+        const scheduler = new TrainerScheduler([trainerWithSchedule], [], [createCourse()])
+
+        const feasibility = scheduler.analyzeSchedulingFeasibility({
+            ...createConstraints({ requiredCertifications: ['Forklift'], dates: ['2026-03-16T00:00:00.000Z'] }),
+            shifts: ['evening']
+        } as SchedulingConstraints)
+
+        expect(feasibility.feasible).toBe(true)
+        expect(feasibility.availableTrainerCount).toBe(1)
+        expect(feasibility.issues).toEqual([])
+    })
+
+    it('reports shift mismatch when shiftSchedules do not cover required shifts', () => {
+        const trainerWithDaySchedule: User = {
+            ...createTrainer('trainer-a', 'Avery', ['Forklift']),
+            trainerProfile: {
+                authorizedRoles: ['trainer'],
+                shiftSchedules: [{ ...createShiftSchedule('DAY-A-1'), shiftType: 'day' }],
+                tenure: { hireDate: '2020-01-01T00:00:00.000Z', yearsOfService: 6, monthsOfService: 72 },
+                specializations: ['Safety']
+            }
+        }
+        const scheduler = new TrainerScheduler([trainerWithDaySchedule], [], [createCourse()])
+
+        const feasibility = scheduler.analyzeSchedulingFeasibility({
+            ...createConstraints({ requiredCertifications: ['Forklift'] }),
+            shifts: ['night']
+        } as SchedulingConstraints)
+
+        expect(feasibility.feasible).toBe(false)
+        expect(feasibility.availableTrainerCount).toBe(0)
+        expect(feasibility.issues).toContain('Certified trainers do not work the required shifts')
     })
 
     it('calculates trainer workload by shift within a date interval', () => {

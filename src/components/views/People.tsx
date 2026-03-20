@@ -16,18 +16,40 @@ import { AddPersonDialog } from '@/components/AddPersonDialog'
 import { DeletePersonDialog } from '@/components/DeletePersonDialog'
 import { format } from 'date-fns'
 
+/** Props for the People component. */
 interface PeopleProps {
+  /** List of all users in the system. */
   users: User[]
+  /** All course enrolment records. */
   enrollments: Enrollment[]
+  /** All available courses. */
   courses: Course[]
+  /** All training sessions. */
   sessions: Session[]
+  /** The currently authenticated user; controls which admin actions are shown. */
   currentUser: User
+  /**
+   * Callback for navigating to a different view.
+   * @param view - Target view name.
+   * @param data - Optional payload for the target view.
+   */
   onNavigate: (view: string, data?: any) => void
+  /** Optional callback invoked when a user profile is saved after editing. */
   onUpdateUser?: (user: User) => void
+  /** Optional callback invoked when a new person is added. */
   onAddUser?: (user: User) => void
+  /** Optional callback invoked when a user is deleted. @param userId - ID of the user to delete. */
   onDeleteUser?: (userId: string) => void
 }
 
+/**
+ * Renders the People management view.
+ *
+ * Shows a searchable, role-filterable table of all users. Admins can add or delete users
+ * and edit trainer profiles. Clicking a row expands a detailed profile sheet using
+ * {@link TrainerProfileView}. Trainers without configured shift schedules are highlighted
+ * with a warning icon.
+ */
 export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser, onAddUser, onDeleteUser }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'trainer' | 'employee'>('all')

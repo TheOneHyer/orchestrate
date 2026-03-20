@@ -10,15 +10,36 @@ import { CheckInSchedule, CheckInFrequency, User } from '@/lib/types'
 import { CalendarCheck } from '@phosphor-icons/react'
 import { addDays, format } from 'date-fns'
 
+/**
+ * Props for the {@link CheckInScheduleDialog} component.
+ */
 interface CheckInScheduleDialogProps {
+  /** Whether the dialog is open. */
   open: boolean
+  /** Callback to close the dialog. */
   onClose: () => void
+  /** List of trainers available for selection. */
   trainers: User[]
+  /**
+   * Callback invoked with the completed schedule data when the user saves.
+   * @param schedule - The new or updated schedule (without auto-generated fields).
+   */
   onSubmit: (schedule: Omit<CheckInSchedule, 'id' | 'createdAt' | 'completedCheckIns' | 'missedCheckIns'>) => void
+  /** The ID of the currently authenticated user, stored as `createdBy` on the schedule. */
   currentUserId: string
+  /** When provided, the dialog populates its fields from this schedule and operates in edit mode. */
   existingSchedule?: CheckInSchedule
 }
 
+/**
+ * Dialog for creating or editing an automated wellness check-in schedule for a trainer.
+ *
+ * Allows configuring the target trainer, check-in frequency (daily, weekly, biweekly,
+ * monthly, or a custom number of days), date range, reminder settings, and free-text notes.
+ * When editing, the dialog is pre-populated with the values from {@link CheckInScheduleDialogProps.existingSchedule}
+ * and the trainer selector is disabled. On save, {@link CheckInScheduleDialogProps.onSubmit}
+ * is called with the constructed schedule data.
+ */
 export function CheckInScheduleDialog({
   open,
   onClose,
@@ -87,6 +108,12 @@ export function CheckInScheduleDialog({
     onClose()
   }
 
+  /**
+   * Returns a human-readable label for a {@link CheckInFrequency} value.
+   *
+   * @param freq - The frequency value to convert.
+   * @returns A short descriptive string such as "Every Week" or "Custom Interval".
+   */
   const getFrequencyLabel = (freq: CheckInFrequency) => {
     switch (freq) {
       case 'daily': return 'Every Day'

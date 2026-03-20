@@ -31,12 +31,24 @@ import { ApplyTemplateDialog } from '@/components/ApplyTemplateDialog'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 
+/** Props for the ScheduleTemplates component. */
 interface ScheduleTemplatesProps {
+  /** List of all available courses used when creating or editing a template. */
   courses: Course[]
+  /** Callback to navigate to another view. @param view - Target view name. */
   onNavigate: (view: string) => void
+  /** Optional callback invoked with the newly generated session stubs when a template is applied. */
   onCreateSessions?: (sessions: Partial<Session>[]) => void
 }
 
+/**
+ * Renders the Schedule Templates management view.
+ *
+ * Allows admins to create, edit, duplicate, delete, and apply reusable training-schedule
+ * templates. Templates are persisted via the Spark KV store. Applying a template opens a
+ * dialog that generates concrete {@link Session} stubs and, when
+ * `onCreateSessions` is provided, passes them upstream.
+ */
 export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: ScheduleTemplatesProps) {
   const [templates, setTemplates] = useKV<ScheduleTemplate[]>('schedule-templates', [])
   const [searchQuery, setSearchQuery] = useState('')
