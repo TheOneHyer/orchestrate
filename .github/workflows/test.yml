@@ -1,0 +1,78 @@
+name: Test Coverage
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Vitest — Tests & Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.32.1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests with coverage
+        id: test
+        run: pnpm test:coverage
+        continue-on-error: true
+
+      - name: Write coverage summary
+        if: always()
+        run: |
+          TEST_OUTCOME="${{ steps.test.outcome }}"
+          {
+            if [ "$TEST_OUTCOME" = "success" ]; then
+              echo "## ✅ All Tests Passed — Coverage Thresholds Met"
+            else
+              echo "## ❌ Tests Failed or Coverage Below Threshold"
+            fi
+            echo ""
+
+            if [ -f coverage/coverage-summary.json ]; then
+              echo "### Coverage Report"
+              echo ""
+              echo "| Metric | Coverage | Threshold | Status |"
+              echo "|--------|----------|-----------|--------|"
+
+              # Threshold mirrors test.coverage.thresholds in vite.config.ts.
+              # Vitest enforces it; this awk check is display-only for the summary table.
+              THRESHOLD=95
+              for METRIC in statements branches functions lines; do
+                PCT=$(jq -r ".total.${METRIC}.pct" coverage/coverage-summary.json)
+                if awk "BEGIN { exit !($PCT >= $THRESHOLD) }"; then
+                  STATUS="✅ Pass"
+                else
+                  STATUS="❌ Fail"
+                fi
+                LABEL=$(echo "$METRIC" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+                echo "| ${LABEL} | ${PCT}% | ≥ ${THRESHOLD}% | ${STATUS} |"
+              done
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if tests or coverage checks failed
+        if: steps.test.outcome == 'failure'
+        run: |
+          echo "::error::One or more tests failed or a coverage metric fell below the 95% threshold. Review the step summary and job logs above for details."
+          exit 1
