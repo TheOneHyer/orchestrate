@@ -136,6 +136,14 @@ function renderSchedule(overrides: Partial<ComponentProps<typeof Schedule>> = {}
 describe('Schedule', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Pin the clock to a fixed date so tests are not sensitive to the day they run.
+    // baseSession is on 2026-03-20; anchoring to that date keeps the session visible
+    // in day, week (March 15–21), and month (March 2026) calendar views.
+    vi.useFakeTimers({ now: new Date('2026-03-20T12:00:00.000Z'), toFake: ['Date'] })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   const setDateTimeInput = (label: RegExp, value: string) => {

@@ -51,7 +51,8 @@ jobs:
             fi
             echo ""
 
-            if [ -f coverage/coverage-summary.json ]; then
+            SUMMARY_FILE="${GITHUB_WORKSPACE:-$PWD}/coverage/coverage-summary.json"
+            if [ -f "$SUMMARY_FILE" ]; then
               echo "### Coverage Report"
               echo ""
               echo "| Metric | Coverage | Threshold | Status |"
@@ -61,7 +62,7 @@ jobs:
               # Vitest enforces it; this awk check is display-only for the summary table.
               THRESHOLD=95
               for METRIC in statements branches functions lines; do
-                PCT=$(jq -r ".total.${METRIC}.pct" coverage/coverage-summary.json)
+                PCT=$(jq -r ".total.${METRIC}.pct" "$SUMMARY_FILE")
                 if awk "BEGIN { exit !($PCT >= $THRESHOLD) }"; then
                   STATUS="✅ Pass"
                 else
