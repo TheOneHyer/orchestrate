@@ -17,6 +17,7 @@ describe('normalizeNavigationValue', () => {
     it('normalizes slash-prefixed static routes', () => {
         expect(normalizeNavigationValue('/burnout-dashboard')).toEqual({ view: 'burnout-dashboard' })
         expect(normalizeNavigationValue('/certifications')).toEqual({ view: 'certifications' })
+        expect(normalizeNavigationValue('/certifications/')).toEqual({ view: 'certifications' })
     })
 
     it('extracts userId payload from people path', () => {
@@ -24,6 +25,7 @@ describe('normalizeNavigationValue', () => {
             view: 'people',
             data: { userId: 'trainer-1' },
         })
+        expect(normalizeNavigationValue('/people/')).toEqual({ view: 'people' })
     })
 
     it('extracts sessionId payload from schedule path', () => {

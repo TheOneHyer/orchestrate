@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Plus, MagnifyingGlass, GraduationCap, Clock } from '@phosphor-icons/react'
 import { Course, Enrollment, User } from '@/lib/types'
 import { formatDuration } from '@/lib/helpers'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
 /** Props for the Courses view component. */
@@ -63,6 +63,8 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const coursesRef = useRef(courses)
+  const processedPayloadRef = useRef<unknown>(null)
   const [createForm, setCreateForm] = useState({
     title: '',
     description: '',
@@ -78,30 +80,43 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
   )
 
   useEffect(() => {
+    coursesRef.current = courses
+  }, [courses])
+
+  useEffect(() => {
+    if (processedPayloadRef.current === navigationPayload) {
+      return
+    }
+
     if (!isCoursesNavigationPayload(navigationPayload)) {
+      processedPayloadRef.current = null
       return
     }
 
     if (navigationPayload.create) {
       setCreateDialogOpen(true)
+      processedPayloadRef.current = navigationPayload
       return
     }
 
     if (!navigationPayload.courseId) {
+      processedPayloadRef.current = navigationPayload
       return
     }
 
-    const targetCourse = courses.find((course) => course.id === navigationPayload.courseId)
+    const targetCourse = coursesRef.current.find((course) => course.id === navigationPayload.courseId)
     if (!targetCourse) {
       toast.error('Course not found', {
         description: 'The selected course could not be opened.',
       })
+      processedPayloadRef.current = navigationPayload
       return
     }
 
     setSelectedCourse(targetCourse)
     setDetailDialogOpen(true)
-  }, [navigationPayload, courses])
+    processedPayloadRef.current = navigationPayload
+  }, [navigationPayload])
 
   /**
    * Finds the current user's enrollment record for a specific course.
@@ -122,7 +137,7 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
     onNavigate('courses', { create: true })
   }
 
-  const handleSaveCourse = () => {
+  const handleSaveCourse = async () => {
     if (!canCreateCourse || !onCreateCourse) {
       toast.error('Course creation unavailable', {
         description: 'You do not have permission to create courses.',
@@ -171,20 +186,30 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
       published: false,
     }
 
-    onCreateCourse(newCourse)
-    setCreateDialogOpen(false)
-    setCreateForm({
-      title: '',
-      description: '',
-      duration: '60',
-      passScore: '80',
-      modules: '',
-      certifications: '',
-    })
+    try {
+      await Promise.resolve(onCreateCourse(newCourse))
+      setCreateDialogOpen(false)
+      setCreateForm({
+        title: '',
+        description: '',
+        duration: '60',
+        passScore: '80',
+        modules: '',
+        certifications: '',
+      })
 
-    toast.success('Course created', {
-      description: `${title} has been added as a draft course.`,
-    })
+      toast.success('Course created', {
+        description: `${title} has been added as a draft course.`,
+      })
+    } catch (error) {
+      const description = error instanceof Error && error.message
+        ? error.message
+        : 'Please try again after resolving the issue.'
+
+      toast.error('Course creation failed', {
+        description,
+      })
+    }
   }
 
   return (

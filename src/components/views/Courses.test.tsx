@@ -1,18 +1,24 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Courses } from './Courses'
 import type { Course, Enrollment, User } from '@/lib/types'
 
 const toastError = vi.fn()
+const toastSuccess = vi.fn()
 
 vi.mock('sonner', () => ({
     toast: {
         error: (...args: unknown[]) => toastError(...args),
-        success: vi.fn(),
+        success: (...args: unknown[]) => toastSuccess(...args),
     },
 }))
+
+beforeEach(() => {
+    toastError.mockClear()
+    toastSuccess.mockClear()
+})
 
 function createUser(overrides: Partial<User> = {}): User {
     return {
@@ -357,6 +363,73 @@ describe('Courses', () => {
                 published: false,
             })
         )
+        expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Course created',
+            expect.objectContaining({ description: expect.stringMatching(/draft course/i) })
+        )
+    })
+
+    it('keeps the create dialog open when course creation fails', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn().mockRejectedValue(new Error('Service unavailable'))
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
+        await user.type(screen.getByLabelText(/description/i), 'Course description')
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(onCreateCourse).toHaveBeenCalledTimes(1)
+        expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
+        expect(screen.getByLabelText(/title/i)).toHaveValue('New Safety Course')
+        expect(toastError).toHaveBeenCalledWith(
+            'Course creation failed',
+            expect.objectContaining({ description: 'Service unavailable' })
+        )
+        expect(toastSuccess).not.toHaveBeenCalled()
+    })
+
+    it('does not reopen the create dialog when courses change for the same payload', async () => {
+        const user = userEvent.setup()
+        const payload = { create: true }
+        const onNavigate = vi.fn()
+
+        const { rerender } = render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={onNavigate}
+                navigationPayload={payload}
+            />
+        )
+
+        expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
+
+        await user.keyboard('{Escape}')
+        expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
+
+        rerender(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations' })]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={onNavigate}
+                navigationPayload={payload}
+            />
+        )
+
+        expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
     })
 
     it('shows validation error when create form misses required fields', async () => {

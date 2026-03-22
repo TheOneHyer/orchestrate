@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -85,6 +85,8 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const [draggedSession, setDraggedSession] = useState<Session | null>(null)
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null)
   const [dragConflicts, setDragConflicts] = useState<string[]>([])
+  const sessionsRef = useRef(sessions)
+  const processedPayloadRef = useRef<string | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingSession, setEditingSession] = useState<Session | null>(null)
   const [editForm, setEditForm] = useState({
@@ -97,19 +99,30 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   })
 
   useEffect(() => {
+    sessionsRef.current = sessions
+  }, [sessions])
+
+  useEffect(() => {
     if (!hasSessionIdPayload(navigationPayload)) {
+      processedPayloadRef.current = null
       return
     }
 
-    const targetSession = sessions.find((session) => session.id === navigationPayload.sessionId)
+    if (processedPayloadRef.current === navigationPayload.sessionId) {
+      return
+    }
+
+    const targetSession = sessionsRef.current.find((session) => session.id === navigationPayload.sessionId)
     if (!targetSession) {
+      processedPayloadRef.current = navigationPayload.sessionId
       return
     }
 
     setSelectedSession(targetSession)
     setSheetOpen(true)
     setCurrentDate(new Date(targetSession.startTime))
-  }, [navigationPayload, sessions])
+    processedPayloadRef.current = navigationPayload.sessionId
+  }, [navigationPayload])
 
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)

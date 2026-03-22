@@ -31,11 +31,12 @@ export function normalizeNavigationValue(value: string): NavigationTarget | null
     }
 
     const path = trimmed.replace(/^\/+/, '')
-    if (!path) {
+    const normalizedPath = path.replace(/\/+$/, '')
+    if (!normalizedPath) {
         return null
     }
 
-    const [segment, id] = path.split('/')
+    const [segment, id] = normalizedPath.split('/')
     if (segment === 'people' && id) {
         return {
             view: 'people',
@@ -50,5 +51,5 @@ export function normalizeNavigationValue(value: string): NavigationTarget | null
         }
     }
 
-    return { view: path }
+    return { view: normalizedPath }
 }
