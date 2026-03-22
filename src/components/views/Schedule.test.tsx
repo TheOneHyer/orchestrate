@@ -220,6 +220,47 @@ describe('Schedule', () => {
     expect(screen.queryByRole('button', { name: /enroll students/i })).toBeNull()
   })
 
+  it('reopens session details after the navigation payload is cleared and sent again', async () => {
+    const user = userEvent.setup()
+    const payload = { sessionId: 's-1' }
+    const { rerender } = renderSchedule({ navigationPayload: payload })
+
+    expect(screen.getByRole('button', { name: /enroll students/i })).toBeInTheDocument()
+
+    await user.keyboard('{Escape}')
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /enroll students/i })).toBeNull()
+    })
+
+    rerender(
+      <Schedule
+        sessions={[baseSession]}
+        courses={[baseCourse]}
+        users={[baseTrainer, baseEmployee]}
+        currentUser={baseTrainer}
+        onCreateSession={vi.fn()}
+        onUpdateSession={vi.fn()}
+        onNavigate={vi.fn()}
+        navigationPayload={undefined}
+      />
+    )
+
+    rerender(
+      <Schedule
+        sessions={[baseSession]}
+        courses={[baseCourse]}
+        users={[baseTrainer, baseEmployee]}
+        currentUser={baseTrainer}
+        onCreateSession={vi.fn()}
+        onUpdateSession={vi.fn()}
+        onNavigate={vi.fn()}
+        navigationPayload={{ sessionId: 's-1' }}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: /enroll students/i })).toBeInTheDocument()
+  })
+
   it('opens the Guided Schedule dialog', async () => {
     const user = userEvent.setup()
 

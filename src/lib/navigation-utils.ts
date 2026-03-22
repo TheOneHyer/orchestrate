@@ -15,6 +15,7 @@ export interface NavigationTarget {
  * Examples:
  * - `schedule` -> `{ view: 'schedule' }`
  * - `/schedule` -> `{ view: 'schedule' }`
+ * - `/certifications/` -> `{ view: 'certifications' }`
  * - `/people/abc-123` -> `{ view: 'people', data: { userId: 'abc-123' } }`
  *
  * @param value - Navigation string from internal clicks or notification links.

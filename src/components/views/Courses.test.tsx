@@ -325,6 +325,21 @@ describe('Courses', () => {
         expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
     })
 
+    it('does not open the create dialog when navigation payload create is false', () => {
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ create: false }}
+            />
+        )
+
+        expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
+        expect(toastError).not.toHaveBeenCalled()
+    })
+
     it('creates a course when create dialog is submitted', async () => {
         const user = userEvent.setup()
         const onCreateCourse = vi.fn()
@@ -399,6 +414,31 @@ describe('Courses', () => {
         expect(toastSuccess).not.toHaveBeenCalled()
     })
 
+    it('shows a fallback error message when course creation fails without an Error object', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn().mockRejectedValue('bad gateway')
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
+        await user.type(screen.getByLabelText(/description/i), 'Course description')
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Course creation failed',
+            expect.objectContaining({ description: 'Please try again after resolving the issue.' })
+        )
+    })
+
     it('does not reopen the create dialog when courses change for the same payload', async () => {
         const user = userEvent.setup()
         const payload = { create: true }
@@ -430,6 +470,47 @@ describe('Courses', () => {
         )
 
         expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
+    })
+
+    it('reopens the create dialog after the navigation payload is cleared and sent again', async () => {
+        const user = userEvent.setup()
+        const firstPayload = { create: true }
+        const { rerender } = render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={firstPayload}
+            />
+        )
+
+        expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
+
+        await user.keyboard('{Escape}')
+        expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
+
+        rerender(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={undefined}
+            />
+        )
+
+        rerender(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
     })
 
     it('shows validation error when create form misses required fields', async () => {
@@ -514,5 +595,47 @@ describe('Courses', () => {
             'Course creation unavailable',
             expect.objectContaining({ description: expect.stringMatching(/permission/i) })
         )
+    })
+
+    it('renders completed enrollment status for the current user', () => {
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations' })]}
+                enrollments={[
+                    { id: 'e1', userId: 'u1', courseId: 'c1', status: 'completed', progress: 100, enrolledAt: '2026-01-01' },
+                ]}
+                currentUser={createUser({ id: 'u1' })}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText('completed')).toBeInTheDocument()
+        expect(screen.getByText('100%')).toBeInTheDocument()
+    })
+
+    it('renders draft detail dialog without certifications or modules', () => {
+        render(
+            <Courses
+                courses={[
+                    createCourse({
+                        id: 'c1',
+                        title: 'Draft Course',
+                        description: 'No modules yet',
+                        published: false,
+                        certifications: [],
+                        modules: [],
+                    }),
+                ]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={vi.fn()}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        const dialog = screen.getByRole('dialog')
+        expect(within(dialog).getByText('Draft')).toBeInTheDocument()
+        expect(within(dialog).getByText(/no modules defined\./i)).toBeInTheDocument()
+        expect(within(dialog).queryByText('Certifications')).toBeNull()
     })
 })

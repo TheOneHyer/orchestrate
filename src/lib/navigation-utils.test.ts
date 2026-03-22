@@ -33,6 +33,10 @@ describe('normalizeNavigationValue', () => {
             view: 'schedule',
             data: { sessionId: 'session-7' },
         })
+        expect(normalizeNavigationValue('/schedule/session-7/')).toEqual({
+            view: 'schedule',
+            data: { sessionId: 'session-7' },
+        })
     })
 
     it('decodes path payload values', () => {

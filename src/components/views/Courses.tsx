@@ -22,8 +22,8 @@ interface CoursesProps {
   currentUser: User
   /** Navigation callback invoked with a view name and optional data when a card is clicked. */
   onNavigate: (view: string, data?: any) => void
-  /** Optional callback invoked when a new course is created from this view. */
-  onCreateCourse?: (course: Course) => void
+  /** Optional callback invoked when a new course is created from this view; may complete asynchronously. */
+  onCreateCourse?: (course: Course) => void | Promise<void>
   /** Optional navigation payload used to open create/detail interactions. */
   navigationPayload?: unknown
 }
@@ -56,6 +56,8 @@ function isCoursesNavigationPayload(value: unknown): value is { create?: boolean
  * @param enrollments - Enrollment records used to render per-course progress.
  * @param currentUser - The authenticated user; role determines visible actions.
  * @param onNavigate - Navigation callback invoked on card click or create-course action.
+ * @param onCreateCourse - Optional course creation callback; if it returns a promise, the dialog remains open until the save completes.
+ * @param navigationPayload - Optional one-time payload used to open create or detail dialogs from app-level navigation.
  * @returns The rendered Courses page element.
  */
 export function Courses({ courses, enrollments, currentUser, onNavigate, onCreateCourse, navigationPayload }: CoursesProps) {
