@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   test:
@@ -41,6 +42,7 @@ jobs:
         if: always()
         run: |
           TEST_OUTCOME="${{ steps.test.outcome }}"
+          REPORT_FILE="$RUNNER_TEMP/coverage-report.md"
           {
             if [ "$TEST_OUTCOME" = "success" ]; then
               echo "## ✅ All Tests Passed — Coverage Thresholds Met"
@@ -69,7 +71,16 @@ jobs:
                 echo "| ${LABEL} | ${PCT}% | ≥ ${THRESHOLD}% | ${STATUS} |"
               done
             fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post PR comment on failure
+        if: always() && steps.test.outcome == 'failure' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body-file "$RUNNER_TEMP/coverage-report.md" \
+            --repo "${{ github.repository }}"
 
       - name: Fail if tests or coverage checks failed
         if: steps.test.outcome == 'failure'
