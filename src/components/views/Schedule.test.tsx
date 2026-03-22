@@ -194,6 +194,12 @@ describe('Schedule', () => {
     expect(screen.queryByRole('heading', { name: /morning safety session/i })).toBeNull()
   })
 
+  it('opens the guided scheduler when navigation payload contains a create intent', async () => {
+    renderSchedule({ navigationPayload: { create: true } })
+
+    expect(await screen.findByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
+
   it('does not reopen details when sessions change for the same payload', async () => {
     const user = userEvent.setup()
     const payload = { sessionId: 's-1' }

@@ -373,5 +373,41 @@ describe('People', () => {
         expect(screen.queryByTestId('profile-name')).toBeNull()
     })
 
+    it('calls onNavigationPayloadConsumed only when the userId is found', () => {
+        const onNavigationPayloadConsumed = vi.fn()
 
+        render(
+            <People
+                users={[createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' })]}
+                enrollments={[]}
+                courses={[]}
+                sessions={[]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ userId: 'u-admin' }}
+                onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+            />
+        )
+
+        expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not call onNavigationPayloadConsumed when the userId is not found', () => {
+        const onNavigationPayloadConsumed = vi.fn()
+
+        render(
+            <People
+                users={[createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' })]}
+                enrollments={[]}
+                courses={[]}
+                sessions={[]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ userId: 'missing-user' }}
+                onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+            />
+        )
+
+        expect(onNavigationPayloadConsumed).not.toHaveBeenCalled()
+    })
 })

@@ -37,20 +37,24 @@ export function normalizeNavigationValue(value: string): NavigationTarget | null
         return null
     }
 
-    const [segment, id] = normalizedPath.split('/')
-    if (segment === 'people' && id) {
-        return {
-            view: 'people',
-            data: { userId: decodeURIComponent(id) },
+    const pathOnly = normalizedPath.split('?')[0].split('#')[0]
+    const segments = pathOnly.split('/')
+    if (segments.length === 2) {
+        const [segment, id] = segments
+        if (segment === 'people' && id) {
+            return {
+                view: 'people',
+                data: { userId: decodeURIComponent(id) },
+            }
+        }
+
+        if (segment === 'schedule' && id) {
+            return {
+                view: 'schedule',
+                data: { sessionId: decodeURIComponent(id) },
+            }
         }
     }
 
-    if (segment === 'schedule' && id) {
-        return {
-            view: 'schedule',
-            data: { sessionId: decodeURIComponent(id) },
-        }
-    }
-
-    return { view: normalizedPath }
+    return { view: pathOnly }
 }

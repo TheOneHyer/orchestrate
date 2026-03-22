@@ -67,6 +67,21 @@ function createEntityId(prefix: string) {
 }
 
 /**
+ * Safely wraps {@link normalizeNavigationValue}, returning `null` instead of
+ * throwing when the input is malformed.
+ *
+ * @param value - Navigation string to normalize.
+ * @returns A normalized navigation target, or `null` if the input is empty or invalid.
+ */
+function safeNormalizeNavigationValue(value: string): ReturnType<typeof normalizeNavigationValue> {
+  try {
+    return normalizeNavigationValue(value)
+  } catch {
+    return null
+  }
+}
+
+/**
  * Root application component for the Orchestrate training management platform.
  *
  * Manages all persistent application state (users, sessions, courses,
@@ -335,7 +350,7 @@ function App() {
       tag: notification.type,
       onClick: notification.link ? () => {
         const link = notification.link!
-        const target = normalizeNavigationValue(link)
+        const target = safeNormalizeNavigationValue(link)
         if (!target) {
           return
         }
@@ -388,7 +403,7 @@ function App() {
    * @param data - Optional contextual data passed by the originating view.
    */
   const handleNavigate = (view: string, data?: unknown) => {
-    const target = normalizeNavigationValue(view)
+    const target = safeNormalizeNavigationValue(view)
     if (!target) {
       if (!import.meta.env.PROD) {
         console.warn('[handleNavigate] Ignoring navigation because normalizeNavigationValue returned null', { view })

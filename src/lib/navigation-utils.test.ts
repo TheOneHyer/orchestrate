@@ -42,12 +42,12 @@ describe('normalizeNavigationValue', () => {
 
         expect(normalizeNavigationValue('/people/trainer-1?foo=bar')).toEqual({
             view: 'people',
-            data: { userId: 'trainer-1?foo=bar' },
+            data: { userId: 'trainer-1' },
         })
 
         expect(normalizeNavigationValue('/people/trainer-1#section')).toEqual({
             view: 'people',
-            data: { userId: 'trainer-1#section' },
+            data: { userId: 'trainer-1' },
         })
     })
 
@@ -93,5 +93,17 @@ describe('normalizeNavigationValue', () => {
 
     it('handles invalid encoding by surfacing URI errors', () => {
         expect(() => normalizeNavigationValue('/people/%ZZ')).toThrow(URIError)
+    })
+
+    it('does not extract userId when path has more than two segments', () => {
+        expect(normalizeNavigationValue('/people/trainer-1/extra')).toEqual({
+            view: 'people/trainer-1/extra',
+        })
+    })
+
+    it('strips query string from view name for non-special routes', () => {
+        expect(normalizeNavigationValue('/burnout-dashboard?ref=notification')).toEqual({
+            view: 'burnout-dashboard',
+        })
     })
 })

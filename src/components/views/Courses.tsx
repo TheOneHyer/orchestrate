@@ -113,6 +113,10 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
       return
     }
 
+    if (coursesRef.current.length === 0) {
+      return
+    }
+
     const targetCourse = coursesRef.current.find((course) => course.id === navigationPayload.courseId)
     if (!targetCourse) {
       toast.error('Course not found', {
@@ -167,8 +171,8 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
 
     const title = createForm.title.trim()
     const description = createForm.description.trim()
-    const duration = Number.parseInt(createForm.duration, 10)
-    const passScore = Number.parseInt(createForm.passScore, 10)
+    const duration = Number(createForm.duration)
+    const passScore = Number(createForm.passScore)
     const modules = createForm.modules.split(',').map((value) => value.trim()).filter(Boolean)
     const certifications = createForm.certifications.split(',').map((value) => value.trim()).filter(Boolean)
 
@@ -271,7 +275,20 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
           const enrollment = getEnrollmentForCourse(course.id)
 
           return (
-            <Card key={course.id} className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleOpenCourse(course)}>
+            <Card
+              key={course.id}
+              className="hover:shadow-lg transition-shadow cursor-pointer"
+              role="button"
+              tabIndex={0}
+              aria-label={`Open course ${course.title}`}
+              onClick={() => handleOpenCourse(course)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleOpenCourse(course)
+                }
+              }}
+            >
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <Avatar className="h-12 w-12">
@@ -439,6 +456,7 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
                   id="course-duration"
                   type="number"
                   min="1"
+                  step="1"
                   value={createForm.duration}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, duration: event.target.value }))}
                 />
@@ -450,6 +468,7 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
                   type="number"
                   min="0"
                   max="100"
+                  step="1"
                   value={createForm.passScore}
                   onChange={(event) => setCreateForm((prev) => ({ ...prev, passScore: event.target.value }))}
                 />

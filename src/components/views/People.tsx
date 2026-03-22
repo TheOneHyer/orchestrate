@@ -63,7 +63,7 @@ function hasUserIdPayload(value: unknown): value is { userId: string } {
  * {@link TrainerProfileView}. Trainers without configured shift schedules are highlighted
  * with a warning icon.
  */
-export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser, onAddUser, onDeleteUser, navigationPayload, onNavigationPayloadConsumed }: PeopleProps) {
+export function People({ users, enrollments, courses, sessions, currentUser, onNavigate: _onNavigate, onUpdateUser, onAddUser, onDeleteUser, navigationPayload, onNavigationPayloadConsumed }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'trainer' | 'employee'>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -91,8 +91,8 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
       setSelectedUser(targetUser)
       setRoleFilter('all')
       setSearchQuery('')
+      onNavigationPayloadConsumed?.()
     }
-    onNavigationPayloadConsumed?.()
   }, [navigationPayload, onNavigationPayloadConsumed, users])
 
   const filteredUsers = users.filter(user => {

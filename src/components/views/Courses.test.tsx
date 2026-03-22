@@ -53,7 +53,7 @@ describe('Courses', () => {
     it('shows an error when navigation payload references a missing course id', () => {
         render(
             <Courses
-                courses={[]}
+                courses={[createCourse({ id: 'c-other' })]}
                 enrollments={[]}
                 currentUser={createUser()}
                 onNavigate={vi.fn()}
@@ -65,6 +65,20 @@ describe('Courses', () => {
             'Course not found',
             expect.objectContaining({ description: expect.stringMatching(/could not be opened/i) })
         )
+    })
+
+    it('does not show an error when courseId payload arrives before courses are loaded', () => {
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={vi.fn()}
+                navigationPayload={{ courseId: 'missing-course' }}
+            />
+        )
+
+        expect(toastError).not.toHaveBeenCalled()
     })
 
     it('renders courses, module counts, and durations', () => {
@@ -309,6 +323,46 @@ describe('Courses', () => {
         const dialog = screen.getByRole('dialog')
         expect(within(dialog).getByRole('heading', { name: /safety foundations/i })).toBeInTheDocument()
         expect(within(dialog).getByText(/detailed description/i)).toBeInTheDocument()
+    })
+
+    it('calls onNavigate when Enter key is pressed on course card', async () => {
+        const user = userEvent.setup()
+        const onNavigate = vi.fn()
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations' })]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={onNavigate}
+            />
+        )
+
+        const card = screen.getByRole('button', { name: /open course safety foundations/i })
+        card.focus()
+        await user.keyboard('{Enter}')
+
+        expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'c1' })
+    })
+
+    it('calls onNavigate when Space key is pressed on course card', async () => {
+        const user = userEvent.setup()
+        const onNavigate = vi.fn()
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations' })]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={onNavigate}
+            />
+        )
+
+        const card = screen.getByRole('button', { name: /open course safety foundations/i })
+        card.focus()
+        await user.keyboard('{ }')
+
+        expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'c1' })
     })
 
     it('opens create dialog when create intent is provided in navigation payload', () => {
