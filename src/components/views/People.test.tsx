@@ -413,4 +413,40 @@ describe('People', () => {
 
         expect(onNavigationPayloadConsumed).not.toHaveBeenCalled()
     })
+
+    it('does not re-consume the same userId payload when users change', () => {
+        const onNavigationPayloadConsumed = vi.fn()
+        const payload = { userId: 'u-admin' }
+        const adminUser = createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' })
+
+        const { rerender } = render(
+            <People
+                users={[adminUser]}
+                enrollments={[]}
+                courses={[]}
+                sessions={[]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={payload}
+                onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+            />
+        )
+
+        expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
+
+        rerender(
+            <People
+                users={[{ ...adminUser, department: 'Operations' }]}
+                enrollments={[]}
+                courses={[]}
+                sessions={[]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={payload}
+                onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+            />
+        )
+
+        expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
+    })
 })

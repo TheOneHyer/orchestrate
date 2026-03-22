@@ -81,6 +81,34 @@ describe('Courses', () => {
         expect(toastError).not.toHaveBeenCalled()
     })
 
+    it('retries deferred courseId payload when courses later become available', () => {
+        const payload = { courseId: 'c1' }
+        const { rerender } = render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={vi.fn()}
+                navigationPayload={payload}
+            />
+        )
+
+        expect(screen.queryByRole('dialog')).toBeNull()
+
+        rerender(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations', description: 'Deferred payload target' })]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={vi.fn()}
+                navigationPayload={payload}
+            />
+        )
+
+        const dialog = screen.getByRole('dialog')
+        expect(within(dialog).getByRole('heading', { name: /safety foundations/i })).toBeInTheDocument()
+    })
+
     it('renders courses, module counts, and durations', () => {
         const courses: Course[] = [
             createCourse({ id: 'c1', title: 'Safety Foundations', duration: 90, modules: ['Intro', 'Quiz'] }),
@@ -452,6 +480,7 @@ describe('Courses', () => {
                 published: false,
             })
         )
+        expect(onCreateCourse.mock.calls[0]?.[0]?.id).toBeUndefined()
         expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
         expect(toastSuccess).toHaveBeenCalledWith(
             'Course created',
@@ -703,6 +732,35 @@ describe('Courses', () => {
         await user.type(screen.getByLabelText(/duration \(minutes\)/i), '60')
         await user.clear(screen.getByLabelText(/pass score/i))
         await user.type(screen.getByLabelText(/pass score/i), '101')
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Invalid pass score',
+            expect.objectContaining({ description: expect.stringMatching(/between 0 and 100/i) })
+        )
+        expect(onCreateCourse).not.toHaveBeenCalled()
+    })
+
+    it('shows validation error when pass score is left blank', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
+        await user.type(screen.getByLabelText(/description/i), 'Course description')
+        await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
+        await user.type(screen.getByLabelText(/duration \(minutes\)/i), '60')
+        await user.clear(screen.getByLabelText(/pass score/i))
         await user.click(screen.getByRole('button', { name: /save course/i }))
 
         expect(toastError).toHaveBeenCalledWith(

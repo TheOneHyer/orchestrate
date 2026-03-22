@@ -32,7 +32,7 @@ interface CoursesProps {
   /** Navigation callback invoked with a view name and optional data when a card is clicked. */
   onNavigate: (view: string, data?: any) => void
   /** Optional callback invoked when a new course is created from this view; may complete asynchronously. */
-  onCreateCourse?: (course: Course) => void | Promise<void>
+  onCreateCourse?: (course: Omit<Course, 'id'>) => void | Promise<void>
   /** Optional navigation payload used to open create/detail interactions. */
   navigationPayload?: unknown
   /** Optional callback invoked after a navigation payload has been consumed. */
@@ -131,7 +131,7 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
     setDetailDialogOpen(true)
     processedPayloadRef.current = navigationPayload
     onNavigationPayloadConsumed?.()
-  }, [navigationPayload, onNavigationPayloadConsumed])
+  }, [courses, navigationPayload, onNavigationPayloadConsumed])
 
   /**
    * Finds the current user's enrollment record for a specific course.
@@ -172,7 +172,7 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
     const title = createForm.title.trim()
     const description = createForm.description.trim()
     const duration = Number(createForm.duration)
-    const passScore = Number(createForm.passScore)
+    const passScoreRaw = createForm.passScore.trim()
     const modules = createForm.modules.split(',').map((value) => value.trim()).filter(Boolean)
     const certifications = createForm.certifications.split(',').map((value) => value.trim()).filter(Boolean)
 
@@ -190,6 +190,15 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
       return
     }
 
+    if (!passScoreRaw) {
+      toast.error('Invalid pass score', {
+        description: 'Pass score must be between 0 and 100.',
+      })
+      return
+    }
+
+    const passScore = Number(passScoreRaw)
+
     if (!Number.isInteger(passScore) || passScore < 0 || passScore > 100) {
       toast.error('Invalid pass score', {
         description: 'Pass score must be between 0 and 100.',
@@ -197,21 +206,7 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
       return
     }
 
-    const createCourseId = () => {
-      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-        return crypto.randomUUID()
-      }
-
-      // Fallback for environments without crypto.randomUUID support.
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
-        const randomValue = Math.floor(Math.random() * 16)
-        const value = char === 'x' ? randomValue : ((randomValue & 0x3) | 0x8)
-        return value.toString(16)
-      })
-    }
-
-    const newCourse: Course = {
-      id: createCourseId(),
+    const newCourse: Omit<Course, 'id'> = {
       title,
       description,
       duration,

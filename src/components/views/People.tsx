@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -71,6 +71,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const processedUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (selectedUser) {
@@ -83,6 +84,11 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
 
   useEffect(() => {
     if (!hasUserIdPayload(navigationPayload)) {
+      processedUserIdRef.current = null
+      return
+    }
+
+    if (processedUserIdRef.current === navigationPayload.userId) {
       return
     }
 
@@ -91,6 +97,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
       setSelectedUser(targetUser)
       setRoleFilter('all')
       setSearchQuery('')
+      processedUserIdRef.current = navigationPayload.userId
       onNavigationPayloadConsumed?.()
     }
   }, [navigationPayload, onNavigationPayloadConsumed, users])
@@ -150,6 +157,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
       onDeleteUser(userToDelete.id)
       if (selectedUser?.id === userToDelete.id) {
         setSelectedUser(null)
+        processedUserIdRef.current = null
       }
     }
     setDeleteDialogOpen(false)
@@ -162,7 +170,10 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     <div className="p-6 space-y-6">
       {selectedUser ? (
         <div className="space-y-4">
-          <Button variant="ghost" onClick={() => setSelectedUser(null)}>
+          <Button variant="ghost" onClick={() => {
+            setSelectedUser(null)
+            processedUserIdRef.current = null
+          }}>
             <ArrowLeft size={18} className="mr-2" />
             Back to People
           </Button>

@@ -7,6 +7,8 @@ describe('normalizeNavigationValue', () => {
         expect(normalizeNavigationValue('')).toBeNull()
         expect(normalizeNavigationValue('   ')).toBeNull()
         expect(normalizeNavigationValue('/')).toBeNull()
+        expect(normalizeNavigationValue('/?source=notification')).toBeNull()
+        expect(normalizeNavigationValue('/#section')).toBeNull()
     })
 
     it('wraps plain view values in object structure', () => {
