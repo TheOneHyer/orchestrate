@@ -1,0 +1,102 @@
+name: Test Coverage
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Vitest — Tests & Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.32.1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests with coverage
+        id: test
+        run: pnpm test:coverage
+        continue-on-error: true
+
+      - name: Write coverage summary
+        if: always()
+        run: |
+          TEST_OUTCOME="${{ steps.test.outcome }}"
+          REPORT_FILE="$RUNNER_TEMP/coverage-report.md"
+          {
+            if [ "$TEST_OUTCOME" = "success" ]; then
+              echo "## ✅ All Tests Passed — Coverage Thresholds Met"
+            else
+              echo "## ❌ Tests Failed or Coverage Below Threshold"
+            fi
+            echo ""
+
+            SUMMARY_FILE="${GITHUB_WORKSPACE:-$PWD}/coverage/coverage-summary.json"
+            if [ -f "$SUMMARY_FILE" ]; then
+              echo "### Coverage Report"
+              echo ""
+              echo "| Metric | Coverage | Threshold | Status |"
+              echo "|--------|----------|-----------|--------|"
+
+              # Threshold mirrors test.coverage.thresholds in vite.config.ts.
+              # Vitest enforces it; this awk check is display-only for the summary table.
+              THRESHOLD=95
+              for METRIC in statements branches functions lines; do
+                PCT=$(jq -r ".total.${METRIC}.pct" "$SUMMARY_FILE")
+                if awk "BEGIN { exit !($PCT >= $THRESHOLD) }"; then
+                  STATUS="✅ Pass"
+                else
+                  STATUS="❌ Fail"
+                fi
+                LABEL=$(echo "$METRIC" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+                echo "| ${LABEL} | ${PCT}% | ≥ ${THRESHOLD}% | ${STATUS} |"
+              done
+            else
+              echo "### Coverage report unavailable"
+              echo ""
+              echo "Expected coverage summary at: \`$SUMMARY_FILE\`, but the file was not found."
+              echo "This usually means the test run crashed before writing coverage or the coverage output path changed."
+            fi
+          } | tee "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post PR comment on failure
+        if: >-
+          always() &&
+          steps.test.outcome == 'failure' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body-file "$RUNNER_TEMP/coverage-report.md" \
+            --repo "${{ github.repository }}"
+
+      - name: Fail if tests or coverage checks failed
+        if: steps.test.outcome == 'failure'
+        run: |
+          echo "::error::One or more tests failed or a coverage metric fell below the 95% threshold. Review the step summary and job logs above for details."
+          exit 1
