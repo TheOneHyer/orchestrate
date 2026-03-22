@@ -67,21 +67,6 @@ function createEntityId(prefix: string) {
 }
 
 /**
- * Safely wraps {@link normalizeNavigationValue}, returning `null` instead of
- * throwing when the input is malformed.
- *
- * @param value - Navigation string to normalize.
- * @returns A normalized navigation target, or `null` if the input is empty or invalid.
- */
-function safeNormalizeNavigationValue(value: string): ReturnType<typeof normalizeNavigationValue> {
-  try {
-    return normalizeNavigationValue(value)
-  } catch {
-    return null
-  }
-}
-
-/**
  * Root application component for the Orchestrate training management platform.
  *
  * Manages all persistent application state (users, sessions, courses,
@@ -537,7 +522,7 @@ function App() {
    */
   const handleCreateCourse = useCallback((course: Partial<Course>) => {
     const fullCourse: Course = {
-      id: createEntityId('course'),
+      id: course.id ?? createEntityId('course'),
       title: course.title || 'Untitled Course',
       description: course.description || '',
       duration: course.duration ?? 60,

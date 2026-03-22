@@ -249,6 +249,14 @@ vi.mock('@/components/views/Courses', () => ({
                 callbackSpies.onCreateCourse(payload)
                 onCreateCourse?.(payload)
             }}>Create Explicit Course</button>
+            <button onClick={() => {
+                const payload = {
+                    id: 'my-explicit-course-id',
+                    title: 'Course With Explicit ID',
+                }
+                callbackSpies.onCreateCourse(payload)
+                onCreateCourse?.(payload)
+            }}>Create Course With Explicit ID</button>
         </div>
     ),
 }))
@@ -673,6 +681,11 @@ describe('App', () => {
         expect(callbackSpies.onCreateCourse).toHaveBeenCalledWith(expect.objectContaining({ title: 'Explicit Course' }))
         expect(screen.getByText(/courses count:\s*2/i)).toBeInTheDocument()
         expect(screen.getByText(/explicit course\|trainer-1\|90\|92\|published\|2024-01-02t00:00:00.000z/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create course with explicit id/i }))
+        expect(callbackSpies.onCreateCourse).toHaveBeenCalledWith(expect.objectContaining({ title: 'Course With Explicit ID' }))
+        expect(screen.getByText(/courses count:\s*3/i)).toBeInTheDocument()
+        expect(screen.getByText(/my-explicit-course-id\|course with explicit id/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*2/i)).toBeInTheDocument()

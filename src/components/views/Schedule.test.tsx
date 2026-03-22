@@ -200,6 +200,12 @@ describe('Schedule', () => {
     expect(await screen.findByText(/guidedscheduler mock/i)).toBeInTheDocument()
   })
 
+  it('does not open guided scheduler when create payload is false', () => {
+    renderSchedule({ navigationPayload: { create: false } })
+
+    expect(screen.queryByText(/guidedscheduler mock/i)).not.toBeInTheDocument()
+  })
+
   it('does not reopen details when sessions change for the same payload', async () => {
     const user = userEvent.setup()
     const payload = { sessionId: 's-1' }

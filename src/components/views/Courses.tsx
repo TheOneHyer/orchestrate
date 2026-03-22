@@ -77,7 +77,6 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const coursesRef = useRef(courses)
   const processedPayloadRef = useRef<unknown>(null)
   const [createForm, setCreateForm] = useState(initialCreateForm)
 
@@ -85,10 +84,6 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
     course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     course.description.toLowerCase().includes(searchQuery.toLowerCase())
   )
-
-  useEffect(() => {
-    coursesRef.current = courses
-  }, [courses])
 
   useEffect(() => {
     if (processedPayloadRef.current === navigationPayload) {
@@ -113,11 +108,11 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
       return
     }
 
-    if (coursesRef.current.length === 0) {
+    if (courses.length === 0) {
       return
     }
 
-    const targetCourse = coursesRef.current.find((course) => course.id === navigationPayload.courseId)
+    const targetCourse = courses.find((course) => course.id === navigationPayload.courseId)
     if (!targetCourse) {
       toast.error('Course not found', {
         description: 'The selected course could not be opened.',
@@ -131,7 +126,7 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
     setDetailDialogOpen(true)
     processedPayloadRef.current = navigationPayload
     onNavigationPayloadConsumed?.()
-  }, [navigationPayload, onNavigationPayloadConsumed])
+  }, [navigationPayload, onNavigationPayloadConsumed, courses])
 
   /**
    * Finds the current user's enrollment record for a specific course.

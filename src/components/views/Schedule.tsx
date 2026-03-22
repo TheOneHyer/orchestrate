@@ -57,6 +57,15 @@ function hasSessionIdPayload(value: unknown): value is { sessionId: string } {
   return !!value && typeof value === 'object' && 'sessionId' in value && typeof value.sessionId === 'string'
 }
 
+/**
+ * Type guard for schedule view create-intent navigation payload.
+ * @param value - Unknown payload to validate.
+ * @returns True when payload has `create: true`.
+ */
+function hasCreatePayload(value: unknown): value is { create: true } {
+  return !!value && typeof value === 'object' && 'create' in value && (value as { create?: unknown }).create === true
+}
+
 /** Roles that are allowed to create or modify schedule entries. */
 const allowedScheduleManagers: ReadonlyArray<User['role']> = ['admin', 'trainer']
 
@@ -106,7 +115,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   }, [sessions])
 
   useEffect(() => {
-    if (navigationPayload && typeof navigationPayload === 'object' && 'create' in navigationPayload) {
+    if (hasCreatePayload(navigationPayload)) {
       setGuidedSchedulerOpen(true)
       processedPayloadRef.current = null
       onNavigationPayloadConsumed?.()
