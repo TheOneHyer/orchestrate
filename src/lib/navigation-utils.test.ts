@@ -64,6 +64,30 @@ describe('normalizeNavigationValue', () => {
         })
     })
 
+    it('strips query string from schedule session path', () => {
+        expect(normalizeNavigationValue('/schedule/session-7?ref=notification')).toEqual({
+            view: 'schedule',
+            data: { sessionId: 'session-7' },
+        })
+    })
+
+    it('strips hash fragment from schedule session path', () => {
+        expect(normalizeNavigationValue('/schedule/session-7#anchor')).toEqual({
+            view: 'schedule',
+            data: { sessionId: 'session-7' },
+        })
+    })
+
+    it('does not extract sessionId when schedule path has more than two segments', () => {
+        expect(normalizeNavigationValue('/schedule/session-7/extra')).toEqual({
+            view: 'schedule/session-7/extra',
+        })
+    })
+
+    it('handles invalid encoding in schedule path by surfacing URI errors', () => {
+        expect(() => normalizeNavigationValue('/schedule/%ZZ')).toThrow(URIError)
+    })
+
     it('decodes special characters', () => {
         expect(normalizeNavigationValue('/people/user%2Fname')).toEqual({
             view: 'people',

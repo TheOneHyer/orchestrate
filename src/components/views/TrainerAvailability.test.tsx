@@ -266,7 +266,8 @@ describe('TrainerAvailability', () => {
         expect(screen.getByRole('heading', { name: /redistribute high load/i })).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: /open schedule context/i }))
 
-        expect(onNavigate).toHaveBeenCalledWith('schedule', {
+        expect(onNavigate).toHaveBeenCalledTimes(1)
+        expect(onNavigate).toHaveBeenLastCalledWith('schedule', {
             recommendationType: 'redistribute',
             affectedTrainers: ['t1'],
         })

@@ -432,7 +432,7 @@ function App() {
    */
   const handleCreateSession = (session: Partial<Session>) => {
     const newSession: Session = {
-      id: createEntityId('session'),
+      id: session.id || createEntityId('session'),
       courseId: session.courseId || '',
       trainerId: session.trainerId || '',
       title: session.title || 'Untitled Session',
@@ -458,7 +458,7 @@ function App() {
    */
   const handleCreateMultipleSessions = (sessions: Partial<Session>[]) => {
     const newSessions: Session[] = sessions.map(session => ({
-      id: createEntityId('session'),
+      id: session.id || createEntityId('session'),
       courseId: session.courseId || '',
       trainerId: session.trainerId || '',
       title: session.title || 'Untitled Session',

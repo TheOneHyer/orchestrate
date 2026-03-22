@@ -181,37 +181,47 @@ describe('Schedule', () => {
   })
 
   it('opens target session details from navigation payload sessionId', async () => {
-    renderSchedule({ navigationPayload: { sessionId: 's-1' } })
+    const onNavigationPayloadConsumed = vi.fn()
+    renderSchedule({ navigationPayload: { sessionId: 's-1' }, onNavigationPayloadConsumed })
 
     expect(await screen.findByRole('button', { name: /enroll students/i })).toBeInTheDocument()
     expect(await screen.findByRole('heading', { name: /morning safety session/i })).toBeInTheDocument()
+    expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
   })
 
   it('does not open details when navigation payload sessionId is not found', () => {
-    renderSchedule({ navigationPayload: { sessionId: 'missing-session' } })
+    const onNavigationPayloadConsumed = vi.fn()
+    renderSchedule({ navigationPayload: { sessionId: 'missing-session' }, onNavigationPayloadConsumed })
 
     expect(screen.queryByRole('button', { name: /enroll students/i })).toBeNull()
     expect(screen.queryByRole('heading', { name: /morning safety session/i })).toBeNull()
+    expect(onNavigationPayloadConsumed).not.toHaveBeenCalled()
   })
 
   it('opens the guided scheduler when navigation payload contains a create intent', async () => {
-    renderSchedule({ navigationPayload: { create: true } })
+    const onNavigationPayloadConsumed = vi.fn()
+    renderSchedule({ navigationPayload: { create: true }, onNavigationPayloadConsumed })
 
     expect(await screen.findByText(/guidedscheduler mock/i)).toBeInTheDocument()
+    expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
   })
 
   it('does not open guided scheduler when create payload is false', () => {
-    renderSchedule({ navigationPayload: { create: false } })
+    const onNavigationPayloadConsumed = vi.fn()
+    renderSchedule({ navigationPayload: { create: false }, onNavigationPayloadConsumed })
 
     expect(screen.queryByText(/guidedscheduler mock/i)).not.toBeInTheDocument()
+    expect(onNavigationPayloadConsumed).not.toHaveBeenCalled()
   })
 
   it('does not reopen details when sessions change for the same payload', async () => {
     const user = userEvent.setup()
+    const onNavigationPayloadConsumed = vi.fn()
     const payload = { sessionId: 's-1' }
-    const { rerender } = renderSchedule({ navigationPayload: payload })
+    const { rerender } = renderSchedule({ navigationPayload: payload, onNavigationPayloadConsumed })
 
     expect(screen.getByRole('button', { name: /enroll students/i })).toBeInTheDocument()
+    expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
 
     await user.keyboard('{Escape}')
     await waitFor(() => {
@@ -228,18 +238,22 @@ describe('Schedule', () => {
         onUpdateSession={vi.fn()}
         onNavigate={vi.fn()}
         navigationPayload={payload}
+        onNavigationPayloadConsumed={onNavigationPayloadConsumed}
       />
     )
 
     expect(screen.queryByRole('button', { name: /enroll students/i })).toBeNull()
+    expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
   })
 
   it('reopens session details after the navigation payload is cleared and sent again', async () => {
     const user = userEvent.setup()
+    const onNavigationPayloadConsumed = vi.fn()
     const payload = { sessionId: 's-1' }
-    const { rerender } = renderSchedule({ navigationPayload: payload })
+    const { rerender } = renderSchedule({ navigationPayload: payload, onNavigationPayloadConsumed })
 
     expect(screen.getByRole('button', { name: /enroll students/i })).toBeInTheDocument()
+    expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
 
     await user.keyboard('{Escape}')
     await waitFor(() => {
@@ -256,6 +270,7 @@ describe('Schedule', () => {
         onUpdateSession={vi.fn()}
         onNavigate={vi.fn()}
         navigationPayload={undefined}
+        onNavigationPayloadConsumed={onNavigationPayloadConsumed}
       />
     )
 
@@ -269,10 +284,12 @@ describe('Schedule', () => {
         onUpdateSession={vi.fn()}
         onNavigate={vi.fn()}
         navigationPayload={{ sessionId: 's-1' }}
+        onNavigationPayloadConsumed={onNavigationPayloadConsumed}
       />
     )
 
     expect(screen.getByRole('button', { name: /enroll students/i })).toBeInTheDocument()
+    expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(2)
   })
 
   it('opens the Guided Schedule dialog', async () => {

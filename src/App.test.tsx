@@ -171,7 +171,7 @@ vi.mock('@/components/views/Schedule', () => ({
             <div>Schedule View</div>
             <div>Session Count: {sessions.length}</div>
             {sessions.map((session) => (
-                <div key={session.id}>{session.title} ({session.status})</div>
+                <div key={session.id}>{session.id}|{session.title} ({session.status})</div>
             ))}
             <button onClick={() => {
                 const payload = { title: 'Created Session', trainerId: 'trainer-1', recurrence: { pattern: 'weekly' } }
@@ -187,6 +187,10 @@ vi.mock('@/components/views/Schedule', () => ({
                 callbackSpies.onUpdateSession('session-1', payload)
                 onUpdateSession('session-1', payload)
             }}>Update Session</button>
+            <button onClick={() => {
+                const payload = { id: 'custom-session-id', title: 'Session With Custom Id' }
+                onCreateSession(payload)
+            }}>Create Session With Id</button>
         </div>
     ),
 }))
@@ -203,6 +207,9 @@ vi.mock('@/components/views/ScheduleTemplates', () => ({
             <button onClick={() => {
                 onCreateSessions([{ courseId: 'course-1' }])
             }}>Create Minimal Template Sessions</button>
+            <button onClick={() => {
+                onCreateSessions([{ id: 'custom-template-session-id', title: 'Template Session With Custom Id' }])
+            }}>Create Template Session With Id</button>
         </div>
     ),
 }))
@@ -268,14 +275,19 @@ vi.mock('@/components/views/People', () => ({
         onAddUser,
         onUpdateUser,
         onDeleteUser,
+        navigationPayload,
     }: {
         users: Array<{ id: string; name: string }>
         onAddUser: (user: unknown) => void
         onUpdateUser: (user: unknown) => void
         onDeleteUser: (userId: string) => void
+        navigationPayload?: unknown
     }) => (
         <div>
             <div>People View</div>
+            {navigationPayload !== undefined && (
+                <div data-testid="people-nav-payload">{JSON.stringify(navigationPayload)}</div>
+            )}
             <div>Users Count: {users.length}</div>
             {users.map((user) => (
                 <div key={user.id}>{user.name}</div>
@@ -517,6 +529,7 @@ describe('App', () => {
 
         await user.click(screen.getByRole('button', { name: /^go people deep link$/i }))
         expect(screen.getByText(/people view/i)).toBeInTheDocument()
+        expect(screen.getByTestId('people-nav-payload')).toHaveTextContent(JSON.stringify({ userId: 'trainer-1' }))
 
         await user.click(screen.getByRole('button', { name: /^go analytics$/i }))
         expect(screen.getByText(/analytics view/i)).toBeInTheDocument()
@@ -653,7 +666,7 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/session count:\s*2/i)).toBeInTheDocument()
 
-        await user.click(screen.getByRole('button', { name: /create session/i }))
+        await user.click(screen.getByRole('button', { name: /^create session$/i }))
         expect(screen.getByText(/session count:\s*3/i)).toBeInTheDocument()
         expect(screen.getByText(/created session \(scheduled\)/i)).toBeInTheDocument()
         expect(callbackSpies.onCreateSession).toHaveBeenCalledWith(
@@ -676,6 +689,17 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/session count:\s*4/i)).toBeInTheDocument()
         expect(screen.getByText(/template session \(scheduled\)/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create session with id/i }))
+        expect(screen.getByText(/session count:\s*5/i)).toBeInTheDocument()
+        expect(screen.getByText(/custom-session-id\|session with custom id \(scheduled\)/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go schedule templates$/i }))
+        await user.click(screen.getByRole('button', { name: /create template session with id/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/session count:\s*6/i)).toBeInTheDocument()
+        expect(screen.getByText(/custom-template-session-id\|template session with custom id \(scheduled\)/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /^go courses$/i }))
         expect(screen.getByText(/courses count:\s*0/i)).toBeInTheDocument()
@@ -1094,8 +1118,6 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: /update session/i }))
-        await user.click(screen.getByRole('button', { name: /create session/i }))
-
         await user.click(screen.getByRole('button', { name: /^go schedule templates$/i }))
         await user.click(screen.getByRole('button', { name: /create template sessions/i }))
 
