@@ -350,7 +350,15 @@ function App() {
       tag: notification.type,
       onClick: notification.link ? () => {
         const link = notification.link!
-        const target = safeNormalizeNavigationValue(link)
+        let target: ReturnType<typeof normalizeNavigationValue>
+        try {
+          target = normalizeNavigationValue(link)
+        } catch (error) {
+          if (!import.meta.env.PROD) {
+            console.warn('[sendPushNotification] Ignoring malformed notification link', { link, error })
+          }
+          return
+        }
         if (!target) {
           return
         }
@@ -403,7 +411,15 @@ function App() {
    * @param data - Optional contextual data passed by the originating view.
    */
   const handleNavigate = (view: string, data?: unknown) => {
-    const target = safeNormalizeNavigationValue(view)
+    let target: ReturnType<typeof normalizeNavigationValue>
+    try {
+      target = normalizeNavigationValue(view)
+    } catch (error) {
+      if (!import.meta.env.PROD) {
+        console.warn('[handleNavigate] Ignoring navigation because normalizeNavigationValue threw', { view, error })
+      }
+      return
+    }
     if (!target) {
       if (!import.meta.env.PROD) {
         console.warn('[handleNavigate] Ignoring navigation because normalizeNavigationValue returned null', { view })
