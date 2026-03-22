@@ -2,10 +2,10 @@
  * Represents a normalized navigation target.
  */
 export interface NavigationTarget {
-  /** Internal view key used by the app shell. */
-  view: string
-  /** Optional context payload consumed by destination views. */
-  data?: unknown
+    /** Internal view key used by the app shell. */
+    view: string
+    /** Optional context payload consumed by destination views. */
+    data?: unknown
 }
 
 /**
@@ -22,14 +22,14 @@ export interface NavigationTarget {
  * @returns A normalized navigation target, or `null` if the input is empty.
  */
 export function normalizeNavigationValue(value: string): NavigationTarget | null {
-  const trimmed = value.trim()
-  if (!trimmed) {
-    return null
-  }
+    const trimmed = value.trim()
+    if (!trimmed) {
+        return null
+    }
 
-  if (!trimmed.startsWith('/')) {
-    return { view: trimmed }
-  }
+    if (!trimmed.startsWith('/')) {
+        return { view: trimmed }
+    }
 
     const pathOnly = trimmed.split(/[?#]/)[0]
     const normalizedPath = pathOnly.replace(/^\/+/, '').replace(/\/+$/, '')
@@ -47,13 +47,13 @@ export function normalizeNavigationValue(value: string): NavigationTarget | null
             }
         }
 
-    if (segment === 'schedule' && id) {
-      return {
-        view: 'schedule',
-        data: { sessionId: decodeURIComponent(id) },
-      }
+        if (segment === 'schedule' && id) {
+            return {
+                view: 'schedule',
+                data: { sessionId: decodeURIComponent(id) },
+            }
+        }
     }
-  }
 
     return { view: normalizedPath }
 }
