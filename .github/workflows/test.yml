@@ -9,12 +9,14 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   test:
     name: Vitest — Tests & Coverage
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Checkout
@@ -71,11 +73,21 @@ jobs:
                 LABEL=$(echo "$METRIC" | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
                 echo "| ${LABEL} | ${PCT}% | ≥ ${THRESHOLD}% | ${STATUS} |"
               done
+            else
+              echo "### Coverage report unavailable"
+              echo ""
+              echo "Expected coverage summary at: \`$SUMMARY_FILE\`, but the file was not found."
+              echo "This usually means the test run crashed before writing coverage or the coverage output path changed."
             fi
           } | tee "$REPORT_FILE" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Post PR comment on failure
-        if: always() && steps.test.outcome == 'failure' && github.event_name == 'pull_request'
+        if: >-
+          always() &&
+          steps.test.outcome == 'failure' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
