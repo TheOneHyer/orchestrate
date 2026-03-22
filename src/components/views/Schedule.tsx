@@ -44,6 +44,8 @@ interface ScheduleProps {
   onNavigate: (view: string, data?: unknown) => void
   /** Optional navigation payload used to deep-link to a specific session. */
   navigationPayload?: unknown
+  /** Optional callback invoked after a navigation payload has been consumed. */
+  onNavigationPayloadConsumed?: () => void
 }
 
 /**
@@ -73,7 +75,7 @@ function isViewType(v: string): v is ViewType {
  * Navigation payload deep-links are processed once per payload so later session list refreshes do not reopen the same sheet unexpectedly.
  * @returns The Schedule component's React element.
  */
-export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate, navigationPayload }: ScheduleProps) {
+export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate, navigationPayload, onNavigationPayloadConsumed }: ScheduleProps) {
   const [viewType, setViewType] = useState<ViewType>('calendar')
   const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('month')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
@@ -122,7 +124,8 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     setSheetOpen(true)
     setCurrentDate(new Date(targetSession.startTime))
     processedPayloadRef.current = navigationPayload.sessionId
-  }, [navigationPayload, sessions])
+    onNavigationPayloadConsumed?.()
+  }, [navigationPayload, onNavigationPayloadConsumed, sessions])
 
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)

@@ -5,6 +5,7 @@ import type { ReactNode } from 'react'
 
 import { TrainerAvailability } from './TrainerAvailability'
 import type { Course, Session, User } from '@/lib/types'
+import type { WorkloadRecommendation } from '@/lib/workload-balancer'
 
 vi.mock('@/components/WorkloadRecommendations', () => ({
     WorkloadRecommendations: ({
@@ -12,15 +13,7 @@ vi.mock('@/components/WorkloadRecommendations', () => ({
         onApplyRecommendation,
     }: {
         onViewTrainer: (trainerId: string) => void
-        onApplyRecommendation?: (recommendation: {
-            type: 'redistribute' | 'hire' | 'reduce' | 'optimize'
-            priority: 'high' | 'medium' | 'low'
-            title: string
-            description: string
-            affectedTrainers: string[]
-            actionable: boolean
-            potentialSavings?: number
-        }) => void
+        onApplyRecommendation?: (recommendation: WorkloadRecommendation) => void
     }) => (
         <div>
             <p>WorkloadRecommendations Mock</p>

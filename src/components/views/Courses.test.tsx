@@ -486,6 +486,7 @@ describe('Courses', () => {
         )
 
         expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
+        await user.type(screen.getByLabelText(/title/i), 'Draft to clear')
 
         await user.keyboard('{Escape}')
         expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
@@ -511,6 +512,48 @@ describe('Courses', () => {
         )
 
         expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
+        expect(screen.getByLabelText(/title/i)).toHaveValue('')
+    })
+
+    it('clears create form values when dismissed with Cancel', async () => {
+        const user = userEvent.setup()
+        const payload = { create: true }
+        const { rerender } = render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={payload}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'Cancel should clear this')
+        await user.click(screen.getByRole('button', { name: /cancel/i }))
+        expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
+
+        rerender(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={undefined}
+            />
+        )
+
+        rerender(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
+        expect(screen.getByLabelText(/title/i)).toHaveValue('')
     })
 
     it('shows validation error when create form misses required fields', async () => {
@@ -537,7 +580,7 @@ describe('Courses', () => {
         )
     })
 
-    it('shows validation error for invalid duration and invalid pass score', async () => {
+    it('shows validation error for invalid duration', async () => {
         const user = userEvent.setup()
         const onCreateCourse = vi.fn()
 
@@ -562,7 +605,26 @@ describe('Courses', () => {
             'Invalid duration',
             expect.objectContaining({ description: expect.stringMatching(/positive whole number/i) })
         )
+        expect(onCreateCourse).not.toHaveBeenCalled()
+    })
 
+    it('shows validation error for invalid pass score', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
+        await user.type(screen.getByLabelText(/description/i), 'Course description')
         await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
         await user.type(screen.getByLabelText(/duration \(minutes\)/i), '60')
         await user.clear(screen.getByLabelText(/pass score/i))

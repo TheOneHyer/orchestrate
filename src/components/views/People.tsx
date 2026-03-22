@@ -42,6 +42,8 @@ interface PeopleProps {
   onDeleteUser?: (userId: string) => void
   /** Optional navigation payload used to deep-link to a specific user profile. */
   navigationPayload?: unknown
+  /** Optional callback invoked after a navigation payload has been consumed. */
+  onNavigationPayloadConsumed?: () => void
 }
 
 /**
@@ -61,7 +63,7 @@ function hasUserIdPayload(value: unknown): value is { userId: string } {
  * {@link TrainerProfileView}. Trainers without configured shift schedules are highlighted
  * with a warning icon.
  */
-export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser, onAddUser, onDeleteUser, navigationPayload }: PeopleProps) {
+export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser, onAddUser, onDeleteUser, navigationPayload, onNavigationPayloadConsumed }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'trainer' | 'employee'>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -90,7 +92,8 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
       setRoleFilter('all')
       setSearchQuery('')
     }
-  }, [navigationPayload, users])
+    onNavigationPayloadConsumed?.()
+  }, [navigationPayload, onNavigationPayloadConsumed, users])
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

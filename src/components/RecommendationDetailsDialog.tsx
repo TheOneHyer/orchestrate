@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { useEffect, useMemo, useRef } from 'react'
 import { WorkloadRecommendation } from '@/lib/workload-balancer'
 import { User } from '@/lib/types'
 
@@ -40,13 +41,32 @@ export function RecommendationDetailsDialog({
     onViewTrainer,
     onOpenScheduleContext,
 }: RecommendationDetailsDialogProps) {
+    const onOpenChangeRef = useRef(onOpenChange)
+    const userById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users])
+
+    useEffect(() => {
+        onOpenChangeRef.current = onOpenChange
+    }, [onOpenChange])
+
+    useEffect(() => {
+        if (open && !recommendation) {
+            onOpenChangeRef.current(false)
+        }
+    }, [open, recommendation])
+
+    const affectedTrainers = useMemo(() => {
+        if (!recommendation) {
+            return []
+        }
+
+        return recommendation.affectedTrainers
+            .map((trainerId) => userById.get(trainerId))
+            .filter((trainer): trainer is User => !!trainer)
+    }, [recommendation, userById])
+
     if (!recommendation) {
         return null
     }
-
-    const affectedTrainers = recommendation.affectedTrainers
-        .map((trainerId) => users.find((user) => user.id === trainerId))
-        .filter((trainer): trainer is User => !!trainer)
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -90,7 +110,9 @@ export function RecommendationDetailsDialog({
                                         key={trainer.id}
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => onViewTrainer?.(trainer.id)}
+                                        onClick={onViewTrainer ? () => onViewTrainer(trainer.id) : undefined}
+                                        disabled={!onViewTrainer}
+                                        title={!onViewTrainer ? 'Trainer profile action unavailable' : undefined}
                                     >
                                         {trainer.name}
                                     </Button>
@@ -108,10 +130,10 @@ export function RecommendationDetailsDialog({
                 </div>
 
                 <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
+                    <Button data-testid="recommendation-dialog-close" variant="outline" onClick={() => onOpenChange(false)}>
                         Close
                     </Button>
-                    {recommendation.actionable && (
+                    {recommendation.actionable && onOpenScheduleContext && (
                         <Button onClick={() => onOpenScheduleContext?.(recommendation)}>
                             Open Schedule Context
                         </Button>

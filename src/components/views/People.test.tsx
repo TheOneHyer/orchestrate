@@ -359,5 +359,19 @@ describe('People', () => {
         expect(screen.queryByTestId('profile-name')).toBeNull()
     })
 
+    it('gracefully handles empty navigation payload', () => {
+        renderPeople({ navigationPayload: {} })
+
+        expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
+        expect(screen.queryByTestId('profile-name')).toBeNull()
+    })
+
+    it('gracefully handles navigation payload with null userId', () => {
+        renderPeople({ navigationPayload: { userId: null } })
+
+        expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
+        expect(screen.queryByTestId('profile-name')).toBeNull()
+    })
+
 
 })

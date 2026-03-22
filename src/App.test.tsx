@@ -25,6 +25,7 @@ let utilizationNotificationPayload: Record<string, unknown> = createUtilizationN
 const callbackSpies = {
     onCreateSession: vi.fn(),
     onUpdateSession: vi.fn(),
+    onCreateCourse: vi.fn(),
     onCreateTemplateSessions: vi.fn(),
     onAddUser: vi.fn(),
     onUpdateUser: vi.fn(),
@@ -138,6 +139,7 @@ vi.mock('@/components/Layout', () => ({
             <button onClick={() => onNavigate('user-guide')}>Go User Guide</button>
             <button onClick={() => onNavigate('settings')}>Go Settings</button>
             <button onClick={() => onNavigate('unknown-view')}>Go Unknown</button>
+            <button onClick={() => onNavigate('/')}>Go Root Path</button>
             {children}
         </div>
     ),
@@ -202,7 +204,53 @@ vi.mock('@/components/views/ScheduleTemplates', () => ({
     ),
 }))
 
-vi.mock('@/components/views/Courses', () => ({ Courses: () => <div>Courses View</div> }))
+vi.mock('@/components/views/Courses', () => ({
+    Courses: ({
+        courses,
+        onCreateCourse,
+    }: {
+        courses: Array<{
+            id: string
+            title: string
+            createdBy: string
+            duration: number
+            passScore: number
+            published: boolean
+            createdAt: string
+        }>
+        onCreateCourse?: (course: unknown) => void
+    }) => (
+        <div>
+            <div>Courses View</div>
+            <div>Courses Count: {courses.length}</div>
+            {courses.map((course) => (
+                <div key={course.id} data-testid="course-row">
+                    {course.id}|{course.title}|{course.createdBy}|{course.duration}|{course.passScore}|{course.published ? 'published' : 'draft'}|{course.createdAt}
+                </div>
+            ))}
+            <button onClick={() => {
+                const payload = { title: 'Partial Course' }
+                callbackSpies.onCreateCourse(payload)
+                onCreateCourse?.(payload)
+            }}>Create Minimal Course</button>
+            <button onClick={() => {
+                const payload = {
+                    title: 'Explicit Course',
+                    description: 'Explicit description',
+                    duration: 90,
+                    passScore: 92,
+                    modules: ['M1'],
+                    certifications: ['C1'],
+                    createdBy: 'trainer-1',
+                    createdAt: '2024-01-02T00:00:00.000Z',
+                    published: true,
+                }
+                callbackSpies.onCreateCourse(payload)
+                onCreateCourse?.(payload)
+            }}>Create Explicit Course</button>
+        </div>
+    ),
+}))
 vi.mock('@/components/views/People', () => ({
     People: ({
         users,
@@ -484,6 +532,25 @@ describe('App', () => {
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
     })
 
+    it('warns and ignores navigation when normalizeNavigationValue returns null', async () => {
+        const user = userEvent.setup()
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
+
+        render(<App />)
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go root path$/i }))
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[handleNavigate] Ignoring navigation because normalizeNavigationValue returned null',
+            { view: '/' }
+        )
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+
+        warnSpy.mockRestore()
+    })
+
     it('handles notification creation and routes on notification click action', async () => {
         const { unmount } = render(<App />)
 
@@ -573,6 +640,19 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/session count:\s*4/i)).toBeInTheDocument()
         expect(screen.getByText(/template session \(scheduled\)/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        expect(screen.getByText(/courses count:\s*0/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create minimal course/i }))
+        expect(callbackSpies.onCreateCourse).toHaveBeenCalledWith(expect.objectContaining({ title: 'Partial Course' }))
+        expect(screen.getByText(/courses count:\s*1/i)).toBeInTheDocument()
+        expect(screen.getByText(/partial course\|admin-1\|60\|80\|draft/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create explicit course/i }))
+        expect(callbackSpies.onCreateCourse).toHaveBeenCalledWith(expect.objectContaining({ title: 'Explicit Course' }))
+        expect(screen.getByText(/courses count:\s*2/i)).toBeInTheDocument()
+        expect(screen.getByText(/explicit course\|trainer-1\|90\|92\|published\|2024-01-02t00:00:00.000z/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*2/i)).toBeInTheDocument()
@@ -869,6 +949,36 @@ describe('App', () => {
         expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
         expect(toastError).toHaveBeenCalledWith(
             '⚠️ High Alert',
+            expect.objectContaining({ duration: 8000 })
+        )
+    })
+
+    it('ignores notification click when link normalizes to null', async () => {
+        utilizationNotificationPayload = createUtilizationNotificationPayload({
+            title: 'Root Link Alert',
+            message: 'Root navigation should be ignored',
+            priority: 'high',
+            link: '/',
+        })
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(sendNotificationMock).toHaveBeenCalledWith(
+                'Root Link Alert',
+                expect.objectContaining({ priority: 'high' })
+            )
+        })
+
+        const sendCall = sendNotificationMock.mock.calls[0]
+        const options = sendCall[1]
+        act(() => {
+            options.onClick()
+        })
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(toastError).toHaveBeenCalledWith(
+            '⚠️ Root Link Alert',
             expect.objectContaining({ duration: 8000 })
         )
     })

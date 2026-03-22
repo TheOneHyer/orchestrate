@@ -9,7 +9,7 @@ describe('normalizeNavigationValue', () => {
         expect(normalizeNavigationValue('/')).toBeNull()
     })
 
-    it('returns plain view values unchanged', () => {
+    it('wraps plain view values in object structure', () => {
         expect(normalizeNavigationValue('schedule')).toEqual({ view: 'schedule' })
         expect(normalizeNavigationValue('notifications')).toEqual({ view: 'notifications' })
     })
@@ -28,6 +28,29 @@ describe('normalizeNavigationValue', () => {
         expect(normalizeNavigationValue('/people/')).toEqual({ view: 'people' })
     })
 
+    it('handles unusual people-path inputs consistently', () => {
+        expect(normalizeNavigationValue('/people/trainer-1/')).toEqual({
+            view: 'people',
+            data: { userId: 'trainer-1' },
+        })
+
+        expect(normalizeNavigationValue('/people/')).toEqual({ view: 'people' })
+
+        expect(normalizeNavigationValue('/people//trainer-1')).toEqual({
+            view: 'people//trainer-1',
+        })
+
+        expect(normalizeNavigationValue('/people/trainer-1?foo=bar')).toEqual({
+            view: 'people',
+            data: { userId: 'trainer-1?foo=bar' },
+        })
+
+        expect(normalizeNavigationValue('/people/trainer-1#section')).toEqual({
+            view: 'people',
+            data: { userId: 'trainer-1#section' },
+        })
+    })
+
     it('extracts sessionId payload from schedule path', () => {
         expect(normalizeNavigationValue('/schedule/session-7')).toEqual({
             view: 'schedule',
@@ -39,10 +62,36 @@ describe('normalizeNavigationValue', () => {
         })
     })
 
-    it('decodes path payload values', () => {
-        expect(normalizeNavigationValue('/people/user%201')).toEqual({
+    it('decodes special characters', () => {
+        expect(normalizeNavigationValue('/people/user%2Fname')).toEqual({
             view: 'people',
-            data: { userId: 'user 1' },
+            data: { userId: 'user/name' },
         })
+        expect(normalizeNavigationValue('/people/user%3Fname')).toEqual({
+            view: 'people',
+            data: { userId: 'user?name' },
+        })
+        expect(normalizeNavigationValue('/people/user%23name')).toEqual({
+            view: 'people',
+            data: { userId: 'user#name' },
+        })
+    })
+
+    it('decodes unicode characters', () => {
+        expect(normalizeNavigationValue('/people/caf%C3%A9')).toEqual({
+            view: 'people',
+            data: { userId: 'caf\u00E9' },
+        })
+    })
+
+    it('handles multiple encoded chars in a segment', () => {
+        expect(normalizeNavigationValue('/people/one%20two%2Fthree')).toEqual({
+            view: 'people',
+            data: { userId: 'one two/three' },
+        })
+    })
+
+    it('handles invalid encoding by surfacing URI errors', () => {
+        expect(() => normalizeNavigationValue('/people/%ZZ')).toThrow(URIError)
     })
 })

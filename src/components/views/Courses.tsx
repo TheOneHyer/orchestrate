@@ -12,6 +12,15 @@ import { formatDuration } from '@/lib/helpers'
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
+const initialCreateForm = {
+  title: '',
+  description: '',
+  duration: '60',
+  passScore: '80',
+  modules: '',
+  certifications: '',
+}
+
 /** Props for the Courses view component. */
 interface CoursesProps {
   /** All available courses to display and filter. */
@@ -26,6 +35,8 @@ interface CoursesProps {
   onCreateCourse?: (course: Course) => void | Promise<void>
   /** Optional navigation payload used to open create/detail interactions. */
   navigationPayload?: unknown
+  /** Optional callback invoked after a navigation payload has been consumed. */
+  onNavigationPayloadConsumed?: () => void
 }
 
 /**
@@ -60,21 +71,15 @@ function isCoursesNavigationPayload(value: unknown): value is { create?: boolean
  * @param navigationPayload - Optional one-time payload used to open create or detail dialogs from app-level navigation.
  * @returns The rendered Courses page element.
  */
-export function Courses({ courses, enrollments, currentUser, onNavigate, onCreateCourse, navigationPayload }: CoursesProps) {
+export function Courses({ courses, enrollments, currentUser, onNavigate, onCreateCourse, navigationPayload, onNavigationPayloadConsumed }: CoursesProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const coursesRef = useRef(courses)
   const processedPayloadRef = useRef<unknown>(null)
-  const [createForm, setCreateForm] = useState({
-    title: '',
-    description: '',
-    duration: '60',
-    passScore: '80',
-    modules: '',
-    certifications: '',
-  })
+  const [createForm, setCreateForm] = useState(initialCreateForm)
 
   const filteredCourses = courses.filter(course =>
     course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -91,18 +96,20 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
     }
 
     if (!isCoursesNavigationPayload(navigationPayload)) {
-      processedPayloadRef.current = null
+      processedPayloadRef.current = navigationPayload
       return
     }
 
     if (navigationPayload.create) {
       setCreateDialogOpen(true)
       processedPayloadRef.current = navigationPayload
+      onNavigationPayloadConsumed?.()
       return
     }
 
     if (!navigationPayload.courseId) {
       processedPayloadRef.current = navigationPayload
+      onNavigationPayloadConsumed?.()
       return
     }
 
@@ -112,13 +119,15 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
         description: 'The selected course could not be opened.',
       })
       processedPayloadRef.current = navigationPayload
+      onNavigationPayloadConsumed?.()
       return
     }
 
     setSelectedCourse(targetCourse)
     setDetailDialogOpen(true)
     processedPayloadRef.current = navigationPayload
-  }, [navigationPayload])
+    onNavigationPayloadConsumed?.()
+  }, [navigationPayload, onNavigationPayloadConsumed])
 
   /**
    * Finds the current user's enrollment record for a specific course.
@@ -139,7 +148,16 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
     onNavigate('courses', { create: true })
   }
 
+  const handleCloseCreateDialog = () => {
+    setCreateForm(initialCreateForm)
+    setCreateDialogOpen(false)
+  }
+
   const handleSaveCourse = async () => {
+    if (isSaving) {
+      return
+    }
+
     if (!canCreateCourse || !onCreateCourse) {
       toast.error('Course creation unavailable', {
         description: 'You do not have permission to create courses.',
@@ -175,8 +193,21 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
       return
     }
 
+    const createCourseId = () => {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID()
+      }
+
+      // Fallback for environments without crypto.randomUUID support.
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (char) => {
+        const randomValue = Math.floor(Math.random() * 16)
+        const value = char === 'x' ? randomValue : ((randomValue & 0x3) | 0x8)
+        return value.toString(16)
+      })
+    }
+
     const newCourse: Course = {
-      id: `course-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id: createCourseId(),
       title,
       description,
       duration,
@@ -188,17 +219,11 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
       published: false,
     }
 
+    setIsSaving(true)
+
     try {
       await Promise.resolve(onCreateCourse(newCourse))
-      setCreateDialogOpen(false)
-      setCreateForm({
-        title: '',
-        description: '',
-        duration: '60',
-        passScore: '80',
-        modules: '',
-        certifications: '',
-      })
+      handleCloseCreateDialog()
 
       toast.success('Course created', {
         description: `${title} has been added as a draft course.`,
@@ -211,6 +236,8 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
       toast.error('Course creation failed', {
         description,
       })
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -365,7 +392,22 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
         </DialogContent>
       </Dialog>
 
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+      <Dialog
+        open={createDialogOpen}
+        onOpenChange={(open) => {
+          if (open) {
+            setCreateDialogOpen(true)
+            return
+          }
+
+          if (isSaving) {
+            setCreateDialogOpen(true)
+            return
+          }
+
+          handleCloseCreateDialog()
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create Course</DialogTitle>
@@ -433,11 +475,11 @@ export function Courses({ courses, enrollments, currentUser, onNavigate, onCreat
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCreateDialogOpen(false)}>
+            <Button type="button" variant="outline" onClick={handleCloseCreateDialog} disabled={isSaving}>
               Cancel
             </Button>
-            <Button type="button" onClick={handleSaveCourse}>
-              Save Course
+            <Button type="button" onClick={handleSaveCourse} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Course'}
             </Button>
           </DialogFooter>
         </DialogContent>

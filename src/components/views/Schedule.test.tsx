@@ -180,16 +180,18 @@ describe('Schedule', () => {
     expect(screen.getByText(/autoscheduler mock/i)).toBeInTheDocument()
   })
 
-  it('opens target session details from navigation payload sessionId', () => {
+  it('opens target session details from navigation payload sessionId', async () => {
     renderSchedule({ navigationPayload: { sessionId: 's-1' } })
 
-    expect(screen.getByRole('button', { name: /enroll students/i })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /enroll students/i })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /morning safety session/i })).toBeInTheDocument()
   })
 
   it('does not open details when navigation payload sessionId is not found', () => {
     renderSchedule({ navigationPayload: { sessionId: 'missing-session' } })
 
     expect(screen.queryByRole('button', { name: /enroll students/i })).toBeNull()
+    expect(screen.queryByRole('heading', { name: /morning safety session/i })).toBeNull()
   })
 
   it('does not reopen details when sessions change for the same payload', async () => {
