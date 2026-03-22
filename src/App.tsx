@@ -37,6 +37,7 @@ import { ensureAllTrainersHaveProfiles } from '@/lib/trainer-profile-generator'
 import { createPreviewSeedData, PREVIEW_SEED_VERSION } from '@/lib/preview-seed-data'
 import { getPreviewSeedMode, isPreviewSeedEnabled, PreviewSeedMode } from '@/lib/preview-mode'
 import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
+import { normalizeNavigationValue } from '@/lib/navigation-utils'
 
 /**
  * Root application component for the Orchestrate training management platform.
@@ -55,6 +56,7 @@ import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
  */
 function App() {
   const [activeView, setActiveView] = useState('dashboard')
+  const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
 
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
@@ -305,18 +307,14 @@ function App() {
       priority: pushPriority,
       tag: notification.type,
       onClick: notification.link ? () => {
-        if (notification.link) {
-          const viewMap: Record<string, string> = {
-            '/trainer-availability': 'trainer-availability',
-            '/burnout-dashboard': 'burnout-dashboard',
-            '/certifications': 'certifications',
-            '/trainer-wellness': 'trainer-wellness',
-            '/notifications': 'notifications'
-          }
-          const view = viewMap[notification.link]
-          if (view) {
-            setActiveView(view)
-          }
+        if (!notification.link) {
+          return
+        }
+
+        const target = normalizeNavigationValue(notification.link)
+        if (target) {
+          setActiveView(target.view)
+          setNavigationPayload(target.data ?? null)
         }
       } : undefined
     })
@@ -357,11 +355,16 @@ function App() {
    *
    * @param view - The key of the view to navigate to (e.g. `'dashboard'`,
    *   `'schedule'`, `'people'`).
-   * @param _data - Optional contextual data passed by the originating view
-   *   (currently ignored; reserved for future extensibility).
+   * @param data - Optional contextual data passed by the originating view.
    */
-  const handleNavigate = (view: string, _data?: unknown) => {
-    setActiveView(view)
+  const handleNavigate = (view: string, data?: unknown) => {
+    const target = normalizeNavigationValue(view)
+    if (!target) {
+      return
+    }
+
+    setActiveView(target.view)
+    setNavigationPayload(data ?? target.data ?? null)
   }
 
   /**
@@ -456,6 +459,15 @@ function App() {
   const handleAddUser = (newUser: User) => {
     setUsers((currentUsers) => [...(currentUsers || []), newUser])
   }
+
+  /**
+   * Appends a newly-created {@link Course} to the courses KV store.
+   *
+   * @param newCourse - The full course record to add.
+   */
+  const handleCreateCourse = useCallback((newCourse: Course) => {
+    setCourses((currentCourses) => [...(currentCourses || []), newCourse])
+  }, [setCourses])
 
   /**
    * Removes a user from the users KV store and cleans up related session
@@ -614,6 +626,7 @@ function App() {
             onCreateSession={handleCreateSession}
             onUpdateSession={handleUpdateSession}
             onNavigate={handleNavigate}
+            navigationPayload={navigationPayload}
           />
         )
       case 'schedule-templates':
@@ -631,6 +644,8 @@ function App() {
             enrollments={safeEnrollments}
             currentUser={currentUser}
             onNavigate={handleNavigate}
+            onCreateCourse={handleCreateCourse}
+            navigationPayload={navigationPayload}
           />
         )
       case 'people':
@@ -645,6 +660,7 @@ function App() {
             onUpdateUser={handleUpdateUser}
             onAddUser={handleAddUser}
             onDeleteUser={handleDeleteUser}
+            navigationPayload={navigationPayload}
           />
         )
       case 'analytics':

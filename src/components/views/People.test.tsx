@@ -96,6 +96,7 @@ function renderPeople(options?: {
     onUpdateUser?: (user: User) => void
     onAddUser?: (user: User) => void
     onDeleteUser?: (userId: string) => void
+    navigationPayload?: unknown
 }) {
     const users = options?.users ?? [
         createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' }),
@@ -130,6 +131,7 @@ function renderPeople(options?: {
             onUpdateUser={options?.onUpdateUser}
             onAddUser={options?.onAddUser}
             onDeleteUser={options?.onDeleteUser}
+            navigationPayload={options?.navigationPayload}
         />
     )
 
@@ -342,6 +344,19 @@ describe('People', () => {
         expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User')
         expect(screen.queryByRole('button', { name: /mock edit profile/i })).toBeNull()
         expect(screen.queryByRole('button', { name: /mock delete person/i })).toBeNull()
+    })
+
+    it('auto-opens target profile when navigation payload contains a userId', () => {
+        renderPeople({ navigationPayload: { userId: 'u-trainer' } })
+
+        expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User')
+    })
+
+    it('does not auto-open a profile when payload userId is not found', () => {
+        renderPeople({ navigationPayload: { userId: 'missing-user' } })
+
+        expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
+        expect(screen.queryByTestId('profile-name')).toBeNull()
     })
 
 

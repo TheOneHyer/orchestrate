@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -42,6 +42,17 @@ interface ScheduleProps {
    * @param data - Optional payload for the target view.
    */
   onNavigate: (view: string, data?: unknown) => void
+  /** Optional navigation payload used to deep-link to a specific session. */
+  navigationPayload?: unknown
+}
+
+/**
+ * Type guard for schedule view navigation payload.
+ * @param value - Unknown payload to validate.
+ * @returns True when payload contains a string `sessionId`.
+ */
+function hasSessionIdPayload(value: unknown): value is { sessionId: string } {
+  return !!value && typeof value === 'object' && 'sessionId' in value && typeof value.sessionId === 'string'
 }
 
 /** Roles that are allowed to create or modify schedule entries. */
@@ -61,7 +72,7 @@ function isViewType(v: string): v is ViewType {
  * @param props - Properties including `sessions`, `courses`, `users`, `currentUser`, and callbacks `onCreateSession`, `onUpdateSession`, and `onNavigate`.
  * @returns The Schedule component's React element.
  */
-export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate }: ScheduleProps) {
+export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate, navigationPayload }: ScheduleProps) {
   const [viewType, setViewType] = useState<ViewType>('calendar')
   const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('month')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
@@ -84,6 +95,21 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     capacity: '20',
     status: 'scheduled' as Session['status'],
   })
+
+  useEffect(() => {
+    if (!hasSessionIdPayload(navigationPayload)) {
+      return
+    }
+
+    const targetSession = sessions.find((session) => session.id === navigationPayload.sessionId)
+    if (!targetSession) {
+      return
+    }
+
+    setSelectedSession(targetSession)
+    setSheetOpen(true)
+    setCurrentDate(new Date(targetSession.startTime))
+  }, [navigationPayload, sessions])
 
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)

@@ -1,9 +1,18 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { Courses } from './Courses'
 import type { Course, Enrollment, User } from '@/lib/types'
+
+const toastError = vi.fn()
+
+vi.mock('sonner', () => ({
+    toast: {
+        error: (...args: unknown[]) => toastError(...args),
+        success: vi.fn(),
+    },
+}))
 
 function createUser(overrides: Partial<User> = {}): User {
     return {
@@ -35,6 +44,23 @@ function createCourse(overrides: Partial<Course> = {}): Course {
 }
 
 describe('Courses', () => {
+    it('shows an error when navigation payload references a missing course id', () => {
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={vi.fn()}
+                navigationPayload={{ courseId: 'missing-course' }}
+            />
+        )
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Course not found',
+            expect.objectContaining({ description: expect.stringMatching(/could not be opened/i) })
+        )
+    })
+
     it('renders courses, module counts, and durations', () => {
         const courses: Course[] = [
             createCourse({ id: 'c1', title: 'Safety Foundations', duration: 90, modules: ['Intro', 'Quiz'] }),
@@ -261,5 +287,159 @@ describe('Courses', () => {
 
         expect(screen.getByText(/no courses found/i)).toBeInTheDocument()
         expect(screen.queryByText('Safety Foundations')).toBeNull()
+    })
+
+    it('opens course detail dialog when courseId is provided in navigation payload', () => {
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations', description: 'Detailed description' })]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={vi.fn()}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        const dialog = screen.getByRole('dialog')
+        expect(within(dialog).getByRole('heading', { name: /safety foundations/i })).toBeInTheDocument()
+        expect(within(dialog).getByText(/detailed description/i)).toBeInTheDocument()
+    })
+
+    it('opens create dialog when create intent is provided in navigation payload', () => {
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
+    })
+
+    it('creates a course when create dialog is submitted', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
+        await user.type(screen.getByLabelText(/description/i), 'Course description')
+        await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
+        await user.type(screen.getByLabelText(/duration \(minutes\)/i), '120')
+        await user.clear(screen.getByLabelText(/pass score/i))
+        await user.type(screen.getByLabelText(/pass score/i), '85')
+        await user.type(screen.getByLabelText(/modules/i), 'Intro, Practical')
+        await user.type(screen.getByLabelText(/certifications/i), 'Safety Cert')
+
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(onCreateCourse).toHaveBeenCalledWith(
+            expect.objectContaining({
+                title: 'New Safety Course',
+                description: 'Course description',
+                duration: 120,
+                passScore: 85,
+                modules: ['Intro', 'Practical'],
+                certifications: ['Safety Cert'],
+                createdBy: 'admin-1',
+                published: false,
+            })
+        )
+    })
+
+    it('shows validation error when create form misses required fields', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(onCreateCourse).not.toHaveBeenCalled()
+        expect(toastError).toHaveBeenCalledWith(
+            'Missing required fields',
+            expect.objectContaining({ description: expect.stringMatching(/title and description/i) })
+        )
+    })
+
+    it('shows validation error for invalid duration and invalid pass score', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
+        await user.type(screen.getByLabelText(/description/i), 'Course description')
+        await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
+        await user.type(screen.getByLabelText(/duration \(minutes\)/i), '0')
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Invalid duration',
+            expect.objectContaining({ description: expect.stringMatching(/positive whole number/i) })
+        )
+
+        await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
+        await user.type(screen.getByLabelText(/duration \(minutes\)/i), '60')
+        await user.clear(screen.getByLabelText(/pass score/i))
+        await user.type(screen.getByLabelText(/pass score/i), '101')
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Invalid pass score',
+            expect.objectContaining({ description: expect.stringMatching(/between 0 and 100/i) })
+        )
+        expect(onCreateCourse).not.toHaveBeenCalled()
+    })
+
+    it('shows permission error when create callback is unavailable', async () => {
+        const user = userEvent.setup()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Course creation unavailable',
+            expect.objectContaining({ description: expect.stringMatching(/permission/i) })
+        )
     })
 })

@@ -13,10 +13,11 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { MagnifyingGlass, Users as UsersIcon, Certificate, Clock, CalendarBlank, X, ChartBar, Scales, CalendarCheck, WarningCircle } from '@phosphor-icons/react'
 import { User, Session, Course, DayOfWeek } from '@/lib/types'
 import { format, startOfWeek, addDays, isSameDay, addWeeks, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
-import { analyzeWorkloadBalance } from '@/lib/workload-balancer'
+import { analyzeWorkloadBalance, WorkloadRecommendation } from '@/lib/workload-balancer'
 import { WorkloadRecommendations } from '@/components/WorkloadRecommendations'
 import { UnconfiguredScheduleAlert } from '@/components/UnconfiguredScheduleAlert'
 import { TrainerCoverageHeatmap } from '@/components/TrainerCoverageHeatmap'
+import { RecommendationDetailsDialog } from '@/components/RecommendationDetailsDialog'
 
 /** Props for the TrainerAvailability component. */
 interface TrainerAvailabilityProps {
@@ -60,6 +61,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   const [selectedTrainer, setSelectedTrainer] = useState<User | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [hideUnconfigured, setHideUnconfigured] = useState(false)
+  const [selectedRecommendation, setSelectedRecommendation] = useState<WorkloadRecommendation | null>(null)
+  const [recommendationDialogOpen, setRecommendationDialogOpen] = useState(false)
 
   const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -465,6 +468,19 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     }
   }
 
+  const handleOpenRecommendationDetails = (recommendation: WorkloadRecommendation) => {
+    setSelectedRecommendation(recommendation)
+    setRecommendationDialogOpen(true)
+  }
+
+  const handleOpenRecommendationScheduleContext = (recommendation: WorkloadRecommendation) => {
+    setRecommendationDialogOpen(false)
+    onNavigate('schedule', {
+      recommendationType: recommendation.type,
+      affectedTrainers: recommendation.affectedTrainers,
+    })
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -865,6 +881,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
             analysis={workloadAnalysis}
             users={users}
             onViewTrainer={handleViewTrainer}
+            onApplyRecommendation={handleOpenRecommendationDetails}
           />
         </TabsContent>
       </Tabs>
@@ -872,6 +889,15 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         {renderTrainerDetailSheet()}
       </Sheet>
+
+      <RecommendationDetailsDialog
+        open={recommendationDialogOpen}
+        onOpenChange={setRecommendationDialogOpen}
+        recommendation={selectedRecommendation}
+        users={users}
+        onViewTrainer={handleViewTrainer}
+        onOpenScheduleContext={handleOpenRecommendationScheduleContext}
+      />
     </div>
   )
 }

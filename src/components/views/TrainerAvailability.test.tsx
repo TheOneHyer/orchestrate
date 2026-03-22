@@ -7,11 +7,38 @@ import { TrainerAvailability } from './TrainerAvailability'
 import type { Course, Session, User } from '@/lib/types'
 
 vi.mock('@/components/WorkloadRecommendations', () => ({
-    WorkloadRecommendations: ({ onViewTrainer }: { onViewTrainer: (trainerId: string) => void }) => (
+    WorkloadRecommendations: ({
+        onViewTrainer,
+        onApplyRecommendation,
+    }: {
+        onViewTrainer: (trainerId: string) => void
+        onApplyRecommendation?: (recommendation: {
+            type: 'redistribute' | 'hire' | 'reduce' | 'optimize'
+            priority: 'high' | 'medium' | 'low'
+            title: string
+            description: string
+            affectedTrainers: string[]
+            actionable: boolean
+            potentialSavings?: number
+        }) => void
+    }) => (
         <div>
             <p>WorkloadRecommendations Mock</p>
             <button onClick={() => onViewTrainer('t1')}>Mock View Trainer</button>
             <button onClick={() => onViewTrainer('missing-trainer')}>Mock Missing Trainer</button>
+            <button
+                onClick={() => onApplyRecommendation?.({
+                    type: 'redistribute',
+                    priority: 'high',
+                    title: 'Redistribute high load',
+                    description: 'Move sessions from overloaded trainer to available trainer.',
+                    affectedTrainers: ['t1'],
+                    actionable: true,
+                    potentialSavings: 6,
+                })}
+            >
+                Mock Apply Recommendation
+            </button>
         </div>
     ),
 }))
@@ -222,6 +249,31 @@ describe('TrainerAvailability', () => {
 
         expect(screen.queryByRole('heading', { name: /taylor trainer/i })).not.toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: /uma trainer/i })).not.toBeInTheDocument()
+    })
+
+    it('opens recommendation details dialog and can open schedule context', async () => {
+        const user = userEvent.setup()
+        const onNavigate = vi.fn()
+
+        render(
+            <TrainerAvailability
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={onNavigate}
+            />
+        )
+
+        await user.click(screen.getByRole('tab', { name: /workload balance/i }))
+        await user.click(screen.getByRole('button', { name: /mock apply recommendation/i }))
+
+        expect(screen.getByRole('heading', { name: /redistribute high load/i })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: /open schedule context/i }))
+
+        expect(onNavigate).toHaveBeenCalledWith('schedule', {
+            recommendationType: 'redistribute',
+            affectedTrainers: ['t1'],
+        })
     })
 
     it('filters by certification and restores all trainers when filter is cleared', async () => {

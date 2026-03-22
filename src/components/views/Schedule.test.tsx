@@ -180,6 +180,18 @@ describe('Schedule', () => {
     expect(screen.getByText(/autoscheduler mock/i)).toBeInTheDocument()
   })
 
+  it('opens target session details from navigation payload sessionId', () => {
+    renderSchedule({ navigationPayload: { sessionId: 's-1' } })
+
+    expect(screen.getByRole('button', { name: /enroll students/i })).toBeInTheDocument()
+  })
+
+  it('does not open details when navigation payload sessionId is not found', () => {
+    renderSchedule({ navigationPayload: { sessionId: 'missing-session' } })
+
+    expect(screen.queryByRole('button', { name: /enroll students/i })).toBeNull()
+  })
+
   it('opens the Guided Schedule dialog', async () => {
     const user = userEvent.setup()
 
