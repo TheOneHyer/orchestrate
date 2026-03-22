@@ -115,7 +115,6 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
     const targetSession = sessionsRef.current.find((session) => session.id === navigationPayload.sessionId)
     if (!targetSession) {
-      processedPayloadRef.current = navigationPayload.sessionId
       return
     }
 
@@ -123,7 +122,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     setSheetOpen(true)
     setCurrentDate(new Date(targetSession.startTime))
     processedPayloadRef.current = navigationPayload.sessionId
-  }, [navigationPayload])
+  }, [navigationPayload, sessions])
 
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)
