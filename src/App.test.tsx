@@ -130,10 +130,12 @@ vi.mock('@/components/Layout', () => ({
             <button onClick={() => onNavigate('schedule-templates')}>Go Schedule Templates</button>
             <button onClick={() => onNavigate('courses')}>Go Courses</button>
             <button onClick={() => onNavigate('people')}>Go People</button>
+            <button onClick={() => onNavigate('/people/trainer-1')}>Go People Deep Link</button>
             <button onClick={() => onNavigate('analytics')}>Go Analytics</button>
             <button onClick={() => onNavigate('trainer-availability')}>Go Trainer Availability</button>
             <button onClick={() => onNavigate('burnout-dashboard')}>Go Burnout</button>
             <button onClick={() => onNavigate('certifications')}>Go Certifications</button>
+            <button onClick={() => onNavigate('certification-dashboard')}>Go Certification Dashboard</button>
             <button onClick={() => onNavigate('trainer-wellness')}>Go Wellness</button>
             <button onClick={() => onNavigate('notifications')}>Go Notifications</button>
             <button onClick={() => onNavigate('user-guide')}>Go User Guide</button>
@@ -505,6 +507,9 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/people view/i)).toBeInTheDocument()
 
+        await user.click(screen.getByRole('button', { name: /^go people deep link$/i }))
+        expect(screen.getByText(/people view/i)).toBeInTheDocument()
+
         await user.click(screen.getByRole('button', { name: /^go analytics$/i }))
         expect(screen.getByText(/analytics view/i)).toBeInTheDocument()
 
@@ -515,6 +520,9 @@ describe('App', () => {
         expect(screen.getByText(/burnout dashboard view/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /^go certifications$/i }))
+        expect(screen.getByText(/certification dashboard view/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go certification dashboard$/i }))
         expect(screen.getByText(/certification dashboard view/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /^go wellness$/i }))

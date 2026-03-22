@@ -365,6 +365,26 @@ describe('Courses', () => {
         expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'c1' })
     })
 
+    it('does not call onNavigate for non-activation keys on course cards', async () => {
+        const user = userEvent.setup()
+        const onNavigate = vi.fn()
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations' })]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={onNavigate}
+            />
+        )
+
+        const card = screen.getByRole('button', { name: /open course safety foundations/i })
+        card.focus()
+        await user.keyboard('{Escape}')
+
+        expect(onNavigate).not.toHaveBeenCalled()
+    })
+
     it('opens create dialog when create intent is provided in navigation payload', () => {
         render(
             <Courses

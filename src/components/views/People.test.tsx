@@ -107,7 +107,10 @@ function renderPeople(options?: {
             email: 'trainer@example.com',
             trainerProfile: {
                 authorizedRoles: [],
-                shiftSchedules: [{ shiftCode: 'DAY', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8 }],
+                shiftSchedules: [{
+                    shiftCode: 'DAY', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8,
+                    shiftType: 'day'
+                }],
                 tenure: { hireDate: '2024-01-01', yearsOfService: 2, monthsOfService: 24 },
                 specializations: [],
             },
