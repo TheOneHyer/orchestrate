@@ -89,7 +89,10 @@ const users: User[] = [
         certifications: ['CPR'],
         trainerProfile: {
             authorizedRoles: [],
-            shiftSchedules: [{ shiftCode: 'DAY', daysWorked: ['monday', 'tuesday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 16 }],
+            shiftSchedules: [{
+                shiftCode: 'DAY', daysWorked: ['monday', 'tuesday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 16,
+                shiftType: 'day'
+            }],
             tenure: { hireDate: '2020-01-01', yearsOfService: 6, monthsOfService: 72 },
             specializations: [],
         },

@@ -107,7 +107,10 @@ function renderPeople(options?: {
             email: 'trainer@example.com',
             trainerProfile: {
                 authorizedRoles: [],
-                shiftSchedules: [{ shiftCode: 'DAY', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8 }],
+                shiftSchedules: [{
+                    shiftCode: 'DAY', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8,
+                    shiftType: 'day'
+                }],
                 tenure: { hireDate: '2024-01-01', yearsOfService: 2, monthsOfService: 24 },
                 specializations: [],
             },
@@ -409,5 +412,41 @@ describe('People', () => {
         )
 
         expect(onNavigationPayloadConsumed).not.toHaveBeenCalled()
+    })
+
+    it('does not re-consume the same userId payload when users change', () => {
+        const onNavigationPayloadConsumed = vi.fn()
+        const payload = { userId: 'u-admin' }
+        const adminUser = createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' })
+
+        const { rerender } = render(
+            <People
+                users={[adminUser]}
+                enrollments={[]}
+                courses={[]}
+                sessions={[]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={payload}
+                onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+            />
+        )
+
+        expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
+
+        rerender(
+            <People
+                users={[{ ...adminUser, department: 'Operations' }]}
+                enrollments={[]}
+                courses={[]}
+                sessions={[]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={payload}
+                onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+            />
+        )
+
+        expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
     })
 })

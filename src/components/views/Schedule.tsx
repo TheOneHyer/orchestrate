@@ -115,7 +115,8 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   }, [sessions])
 
   useEffect(() => {
-    if (hasCreatePayload(navigationPayload)) {
+    if (navigationPayload && typeof navigationPayload === 'object' && 'create' in navigationPayload) {
+      setGuidedSchedulerPrefilledDate(null)
       setGuidedSchedulerOpen(true)
       processedPayloadRef.current = null
       onNavigationPayloadConsumed?.()

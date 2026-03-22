@@ -522,7 +522,7 @@ function App() {
    */
   const handleCreateCourse = useCallback((course: Partial<Course>) => {
     const fullCourse: Course = {
-      id: course.id ?? createEntityId('course'),
+      id: course.id || createEntityId('course'),
       title: course.title || 'Untitled Course',
       description: course.description || '',
       duration: course.duration ?? 60,

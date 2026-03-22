@@ -31,22 +31,21 @@ export function normalizeNavigationValue(value: string): NavigationTarget | null
     return { view: trimmed }
   }
 
-  const path = trimmed.replace(/^\/+/, '')
-  const normalizedPath = path.replace(/\/+$/, '')
-  if (!normalizedPath) {
-    return null
-  }
-
-  const pathOnly = normalizedPath.split('?')[0].split('#')[0]
-  const segments = pathOnly.split('/')
-  if (segments.length === 2) {
-    const [segment, id] = segments
-    if (segment === 'people' && id) {
-      return {
-        view: 'people',
-        data: { userId: decodeURIComponent(id) },
-      }
+    const pathOnly = trimmed.split(/[?#]/)[0]
+    const normalizedPath = pathOnly.replace(/^\/+/, '').replace(/\/+$/, '')
+    if (!normalizedPath) {
+        return null
     }
+
+    const segments = normalizedPath.split('/')
+    if (segments.length === 2) {
+        const [segment, id] = segments
+        if (segment === 'people' && id) {
+            return {
+                view: 'people',
+                data: { userId: decodeURIComponent(id) },
+            }
+        }
 
     if (segment === 'schedule' && id) {
       return {
@@ -56,5 +55,5 @@ export function normalizeNavigationValue(value: string): NavigationTarget | null
     }
   }
 
-  return { view: pathOnly }
+    return { view: normalizedPath }
 }
