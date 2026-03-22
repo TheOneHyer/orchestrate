@@ -37,6 +37,48 @@ import { ensureAllTrainersHaveProfiles } from '@/lib/trainer-profile-generator'
 import { createPreviewSeedData, PREVIEW_SEED_VERSION } from '@/lib/preview-seed-data'
 import { getPreviewSeedMode, isPreviewSeedEnabled, PreviewSeedMode } from '@/lib/preview-mode'
 import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
+import { normalizeNavigationValue } from '@/lib/navigation-utils'
+
+const KNOWN_NOTIFICATION_VIEWS = new Set<string>([
+  'dashboard',
+  'schedule',
+  'schedule-templates',
+  'courses',
+  'people',
+  'analytics',
+  'trainer-availability',
+  'burnout-dashboard',
+  'trainer-wellness',
+  'certification-dashboard',
+  'certifications',
+  'notifications',
+  'user-guide',
+  'settings',
+])
+
+/**
+ * Generates a timestamp/random-based entity ID using a stable prefix.
+ *
+ * @param prefix - Domain prefix for the ID (e.g. `session`, `course`).
+ * @returns A unique prefixed identifier.
+ */
+function createEntityId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
+}
+
+/**
+ * Normalize a navigation string and return null for empty or invalid inputs.
+ *
+ * @param value - The navigation string to parse and normalize.
+ * @returns The normalized navigation target, or `null` if the input is empty or invalid.
+ */
+function safeNormalizeNavigationValue(value: string): ReturnType<typeof normalizeNavigationValue> {
+  try {
+    return normalizeNavigationValue(value)
+  } catch {
+    return null
+  }
+}
 
 /**
  * Root application component for the Orchestrate training management platform.
@@ -55,6 +97,7 @@ import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
  */
 function App() {
   const [activeView, setActiveView] = useState('dashboard')
+  const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
 
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
@@ -286,7 +329,7 @@ function App() {
   const handleCreateNotification = useCallback((notification: Omit<Notification, 'id' | 'createdAt'>) => {
     const newNotification: Notification = {
       ...notification,
-      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: createEntityId('notif'),
       createdAt: new Date().toISOString()
     }
 
@@ -305,19 +348,26 @@ function App() {
       priority: pushPriority,
       tag: notification.type,
       onClick: notification.link ? () => {
-        if (notification.link) {
-          const viewMap: Record<string, string> = {
-            '/trainer-availability': 'trainer-availability',
-            '/burnout-dashboard': 'burnout-dashboard',
-            '/certifications': 'certifications',
-            '/trainer-wellness': 'trainer-wellness',
-            '/notifications': 'notifications'
+        const link = notification.link!
+        let target: ReturnType<typeof normalizeNavigationValue>
+        try {
+          target = normalizeNavigationValue(link)
+        } catch (error) {
+          if (!import.meta.env.PROD) {
+            console.warn('[sendPushNotification] Ignoring malformed notification link', { link, error })
           }
-          const view = viewMap[notification.link]
-          if (view) {
-            setActiveView(view)
-          }
+          return
         }
+        if (!target) {
+          return
+        }
+
+        if (!KNOWN_NOTIFICATION_VIEWS.has(target.view as string)) {
+          return
+        }
+
+        setActiveView(target.view)
+        setNavigationPayload(target.data ?? null)
       } : undefined
     })
 
@@ -357,12 +407,33 @@ function App() {
    *
    * @param view - The key of the view to navigate to (e.g. `'dashboard'`,
    *   `'schedule'`, `'people'`).
-   * @param _data - Optional contextual data passed by the originating view
-   *   (currently ignored; reserved for future extensibility).
+   * @param data - Optional contextual data passed by the originating view.
    */
-  const handleNavigate = (view: string, _data?: unknown) => {
-    setActiveView(view)
+  const handleNavigate = (view: string, data?: unknown) => {
+    let target: ReturnType<typeof normalizeNavigationValue>
+    try {
+      target = normalizeNavigationValue(view)
+    } catch (error) {
+      if (!import.meta.env.PROD) {
+        console.warn('[handleNavigate] Ignoring navigation because normalizeNavigationValue threw', { view, error })
+      }
+      return
+    }
+    if (!target) {
+      if (!import.meta.env.PROD) {
+        console.warn('[handleNavigate] Ignoring navigation because normalizeNavigationValue returned null', { view })
+      }
+      return
+    }
+
+    setActiveView(target.view)
+    setNavigationPayload(data ?? target.data ?? null)
   }
+
+  /** Clears any active navigation payload after a view consumes it. */
+  const clearNavigationPayload = useCallback(() => {
+    setNavigationPayload(null)
+  }, [])
 
   /**
    * Creates a single new {@link Session} with a generated ID, applying
@@ -375,7 +446,7 @@ function App() {
    */
   const handleCreateSession = (session: Partial<Session>) => {
     const newSession: Session = {
-      id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: createEntityId('session'),
       courseId: session.courseId || '',
       trainerId: session.trainerId || '',
       title: session.title || 'Untitled Session',
@@ -401,7 +472,7 @@ function App() {
    */
   const handleCreateMultipleSessions = (sessions: Partial<Session>[]) => {
     const newSessions: Session[] = sessions.map(session => ({
-      id: `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: createEntityId('session'),
       courseId: session.courseId || '',
       trainerId: session.trainerId || '',
       title: session.title || 'Untitled Session',
@@ -456,6 +527,29 @@ function App() {
   const handleAddUser = (newUser: User) => {
     setUsers((currentUsers) => [...(currentUsers || []), newUser])
   }
+
+  /**
+   * Creates a new {@link Course} with normalized defaults and appends it to
+   * the courses KV store.
+   *
+   * @param course - Partial course data; missing fields are defaulted.
+   */
+  const handleCreateCourse = useCallback((course: Partial<Course>) => {
+    const fullCourse: Course = {
+      id: createEntityId('course'),
+      title: course.title || 'Untitled Course',
+      description: course.description || '',
+      duration: course.duration ?? 60,
+      passScore: course.passScore ?? 80,
+      modules: course.modules || [],
+      certifications: course.certifications || [],
+      createdBy: course.createdBy || currentUser.id,
+      createdAt: course.createdAt || new Date().toISOString(),
+      published: course.published ?? false,
+    }
+
+    setCourses((currentCourses) => [...(currentCourses || []), fullCourse])
+  }, [currentUser.id, setCourses])
 
   /**
    * Removes a user from the users KV store and cleans up related session
@@ -614,6 +708,8 @@ function App() {
             onCreateSession={handleCreateSession}
             onUpdateSession={handleUpdateSession}
             onNavigate={handleNavigate}
+            navigationPayload={navigationPayload}
+            onNavigationPayloadConsumed={clearNavigationPayload}
           />
         )
       case 'schedule-templates':
@@ -631,6 +727,9 @@ function App() {
             enrollments={safeEnrollments}
             currentUser={currentUser}
             onNavigate={handleNavigate}
+            onCreateCourse={handleCreateCourse}
+            navigationPayload={navigationPayload}
+            onNavigationPayloadConsumed={clearNavigationPayload}
           />
         )
       case 'people':
@@ -645,6 +744,8 @@ function App() {
             onUpdateUser={handleUpdateUser}
             onAddUser={handleAddUser}
             onDeleteUser={handleDeleteUser}
+            navigationPayload={navigationPayload}
+            onNavigationPayloadConsumed={clearNavigationPayload}
           />
         )
       case 'analytics':
@@ -675,6 +776,14 @@ function App() {
           />
         )
       case 'certifications':
+        return (
+          <CertificationDashboard
+            users={safeUsers}
+            onNavigate={handleNavigate}
+            onAddCertification={handleAddCertification}
+          />
+        )
+      case 'certification-dashboard':
         return (
           <CertificationDashboard
             users={safeUsers}

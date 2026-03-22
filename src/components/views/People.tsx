@@ -40,6 +40,20 @@ interface PeopleProps {
   onAddUser?: (user: User) => void
   /** Optional callback invoked when a user is deleted. @param userId - ID of the user to delete. */
   onDeleteUser?: (userId: string) => void
+  /** Optional navigation payload used to deep-link to a specific user profile. */
+  navigationPayload?: unknown
+  /** Optional callback invoked after a navigation payload has been consumed. */
+  onNavigationPayloadConsumed?: () => void
+}
+
+/**
+ * Determines whether an unknown value is an object containing a string `userId`.
+ *
+ * @param value - The value to check for a `userId` property.
+ * @returns `true` if `value` is an object with a string `userId`, `false` otherwise.
+ */
+function hasUserIdPayload(value: unknown): value is { userId: string } {
+  return !!value && typeof value === 'object' && 'userId' in value && typeof value.userId === 'string'
 }
 
 /**
@@ -50,7 +64,7 @@ interface PeopleProps {
  * {@link TrainerProfileView}. Trainers without configured shift schedules are highlighted
  * with a warning icon.
  */
-export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser, onAddUser, onDeleteUser }: PeopleProps) {
+export function People({ users, enrollments, courses, sessions, currentUser, onNavigate: _onNavigate, onUpdateUser, onAddUser, onDeleteUser, navigationPayload, onNavigationPayloadConsumed }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'trainer' | 'employee'>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -68,13 +82,27 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     }
   }, [users])
 
+  useEffect(() => {
+    if (!hasUserIdPayload(navigationPayload)) {
+      return
+    }
+
+    const targetUser = users.find((user) => user.id === navigationPayload.userId)
+    if (targetUser) {
+      setSelectedUser(targetUser)
+      setRoleFilter('all')
+      setSearchQuery('')
+      onNavigationPayloadConsumed?.()
+    }
+  }, [navigationPayload, onNavigationPayloadConsumed, users])
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.department.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     const matchesRole = roleFilter === 'all' || user.role === roleFilter
-    
+
     return matchesSearch && matchesRole
   })
 
@@ -209,9 +237,9 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
                     <TableBody>
                       {filteredUsers.map(user => {
                         const stats = getUserEnrollmentStats(user.id)
-                        const isTrainerWithoutSchedule = user.role === 'trainer' && 
+                        const isTrainerWithoutSchedule = user.role === 'trainer' &&
                           (!user.trainerProfile?.shiftSchedules || user.trainerProfile.shiftSchedules.length === 0)
-                        
+
                         return (
                           <TableRow key={user.id} className="cursor-pointer hover:bg-secondary" onClick={() => handleUserClick(user)}>
                             <TableCell>
