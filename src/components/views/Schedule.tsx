@@ -116,9 +116,14 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
   useEffect(() => {
     if (hasCreatePayload(navigationPayload)) {
+      // Guard against re-processing the same create-intent when `sessions` updates
+      // but `onNavigationPayloadConsumed` is not provided (so the payload persists).
+      if (processedPayloadRef.current === '__create__') {
+        return
+      }
       setGuidedSchedulerPrefilledDate(null)
       setGuidedSchedulerOpen(true)
-      processedPayloadRef.current = null
+      processedPayloadRef.current = '__create__'
       onNavigationPayloadConsumed?.()
       return
     }
