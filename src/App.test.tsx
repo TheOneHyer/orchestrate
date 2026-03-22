@@ -140,6 +140,7 @@ vi.mock('@/components/Layout', () => ({
             <button onClick={() => onNavigate('settings')}>Go Settings</button>
             <button onClick={() => onNavigate('unknown-view')}>Go Unknown</button>
             <button onClick={() => onNavigate('/')}>Go Root Path</button>
+            <button onClick={() => onNavigate('/people/%ZZ')}>Go Malformed Path</button>
             {children}
         </div>
     ),
@@ -545,6 +546,25 @@ describe('App', () => {
         expect(warnSpy).toHaveBeenCalledWith(
             '[handleNavigate] Ignoring navigation because normalizeNavigationValue returned null',
             { view: '/' }
+        )
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+
+        warnSpy.mockRestore()
+    })
+
+    it('warns and ignores navigation when normalizeNavigationValue throws on malformed path', async () => {
+        const user = userEvent.setup()
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
+
+        render(<App />)
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go malformed path$/i }))
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[handleNavigate] Ignoring navigation because normalizeNavigationValue threw',
+            expect.objectContaining({ view: '/people/%ZZ', error: expect.any(URIError) })
         )
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
 
@@ -981,6 +1001,39 @@ describe('App', () => {
             '⚠️ Root Link Alert',
             expect.objectContaining({ duration: 8000 })
         )
+    })
+
+    it('ignores notification click when link is malformed and logs a warning', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
+        utilizationNotificationPayload = createUtilizationNotificationPayload({
+            title: 'Malformed Link Alert',
+            message: 'Malformed percent-encoding should be silently ignored',
+            priority: 'high',
+            link: '/people/%ZZ',
+        })
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(sendNotificationMock).toHaveBeenCalledWith(
+                'Malformed Link Alert',
+                expect.objectContaining({ priority: 'high' })
+            )
+        })
+
+        const sendCall = sendNotificationMock.mock.calls[0]
+        const options = sendCall[1]
+        act(() => {
+            options.onClick()
+        })
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[sendPushNotification] Ignoring malformed notification link',
+            expect.objectContaining({ link: '/people/%ZZ', error: expect.any(URIError) })
+        )
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+
+        warnSpy.mockRestore()
     })
 
     it('uses medium priority by default and omits click handler when notification link is missing', async () => {
