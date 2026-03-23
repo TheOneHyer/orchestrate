@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -40,6 +40,25 @@ interface PeopleProps {
   onAddUser?: (user: User) => void
   /** Optional callback invoked when a user is deleted. @param userId - ID of the user to delete. */
   onDeleteUser?: (userId: string) => void
+  /** Optional navigation payload used to deep-link to a specific user profile. */
+  navigationPayload?: unknown
+  /** Optional callback invoked after a navigation payload has been consumed. */
+  onNavigationPayloadConsumed?: () => void
+}
+
+/**
+ * Type guard for people view navigation payload.
+ * @param value - Unknown payload to validate.
+ * @returns True when payload contains a string `userId`.
+ */
+function hasUserIdPayload(value: unknown): value is { userId: string } {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  return 'userId' in candidate && typeof candidate.userId === 'string'
 }
 
 /**
@@ -50,7 +69,7 @@ interface PeopleProps {
  * {@link TrainerProfileView}. Trainers without configured shift schedules are highlighted
  * with a warning icon.
  */
-export function People({ users, enrollments, courses, sessions, currentUser, onNavigate, onUpdateUser, onAddUser, onDeleteUser }: PeopleProps) {
+export function People({ users, enrollments, courses, sessions, currentUser, onNavigate: _onNavigate, onUpdateUser, onAddUser, onDeleteUser, navigationPayload, onNavigationPayloadConsumed }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'trainer' | 'employee'>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -58,6 +77,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [userToDelete, setUserToDelete] = useState<User | null>(null)
+  const processedUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (selectedUser) {
@@ -68,13 +88,33 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     }
   }, [users])
 
+  useEffect(() => {
+    if (!hasUserIdPayload(navigationPayload)) {
+      processedUserIdRef.current = null
+      return
+    }
+
+    if (processedUserIdRef.current === navigationPayload.userId) {
+      return
+    }
+
+    const targetUser = users.find((user) => user.id === navigationPayload.userId)
+    if (targetUser) {
+      setSelectedUser(targetUser)
+      setRoleFilter('all')
+      setSearchQuery('')
+      processedUserIdRef.current = navigationPayload.userId
+      onNavigationPayloadConsumed?.()
+    }
+  }, [navigationPayload, onNavigationPayloadConsumed, users])
+
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.department.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     const matchesRole = roleFilter === 'all' || user.role === roleFilter
-    
+
     return matchesSearch && matchesRole
   })
 
@@ -123,6 +163,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
       onDeleteUser(userToDelete.id)
       if (selectedUser?.id === userToDelete.id) {
         setSelectedUser(null)
+        processedUserIdRef.current = null
       }
     }
     setDeleteDialogOpen(false)
@@ -135,7 +176,10 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     <div className="p-6 space-y-6">
       {selectedUser ? (
         <div className="space-y-4">
-          <Button variant="ghost" onClick={() => setSelectedUser(null)}>
+          <Button variant="ghost" onClick={() => {
+            setSelectedUser(null)
+            processedUserIdRef.current = null
+          }}>
             <ArrowLeft size={18} className="mr-2" />
             Back to People
           </Button>
@@ -209,9 +253,9 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
                     <TableBody>
                       {filteredUsers.map(user => {
                         const stats = getUserEnrollmentStats(user.id)
-                        const isTrainerWithoutSchedule = user.role === 'trainer' && 
+                        const isTrainerWithoutSchedule = user.role === 'trainer' &&
                           (!user.trainerProfile?.shiftSchedules || user.trainerProfile.shiftSchedules.length === 0)
-                        
+
                         return (
                           <TableRow key={user.id} className="cursor-pointer hover:bg-secondary" onClick={() => handleUserClick(user)}>
                             <TableCell>

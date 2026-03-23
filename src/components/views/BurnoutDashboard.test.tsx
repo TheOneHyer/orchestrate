@@ -231,7 +231,6 @@ describe('BurnoutDashboard', () => {
         )
 
         await user.click(screen.getByText(/taylor trainer/i))
-        await user.click(screen.getByRole('tab', { name: /trainer details/i }))
 
         expect(screen.getByText(/^risk score$/i)).toBeInTheDocument()
         expect(screen.getByText(/^88$/)).toBeInTheDocument()

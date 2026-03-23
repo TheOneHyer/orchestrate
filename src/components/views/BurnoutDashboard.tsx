@@ -64,6 +64,7 @@ interface BurnoutDashboardProps {
 export function BurnoutDashboard({ users, sessions, courses, onNavigate }: BurnoutDashboardProps) {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('month')
   const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'trainers' | 'trends' | 'distribution'>('overview')
 
   const [checkIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const { getTrainerHistory } = useRiskHistory(users, sessions, courses, checkIns || [])
@@ -221,7 +222,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
         </Card>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'trainers' | 'trends' | 'distribution')} className="space-y-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="trainers">Trainer Details</TabsTrigger>
@@ -281,7 +282,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
                       className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                       onClick={() => {
                         setSelectedTrainer(trainer.trainerId)
-                        document.getElementById('trainers-tab')?.click()
+                        setActiveTab('trainers')
                       }}
                     >
                       <div className="flex items-center gap-4">

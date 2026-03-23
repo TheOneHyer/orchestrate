@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -42,6 +42,34 @@ interface ScheduleProps {
    * @param data - Optional payload for the target view.
    */
   onNavigate: (view: string, data?: unknown) => void
+  /** Optional navigation payload used to deep-link to a specific session. */
+  navigationPayload?: unknown
+  /** Optional callback invoked after a navigation payload has been consumed. */
+  onNavigationPayloadConsumed?: () => void
+}
+
+/**
+ * Type guard for schedule view navigation payload.
+ * @param value - Unknown payload to validate.
+ * @returns True when payload contains a string `sessionId`.
+ */
+function hasSessionIdPayload(value: unknown): value is { sessionId: string } {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  return 'sessionId' in candidate && typeof candidate.sessionId === 'string'
+}
+
+/**
+ * Type guard for schedule view create-intent navigation payload.
+ * @param value - Unknown payload to validate.
+ * @returns True when payload has `create: true`.
+ */
+function hasCreatePayload(value: unknown): value is { create: true } {
+  return !!value && typeof value === 'object' && 'create' in value && (value as { create?: unknown }).create === true
 }
 
 /** Roles that are allowed to create or modify schedule entries. */
@@ -59,9 +87,10 @@ function isViewType(v: string): v is ViewType {
  * Renders the schedule management UI with calendar, list, and board views and handles session creation, editing, enrollment, drag-and-drop rescheduling, and conflict detection.
  *
  * @param props - Properties including `sessions`, `courses`, `users`, `currentUser`, and callbacks `onCreateSession`, `onUpdateSession`, and `onNavigate`.
+ * Navigation payload deep-links are processed once per payload so later session list refreshes do not reopen the same sheet unexpectedly.
  * @returns The Schedule component's React element.
  */
-export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate }: ScheduleProps) {
+export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate, navigationPayload, onNavigationPayloadConsumed }: ScheduleProps) {
   const [viewType, setViewType] = useState<ViewType>('calendar')
   const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('month')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
@@ -74,6 +103,8 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const [draggedSession, setDraggedSession] = useState<Session | null>(null)
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null)
   const [dragConflicts, setDragConflicts] = useState<string[]>([])
+  const sessionsRef = useRef(sessions)
+  const processedPayloadRef = useRef<string | null>(null)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingSession, setEditingSession] = useState<Session | null>(null)
   const [editForm, setEditForm] = useState({
@@ -84,6 +115,45 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     capacity: '20',
     status: 'scheduled' as Session['status'],
   })
+
+  useEffect(() => {
+    sessionsRef.current = sessions
+  }, [sessions])
+
+  useEffect(() => {
+    if (hasCreatePayload(navigationPayload)) {
+      // Guard against re-processing the same create-intent when `sessions` updates
+      // but `onNavigationPayloadConsumed` is not provided (so the payload persists).
+      if (processedPayloadRef.current === '__create__') {
+        return
+      }
+      setGuidedSchedulerPrefilledDate(null)
+      setGuidedSchedulerOpen(true)
+      processedPayloadRef.current = '__create__'
+      onNavigationPayloadConsumed?.()
+      return
+    }
+
+    if (!hasSessionIdPayload(navigationPayload)) {
+      processedPayloadRef.current = null
+      return
+    }
+
+    if (processedPayloadRef.current === navigationPayload.sessionId) {
+      return
+    }
+
+    const targetSession = sessionsRef.current.find((session) => session.id === navigationPayload.sessionId)
+    if (!targetSession) {
+      return
+    }
+
+    setSelectedSession(targetSession)
+    setSheetOpen(true)
+    setCurrentDate(new Date(targetSession.startTime))
+    processedPayloadRef.current = navigationPayload.sessionId
+    onNavigationPayloadConsumed?.()
+  }, [navigationPayload, onNavigationPayloadConsumed, sessions])
 
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)

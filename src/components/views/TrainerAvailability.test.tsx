@@ -1,17 +1,37 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 
 import { TrainerAvailability } from './TrainerAvailability'
 import type { Course, Session, User } from '@/lib/types'
+import type { WorkloadRecommendation } from '@/lib/workload-balancer'
 
 vi.mock('@/components/WorkloadRecommendations', () => ({
-    WorkloadRecommendations: ({ onViewTrainer }: { onViewTrainer: (trainerId: string) => void }) => (
+    WorkloadRecommendations: ({
+        onViewTrainer,
+        onApplyRecommendation,
+    }: {
+        onViewTrainer: (trainerId: string) => void
+        onApplyRecommendation?: (recommendation: WorkloadRecommendation) => void
+    }) => (
         <div>
             <p>WorkloadRecommendations Mock</p>
             <button onClick={() => onViewTrainer('t1')}>Mock View Trainer</button>
             <button onClick={() => onViewTrainer('missing-trainer')}>Mock Missing Trainer</button>
+            <button
+                onClick={() => onApplyRecommendation?.({
+                    type: 'redistribute',
+                    priority: 'high',
+                    title: 'Redistribute high load',
+                    description: 'Move sessions from overloaded trainer to available trainer.',
+                    affectedTrainers: ['t1'],
+                    actionable: true,
+                    potentialSavings: 6,
+                })}
+            >
+                Mock Apply Recommendation
+            </button>
         </div>
     ),
 }))
@@ -69,7 +89,10 @@ const users: User[] = [
         certifications: ['CPR'],
         trainerProfile: {
             authorizedRoles: [],
-            shiftSchedules: [{ shiftCode: 'DAY', daysWorked: ['monday', 'tuesday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 16 }],
+            shiftSchedules: [{
+                shiftCode: 'DAY', daysWorked: ['monday', 'tuesday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 16,
+                shiftType: 'day'
+            }],
             tenure: { hireDate: '2020-01-01', yearsOfService: 6, monthsOfService: 72 },
             specializations: [],
         },
@@ -111,6 +134,15 @@ function makeSession(id: string, trainerId: string, start: Date, durationHours: 
 }
 
 describe('TrainerAvailability', () => {
+    beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date('2026-03-20T12:00:00.000Z'))
+    })
+
+    afterEach(() => {
+        vi.useRealTimers()
+    })
+
     it('renders aggregate stats and navigates to schedule view', async () => {
         const user = userEvent.setup()
         const onNavigate = vi.fn()
@@ -222,6 +254,32 @@ describe('TrainerAvailability', () => {
 
         expect(screen.queryByRole('heading', { name: /taylor trainer/i })).not.toBeInTheDocument()
         expect(screen.queryByRole('heading', { name: /uma trainer/i })).not.toBeInTheDocument()
+    })
+
+    it('opens recommendation details dialog and can open schedule context', async () => {
+        const user = userEvent.setup()
+        const onNavigate = vi.fn()
+
+        render(
+            <TrainerAvailability
+                users={users}
+                sessions={sessions}
+                courses={courses}
+                onNavigate={onNavigate}
+            />
+        )
+
+        await user.click(screen.getByRole('tab', { name: /workload balance/i }))
+        await user.click(screen.getByRole('button', { name: /mock apply recommendation/i }))
+
+        expect(screen.getByRole('heading', { name: /redistribute high load/i })).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: /open schedule context/i }))
+
+        expect(onNavigate).toHaveBeenCalledTimes(1)
+        expect(onNavigate).toHaveBeenLastCalledWith('schedule', {
+            recommendationType: 'redistribute',
+            affectedTrainers: ['t1'],
+        })
     })
 
     it('filters by certification and restores all trainers when filter is cleared', async () => {

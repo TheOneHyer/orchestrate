@@ -96,6 +96,7 @@ function renderPeople(options?: {
     onUpdateUser?: (user: User) => void
     onAddUser?: (user: User) => void
     onDeleteUser?: (userId: string) => void
+    navigationPayload?: unknown
 }) {
     const users = options?.users ?? [
         createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' }),
@@ -106,7 +107,10 @@ function renderPeople(options?: {
             email: 'trainer@example.com',
             trainerProfile: {
                 authorizedRoles: [],
-                shiftSchedules: [{ shiftCode: 'DAY', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8 }],
+                shiftSchedules: [{
+                    shiftCode: 'DAY', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8,
+                    shiftType: 'day'
+                }],
                 tenure: { hireDate: '2024-01-01', yearsOfService: 2, monthsOfService: 24 },
                 specializations: [],
             },
@@ -130,6 +134,7 @@ function renderPeople(options?: {
             onUpdateUser={options?.onUpdateUser}
             onAddUser={options?.onAddUser}
             onDeleteUser={options?.onDeleteUser}
+            navigationPayload={options?.navigationPayload}
         />
     )
 
@@ -344,5 +349,104 @@ describe('People', () => {
         expect(screen.queryByRole('button', { name: /mock delete person/i })).toBeNull()
     })
 
+    it('auto-opens target profile when navigation payload contains a userId', () => {
+        renderPeople({ navigationPayload: { userId: 'u-trainer' } })
 
+        expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User')
+    })
+
+    it('does not auto-open a profile when payload userId is not found', () => {
+        renderPeople({ navigationPayload: { userId: 'missing-user' } })
+
+        expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
+        expect(screen.queryByTestId('profile-name')).toBeNull()
+    })
+
+    it('gracefully handles empty navigation payload', () => {
+        renderPeople({ navigationPayload: {} })
+
+        expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
+        expect(screen.queryByTestId('profile-name')).toBeNull()
+    })
+
+    it('gracefully handles navigation payload with null userId', () => {
+        renderPeople({ navigationPayload: { userId: null } })
+
+        expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
+        expect(screen.queryByTestId('profile-name')).toBeNull()
+    })
+
+    it('calls onNavigationPayloadConsumed only when the userId is found', () => {
+        const onNavigationPayloadConsumed = vi.fn()
+
+        render(
+            <People
+                users={[createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' })]}
+                enrollments={[]}
+                courses={[]}
+                sessions={[]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ userId: 'u-admin' }}
+                onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+            />
+        )
+
+        expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not call onNavigationPayloadConsumed when the userId is not found', () => {
+        const onNavigationPayloadConsumed = vi.fn()
+
+        render(
+            <People
+                users={[createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' })]}
+                enrollments={[]}
+                courses={[]}
+                sessions={[]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ userId: 'missing-user' }}
+                onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+            />
+        )
+
+        expect(onNavigationPayloadConsumed).not.toHaveBeenCalled()
+    })
+
+    it('does not re-consume the same userId payload when users change', () => {
+        const onNavigationPayloadConsumed = vi.fn()
+        const payload = { userId: 'u-admin' }
+        const adminUser = createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' })
+
+        const { rerender } = render(
+            <People
+                users={[adminUser]}
+                enrollments={[]}
+                courses={[]}
+                sessions={[]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={payload}
+                onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+            />
+        )
+
+        expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
+
+        rerender(
+            <People
+                users={[{ ...adminUser, department: 'Operations' }]}
+                enrollments={[]}
+                courses={[]}
+                sessions={[]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={payload}
+                onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+            />
+        )
+
+        expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
+    })
 })

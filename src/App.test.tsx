@@ -25,6 +25,7 @@ let utilizationNotificationPayload: Record<string, unknown> = createUtilizationN
 const callbackSpies = {
     onCreateSession: vi.fn(),
     onUpdateSession: vi.fn(),
+    onCreateCourse: vi.fn(),
     onCreateTemplateSessions: vi.fn(),
     onAddUser: vi.fn(),
     onUpdateUser: vi.fn(),
@@ -129,15 +130,19 @@ vi.mock('@/components/Layout', () => ({
             <button onClick={() => onNavigate('schedule-templates')}>Go Schedule Templates</button>
             <button onClick={() => onNavigate('courses')}>Go Courses</button>
             <button onClick={() => onNavigate('people')}>Go People</button>
+            <button onClick={() => onNavigate('/people/trainer-1')}>Go People Deep Link</button>
             <button onClick={() => onNavigate('analytics')}>Go Analytics</button>
             <button onClick={() => onNavigate('trainer-availability')}>Go Trainer Availability</button>
             <button onClick={() => onNavigate('burnout-dashboard')}>Go Burnout</button>
             <button onClick={() => onNavigate('certifications')}>Go Certifications</button>
+            <button onClick={() => onNavigate('certification-dashboard')}>Go Certification Dashboard</button>
             <button onClick={() => onNavigate('trainer-wellness')}>Go Wellness</button>
             <button onClick={() => onNavigate('notifications')}>Go Notifications</button>
             <button onClick={() => onNavigate('user-guide')}>Go User Guide</button>
             <button onClick={() => onNavigate('settings')}>Go Settings</button>
             <button onClick={() => onNavigate('unknown-view')}>Go Unknown</button>
+            <button onClick={() => onNavigate('/')}>Go Root Path</button>
+            <button onClick={() => onNavigate('/people/%ZZ')}>Go Malformed Path</button>
             {children}
         </div>
     ),
@@ -166,7 +171,7 @@ vi.mock('@/components/views/Schedule', () => ({
             <div>Schedule View</div>
             <div>Session Count: {sessions.length}</div>
             {sessions.map((session) => (
-                <div key={session.id}>{session.title} ({session.status})</div>
+                <div key={session.id}>{session.id}|{session.title} ({session.status})</div>
             ))}
             <button onClick={() => {
                 const payload = { title: 'Created Session', trainerId: 'trainer-1', recurrence: { pattern: 'weekly' } }
@@ -182,6 +187,10 @@ vi.mock('@/components/views/Schedule', () => ({
                 callbackSpies.onUpdateSession('session-1', payload)
                 onUpdateSession('session-1', payload)
             }}>Update Session</button>
+            <button onClick={() => {
+                const payload = { id: 'custom-session-id', title: 'Session With Custom Id' }
+                onCreateSession(payload)
+            }}>Create Session With Id</button>
         </div>
     ),
 }))
@@ -198,25 +207,87 @@ vi.mock('@/components/views/ScheduleTemplates', () => ({
             <button onClick={() => {
                 onCreateSessions([{ courseId: 'course-1' }])
             }}>Create Minimal Template Sessions</button>
+            <button onClick={() => {
+                onCreateSessions([{ id: 'custom-template-session-id', title: 'Template Session With Custom Id' }])
+            }}>Create Template Session With Id</button>
         </div>
     ),
 }))
 
-vi.mock('@/components/views/Courses', () => ({ Courses: () => <div>Courses View</div> }))
+vi.mock('@/components/views/Courses', () => ({
+    Courses: ({
+        courses,
+        onCreateCourse,
+    }: {
+        courses: Array<{
+            id: string
+            title: string
+            createdBy: string
+            duration: number
+            passScore: number
+            published: boolean
+            createdAt: string
+        }>
+        onCreateCourse?: (course: unknown) => void
+    }) => (
+        <div>
+            <div>Courses View</div>
+            <div>Courses Count: {courses.length}</div>
+            {courses.map((course) => (
+                <div key={course.id} data-testid="course-row">
+                    {course.id}|{course.title}|{course.createdBy}|{course.duration}|{course.passScore}|{course.published ? 'published' : 'draft'}|{course.createdAt}
+                </div>
+            ))}
+            <button onClick={() => {
+                const payload = { title: 'Partial Course' }
+                callbackSpies.onCreateCourse(payload)
+                onCreateCourse?.(payload)
+            }}>Create Minimal Course</button>
+            <button onClick={() => {
+                const payload = {
+                    title: 'Explicit Course',
+                    description: 'Explicit description',
+                    duration: 90,
+                    passScore: 92,
+                    modules: ['M1'],
+                    certifications: ['C1'],
+                    createdBy: 'trainer-1',
+                    createdAt: '2024-01-02T00:00:00.000Z',
+                    published: true,
+                }
+                callbackSpies.onCreateCourse(payload)
+                onCreateCourse?.(payload)
+            }}>Create Explicit Course</button>
+            <button onClick={() => {
+                const payload = {
+                    id: 'custom-course-id',
+                    title: 'Course With Id',
+                }
+                callbackSpies.onCreateCourse(payload)
+                onCreateCourse?.(payload)
+            }}>Create Course With Id</button>
+        </div>
+    ),
+}))
 vi.mock('@/components/views/People', () => ({
     People: ({
         users,
         onAddUser,
         onUpdateUser,
         onDeleteUser,
+        navigationPayload,
     }: {
         users: Array<{ id: string; name: string }>
         onAddUser: (user: unknown) => void
         onUpdateUser: (user: unknown) => void
         onDeleteUser: (userId: string) => void
+        navigationPayload?: unknown
     }) => (
         <div>
             <div>People View</div>
+            {navigationPayload !== undefined && (
+                <div data-testid="people-nav-payload">{JSON.stringify(navigationPayload)}</div>
+            )}
             <div>Users Count: {users.length}</div>
             {users.map((user) => (
                 <div key={user.id}>{user.name}</div>
@@ -456,6 +527,10 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/people view/i)).toBeInTheDocument()
 
+        await user.click(screen.getByRole('button', { name: /^go people deep link$/i }))
+        expect(screen.getByText(/people view/i)).toBeInTheDocument()
+        expect(screen.getByTestId('people-nav-payload')).toHaveTextContent(JSON.stringify({ userId: 'trainer-1' }))
+
         await user.click(screen.getByRole('button', { name: /^go analytics$/i }))
         expect(screen.getByText(/analytics view/i)).toBeInTheDocument()
 
@@ -466,6 +541,9 @@ describe('App', () => {
         expect(screen.getByText(/burnout dashboard view/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /^go certifications$/i }))
+        expect(screen.getByText(/certification dashboard view/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go certification dashboard$/i }))
         expect(screen.getByText(/certification dashboard view/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /^go wellness$/i }))
@@ -482,6 +560,44 @@ describe('App', () => {
 
         await user.click(screen.getByRole('button', { name: /^go unknown$/i }))
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+    })
+
+    it('warns and ignores navigation when normalizeNavigationValue returns null', async () => {
+        const user = userEvent.setup()
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
+
+        render(<App />)
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go root path$/i }))
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[handleNavigate] Ignoring navigation because normalizeNavigationValue returned null',
+            { view: '/' }
+        )
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+
+        warnSpy.mockRestore()
+    })
+
+    it('warns and ignores navigation when normalizeNavigationValue throws on malformed path', async () => {
+        const user = userEvent.setup()
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
+
+        render(<App />)
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go malformed path$/i }))
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[handleNavigate] Ignoring navigation because normalizeNavigationValue threw',
+            expect.objectContaining({ view: '/people/%ZZ', error: expect.any(URIError) })
+        )
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+
+        warnSpy.mockRestore()
     })
 
     it('handles notification creation and routes on notification click action', async () => {
@@ -550,7 +666,7 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/session count:\s*2/i)).toBeInTheDocument()
 
-        await user.click(screen.getByRole('button', { name: /create session/i }))
+        await user.click(screen.getByRole('button', { name: /^create session$/i }))
         expect(screen.getByText(/session count:\s*3/i)).toBeInTheDocument()
         expect(screen.getByText(/created session \(scheduled\)/i)).toBeInTheDocument()
         expect(callbackSpies.onCreateSession).toHaveBeenCalledWith(
@@ -573,6 +689,35 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/session count:\s*4/i)).toBeInTheDocument()
         expect(screen.getByText(/template session \(scheduled\)/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create session with id/i }))
+        expect(screen.getByText(/session count:\s*5/i)).toBeInTheDocument()
+        expect(screen.getByText(/custom-session-id\|session with custom id \(scheduled\)/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go schedule templates$/i }))
+        await user.click(screen.getByRole('button', { name: /create template session with id/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/session count:\s*6/i)).toBeInTheDocument()
+        expect(screen.getByText(/custom-template-session-id\|template session with custom id \(scheduled\)/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        expect(screen.getByText(/courses count:\s*0/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create minimal course/i }))
+        expect(callbackSpies.onCreateCourse).toHaveBeenCalledWith(expect.objectContaining({ title: 'Partial Course' }))
+        expect(screen.getByText(/courses count:\s*1/i)).toBeInTheDocument()
+        expect(screen.getByText(/partial course\|admin-1\|60\|80\|draft/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create explicit course/i }))
+        expect(callbackSpies.onCreateCourse).toHaveBeenCalledWith(expect.objectContaining({ title: 'Explicit Course' }))
+        expect(screen.getByText(/courses count:\s*2/i)).toBeInTheDocument()
+        expect(screen.getByText(/explicit course\|trainer-1\|90\|92\|published\|2024-01-02t00:00:00.000z/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /create course with id/i }))
+        expect(callbackSpies.onCreateCourse).toHaveBeenCalledWith(expect.objectContaining({ id: 'custom-course-id' }))
+        expect(screen.getByText(/courses count:\s*3/i)).toBeInTheDocument()
+        expect(screen.getByText(/custom-course-id\|course with id\|admin-1\|60\|80\|draft/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*2/i)).toBeInTheDocument()
@@ -873,6 +1018,69 @@ describe('App', () => {
         )
     })
 
+    it('ignores notification click when link normalizes to null', async () => {
+        utilizationNotificationPayload = createUtilizationNotificationPayload({
+            title: 'Root Link Alert',
+            message: 'Root navigation should be ignored',
+            priority: 'high',
+            link: '/',
+        })
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(sendNotificationMock).toHaveBeenCalledWith(
+                'Root Link Alert',
+                expect.objectContaining({ priority: 'high' })
+            )
+        })
+
+        const sendCall = sendNotificationMock.mock.calls[0]
+        const options = sendCall[1]
+        act(() => {
+            options.onClick()
+        })
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(toastError).toHaveBeenCalledWith(
+            '⚠️ Root Link Alert',
+            expect.objectContaining({ duration: 8000 })
+        )
+    })
+
+    it('ignores notification click when link is malformed and logs a warning', async () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
+        utilizationNotificationPayload = createUtilizationNotificationPayload({
+            title: 'Malformed Link Alert',
+            message: 'Malformed percent-encoding should be silently ignored',
+            priority: 'high',
+            link: '/people/%ZZ',
+        })
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(sendNotificationMock).toHaveBeenCalledWith(
+                'Malformed Link Alert',
+                expect.objectContaining({ priority: 'high' })
+            )
+        })
+
+        const sendCall = sendNotificationMock.mock.calls[0]
+        const options = sendCall[1]
+        act(() => {
+            options.onClick()
+        })
+
+        expect(warnSpy).toHaveBeenCalledWith(
+            '[sendPushNotification] Ignoring malformed notification link',
+            expect.objectContaining({ link: '/people/%ZZ', error: expect.any(URIError) })
+        )
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+
+        warnSpy.mockRestore()
+    })
+
     it('uses medium priority by default and omits click handler when notification link is missing', async () => {
         utilizationNotificationPayload = createUtilizationNotificationPayload({
             title: 'Heads Up',
@@ -910,8 +1118,6 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: /update session/i }))
-        await user.click(screen.getByRole('button', { name: /create session/i }))
-
         await user.click(screen.getByRole('button', { name: /^go schedule templates$/i }))
         await user.click(screen.getByRole('button', { name: /create template sessions/i }))
 
