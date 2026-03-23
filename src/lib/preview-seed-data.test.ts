@@ -1,4 +1,6 @@
-import { PREVIEW_SEED_VERSION, createPreviewSeedData, cycle } from './preview-seed-data'
+import { describe, expect, it } from 'vitest'
+
+import { PREVIEW_SEED_VERSION, createPreviewSeedData, cycle } from '@/lib/preview-seed-data'
 
 describe('preview-seed-data', () => {
     it('exposes the expected seed data version', () => {
@@ -31,6 +33,23 @@ describe('preview-seed-data', () => {
         const userIds = new Set(seed.users.map(user => user.id))
         for (const enrollment of seed.enrollments) {
             expect(userIds.has(enrollment.userId)).toBe(true)
+        }
+
+        for (const enrollment of seed.enrollments) {
+            const matchingSession = seed.sessions.find(
+                (session) =>
+                    session.id === enrollment.sessionId
+                    && session.courseId === enrollment.courseId
+                    && session.enrolledStudents.includes(enrollment.userId)
+            )
+
+            expect(matchingSession).toBeDefined()
+        }
+
+        for (const session of seed.sessions) {
+            for (const userId of session.enrolledStudents) {
+                expect(userIds.has(userId)).toBe(true)
+            }
         }
 
         const nowMs = referenceDate.getTime()

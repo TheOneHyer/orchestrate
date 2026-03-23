@@ -127,7 +127,9 @@ export function cycle<T>(values: readonly T[], index: number): T {
     if (values.length === 0) {
         throw new Error('cycle() was called with an empty values array')
     }
-    return values[index % values.length]
+
+    const wrappedIndex = ((index % values.length) + values.length) % values.length
+    return values[wrappedIndex]
 }
 
 /**
@@ -387,23 +389,31 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         }
     })
 
-    const enrollments: Enrollment[] = Array.from({ length: PREVIEW_COUNTS.enrollments }, (_, index) => {
-        const enrollmentNumber = index + 1
-        const session = sessions[(index * 3) % sessions.length]
-        const status = cycle(['completed', 'in-progress', 'enrolled', 'failed', 'enrolled'] as const, index)
+    const enrollmentRows = sessions.flatMap((session, sessionIndex) =>
+        session.enrolledStudents.map((userId, rosterIndex) => ({
+            session,
+            userId,
+            sequence: sessionIndex * 10 + rosterIndex,
+        }))
+    )
 
-        return {
-            id: `enroll-${enrollmentNumber}`,
-            userId: employeeIds[index % employeeIds.length],
-            courseId: session.courseId,
-            sessionId: session.id,
-            status,
-            progress: status === 'completed' || status === 'failed' ? 100 : status === 'in-progress' ? 35 + (index % 45) : 0,
-            score: status === 'completed' ? 82 + (index % 14) : status === 'failed' ? 54 + (index % 9) : undefined,
-            enrolledAt: iso(subDays(now, 20 - (index % 12))),
-            completedAt: status === 'completed' || status === 'failed' ? iso(subDays(now, 8 - (index % 5))) : undefined,
-        }
-    })
+    const enrollments: Enrollment[] = enrollmentRows
+        .slice(0, PREVIEW_COUNTS.enrollments)
+        .map(({ session, userId, sequence }, index) => {
+            const status = cycle(['completed', 'in-progress', 'enrolled', 'failed', 'enrolled'] as const, sequence)
+
+            return {
+                id: `enroll-${session.id}-${userId}`,
+                userId,
+                courseId: session.courseId,
+                sessionId: session.id,
+                status,
+                progress: status === 'completed' || status === 'failed' ? 100 : status === 'in-progress' ? 35 + (sequence % 45) : 0,
+                score: status === 'completed' ? 82 + (sequence % 14) : status === 'failed' ? 54 + (sequence % 9) : undefined,
+                enrolledAt: iso(subDays(now, 20 - (index % 12))),
+                completedAt: status === 'completed' || status === 'failed' ? iso(subDays(now, 8 - (index % 5))) : undefined,
+            }
+        })
 
     const criticalTrainerIds = trainers.filter((_, index) => index % 6 === 2 || index % 6 === 5).map(trainer => trainer.id)
     const highRiskTrainerIds = trainers.filter((_, index) => index % 6 === 1 || index % 6 === 4).map(trainer => trainer.id)
