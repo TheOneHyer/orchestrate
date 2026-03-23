@@ -96,4 +96,9 @@ describe('preview-seed-data', () => {
     it('throws when cycle is called with an empty array', () => {
         expect(() => cycle([], 0)).toThrowError('cycle() was called with an empty values array')
     })
+
+    it('wraps positive and negative indices in cycle', () => {
+        expect(cycle(['a', 'b', 'c'], 4)).toBe('b')
+        expect(cycle(['a', 'b', 'c'], -1)).toBe('c')
+    })
 })

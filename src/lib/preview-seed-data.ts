@@ -400,7 +400,38 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
     const enrollments: Enrollment[] = enrollmentRows
         .slice(0, PREVIEW_COUNTS.enrollments)
         .map(({ session, userId, sequence }, index) => {
-            const status = cycle(['completed', 'in-progress', 'enrolled', 'failed', 'enrolled'] as const, sequence)
+            const sessionStart = new Date(session.startTime)
+            const sessionEnd = new Date(session.endTime)
+            const enrollmentWindowMs = Math.max(sessionEnd.getTime() - sessionStart.getTime(), 1)
+            const enrolledAtDate = new Date(sessionStart.getTime() + (sequence % enrollmentWindowMs))
+
+            let status: Enrollment['status']
+            if (session.status === 'completed') {
+                status = cycle(['completed', 'failed'] as const, sequence)
+            } else if (session.status === 'in-progress') {
+                status = cycle(['in-progress', 'enrolled'] as const, sequence)
+            } else {
+                status = 'enrolled'
+            }
+
+            const progress =
+                status === 'completed' || status === 'failed'
+                    ? 100
+                    : status === 'in-progress'
+                        ? 35 + (sequence % 45)
+                        : 0
+
+            const score =
+                status === 'completed'
+                    ? 82 + (sequence % 14)
+                    : status === 'failed'
+                        ? 54 + (sequence % 9)
+                        : undefined
+
+            const completionOffsetMs = Math.max(Math.floor(enrollmentWindowMs / 2), 1)
+            const completedAtDate = new Date(
+                Math.min(sessionEnd.getTime(), enrolledAtDate.getTime() + completionOffsetMs)
+            )
 
             return {
                 id: `enroll-${session.id}-${userId}`,
@@ -408,10 +439,10 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
                 courseId: session.courseId,
                 sessionId: session.id,
                 status,
-                progress: status === 'completed' || status === 'failed' ? 100 : status === 'in-progress' ? 35 + (sequence % 45) : 0,
-                score: status === 'completed' ? 82 + (sequence % 14) : status === 'failed' ? 54 + (sequence % 9) : undefined,
-                enrolledAt: iso(subDays(now, 20 - (index % 12))),
-                completedAt: status === 'completed' || status === 'failed' ? iso(subDays(now, 8 - (index % 5))) : undefined,
+                progress,
+                score,
+                enrolledAt: iso(enrolledAtDate),
+                completedAt: status === 'completed' || status === 'failed' ? iso(completedAtDate) : undefined,
             }
         })
 
