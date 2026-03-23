@@ -123,7 +123,7 @@ function iso(date: Date): string {
  * @returns A value from the source array.
  * @throws {Error} If {@link values} is an empty array.
  */
-export function cycle<T>(values: readonly T[], index: number): T {
+function cycle<T>(values: readonly T[], index: number): T {
     if (values.length === 0) {
         throw new Error('cycle() was called with an empty values array')
     }
