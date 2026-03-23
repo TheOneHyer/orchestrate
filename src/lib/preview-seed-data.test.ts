@@ -4,19 +4,23 @@ import { PREVIEW_SEED_VERSION, createPreviewSeedData } from './preview-seed-data
 
 describe('preview-seed-data', () => {
     it('exposes the expected seed data version', () => {
-        expect(PREVIEW_SEED_VERSION).toBe('preview-seed-v1')
+        expect(PREVIEW_SEED_VERSION).toBe('preview-seed-v2')
     })
 
     it('creates deterministic preview data for a reference date', () => {
         const referenceDate = new Date('2026-03-16T12:00:00.000Z')
         const seed = createPreviewSeedData(referenceDate)
 
-        expect(seed.targetTrainerCoverage).toBe(4)
-        expect(seed.users.length).toBeGreaterThan(0)
-        expect(seed.sessions.length).toBeGreaterThan(0)
-        expect(seed.courses.length).toBeGreaterThan(0)
-        expect(seed.scheduleTemplates.length).toBeGreaterThan(0)
-        expect(seed.riskHistorySnapshots.length).toBeGreaterThan(0)
+        expect(seed.targetTrainerCoverage).toBe(24)
+        expect(seed.users).toHaveLength(55)
+        expect(seed.sessions).toHaveLength(48)
+        expect(seed.courses).toHaveLength(24)
+        expect(seed.enrollments).toHaveLength(30)
+        expect(seed.notifications).toHaveLength(24)
+        expect(seed.wellnessCheckIns).toHaveLength(24)
+        expect(seed.checkInSchedules).toHaveLength(18)
+        expect(seed.scheduleTemplates).toHaveLength(12)
+        expect(seed.riskHistorySnapshots).toHaveLength(36)
 
         const sessionStatusSet = new Set(seed.sessions.map(session => session.status))
         expect(sessionStatusSet).toEqual(new Set(['completed', 'in-progress', 'scheduled', 'cancelled']))
@@ -47,15 +51,28 @@ describe('preview-seed-data', () => {
 
         expect(trainerCertStatuses).toEqual(expect.arrayContaining(['active', 'expiring-soon', 'expired']))
 
-        expect(seed.recoveryPlans).toHaveLength(1)
-        expect(seed.recoveryPlans[0]).toEqual(
-            expect.objectContaining({
-                status: 'active',
-                actions: expect.arrayContaining([
+        expect(seed.recoveryPlans).toHaveLength(6)
+        expect(seed.recoveryPlans).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ status: 'active' }),
+                expect.objectContaining({ status: 'in-progress' }),
+            ])
+        )
+
+        for (const plan of seed.recoveryPlans) {
+            expect(plan.actions).toEqual(
+                expect.arrayContaining([
                     expect.objectContaining({ completed: false }),
                     expect.objectContaining({ completed: true }),
-                ]),
-            })
-        )
+                ])
+            )
+            expect(plan.checkIns.length).toBeGreaterThan(0)
+        }
+
+        const highRiskSnapshots = seed.riskHistorySnapshots.filter(snapshot => snapshot.riskLevel === 'high')
+        const criticalRiskSnapshots = seed.riskHistorySnapshots.filter(snapshot => snapshot.riskLevel === 'critical')
+
+        expect(highRiskSnapshots.length).toBeGreaterThan(0)
+        expect(criticalRiskSnapshots.length).toBeGreaterThan(0)
     })
 })

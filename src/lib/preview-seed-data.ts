@@ -1,19 +1,19 @@
 import { addDays, addHours, subDays } from 'date-fns'
 import {
-    CheckInSchedule,
-    Course,
-    Enrollment,
-    Notification,
-    RecoveryPlan,
-    ScheduleTemplate,
-    Session,
-    User,
-    WellnessCheckIn
+  CheckInSchedule,
+  Course,
+  Enrollment,
+  Notification,
+  RecoveryPlan,
+  ScheduleTemplate,
+  Session,
+  User,
+  WellnessCheckIn,
 } from '@/lib/types'
 import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 
 /** Unique version tag for the preview seed data schema, used to detect stale cached seeds. */
-export const PREVIEW_SEED_VERSION = 'preview-seed-v1'
+export const PREVIEW_SEED_VERSION = 'preview-seed-v2'
 
 /**
  * The complete set of demo entities injected into the application store when
@@ -21,830 +21,585 @@ export const PREVIEW_SEED_VERSION = 'preview-seed-v1'
  * store slice.
  */
 export interface PreviewSeedData {
-    /** Users covering admin, trainer, and employee roles. */
-    users: User[]
-    /** Training sessions in various states (completed, in-progress, scheduled, cancelled). */
-    sessions: Session[]
-    /** Available training courses, including an unpublished draft for edge-case testing. */
-    courses: Course[]
-    /** Student enrollments linking users to courses and sessions. */
-    enrollments: Enrollment[]
-    /** System and user-facing notifications at various priority levels. */
-    notifications: Notification[]
-    /** Trainer wellness check-in records with mood, stress, and energy ratings. */
-    wellnessCheckIns: WellnessCheckIn[]
-    /** Active recovery plans for at-risk trainers. */
-    recoveryPlans: RecoveryPlan[]
-    /** Scheduled cadences for recurring trainer wellness check-ins. */
-    checkInSchedules: CheckInSchedule[]
-    /** Reusable schedule templates for recurring training programs. */
-    scheduleTemplates: ScheduleTemplate[]
-    /** Point-in-time burnout-risk history snapshots for trend analysis. */
-    riskHistorySnapshots: RiskHistorySnapshot[]
-    /** Target number of trainer-coverage slots used by coverage calculations. */
-    targetTrainerCoverage: number
+  /** Users covering admin, trainer, and employee roles. */
+  users: User[]
+  /** Training sessions in various states (completed, in-progress, scheduled, cancelled). */
+  sessions: Session[]
+  /** Available training courses, including unpublished drafts for edge-case testing. */
+  courses: Course[]
+  /** Student enrollments linking users to courses and sessions. */
+  enrollments: Enrollment[]
+  /** System and user-facing notifications at various priority levels. */
+  notifications: Notification[]
+  /** Trainer wellness check-in records with mood, stress, and energy ratings. */
+  wellnessCheckIns: WellnessCheckIn[]
+  /** Active and in-progress recovery plans for at-risk trainers. */
+  recoveryPlans: RecoveryPlan[]
+  /** Scheduled cadences for recurring trainer wellness check-ins. */
+  checkInSchedules: CheckInSchedule[]
+  /** Reusable schedule templates for recurring training programs. */
+  scheduleTemplates: ScheduleTemplate[]
+  /** Point-in-time burnout-risk history snapshots for trend analysis. */
+  riskHistorySnapshots: RiskHistorySnapshot[]
+  /** Target number of trainer-coverage slots used by coverage calculations. */
+  targetTrainerCoverage: number
 }
 
 /**
- * Converts a `Date` to its ISO 8601 string representation.
+ * Internal role labels used for trainer authorization and course outcomes.
+ */
+const ROLE_CATALOG = [
+  'Forklift Operator',
+  'Warehouse Associate',
+  'Quality Inspector',
+  'Production Associate',
+  'Safety Officer',
+  'Supervisor',
+  'Material Handler',
+  'Inventory Specialist',
+  'Line Lead',
+  'Compliance Coordinator',
+  'Emergency Responder',
+  'Logistics Planner',
+] as const
+
+/**
+ * Internal certification labels used across trainer profiles and courses.
+ */
+const CERTIFICATION_CATALOG = [
+  'Forklift Operator',
+  'Safety Training',
+  'Quality Control',
+  'First Aid',
+  'Hazmat Handling',
+  'Lockout Tagout',
+  'Incident Command',
+  'Lean Manufacturing',
+  'Ergonomics',
+  'Confined Space',
+  'Fire Safety',
+  'Crisis Communication',
+] as const
+
+/**
+ * Target entity counts for the larger preview seed data set.
+ */
+const PREVIEW_COUNTS = {
+  trainers: 18,
+  employees: 36,
+  courses: 24,
+  sessions: 48,
+  enrollments: 30,
+  notifications: 24,
+  wellnessCheckIns: 24,
+  recoveryPlans: 6,
+  scheduleTemplates: 12,
+  snapshotsPerTrainer: 2,
+} as const
+
+/**
+ * Converts a date to its ISO 8601 string representation.
  *
- * @param date - The date to serialise.
- * @returns The ISO 8601 string (e.g. `"2024-06-01T08:00:00.000Z"`).
+ * @param date - The date to serialize.
+ * @returns The ISO 8601 string.
  */
 function iso(date: Date): string {
-    return date.toISOString()
+  return date.toISOString()
+}
+
+/**
+ * Returns a deterministic cycle item.
+ *
+ * @param values - Source array to cycle through.
+ * @param index - Zero-based index.
+ * @returns A value from the source array.
+ */
+function cycle<T>(values: readonly T[], index: number): T {
+  return values[index % values.length]
+}
+
+/**
+ * Builds a deterministic employee name pair.
+ *
+ * @param index - Zero-based employee index.
+ * @returns Display name and e-mail slug parts.
+ */
+function buildName(index: number): { first: string; last: string } {
+  const firstNames = [
+    'Taylor', 'Jamie', 'Devin', 'Alex', 'Robin', 'Drew', 'Morgan', 'Riley', 'Parker', 'Quinn', 'Harper', 'Kendall',
+    'Skyler', 'Avery', 'Jordan', 'Logan', 'Reese', 'Cameron', 'Blake', 'Sage', 'Elliot', 'Finley', 'Rowan', 'Dakota',
+  ]
+  const lastNames = [
+    'Brown', 'Flores', 'Wright', 'Martinez', 'Kim', 'Wilson', 'Nguyen', 'Patel', 'Chen', 'Reed', 'Singh', 'Lopez',
+    'Brooks', 'Turner', 'Morgan', 'Bailey', 'Diaz', 'Price', 'Ward', 'Bennett', 'Harvey', 'Ramos', 'Owens', 'Shaw',
+  ]
+
+  return {
+    first: cycle(firstNames, index),
+    last: cycle(lastNames, index * 3),
+  }
 }
 
 /**
  * Generates a complete, self-consistent set of preview seed data anchored to
- * `referenceDate` (defaults to the current moment).
+ * referenceDate (defaults to the current moment).
  *
- * All dates within the seed data are computed relative to `referenceDate`, so
- * the data stays temporally accurate on every page load. The returned object
- * includes:
+ * Compared to the original preview set, this generator intentionally increases
+ * overall volume by roughly 6x while preserving deterministic IDs and temporal
+ * relationships. It includes:
+ * - 1 admin, 18 trainers, 36 employees
+ * - 24 courses and 48 sessions
+ * - 30 enrollments and 24 notifications
+ * - 24 wellness check-ins and 6 recovery plans
+ * - 18 check-in schedules and 12 schedule templates
+ * - 36 risk snapshots (2 per trainer)
  *
- * - **Users** – 1 admin, 3 trainers (each with a distinct risk profile), and
- *   6 employees spread across Warehouse, Production, and Logistics.
- * - **Courses** – 3 published courses and 1 unpublished draft.
- * - **Sessions** – 8 sessions spanning past, present, and future states
- *   (completed, in-progress, scheduled, and cancelled), including one
- *   over-capacity session for edge-case testing.
- * - **Enrollments** – 5 enrollment records covering all status variants.
- * - **Notifications** – 4 notifications at critical, high, medium, and low
- *   priority.
- * - **Wellness check-ins** – 4 records depicting healthy through critical
- *   burnout states.
- * - **Recovery plans** – 1 active recovery plan for the critically overloaded
- *   trainer.
- * - **Check-in schedules** – Daily, biweekly, and weekly cadences for the
- *   three trainers.
- * - **Schedule templates** – 2 templates (weekly forklift, biweekly safety).
- * - **Risk history snapshots** – 6 snapshots (2 per trainer) for trend charts.
- *
- * @param referenceDate - The anchor date from which all relative dates are
- *   calculated. Defaults to `new Date()`.
- * @returns A fully populated {@link PreviewSeedData} object.
+ * @param referenceDate - Anchor date from which all relative dates are calculated.
+ * @returns A fully populated preview seed data object.
  */
 export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedData {
-    const now = referenceDate
+  const now = referenceDate
 
-    const users: User[] = [
-        {
-            id: 'admin-1',
-            name: 'Admin User',
-            email: 'admin@orchestrate.test',
-            role: 'admin',
-            department: 'Operations',
-            certifications: [],
-            hireDate: iso(subDays(now, 1200))
-        },
-        {
-            id: 'trainer-1',
-            name: 'Avery Stone',
-            email: 'avery.stone@orchestrate.test',
-            role: 'trainer',
-            department: 'Warehouse Training',
-            certifications: ['Forklift Operator', 'Safety Training'],
-            hireDate: iso(subDays(now, 900)),
-            trainerProfile: {
-                authorizedRoles: ['Forklift Operator', 'Warehouse Associate'],
-                shiftSchedules: [
-                    {
-                        shiftCode: 'DAY-A-1',
-                        daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-                        startTime: '08:00',
-                        endTime: '16:00',
-                        totalHoursPerWeek: 40
-                    }
-                ],
-                tenure: {
-                    hireDate: iso(subDays(now, 900)),
-                    yearsOfService: 2,
-                    monthsOfService: 6
-                },
-                specializations: ['Forklift Operations', 'Safety'],
-                maxWeeklyHours: 42,
-                preferredLocation: 'Plant A',
-                certificationRecords: [
-                    {
-                        certificationName: 'Forklift Operator',
-                        issuedDate: iso(subDays(now, 500)),
-                        expirationDate: iso(addDays(now, 20)),
-                        status: 'expiring-soon',
-                        renewalRequired: true,
-                        remindersSent: 2,
-                        renewalInProgress: true
-                    },
-                    {
-                        certificationName: 'Safety Training',
-                        issuedDate: iso(subDays(now, 430)),
-                        expirationDate: iso(addDays(now, 160)),
-                        status: 'active',
-                        renewalRequired: false,
-                        remindersSent: 0
-                    }
-                ]
-            }
-        },
-        {
-            id: 'trainer-2',
-            name: 'Jordan Kim',
-            email: 'jordan.kim@orchestrate.test',
-            role: 'trainer',
-            department: 'Quality Training',
-            certifications: ['Quality Control', 'Lean Manufacturing'],
-            hireDate: iso(subDays(now, 700)),
-            trainerProfile: {
-                authorizedRoles: ['Quality Inspector', 'Production Associate'],
-                shiftSchedules: [
-                    {
-                        shiftCode: 'EVE-B-1',
-                        daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-                        startTime: '16:00',
-                        endTime: '00:00',
-                        totalHoursPerWeek: 40
-                    }
-                ],
-                tenure: {
-                    hireDate: iso(subDays(now, 700)),
-                    yearsOfService: 1,
-                    monthsOfService: 11
-                },
-                specializations: ['Quality Controls', 'Lean'],
-                maxWeeklyHours: 40,
-                preferredLocation: 'Plant B',
-                certificationRecords: [
-                    {
-                        certificationName: 'Quality Control',
-                        issuedDate: iso(subDays(now, 420)),
-                        expirationDate: iso(subDays(now, 7)),
-                        status: 'expired',
-                        renewalRequired: true,
-                        remindersSent: 4,
-                        notes: 'Expired for edge-case testing'
-                    },
-                    {
-                        certificationName: 'Lean Manufacturing',
-                        issuedDate: iso(subDays(now, 300)),
-                        expirationDate: iso(addDays(now, 75)),
-                        status: 'active',
-                        renewalRequired: false,
-                        remindersSent: 0
-                    }
-                ]
-            }
-        },
-        {
-            id: 'trainer-3',
-            name: 'Casey Brooks',
-            email: 'casey.brooks@orchestrate.test',
-            role: 'trainer',
-            department: 'Safety and Compliance',
-            certifications: ['Safety Training', 'First Aid'],
-            hireDate: iso(subDays(now, 450)),
-            trainerProfile: {
-                authorizedRoles: ['Safety Officer', 'Supervisor'],
-                shiftSchedules: [
-                    {
-                        shiftCode: 'DAY-A-2',
-                        daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday'],
-                        startTime: '07:00',
-                        endTime: '15:00',
-                        totalHoursPerWeek: 32
-                    }
-                ],
-                tenure: {
-                    hireDate: iso(subDays(now, 450)),
-                    yearsOfService: 1,
-                    monthsOfService: 2
-                },
-                specializations: ['Incident Response', 'Safety'],
-                maxWeeklyHours: 36,
-                preferredLocation: 'Plant C',
-                certificationRecords: [
-                    {
-                        certificationName: 'Safety Training',
-                        issuedDate: iso(subDays(now, 360)),
-                        expirationDate: iso(addDays(now, 12)),
-                        status: 'expiring-soon',
-                        renewalRequired: true,
-                        remindersSent: 3,
-                        renewalInProgress: true
-                    },
-                    {
-                        certificationName: 'First Aid',
-                        issuedDate: iso(subDays(now, 200)),
-                        expirationDate: iso(addDays(now, 250)),
-                        status: 'active',
-                        renewalRequired: false,
-                        remindersSent: 0
-                    }
-                ]
-            }
-        },
-        {
-            id: 'employee-1',
-            name: 'Taylor Brown',
-            email: 'taylor.brown@orchestrate.test',
-            role: 'employee',
-            department: 'Warehouse',
-            certifications: [],
-            hireDate: iso(subDays(now, 230))
-        },
-        {
-            id: 'employee-2',
-            name: 'Jamie Flores',
-            email: 'jamie.flores@orchestrate.test',
-            role: 'employee',
-            department: 'Warehouse',
-            certifications: [],
-            hireDate: iso(subDays(now, 180))
-        },
-        {
-            id: 'employee-3',
-            name: 'Devin Wright',
-            email: 'devin.wright@orchestrate.test',
-            role: 'employee',
-            department: 'Production',
-            certifications: [],
-            hireDate: iso(subDays(now, 140))
-        },
-        {
-            id: 'employee-4',
-            name: 'Alex Martinez',
-            email: 'alex.martinez@orchestrate.test',
-            role: 'employee',
-            department: 'Production',
-            certifications: [],
-            hireDate: iso(subDays(now, 310))
-        },
-        {
-            id: 'employee-5',
-            name: 'Robin Kim',
-            email: 'robin.kim@orchestrate.test',
-            role: 'employee',
-            department: 'Logistics',
-            certifications: [],
-            hireDate: iso(subDays(now, 260))
-        },
-        {
-            id: 'employee-6',
-            name: 'Drew Wilson',
-            email: 'drew.wilson@orchestrate.test',
-            role: 'employee',
-            department: 'Logistics',
-            certifications: [],
-            hireDate: iso(subDays(now, 95))
-        }
-    ]
+  const adminUser: User = {
+    id: 'admin-1',
+    name: 'Admin User',
+    email: 'admin@orchestrate.test',
+    role: 'admin',
+    department: 'Operations',
+    certifications: [],
+    hireDate: iso(subDays(now, 1200)),
+  }
 
-    const courses: Course[] = [
-        {
-            id: 'course-1',
-            title: 'Forklift Basics',
-            description: 'Foundational forklift safety and operation.',
-            modules: ['module-1', 'module-2'],
-            duration: 180,
-            certifications: ['Forklift Operator'],
-            createdBy: 'admin-1',
-            createdAt: iso(subDays(now, 250)),
-            published: true,
-            passScore: 80
-        },
-        {
-            id: 'course-2',
-            title: 'Safety Fundamentals',
-            description: 'Core plant safety practices and response drills.',
-            modules: ['module-3', 'module-4'],
-            duration: 200,
-            certifications: ['Safety Training'],
-            createdBy: 'admin-1',
-            createdAt: iso(subDays(now, 220)),
-            published: true,
-            passScore: 85
-        },
-        {
-            id: 'course-3',
-            title: 'Quality Control Lab',
-            description: 'Inspection fundamentals and defect handling.',
-            modules: ['module-5', 'module-6'],
-            duration: 150,
-            certifications: ['Quality Control'],
-            createdBy: 'admin-1',
-            createdAt: iso(subDays(now, 140)),
-            published: true,
-            passScore: 82
-        },
-        {
-            id: 'course-4',
-            title: 'Incident Response Draft',
-            description: 'Unpublished draft for edge-case coverage.',
-            modules: ['module-7'],
-            duration: 120,
-            certifications: ['First Aid'],
-            createdBy: 'admin-1',
-            createdAt: iso(subDays(now, 20)),
-            published: false,
-            passScore: 75
-        }
-    ]
+  const trainers: User[] = Array.from({ length: PREVIEW_COUNTS.trainers }, (_, index) => {
+    const trainerNumber = index + 1
+    const roleA = cycle(ROLE_CATALOG, index)
+    const roleB = cycle(ROLE_CATALOG, index + 4)
+    const certA = cycle(CERTIFICATION_CATALOG, index)
+    const certB = cycle(CERTIFICATION_CATALOG, index + 2)
+    const certC = cycle(CERTIFICATION_CATALOG, index + 5)
 
-    const sessions: Session[] = [
-        {
-            id: 'session-1',
-            courseId: 'course-1',
-            trainerId: 'trainer-1',
-            title: 'Forklift Basics - Morning A',
-            startTime: iso(subDays(now, 16)),
-            endTime: iso(addHours(subDays(now, 16), 3)),
-            location: 'Warehouse Bay 1',
-            capacity: 12,
-            enrolledStudents: ['employee-1', 'employee-2', 'employee-3'],
-            status: 'completed'
-        },
-        {
-            id: 'session-2',
-            courseId: 'course-2',
-            trainerId: 'trainer-3',
-            title: 'Safety Fundamentals - In Progress',
-            startTime: iso(addHours(now, -1)),
-            endTime: iso(addHours(now, 2)),
-            location: 'Plant C Training Room',
-            capacity: 16,
-            enrolledStudents: ['employee-2', 'employee-4', 'employee-5'],
-            status: 'in-progress'
-        },
-        {
-            id: 'session-3',
-            courseId: 'course-3',
-            trainerId: 'trainer-2',
-            title: 'Quality Controls - Cohort B',
-            startTime: iso(addDays(now, 1)),
-            endTime: iso(addHours(addDays(now, 1), 3)),
-            location: 'Plant B Lab',
-            capacity: 10,
-            enrolledStudents: ['employee-2', 'employee-3', 'employee-6'],
-            status: 'scheduled'
-        },
-        {
-            id: 'session-4',
-            courseId: 'course-2',
-            trainerId: 'trainer-3',
-            title: 'Incident Simulation (Cancelled)',
-            startTime: iso(addDays(now, 3)),
-            endTime: iso(addHours(addDays(now, 3), 2)),
-            location: 'Safety Lab',
-            capacity: 8,
-            enrolledStudents: ['employee-1', 'employee-5'],
-            status: 'cancelled'
-        },
-        {
-            id: 'session-5',
-            courseId: 'course-1',
-            trainerId: 'trainer-1',
-            title: 'Capacity Stress Session',
-            startTime: iso(addDays(now, 4)),
-            endTime: iso(addHours(addDays(now, 4), 3)),
-            location: 'Warehouse Bay 2',
-            capacity: 3,
-            enrolledStudents: ['employee-1', 'employee-2', 'employee-3', 'employee-4'],
-            status: 'scheduled'
-        },
-        {
-            id: 'session-6',
-            courseId: 'course-2',
-            trainerId: 'trainer-3',
-            title: 'Safety Surge Block 1',
-            startTime: iso(addDays(now, 5)),
-            endTime: iso(addHours(addDays(now, 5), 3)),
-            location: 'Safety Hall A',
-            capacity: 12,
-            enrolledStudents: ['employee-2', 'employee-3', 'employee-4', 'employee-5'],
-            status: 'scheduled'
-        },
-        {
-            id: 'session-7',
-            courseId: 'course-2',
-            trainerId: 'trainer-3',
-            title: 'Safety Surge Block 2',
-            startTime: iso(addDays(now, 6)),
-            endTime: iso(addHours(addDays(now, 6), 3)),
-            location: 'Safety Hall A',
-            capacity: 12,
-            enrolledStudents: ['employee-1', 'employee-2', 'employee-6'],
-            status: 'scheduled'
-        },
-        {
-            id: 'session-8',
-            courseId: 'course-3',
-            trainerId: 'trainer-2',
-            title: 'Quality Sprint',
-            startTime: iso(addDays(now, 7)),
-            endTime: iso(addHours(addDays(now, 7), 3)),
-            location: 'Plant B Lab',
-            capacity: 10,
-            enrolledStudents: ['employee-3', 'employee-5'],
-            status: 'scheduled'
-        }
-    ]
+    const riskBand = index % 6
+    const riskProfile =
+      riskBand === 2 || riskBand === 5 ? 'critical' :
+      riskBand === 1 || riskBand === 4 ? 'high' :
+      riskBand === 3 ? 'medium' : 'low'
 
-    const enrollments: Enrollment[] = [
-        {
-            id: 'enroll-1',
-            userId: 'employee-1',
-            courseId: 'course-1',
-            sessionId: 'session-1',
-            status: 'completed',
-            progress: 100,
-            score: 91,
-            enrolledAt: iso(subDays(now, 20)),
-            completedAt: iso(subDays(now, 15))
-        },
-        {
-            id: 'enroll-2',
-            userId: 'employee-2',
-            courseId: 'course-2',
-            sessionId: 'session-2',
-            status: 'in-progress',
-            progress: 45,
-            enrolledAt: iso(subDays(now, 4))
-        },
-        {
-            id: 'enroll-3',
-            userId: 'employee-3',
-            courseId: 'course-3',
-            sessionId: 'session-3',
-            status: 'enrolled',
-            progress: 0,
-            enrolledAt: iso(subDays(now, 2))
-        },
-        {
-            id: 'enroll-4',
-            userId: 'employee-4',
-            courseId: 'course-3',
-            status: 'failed',
-            progress: 100,
-            score: 61,
-            enrolledAt: iso(subDays(now, 14)),
-            completedAt: iso(subDays(now, 9))
-        },
-        {
-            id: 'enroll-5',
-            userId: 'employee-5',
-            courseId: 'course-2',
-            sessionId: 'session-6',
-            status: 'enrolled',
-            progress: 0,
-            enrolledAt: iso(subDays(now, 1))
-        }
-    ]
+    const shiftType = riskBand % 3 === 0 ? 'day' : riskBand % 3 === 1 ? 'evening' : 'night'
+    const shiftStart = shiftType === 'day' ? '08:00' : shiftType === 'evening' ? '16:00' : '00:00'
+    const shiftEnd = shiftType === 'day' ? '16:00' : shiftType === 'evening' ? '00:00' : '08:00'
+    const baseHours = riskProfile === 'critical' ? 46 : riskProfile === 'high' ? 42 : riskProfile === 'medium' ? 38 : 34
 
-    const notifications: Notification[] = [
-        {
-            id: 'notif-1',
-            userId: 'admin-1',
-            type: 'workload',
-            title: 'Critical Burnout Risk Detected',
-            message: 'Casey Brooks has reached critical burnout risk.',
-            link: '/burnout-dashboard',
-            read: false,
-            createdAt: iso(subDays(now, 1)),
-            priority: 'critical'
-        },
-        {
-            id: 'notif-2',
-            userId: 'admin-1',
-            type: 'reminder',
-            title: 'Certification Expired',
-            message: 'Jordan Kim has an expired Quality Control certification.',
-            link: '/certifications',
-            read: false,
-            createdAt: iso(subDays(now, 1)),
-            priority: 'high'
-        },
-        {
-            id: 'notif-3',
-            userId: 'trainer-3',
-            type: 'session',
-            title: 'Session Starts Soon',
-            message: 'Safety Fundamentals starts in 1 hour.',
-            link: '/schedule',
-            read: true,
-            createdAt: iso(addHours(now, -2)),
-            priority: 'medium'
-        },
-        {
-            id: 'notif-4',
-            userId: 'admin-1',
-            type: 'system',
-            title: 'Template Applied',
-            message: 'Recurring safety template generated new sessions.',
-            link: '/schedule-templates',
-            read: true,
-            createdAt: iso(subDays(now, 3)),
-            priority: 'low'
-        }
-    ]
+    const trainerNameMap: Record<number, string> = {
+      1: 'Avery Stone',
+      2: 'Jordan Kim',
+      3: 'Casey Brooks',
+    }
+    const displayName = trainerNameMap[trainerNumber] ?? `Trainer ${trainerNumber}`
 
-    const wellnessCheckIns: WellnessCheckIn[] = [
-        {
-            id: 'checkin-1',
-            trainerId: 'trainer-1',
-            timestamp: iso(subDays(now, 8)),
-            mood: 4,
-            stress: 'moderate',
-            energy: 'energized',
-            workloadSatisfaction: 4,
-            sleepQuality: 4,
-            physicalWellbeing: 4,
-            mentalClarity: 4,
-            followUpRequired: false,
-            utilizationAtCheckIn: 71
-        },
-        {
-            id: 'checkin-2',
-            trainerId: 'trainer-2',
-            timestamp: iso(subDays(now, 3)),
-            mood: 2,
-            stress: 'high',
-            energy: 'tired',
-            workloadSatisfaction: 2,
-            sleepQuality: 2,
-            physicalWellbeing: 3,
-            mentalClarity: 2,
-            comments: 'Too many context switches this week.',
-            concerns: ['context-switching', 'fatigue'],
-            followUpRequired: true,
-            followUpCompleted: false,
-            utilizationAtCheckIn: 93
-        },
-        {
-            id: 'checkin-3',
-            trainerId: 'trainer-3',
-            timestamp: iso(subDays(now, 2)),
-            mood: 1,
-            stress: 'critical',
-            energy: 'exhausted',
-            workloadSatisfaction: 1,
-            sleepQuality: 1,
-            physicalWellbeing: 2,
-            mentalClarity: 1,
-            comments: 'Need immediate load reduction.',
-            concerns: ['burnout-signals'],
-            followUpRequired: true,
-            followUpCompleted: false,
-            utilizationAtCheckIn: 97
-        },
-        {
-            id: 'checkin-4',
-            trainerId: 'trainer-3',
-            timestamp: iso(subDays(now, 1)),
-            mood: 2,
-            stress: 'high',
-            energy: 'tired',
-            workloadSatisfaction: 2,
-            sleepQuality: 2,
-            physicalWellbeing: 2,
-            mentalClarity: 2,
-            followUpRequired: true,
-            followUpCompleted: false,
-            utilizationAtCheckIn: 95
-        }
-    ]
-
-    const recoveryPlans: RecoveryPlan[] = [
-        {
-            id: 'recovery-1',
-            trainerId: 'trainer-3',
-            createdBy: 'admin-1',
-            createdAt: iso(subDays(now, 2)),
-            status: 'active',
-            triggerReason: 'Critical stress and sustained high utilization',
-            targetUtilization: 70,
-            currentUtilization: 96,
-            startDate: iso(subDays(now, 2)),
-            targetCompletionDate: iso(addDays(now, 21)),
-            actions: [
-                {
-                    id: 'action-1',
-                    type: 'workload-reduction',
-                    description: 'Reassign two sessions this week',
-                    targetDate: iso(addDays(now, 2)),
-                    completed: false
-                },
-                {
-                    id: 'action-2',
-                    type: 'support-session',
-                    description: 'Schedule support call with operations lead',
-                    targetDate: iso(addDays(now, 1)),
-                    completed: true,
-                    completedDate: iso(now),
-                    completedBy: 'admin-1'
-                }
-            ],
-            checkIns: ['checkin-3', 'checkin-4'],
-            notes: 'High-priority recovery case.'
-        }
-    ]
-
-    const checkInSchedules: CheckInSchedule[] = [
-        {
-            id: 'schedule-1',
-            trainerId: 'trainer-1',
-            frequency: 'weekly',
-            startDate: iso(subDays(now, 60)),
-            nextScheduledDate: iso(addDays(now, 4)),
-            status: 'active',
-            notificationEnabled: true,
-            autoReminders: true,
-            reminderHoursBefore: 12,
-            createdBy: 'admin-1',
-            createdAt: iso(subDays(now, 60)),
-            completedCheckIns: 6,
-            missedCheckIns: 0
-        },
-        {
-            id: 'schedule-2',
-            trainerId: 'trainer-2',
-            frequency: 'biweekly',
-            startDate: iso(subDays(now, 50)),
-            nextScheduledDate: iso(addDays(now, 1)),
-            status: 'active',
-            notificationEnabled: true,
-            autoReminders: true,
-            reminderHoursBefore: 6,
-            createdBy: 'admin-1',
-            createdAt: iso(subDays(now, 50)),
-            completedCheckIns: 4,
-            missedCheckIns: 1
-        },
-        {
-            id: 'schedule-3',
-            trainerId: 'trainer-3',
-            frequency: 'daily',
-            startDate: iso(subDays(now, 12)),
-            nextScheduledDate: iso(addDays(now, 1)),
-            status: 'active',
-            notificationEnabled: true,
-            autoReminders: true,
-            reminderHoursBefore: 4,
-            createdBy: 'admin-1',
-            createdAt: iso(subDays(now, 12)),
-            notes: 'High-risk trainer cadence',
-            completedCheckIns: 8,
-            missedCheckIns: 2
-        }
-    ]
-
-    const scheduleTemplates: ScheduleTemplate[] = [
-        {
-            id: 'template-1',
-            name: 'Weekly Forklift Program',
-            description: 'Recurring forklift sessions for new cohorts.',
-            courseId: 'course-1',
-            category: 'operations',
-            recurrenceType: 'weekly',
-            sessions: [
-                {
-                    dayOfWeek: 1,
-                    time: '09:00',
-                    duration: 180,
-                    location: 'Warehouse Bay 1',
-                    capacity: 10,
-                    requiresCertifications: ['Forklift Operator']
-                },
-                {
-                    dayOfWeek: 3,
-                    time: '13:00',
-                    duration: 180,
-                    location: 'Warehouse Bay 2',
-                    capacity: 10,
-                    requiresCertifications: ['Forklift Operator']
-                }
-            ],
-            autoAssignTrainers: true,
-            notifyParticipants: true,
-            createdBy: 'admin-1',
-            createdAt: iso(subDays(now, 85)),
-            lastUsed: iso(subDays(now, 5)),
-            usageCount: 12,
-            tags: ['forklift', 'weekly'],
-            isActive: true
-        },
-        {
-            id: 'template-2',
-            name: 'Safety Intensive',
-            description: 'Biweekly safety simulation and response cycle.',
-            courseId: 'course-2',
-            category: 'safety',
-            recurrenceType: 'biweekly',
-            sessions: [
-                {
-                    dayOfWeek: 2,
-                    time: '10:00',
-                    duration: 120,
-                    location: 'Safety Lab',
-                    capacity: 14,
-                    requiresCertifications: ['Safety Training']
-                }
-            ],
-            autoAssignTrainers: false,
-            notifyParticipants: true,
-            createdBy: 'admin-1',
-            createdAt: iso(subDays(now, 45)),
-            lastUsed: iso(subDays(now, 7)),
-            usageCount: 6,
-            tags: ['safety', 'biweekly'],
-            isActive: true
-        }
-    ]
-
-    const riskHistorySnapshots: RiskHistorySnapshot[] = [
-        {
-            id: 'snapshot-1',
-            trainerId: 'trainer-1',
-            timestamp: iso(subDays(now, 7)),
-            riskScore: 45,
-            riskLevel: 'medium',
-            utilizationRate: 74,
-            hoursScheduled: 31,
-            sessionCount: 5,
-            consecutiveDays: 4,
-            factorCount: 2
-        },
-        {
-            id: 'snapshot-2',
-            trainerId: 'trainer-1',
-            timestamp: iso(subDays(now, 1)),
-            riskScore: 41,
-            riskLevel: 'medium',
-            utilizationRate: 70,
-            hoursScheduled: 29,
-            sessionCount: 5,
-            consecutiveDays: 4,
-            factorCount: 2
-        },
-        {
-            id: 'snapshot-3',
-            trainerId: 'trainer-2',
-            timestamp: iso(subDays(now, 7)),
-            riskScore: 68,
-            riskLevel: 'high',
-            utilizationRate: 88,
-            hoursScheduled: 37,
-            sessionCount: 7,
-            consecutiveDays: 6,
-            factorCount: 4
-        },
-        {
-            id: 'snapshot-4',
-            trainerId: 'trainer-2',
-            timestamp: iso(subDays(now, 1)),
-            riskScore: 79,
-            riskLevel: 'high',
-            utilizationRate: 93,
-            hoursScheduled: 39,
-            sessionCount: 8,
-            consecutiveDays: 7,
-            factorCount: 5
-        },
-        {
-            id: 'snapshot-5',
-            trainerId: 'trainer-3',
-            timestamp: iso(subDays(now, 7)),
-            riskScore: 84,
-            riskLevel: 'critical',
-            utilizationRate: 97,
-            hoursScheduled: 41,
-            sessionCount: 8,
-            consecutiveDays: 7,
-            factorCount: 6
-        },
-        {
-            id: 'snapshot-6',
-            trainerId: 'trainer-3',
-            timestamp: iso(subDays(now, 1)),
-            riskScore: 89,
-            riskLevel: 'critical',
-            utilizationRate: 99,
-            hoursScheduled: 42,
-            sessionCount: 9,
-            consecutiveDays: 8,
-            factorCount: 6
-        }
-    ]
+    const certRecordBaseDate = subDays(now, 650 - trainerNumber * 6)
 
     return {
-        users,
-        sessions,
-        courses,
-        enrollments,
-        notifications,
-        wellnessCheckIns,
-        recoveryPlans,
-        checkInSchedules,
-        scheduleTemplates,
-        riskHistorySnapshots,
-        targetTrainerCoverage: 4
+      id: `trainer-${trainerNumber}`,
+      name: displayName,
+      email: `trainer.${trainerNumber}@orchestrate.test`,
+      role: 'trainer',
+      department: trainerNumber % 3 === 0 ? 'Safety and Compliance' : trainerNumber % 2 === 0 ? 'Quality Training' : 'Warehouse Training',
+      certifications: [certA, certB, certC],
+      hireDate: iso(subDays(now, 980 - trainerNumber * 22)),
+      shifts: [shiftType],
+      trainerProfile: {
+        authorizedRoles: [roleA, roleB, cycle(ROLE_CATALOG, index + 8)],
+        shiftSchedules: [
+          {
+            shiftCode: `${shiftType.toUpperCase()}-${trainerNumber.toString().padStart(2, '0')}`,
+            shiftType,
+            daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+            startTime: shiftStart,
+            endTime: shiftEnd,
+            totalHoursPerWeek: baseHours,
+          },
+        ],
+        tenure: {
+          hireDate: iso(subDays(now, 980 - trainerNumber * 22)),
+          yearsOfService: Math.floor((980 - trainerNumber * 22) / 365),
+          monthsOfService: Math.floor((980 - trainerNumber * 22) / 30),
+        },
+        specializations: [
+          roleA,
+          riskProfile === 'critical' ? 'Recovery Coaching' : cycle(['Incident Response', 'Operations', 'Compliance', 'Mentoring'], index),
+        ],
+        maxWeeklyHours: baseHours + (riskProfile === 'critical' ? 2 : 0),
+        preferredLocation: trainerNumber % 3 === 0 ? 'Plant C' : trainerNumber % 2 === 0 ? 'Plant B' : 'Plant A',
+        certificationRecords: [
+          {
+            certificationName: certA,
+            issuedDate: iso(subDays(certRecordBaseDate, 80)),
+            expirationDate: iso(addDays(now, riskProfile === 'critical' ? 9 : riskProfile === 'high' ? 21 : 140)),
+            status: riskProfile === 'critical' ? 'expiring-soon' : 'active',
+            renewalRequired: riskProfile === 'critical',
+            remindersSent: riskProfile === 'critical' ? 3 : 1,
+            renewalInProgress: riskProfile === 'critical' || riskProfile === 'high',
+          },
+          {
+            certificationName: certB,
+            issuedDate: iso(subDays(certRecordBaseDate, 45)),
+            expirationDate: iso(addDays(now, riskProfile === 'high' ? -6 : 80)),
+            status: riskProfile === 'high' ? 'expired' : 'active',
+            renewalRequired: riskProfile === 'high',
+            remindersSent: riskProfile === 'high' ? 4 : 0,
+            notes: riskProfile === 'high' ? 'Expired to stress certification remediation workflows.' : undefined,
+          },
+          {
+            certificationName: certC,
+            issuedDate: iso(subDays(certRecordBaseDate, 15)),
+            expirationDate: iso(addDays(now, 240)),
+            status: 'active',
+            renewalRequired: false,
+            remindersSent: 0,
+          },
+        ],
+      },
     }
+  })
+
+  const employees: User[] = Array.from({ length: PREVIEW_COUNTS.employees }, (_, index) => {
+    const employeeNumber = index + 1
+    const { first, last } = buildName(index)
+    const roleCert = cycle(CERTIFICATION_CATALOG, index + 3)
+
+    return {
+      id: `employee-${employeeNumber}`,
+      name: `${first} ${last}`,
+      email: `${first.toLowerCase()}.${last.toLowerCase()}.${employeeNumber}@orchestrate.test`,
+      role: 'employee',
+      department: cycle(['Warehouse', 'Production', 'Logistics', 'Quality', 'Maintenance', 'Packaging'], index),
+      certifications: employeeNumber % 4 === 0 ? [roleCert] : [],
+      hireDate: iso(subDays(now, 420 - employeeNumber * 6)),
+    }
+  })
+
+  const users: User[] = [adminUser, ...trainers, ...employees]
+
+  const courses: Course[] = Array.from({ length: PREVIEW_COUNTS.courses }, (_, index) => {
+    const courseNumber = index + 1
+    const certA = cycle(CERTIFICATION_CATALOG, index)
+    const certB = cycle(CERTIFICATION_CATALOG, index + 1)
+    const isPublished = courseNumber % 6 !== 0
+
+    return {
+      id: `course-${courseNumber}`,
+      title: `${cycle(['Operations', 'Safety', 'Quality', 'Leadership', 'Compliance', 'Logistics'], index)} Series ${courseNumber}`,
+      description: `Course ${courseNumber} covering ${certA} and related workflow drills.`,
+      modules: [`module-${courseNumber * 2 - 1}`, `module-${courseNumber * 2}`],
+      duration: 90 + (courseNumber % 5) * 30,
+      certifications: [certA, certB],
+      createdBy: 'admin-1',
+      createdAt: iso(subDays(now, 300 - courseNumber * 5)),
+      published: isPublished,
+      passScore: 75 + (courseNumber % 6) * 2,
+    }
+  })
+
+  const trainerIds = trainers.map(trainer => trainer.id)
+  const employeeIds = employees.map(employee => employee.id)
+
+  const buildEnrolledStudents = (offset: number, desiredCount: number): string[] => {
+    return Array.from({ length: desiredCount }, (_, index) => employeeIds[(offset + index) % employeeIds.length])
+  }
+
+  const sessions: Session[] = Array.from({ length: PREVIEW_COUNTS.sessions }, (_, index) => {
+    const sessionNumber = index + 1
+    const course = courses[index % courses.length]
+    const trainerId = trainerIds[index % trainerIds.length]
+
+    let status: Session['status']
+    let startTime: Date
+    let endTime: Date
+
+    if (sessionNumber === 1) {
+      status = 'completed'
+      startTime = subDays(now, 16)
+      endTime = addHours(startTime, 3)
+    } else if (sessionNumber === 2) {
+      status = 'in-progress'
+      startTime = addHours(now, -1)
+      endTime = addHours(now, 2)
+    } else if (sessionNumber % 9 === 0) {
+      status = 'cancelled'
+      startTime = addDays(now, 1 + (sessionNumber % 10))
+      endTime = addHours(startTime, 2)
+    } else if (sessionNumber % 7 === 0) {
+      status = 'completed'
+      startTime = subDays(now, 2 + (sessionNumber % 12))
+      endTime = addHours(startTime, 3)
+    } else {
+      status = 'scheduled'
+      startTime = addDays(now, 1 + (sessionNumber % 18))
+      endTime = addHours(startTime, sessionNumber % 4 === 0 ? 4 : 3)
+    }
+
+    const plannedEnrollmentCount = 3 + (sessionNumber % 5)
+    const enrolledStudents = buildEnrolledStudents(sessionNumber, plannedEnrollmentCount)
+    const capacity = sessionNumber % 13 === 0 ? plannedEnrollmentCount - 1 : plannedEnrollmentCount + 4
+
+    return {
+      id: `session-${sessionNumber}`,
+      courseId: course.id,
+      trainerId,
+      title: `${course.title} - Block ${sessionNumber}`,
+      startTime: iso(startTime),
+      endTime: iso(endTime),
+      location: cycle(['Warehouse Bay 1', 'Plant B Lab', 'Safety Hall', 'Ops Classroom', 'Logistics Center'], index),
+      capacity,
+      enrolledStudents,
+      status,
+      shift: cycle(['day', 'evening', 'night'] as const, index),
+    }
+  })
+
+  const enrollments: Enrollment[] = Array.from({ length: PREVIEW_COUNTS.enrollments }, (_, index) => {
+    const enrollmentNumber = index + 1
+    const session = sessions[(index * 3) % sessions.length]
+    const status = cycle(['completed', 'in-progress', 'enrolled', 'failed', 'enrolled'] as const, index)
+
+    return {
+      id: `enroll-${enrollmentNumber}`,
+      userId: employeeIds[index % employeeIds.length],
+      courseId: session.courseId,
+      sessionId: session.id,
+      status,
+      progress: status === 'completed' || status === 'failed' ? 100 : status === 'in-progress' ? 35 + (index % 45) : 0,
+      score: status === 'completed' ? 82 + (index % 14) : status === 'failed' ? 54 + (index % 9) : undefined,
+      enrolledAt: iso(subDays(now, 20 - (index % 12))),
+      completedAt: status === 'completed' || status === 'failed' ? iso(subDays(now, 8 - (index % 5))) : undefined,
+    }
+  })
+
+  const criticalTrainerIds = trainers.filter((_, index) => index % 6 === 2 || index % 6 === 5).map(trainer => trainer.id)
+  const highRiskTrainerIds = trainers.filter((_, index) => index % 6 === 1 || index % 6 === 4).map(trainer => trainer.id)
+
+  const notifications: Notification[] = Array.from({ length: PREVIEW_COUNTS.notifications }, (_, index) => {
+    const notificationNumber = index + 1
+    const isCritical = index % 6 === 0
+    const isHigh = index % 4 === 0 && !isCritical
+    const priority = isCritical ? 'critical' : isHigh ? 'high' : index % 2 === 0 ? 'medium' : 'low'
+    const targetTrainerId = isCritical
+      ? criticalTrainerIds[index % criticalTrainerIds.length]
+      : highRiskTrainerIds[index % highRiskTrainerIds.length]
+
+    return {
+      id: `notif-${notificationNumber}`,
+      userId: index % 7 === 0 ? targetTrainerId : 'admin-1',
+      type: isCritical ? 'workload' : index % 3 === 0 ? 'reminder' : index % 2 === 0 ? 'session' : 'system',
+      title: isCritical ? 'Critical Burnout Risk Detected' : isHigh ? 'Certification Remediation Needed' : `Operations Notice ${notificationNumber}`,
+      message: isCritical
+        ? `${targetTrainerId} has entered critical risk and needs immediate load rebalancing.`
+        : isHigh
+          ? `${targetTrainerId} has an overdue certification renewal.`
+          : `Seeded notification ${notificationNumber} for dashboard coverage.`,
+      link: isCritical ? '/burnout-dashboard' : '/schedule',
+      read: index % 5 === 0,
+      createdAt: iso(subDays(now, index % 9)),
+      priority,
+    }
+  })
+
+  const wellnessCheckIns: WellnessCheckIn[] = Array.from({ length: PREVIEW_COUNTS.wellnessCheckIns }, (_, index) => {
+    const checkInNumber = index + 1
+    const trainerId = trainerIds[index % trainerIds.length]
+    const trainerIndex = index % trainerIds.length
+    const riskBand = trainerIndex % 6
+    const riskProfile =
+      riskBand === 2 || riskBand === 5 ? 'critical' :
+      riskBand === 1 || riskBand === 4 ? 'high' :
+      riskBand === 3 ? 'medium' : 'low'
+
+    const values = riskProfile === 'critical'
+      ? { mood: 1 as const, stress: 'critical' as const, energy: 'exhausted' as const, sat: 1 as const, sleep: 1 as const, physical: 2 as const, clarity: 1 as const, util: 97 }
+      : riskProfile === 'high'
+        ? { mood: 2 as const, stress: 'high' as const, energy: 'tired' as const, sat: 2 as const, sleep: 2 as const, physical: 3 as const, clarity: 2 as const, util: 91 }
+        : riskProfile === 'medium'
+          ? { mood: 3 as const, stress: 'moderate' as const, energy: 'neutral' as const, sat: 3 as const, sleep: 3 as const, physical: 3 as const, clarity: 3 as const, util: 78 }
+          : { mood: 4 as const, stress: 'low' as const, energy: 'energized' as const, sat: 4 as const, sleep: 4 as const, physical: 4 as const, clarity: 4 as const, util: 68 }
+
+    return {
+      id: `checkin-${checkInNumber}`,
+      trainerId,
+      timestamp: iso(subDays(now, (index % 10) + 1)),
+      mood: values.mood,
+      stress: values.stress,
+      energy: values.energy,
+      workloadSatisfaction: values.sat,
+      sleepQuality: values.sleep,
+      physicalWellbeing: values.physical,
+      mentalClarity: values.clarity,
+      comments: riskProfile === 'critical' ? 'Need immediate load reduction and rest days.' : riskProfile === 'high' ? 'Workload pressure remains elevated.' : undefined,
+      concerns: riskProfile === 'critical' ? ['burnout-signals', 'fatigue'] : riskProfile === 'high' ? ['workload-spike'] : undefined,
+      followUpRequired: riskProfile === 'critical' || riskProfile === 'high',
+      followUpCompleted: riskProfile === 'low',
+      utilizationAtCheckIn: values.util + (index % 3),
+    }
+  })
+
+  const checkInsByTrainer = wellnessCheckIns.reduce<Record<string, string[]>>((accumulator, checkIn) => {
+    if (!accumulator[checkIn.trainerId]) {
+      accumulator[checkIn.trainerId] = []
+    }
+    accumulator[checkIn.trainerId].push(checkIn.id)
+    return accumulator
+  }, {})
+
+  const recoveryTrainerIds = [...criticalTrainerIds.slice(0, 4), ...highRiskTrainerIds.slice(0, 2)]
+
+  const recoveryPlans: RecoveryPlan[] = Array.from({ length: PREVIEW_COUNTS.recoveryPlans }, (_, index) => {
+    const planNumber = index + 1
+    const trainerId = recoveryTrainerIds[index]
+    const linkedCheckIns = (checkInsByTrainer[trainerId] ?? []).slice(-2)
+    const isCriticalPlan = criticalTrainerIds.includes(trainerId)
+
+    return {
+      id: `recovery-${planNumber}`,
+      trainerId,
+      createdBy: 'admin-1',
+      createdAt: iso(subDays(now, 3 + index)),
+      status: index % 5 === 0 ? 'in-progress' : 'active',
+      triggerReason: isCriticalPlan
+        ? 'Critical stress and sustained high utilization'
+        : 'Elevated stress trend and workload imbalance',
+      targetUtilization: isCriticalPlan ? 68 : 74,
+      currentUtilization: isCriticalPlan ? 95 + (index % 3) : 88 + (index % 4),
+      startDate: iso(subDays(now, 3 + index)),
+      targetCompletionDate: iso(addDays(now, 18 + index * 2)),
+      actions: [
+        {
+          id: `action-${planNumber}-1`,
+          type: 'workload-reduction',
+          description: 'Reassign two upcoming sessions to lower weekly hours.',
+          targetDate: iso(addDays(now, 2 + index)),
+          completed: false,
+        },
+        {
+          id: `action-${planNumber}-2`,
+          type: 'support-session',
+          description: 'Hold support check-in with operations lead.',
+          targetDate: iso(addDays(now, 1 + index)),
+          completed: true,
+          completedDate: iso(subDays(now, index % 2)),
+          completedBy: 'admin-1',
+        },
+      ],
+      checkIns: linkedCheckIns,
+      notes: isCriticalPlan ? 'High-priority recovery case.' : 'Monitor for sustained improvement over two weeks.',
+    }
+  })
+
+  const checkInSchedules: CheckInSchedule[] = trainers.map((trainer, index) => {
+    const riskBand = index % 6
+    const frequency = riskBand === 2 || riskBand === 5 ? 'daily' : riskBand === 1 || riskBand === 4 ? 'weekly' : riskBand === 3 ? 'biweekly' : 'monthly'
+
+    return {
+      id: `schedule-${index + 1}`,
+      trainerId: trainer.id,
+      frequency,
+      startDate: iso(subDays(now, 70 - index)),
+      nextScheduledDate: iso(addDays(now, 1 + (index % 5))),
+      status: 'active',
+      notificationEnabled: true,
+      autoReminders: true,
+      reminderHoursBefore: frequency === 'daily' ? 4 : 12,
+      createdBy: 'admin-1',
+      createdAt: iso(subDays(now, 70 - index)),
+      notes: frequency === 'daily' ? 'High-risk trainer cadence' : undefined,
+      completedCheckIns: 4 + (index % 8),
+      missedCheckIns: index % 3,
+    }
+  })
+
+  const scheduleTemplates: ScheduleTemplate[] = Array.from({ length: PREVIEW_COUNTS.scheduleTemplates }, (_, index) => {
+    const templateNumber = index + 1
+    const courseId = courses[index % courses.length].id
+    const certA = cycle(CERTIFICATION_CATALOG, index)
+    const certB = cycle(CERTIFICATION_CATALOG, index + 4)
+
+    return {
+      id: `template-${templateNumber}`,
+      name: `${cycle(['Weekly', 'Biweekly', 'Monthly', 'Shift-Rotation'], index)} Program ${templateNumber}`,
+      description: `Template ${templateNumber} for recurring ${certA.toLowerCase()} programs.`,
+      courseId,
+      category: cycle(['operations', 'safety', 'quality', 'leadership'], index),
+      recurrenceType: cycle(['weekly', 'biweekly', 'monthly', 'custom'] as const, index),
+      cycleDays: index % 4 === 3 ? 10 + (index % 5) : undefined,
+      sessions: [
+        {
+          dayOfWeek: (index + 1) % 7,
+          time: cycle(['08:00', '10:00', '13:00', '16:00', '20:00'], index),
+          duration: 120 + (index % 3) * 30,
+          location: cycle(['Warehouse Bay 1', 'Safety Lab', 'Plant B Lab', 'Ops Classroom'], index),
+          capacity: 8 + (index % 7),
+          requiresCertifications: [certA, certB],
+          shift: cycle(['day', 'evening', 'night'] as const, index),
+        },
+      ],
+      autoAssignTrainers: index % 2 === 0,
+      notifyParticipants: true,
+      createdBy: 'admin-1',
+      createdAt: iso(subDays(now, 95 - index * 2)),
+      lastUsed: iso(subDays(now, 4 + (index % 10))),
+      usageCount: 6 + index,
+      tags: [cycle(['forklift', 'safety', 'quality', 'compliance', 'leadership'], index), 'scaled-preview'],
+      isActive: true,
+    }
+  })
+
+  const riskHistorySnapshots: RiskHistorySnapshot[] = trainers.flatMap((trainer, index) => {
+    const riskBand = index % 6
+    const riskProfile =
+      riskBand === 2 || riskBand === 5 ? 'critical' :
+      riskBand === 1 || riskBand === 4 ? 'high' :
+      riskBand === 3 ? 'medium' : 'low'
+
+    const olderScore = riskProfile === 'critical' ? 82 : riskProfile === 'high' ? 64 : riskProfile === 'medium' ? 42 : 24
+    const recentScore = riskProfile === 'critical' ? 90 : riskProfile === 'high' ? 74 : riskProfile === 'medium' ? 46 : 20
+
+    return [
+      {
+        id: `snapshot-${trainer.id}-1`,
+        trainerId: trainer.id,
+        timestamp: iso(subDays(now, 7)),
+        riskScore: olderScore,
+        riskLevel: riskProfile === 'critical' ? 'critical' : riskProfile === 'high' ? 'high' : riskProfile === 'medium' ? 'medium' : 'low',
+        utilizationRate: riskProfile === 'critical' ? 95 : riskProfile === 'high' ? 88 : riskProfile === 'medium' ? 77 : 68,
+        hoursScheduled: riskProfile === 'critical' ? 43 : riskProfile === 'high' ? 39 : riskProfile === 'medium' ? 34 : 28,
+        sessionCount: riskProfile === 'critical' ? 9 : riskProfile === 'high' ? 8 : riskProfile === 'medium' ? 6 : 5,
+        consecutiveDays: riskProfile === 'critical' ? 8 : riskProfile === 'high' ? 7 : riskProfile === 'medium' ? 5 : 4,
+        factorCount: riskProfile === 'critical' ? 6 : riskProfile === 'high' ? 5 : riskProfile === 'medium' ? 3 : 1,
+      },
+      {
+        id: `snapshot-${trainer.id}-2`,
+        trainerId: trainer.id,
+        timestamp: iso(subDays(now, 1)),
+        riskScore: recentScore,
+        riskLevel: riskProfile === 'critical' ? 'critical' : riskProfile === 'high' ? 'high' : riskProfile === 'medium' ? 'medium' : 'low',
+        utilizationRate: riskProfile === 'critical' ? 98 : riskProfile === 'high' ? 92 : riskProfile === 'medium' ? 79 : 64,
+        hoursScheduled: riskProfile === 'critical' ? 45 : riskProfile === 'high' ? 41 : riskProfile === 'medium' ? 35 : 27,
+        sessionCount: riskProfile === 'critical' ? 10 : riskProfile === 'high' ? 8 : riskProfile === 'medium' ? 6 : 5,
+        consecutiveDays: riskProfile === 'critical' ? 9 : riskProfile === 'high' ? 7 : riskProfile === 'medium' ? 5 : 4,
+        factorCount: riskProfile === 'critical' ? 7 : riskProfile === 'high' ? 5 : riskProfile === 'medium' ? 3 : 1,
+      },
+    ]
+  })
+
+  return {
+    users,
+    sessions,
+    courses,
+    enrollments,
+    notifications,
+    wellnessCheckIns,
+    recoveryPlans,
+    checkInSchedules,
+    scheduleTemplates,
+    riskHistorySnapshots,
+    targetTrainerCoverage: 24,
+  }
 }
