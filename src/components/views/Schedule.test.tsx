@@ -214,6 +214,37 @@ describe('Schedule', () => {
     expect(onNavigationPayloadConsumed).not.toHaveBeenCalled()
   })
 
+  it('does not reopen guided scheduler when sessions change and create-intent payload persists', async () => {
+    const user = userEvent.setup()
+    const payload = { create: true }
+    const { rerender } = renderSchedule({ navigationPayload: payload })
+
+    expect(await screen.findByText(/guidedscheduler mock/i)).toBeInTheDocument()
+
+    // Close the guided scheduler
+    await user.click(screen.getByRole('button', { name: /close guided scheduler/i }))
+    await waitFor(() => {
+      expect(screen.queryByText(/guidedscheduler mock/i)).not.toBeInTheDocument()
+    })
+
+    // Rerender with updated sessions but the same persisted payload (no consumed callback)
+    rerender(
+      <Schedule
+        sessions={[baseSession, eveningSession]}
+        courses={[baseCourse]}
+        users={[baseTrainer, baseEmployee]}
+        currentUser={baseTrainer}
+        onCreateSession={vi.fn()}
+        onUpdateSession={vi.fn()}
+        onNavigate={vi.fn()}
+        navigationPayload={payload}
+      />
+    )
+
+    // Guided scheduler must not be reopened
+    expect(screen.queryByText(/guidedscheduler mock/i)).not.toBeInTheDocument()
+  })
+
   it('does not reopen details when sessions change for the same payload', async () => {
     const user = userEvent.setup()
     const onNavigationPayloadConsumed = vi.fn()
