@@ -397,13 +397,28 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         }))
     )
 
-    const enrollments: Enrollment[] = enrollmentRows
-        .slice(0, PREVIEW_COUNTS.enrollments)
+    const slicedEnrollmentRows = enrollmentRows.slice(0, PREVIEW_COUNTS.enrollments)
+
+    const rosterBySessionId = slicedEnrollmentRows.reduce<Record<string, string[]>>((accumulator, row) => {
+        if (!accumulator[row.session.id]) {
+            accumulator[row.session.id] = []
+        }
+        accumulator[row.session.id].push(row.userId)
+        return accumulator
+    }, {})
+
+    const seededSessions: Session[] = sessions.map((session) => ({
+        ...session,
+        enrolledStudents: rosterBySessionId[session.id] ?? [],
+    }))
+
+    const enrollments: Enrollment[] = slicedEnrollmentRows
         .map(({ session, userId, sequence }, index) => {
             const sessionStart = new Date(session.startTime)
             const sessionEnd = new Date(session.endTime)
             const enrollmentWindowMs = Math.max(sessionEnd.getTime() - sessionStart.getTime(), 1)
-            const enrolledAtDate = new Date(sessionStart.getTime() + (sequence % enrollmentWindowMs))
+            const offsetMs = Math.floor((sequence % 1000) * enrollmentWindowMs / 1000)
+            const enrolledAtDate = new Date(sessionStart.getTime() + offsetMs)
 
             let status: Enrollment['status']
             if (session.status === 'completed') {
@@ -430,7 +445,10 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
 
             const completionOffsetMs = Math.max(Math.floor(enrollmentWindowMs / 2), 1)
             const completedAtDate = new Date(
-                Math.min(sessionEnd.getTime(), enrolledAtDate.getTime() + completionOffsetMs)
+                Math.max(
+                    enrolledAtDate.getTime() + 1,
+                    Math.min(sessionEnd.getTime(), enrolledAtDate.getTime() + completionOffsetMs)
+                )
             )
 
             return {
@@ -654,7 +672,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
 
     return {
         users,
-        sessions,
+        sessions: seededSessions,
         courses,
         enrollments,
         notifications,

@@ -49,6 +49,15 @@ describe('preview-seed-data', () => {
         for (const session of seed.sessions) {
             for (const userId of session.enrolledStudents) {
                 expect(userIds.has(userId)).toBe(true)
+
+                const matchingEnrollment = seed.enrollments.find(
+                    (enrollment) =>
+                        enrollment.sessionId === session.id
+                        && enrollment.courseId === session.courseId
+                        && enrollment.userId === userId
+                )
+
+                expect(matchingEnrollment).toBeDefined()
             }
         }
 
