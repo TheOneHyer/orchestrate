@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { PREVIEW_SEED_VERSION, createPreviewSeedData, cycle } from '@/lib/preview-seed-data'
+import { PREVIEW_SEED_VERSION, createPreviewSeedData, cycle } from './preview-seed-data'
 
 describe('preview-seed-data', () => {
     it('exposes the expected seed data version', () => {
