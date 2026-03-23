@@ -98,6 +98,15 @@ const PREVIEW_COUNTS = {
 } as const
 
 /**
+ * Canonical trainer names retained from earlier seed versions.
+ */
+const TRAINER_NAME_MAP: Record<number, string> = {
+    1: 'Avery Stone',
+    2: 'Jordan Kim',
+    3: 'Casey Brooks',
+}
+
+/**
  * Converts a date to its ISO 8601 string representation.
  *
  * @param date - The date to serialize.
@@ -113,10 +122,30 @@ function iso(date: Date): string {
  * @param values - Source array to cycle through.
  * @param index - Zero-based index.
  * @returns A value from the source array.
+ * @throws {Error} If {@link values} is an empty array.
  */
 function cycle<T>(values: readonly T[], index: number): T {
+    if (values.length === 0) {
+        throw new Error('cycle() was called with an empty values array')
+    }
     return values[index % values.length]
 }
+
+/**
+ * Canonical list of first names used for deterministic preview employees.
+ */
+const FIRST_NAMES = [
+    'Taylor', 'Jamie', 'Devin', 'Alex', 'Robin', 'Drew', 'Morgan', 'Riley', 'Parker', 'Quinn', 'Harper', 'Kendall',
+    'Skyler', 'Avery', 'Jordan', 'Logan', 'Reese', 'Cameron', 'Blake', 'Sage', 'Elliot', 'Finley', 'Rowan', 'Dakota',
+] as const
+
+/**
+ * Canonical list of last names used for deterministic preview employees.
+ */
+const LAST_NAMES = [
+    'Brown', 'Flores', 'Wright', 'Martinez', 'Kim', 'Wilson', 'Nguyen', 'Patel', 'Chen', 'Reed', 'Singh', 'Lopez',
+    'Brooks', 'Turner', 'Morgan', 'Bailey', 'Diaz', 'Price', 'Ward', 'Bennett', 'Harvey', 'Ramos', 'Owens', 'Shaw',
+] as const
 
 /**
  * Builds a deterministic employee name pair.
@@ -125,19 +154,29 @@ function cycle<T>(values: readonly T[], index: number): T {
  * @returns Display name and e-mail slug parts.
  */
 function buildName(index: number): { first: string; last: string } {
-    const firstNames = [
-        'Taylor', 'Jamie', 'Devin', 'Alex', 'Robin', 'Drew', 'Morgan', 'Riley', 'Parker', 'Quinn', 'Harper', 'Kendall',
-        'Skyler', 'Avery', 'Jordan', 'Logan', 'Reese', 'Cameron', 'Blake', 'Sage', 'Elliot', 'Finley', 'Rowan', 'Dakota',
-    ]
-    const lastNames = [
-        'Brown', 'Flores', 'Wright', 'Martinez', 'Kim', 'Wilson', 'Nguyen', 'Patel', 'Chen', 'Reed', 'Singh', 'Lopez',
-        'Brooks', 'Turner', 'Morgan', 'Bailey', 'Diaz', 'Price', 'Ward', 'Bennett', 'Harvey', 'Ramos', 'Owens', 'Shaw',
-    ]
-
     return {
-        first: cycle(firstNames, index),
-        last: cycle(lastNames, index * 3),
+        first: cycle(FIRST_NAMES, index),
+        last: cycle(LAST_NAMES, index * 3),
     }
+}
+
+/**
+ * Maps a deterministic risk band to a trainer risk profile.
+ *
+ * @param riskBand - Seeded risk-band value.
+ * @returns The derived risk profile.
+ */
+function getRiskProfile(riskBand: number): 'critical' | 'high' | 'medium' | 'low' {
+    if (riskBand === 2 || riskBand === 5) {
+        return 'critical'
+    }
+    if (riskBand === 1 || riskBand === 4) {
+        return 'high'
+    }
+    if (riskBand === 3) {
+        return 'medium'
+    }
+    return 'low'
 }
 
 /**
@@ -179,22 +218,14 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         const certC = cycle(CERTIFICATION_CATALOG, index + 5)
 
         const riskBand = index % 6
-        const riskProfile =
-            riskBand === 2 || riskBand === 5 ? 'critical' :
-                riskBand === 1 || riskBand === 4 ? 'high' :
-                    riskBand === 3 ? 'medium' : 'low'
+        const riskProfile = getRiskProfile(index % 6)
 
         const shiftType = riskBand % 3 === 0 ? 'day' : riskBand % 3 === 1 ? 'evening' : 'night'
         const shiftStart = shiftType === 'day' ? '08:00' : shiftType === 'evening' ? '16:00' : '00:00'
         const shiftEnd = shiftType === 'day' ? '16:00' : shiftType === 'evening' ? '00:00' : '08:00'
         const baseHours = riskProfile === 'critical' ? 46 : riskProfile === 'high' ? 42 : riskProfile === 'medium' ? 38 : 34
 
-        const trainerNameMap: Record<number, string> = {
-            1: 'Avery Stone',
-            2: 'Jordan Kim',
-            3: 'Casey Brooks',
-        }
-        const displayName = trainerNameMap[trainerNumber] ?? `Trainer ${trainerNumber}`
+        const displayName = TRAINER_NAME_MAP[trainerNumber] ?? `Trainer ${trainerNumber}`
 
         const certRecordBaseDate = subDays(now, 650 - trainerNumber * 6)
 
@@ -408,11 +439,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         const checkInNumber = index + 1
         const trainerId = trainerIds[index % trainerIds.length]
         const trainerIndex = index % trainerIds.length
-        const riskBand = trainerIndex % 6
-        const riskProfile =
-            riskBand === 2 || riskBand === 5 ? 'critical' :
-                riskBand === 1 || riskBand === 4 ? 'high' :
-                    riskBand === 3 ? 'medium' : 'low'
+        const riskProfile = getRiskProfile(trainerIndex % 6)
 
         const values = riskProfile === 'critical'
             ? { mood: 1 as const, stress: 'critical' as const, energy: 'exhausted' as const, sat: 1 as const, sleep: 1 as const, physical: 2 as const, clarity: 1 as const, util: 97 }
@@ -552,11 +579,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
     })
 
     const riskHistorySnapshots: RiskHistorySnapshot[] = trainers.flatMap((trainer, index) => {
-        const riskBand = index % 6
-        const riskProfile =
-            riskBand === 2 || riskBand === 5 ? 'critical' :
-                riskBand === 1 || riskBand === 4 ? 'high' :
-                    riskBand === 3 ? 'medium' : 'low'
+        const riskProfile = getRiskProfile(index % 6)
 
         const olderScore = riskProfile === 'critical' ? 82 : riskProfile === 'high' ? 64 : riskProfile === 'medium' ? 42 : 24
         const recentScore = riskProfile === 'critical' ? 90 : riskProfile === 'high' ? 74 : riskProfile === 'medium' ? 46 : 20
