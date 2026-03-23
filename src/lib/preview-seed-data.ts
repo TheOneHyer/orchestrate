@@ -124,7 +124,7 @@ function iso(date: Date): string {
  * @returns A value from the source array.
  * @throws {Error} If {@link values} is an empty array.
  */
-function cycle<T>(values: readonly T[], index: number): T {
+export function cycle<T>(values: readonly T[], index: number): T {
     if (values.length === 0) {
         throw new Error('cycle() was called with an empty values array')
     }
@@ -218,7 +218,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         const certC = cycle(CERTIFICATION_CATALOG, index + 5)
 
         const riskBand = index % 6
-        const riskProfile = getRiskProfile(index % 6)
+        const riskProfile = getRiskProfile(riskBand)
 
         const shiftType = riskBand % 3 === 0 ? 'day' : riskBand % 3 === 1 ? 'evening' : 'night'
         const shiftStart = shiftType === 'day' ? '08:00' : shiftType === 'evening' ? '16:00' : '00:00'

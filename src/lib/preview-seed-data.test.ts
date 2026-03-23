@@ -1,6 +1,4 @@
-import { describe, expect, it } from 'vitest'
-
-import { PREVIEW_SEED_VERSION, createPreviewSeedData } from './preview-seed-data'
+import { PREVIEW_SEED_VERSION, createPreviewSeedData, cycle } from './preview-seed-data'
 
 describe('preview-seed-data', () => {
     it('exposes the expected seed data version', () => {
@@ -11,7 +9,7 @@ describe('preview-seed-data', () => {
         const referenceDate = new Date('2026-03-16T12:00:00.000Z')
         const seed = createPreviewSeedData(referenceDate)
 
-        expect(seed.targetTrainerCoverage).toBe(24)
+        expect(seed.targetTrainerCoverage).toBe(18)
         expect(seed.users).toHaveLength(55)
         expect(seed.sessions).toHaveLength(48)
         expect(seed.courses).toHaveLength(24)
@@ -74,5 +72,9 @@ describe('preview-seed-data', () => {
 
         expect(highRiskSnapshots.length).toBeGreaterThan(0)
         expect(criticalRiskSnapshots.length).toBeGreaterThan(0)
+    })
+
+    it('throws when cycle is called with an empty array', () => {
+        expect(() => cycle([], 0)).toThrowError('cycle() was called with an empty values array')
     })
 })
