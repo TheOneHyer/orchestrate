@@ -464,8 +464,11 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
             }
         })
 
-    const criticalTrainerIds = trainers.filter((_, index) => index % 6 === 2 || index % 6 === 5).map(trainer => trainer.id)
-    const highRiskTrainerIds = trainers.filter((_, index) => index % 6 === 1 || index % 6 === 4).map(trainer => trainer.id)
+    const criticalTrainers = trainers.filter((_, index) => index % 6 === 2 || index % 6 === 5)
+    const highRiskTrainers = trainers.filter((_, index) => index % 6 === 1 || index % 6 === 4)
+    const criticalTrainerIds = criticalTrainers.map(trainer => trainer.id)
+    const highRiskTrainerIds = highRiskTrainers.map(trainer => trainer.id)
+    const trainerNameById = new Map(trainers.map(trainer => [trainer.id, trainer.name]))
 
     const notifications: Notification[] = Array.from({ length: PREVIEW_COUNTS.notifications }, (_, index) => {
         const notificationNumber = index + 1
@@ -475,6 +478,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         const targetTrainerId = isCritical
             ? criticalTrainerIds[index % criticalTrainerIds.length]
             : highRiskTrainerIds[index % highRiskTrainerIds.length]
+        const targetTrainerName = trainerNameById.get(targetTrainerId) ?? targetTrainerId
 
         return {
             id: `notif-${notificationNumber}`,
@@ -482,9 +486,9 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
             type: isCritical ? 'workload' : index % 3 === 0 ? 'reminder' : index % 2 === 0 ? 'session' : 'system',
             title: isCritical ? 'Critical Burnout Risk Detected' : isHigh ? 'Certification Remediation Needed' : `Operations Notice ${notificationNumber}`,
             message: isCritical
-                ? `${targetTrainerId} has entered critical risk and needs immediate load rebalancing.`
+                ? `${targetTrainerName} has entered critical risk and needs immediate load rebalancing.`
                 : isHigh
-                    ? `${targetTrainerId} has an overdue certification renewal.`
+                    ? `${targetTrainerName} has an overdue certification renewal.`
                     : `Seeded notification ${notificationNumber} for dashboard coverage.`,
             link: isCritical ? '/burnout-dashboard' : '/schedule',
             read: index % 5 === 0,
