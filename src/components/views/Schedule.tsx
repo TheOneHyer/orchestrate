@@ -54,7 +54,13 @@ interface ScheduleProps {
  * @returns True when payload contains a string `sessionId`.
  */
 function hasSessionIdPayload(value: unknown): value is { sessionId: string } {
-  return !!value && typeof value === 'object' && 'sessionId' in value && typeof value.sessionId === 'string'
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  return 'sessionId' in candidate && typeof candidate.sessionId === 'string'
 }
 
 /**

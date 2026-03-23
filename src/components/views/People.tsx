@@ -52,7 +52,13 @@ interface PeopleProps {
  * @returns True when payload contains a string `userId`.
  */
 function hasUserIdPayload(value: unknown): value is { userId: string } {
-  return !!value && typeof value === 'object' && 'userId' in value && typeof value.userId === 'string'
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+
+  return 'userId' in candidate && typeof candidate.userId === 'string'
 }
 
 /**
