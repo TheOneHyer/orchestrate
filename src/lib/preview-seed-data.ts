@@ -94,7 +94,6 @@ const PREVIEW_COUNTS = {
     wellnessCheckIns: 24,
     recoveryPlans: 6,
     scheduleTemplates: 12,
-    snapshotsPerTrainer: 2,
 } as const
 
 /**
