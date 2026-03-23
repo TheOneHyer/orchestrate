@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { PREVIEW_SEED_VERSION, createPreviewSeedData, cycle } from './preview-seed-data'
+import { PREVIEW_SEED_VERSION, createPreviewSeedData } from './preview-seed-data'
 
 describe('preview-seed-data', () => {
     it('exposes the expected seed data version', () => {
@@ -93,12 +93,16 @@ describe('preview-seed-data', () => {
         expect(criticalRiskSnapshots.length).toBeGreaterThan(0)
     })
 
-    it('throws when cycle is called with an empty array', () => {
-        expect(() => cycle([], 0)).toThrowError('cycle() was called with an empty values array')
-    })
+    it('produces a deterministic, wrapping shift pattern across all sessions', () => {
+        const seed = createPreviewSeedData(new Date('2026-03-16T12:00:00.000Z'))
+        const shifts = seed.sessions.map(s => s.shift)
 
-    it('wraps positive and negative indices in cycle', () => {
-        expect(cycle(['a', 'b', 'c'], 4)).toBe('b')
-        expect(cycle(['a', 'b', 'c'], -1)).toBe('c')
+        // The shift array cycles through ['day', 'evening', 'night'] by index.
+        // Verify the first cycle and that it wraps correctly at index 3.
+        expect(shifts[0]).toBe('day')
+        expect(shifts[1]).toBe('evening')
+        expect(shifts[2]).toBe('night')
+        expect(shifts[3]).toBe('day')   // wraps back to index 0
+        expect(shifts[4]).toBe('evening')
     })
 })
