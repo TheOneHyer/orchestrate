@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 
 import { TrainerAvailability } from './TrainerAvailability'
@@ -134,6 +134,15 @@ function makeSession(id: string, trainerId: string, start: Date, durationHours: 
 }
 
 describe('TrainerAvailability', () => {
+    beforeEach(() => {
+        vi.useFakeTimers({ toFake: ['Date'] })
+        vi.setSystemTime(new Date('2026-03-20T12:00:00.000Z'))
+    })
+
+    afterEach(() => {
+        vi.useRealTimers()
+    })
+
     it('renders aggregate stats and navigates to schedule view', async () => {
         const user = userEvent.setup()
         const onNavigate = vi.fn()
