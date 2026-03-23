@@ -623,6 +623,6 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         checkInSchedules,
         scheduleTemplates,
         riskHistorySnapshots,
-        targetTrainerCoverage: 24,
+        targetTrainerCoverage: PREVIEW_COUNTS.trainers,
     }
 }
