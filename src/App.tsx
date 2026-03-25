@@ -367,10 +367,6 @@ function App() {
   const safeNotifications = notifications || []
   const hasPersistedUsers = safeUsers.length > 0
 
-  useEffect(() => {
-    setShowSetup(!hasPersistedUsers)
-  }, [hasPersistedUsers])
-
   const fallbackUser = useMemo<User>(() => ({
     id: '1',
     name: 'Admin User',
