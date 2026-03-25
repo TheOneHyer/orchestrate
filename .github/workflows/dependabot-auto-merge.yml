@@ -152,30 +152,16 @@ jobs:
             }
 
             if (initialPullRequest.mergeable_state === 'behind') {
-              core.notice('Dependabot PR is behind main. Requesting a branch update before evaluating checks.');
-              try {
-                await github.rest.pulls.updateBranch({
-                  owner,
-                  repo,
-                  pull_number: pullNumber,
-                  expected_head_sha: initialPullRequest.head.sha,
-                });
-                return;
-              } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                core.warning(`Failed to update Dependabot PR branch from base: ${message}`);
-                await upsertComment([
-                  '## Dependabot auto-merge blocked',
-                  '',
-                  'This pull request is behind the base branch and an automatic branch update from Dependabot failed.',
-                  '',
-                  `Error from GitHub API: \`${message}\``,
-                  '',
-                  `${mentionTarget} please update this branch manually (or resolve the reported issue) and re-run the checks.`,
-                ].join('\n'));
-                core.setFailed('Dependabot PR could not be updated with the latest base branch. See the PR comment for details.');
-                return;
-              }
+              core.notice('Dependabot PR is behind main. Branch updates via GITHUB_TOKEN do not trigger new CI runs, so manual intervention is required.');
+              await upsertComment([
+                '## Dependabot auto-merge blocked',
+                '',
+                'This pull request is behind the base branch. Automatic branch updates via the workflow token cannot trigger new CI runs, so the branch must be updated manually.',
+                '',
+                `${mentionTarget} please update this branch manually (or wait for Dependabot to rebase it) and re-run the checks.`,
+              ].join('\n'));
+              core.setFailed('Dependabot PR is behind main and requires a manual branch update.');
+              return;
             }
 
             if (initialPullRequest.mergeable === false && initialPullRequest.mergeable_state === 'dirty') {
@@ -201,29 +187,22 @@ jobs:
               }
 
               if (pullRequest.mergeable_state === 'behind') {
-                core.notice('A new commit left the PR behind main. Requesting another branch update.');
-                try {
-                  await github.rest.pulls.updateBranch({
-                    owner,
-                    repo,
-                    pull_number: pullNumber,
-                    expected_head_sha: pullRequest.head.sha,
-                  });
-                  return;
-                } catch (error) {
-                  const branchUpdateMessage = error instanceof Error ? error.message : String(error);
-                  await upsertComment([
-                    '## Dependabot auto-merge skipped',
-                    '',
-                    'GitHub rejected the request to update this branch from `main`.',
-                    '',
-                    `${mentionTarget} please review this PR and resolve it manually.`,
-                    '',
-                    `Branch update error: ${branchUpdateMessage}`,
-                  ].join('\n'));
-                  core.setFailed('Failed to update Dependabot PR branch from main.');
-                  return;
-                }
+                              if (pullRequest.draft) {
+                                core.notice('Pull request is draft. Skipping auto-merge.');
+                                return;
+                              }
+
+                              if (pullRequest.mergeable_state === 'behind') {
+                core.notice('A new commit left the PR behind main. Branch updates via GITHUB_TOKEN do not trigger new CI runs, so manual intervention is required.');
+                await upsertComment([
+                  '## Dependabot auto-merge skipped',
+                  '',
+                  'This pull request fell behind the base branch. Automatic branch updates via the workflow token cannot trigger new CI runs, so the branch must be updated manually.',
+                  '',
+                  `${mentionTarget} please update this branch manually (or wait for Dependabot to rebase it) and re-run the checks.`,
+                ].join('\n'));
+                core.setFailed('Dependabot PR is behind main and requires a manual branch update.');
+                return;
               }
 
               if (pullRequest.mergeable === false && pullRequest.mergeable_state === 'dirty') {
