@@ -151,11 +151,9 @@ export function RecordScoreDialog({
                                         />
                                     </FormControl>
                                     <FormMessage />
-                                    {hasScore && !isScoreValid && (
-                                        <p className="text-sm text-red-600" data-testid="score-error">
-                                            Please enter a whole number between 0 and 100.
-                                        </p>
-                                    )}
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
                                 </FormItem>
                             )}
                         />
