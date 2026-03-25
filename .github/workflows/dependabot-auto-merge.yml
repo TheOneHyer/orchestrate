@@ -153,13 +153,29 @@ jobs:
 
             if (initialPullRequest.mergeable_state === 'behind') {
               core.notice('Dependabot PR is behind main. Requesting a branch update before evaluating checks.');
-              await github.rest.pulls.updateBranch({
-                owner,
-                repo,
-                pull_number: pullNumber,
-                expected_head_sha: initialPullRequest.head.sha,
-              });
-              return;
+              try {
+                await github.rest.pulls.updateBranch({
+                  owner,
+                  repo,
+                  pull_number: pullNumber,
+                  expected_head_sha: initialPullRequest.head.sha,
+                });
+                return;
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                core.warning(`Failed to update Dependabot PR branch from base: ${message}`);
+                await upsertComment([
+                  '## Dependabot auto-merge blocked',
+                  '',
+                  'This pull request is behind the base branch and an automatic branch update from Dependabot failed.',
+                  '',
+                  `Error from GitHub API: \`${message}\``,
+                  '',
+                  `${mentionTarget} please update this branch manually (or resolve the reported issue) and re-run the checks.`,
+                ].join('\n'));
+                core.setFailed('Dependabot PR could not be updated with the latest base branch. See the PR comment for details.');
+                return;
+              }
             }
 
             if (initialPullRequest.mergeable === false && initialPullRequest.mergeable_state === 'dirty') {
