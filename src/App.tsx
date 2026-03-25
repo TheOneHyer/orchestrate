@@ -641,12 +641,9 @@ function App() {
         })
 
         if (!response.ok) {
-          const authenticated = authenticateLocally()
-          if (!authenticated) {
-            toast.error('Sign-in failed', {
-              description: 'Authentication failed. Verify your credentials and try again.',
-            })
-          }
+          toast.error('Authentication failed', {
+            description: 'Verify your credentials and try again.',
+          })
           return
         }
 
@@ -671,12 +668,9 @@ function App() {
           description: `Welcome back, ${authenticatedUser?.name ?? email}.`,
         })
       } catch {
-        const authenticated = authenticateLocally()
-        if (!authenticated) {
-          toast.error('Sign-in failed', {
-            description: 'Unable to reach the authentication service.',
-          })
-        }
+        toast.error('Authentication failed', {
+          description: 'Unable to reach the authentication service.',
+        })
       }
       return
     }
@@ -1134,27 +1128,106 @@ function App() {
    * Removes a user from the users KV store and cleans up related session
    * records: sessions where the deleted user was the trainer have their
    * `trainerId` cleared, and sessions where the user was an enrolled student
-   * have the user's ID removed from `enrolledStudents`.
+   * have the user's ID removed from `enrolledStudents`. Also cleans up
+   * attendance records for the deleted user and ensures the active view is
+   * accessible by the new active user.
    *
    * @param userId - The unique identifier of the user to delete.
    */
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = useCallback((userId: string) => {
     if (activeUserId === userId) {
       const nextUser = safeUsers.find((user) => user.id !== userId)
-      setActiveUserId(nextUser?.id || '')
+      const nextUserId = nextUser?.id || ''
+      setActiveUserId(nextUserId)
+
+      // Ensure the new active user can access the current view
+      if (nextUser && !VIEW_ACCESS[activeView]?.includes(nextUser.role)) {
+        setActiveView('dashboard')
+        setNavigationPayload(null)
+      }
     }
 
+    setAuthPasswords((currentPasswords) => {
+      if (!currentPasswords || !(userId in currentPasswords)) {
+        return currentPasswords || {}
+      }
+
+      const { [userId]: _deletedPassword, ...remainingPasswords } = currentPasswords
+      return remainingPasswords
+    })
     setUsers((currentUsers) => (currentUsers || []).filter(user => user.id !== userId))
+    setEnrollments((currentEnrollments) =>
+      (currentEnrollments || []).filter((enrollment) => enrollment.userId !== userId)
+    )
     setSessions((currentSessions) => (currentSessions || []).map(session => {
-      if (session.trainerId === userId) {
-        return { ...session, trainerId: '', status: 'scheduled' as const }
+      const removedTrainer = session.trainerId === userId
+      const removedStudent = session.enrolledStudents.includes(userId)
+      const shouldResetStatus = removedTrainer && session.status !== 'completed' && session.status !== 'cancelled'
+
+      if (!removedTrainer && !removedStudent) {
+        return session
       }
-      if (session.enrolledStudents.includes(userId)) {
-        return { ...session, enrolledStudents: session.enrolledStudents.filter(id => id !== userId) }
+
+      return {
+        ...session,
+        trainerId: removedTrainer ? '' : session.trainerId,
+        enrolledStudents: removedStudent
+          ? session.enrolledStudents.filter(id => id !== userId)
+          : session.enrolledStudents,
+        ...(shouldResetStatus ? { status: 'scheduled' as const } : {}),
       }
-      return session
     }))
-  }
+
+    // Clean up attendance records for the deleted user
+    setAttendanceRecords((currentRecords) =>
+      (currentRecords || []).filter(record => record.userId !== userId)
+    )
+    setNotifications((currentNotifications) =>
+      (currentNotifications || []).filter((notification) => notification.userId !== userId)
+    )
+    setWellnessCheckIns((currentCheckIns) =>
+      (currentCheckIns || []).filter((checkIn) => checkIn.trainerId !== userId)
+    )
+    setRecoveryPlans((currentPlans) =>
+      (currentPlans || []).filter((plan) => plan.trainerId !== userId)
+    )
+    setCheckInSchedules((currentSchedules) =>
+      (currentSchedules || []).filter((schedule) => schedule.trainerId !== userId)
+    )
+    setScheduleTemplates((currentTemplates) =>
+      (currentTemplates || [])
+        .filter((template) => template.createdBy !== userId)
+        .map((template) => ({
+          ...template,
+          sessions: template.sessions.map((session) => ({
+            ...session,
+            preferredTrainers: session.preferredTrainers?.filter((trainerId) => trainerId !== userId),
+          })),
+        }))
+    )
+    setRiskHistorySnapshots((currentSnapshots) =>
+      (currentSnapshots || []).filter((snapshot) => snapshot.trainerId !== userId)
+    )
+  }, [
+    VIEW_ACCESS,
+    activeUserId,
+    activeView,
+    safeUsers,
+    setActiveUserId,
+    setActiveView,
+    setAttendanceRecords,
+    setAuthPasswords,
+    setCheckInSchedules,
+    setEnrollments,
+    setNavigationPayload,
+    setNotifications,
+    setRecoveryPlans,
+    setRiskHistorySnapshots,
+    setScheduleTemplates,
+    setSessions,
+    setUsers,
+    setWellnessCheckIns,
+  ])
 
   /**
    * Adds a new {@link CertificationRecord} to the `trainerProfile` of each
@@ -1560,7 +1633,7 @@ function App() {
   }
 
   if (!activeUserId) {
-    if (!hasPersistedUsers) {
+    if (!hasPersistedUsers && previewMode) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
@@ -1611,6 +1684,29 @@ function App() {
                     Create First Admin
                   </Button>
                 </form>
+              </CardContent>
+            </Card>
+          </div>
+          <Toaster />
+        </div>
+      )
+    }
+
+    if (!hasPersistedUsers && !previewMode) {
+      return (
+        <div className="min-h-screen bg-muted/20 p-6">
+          <div className="mx-auto w-full max-w-md pt-16">
+            <Card>
+              <CardHeader>
+                <CardTitle>Setup Required</CardTitle>
+                <CardDescription>
+                  No users have been created in this workspace yet.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  User setup is only available during preview mode. Please configure users through your deployment or server setup process.
+                </p>
               </CardContent>
             </Card>
           </div>

@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch'
 import { CheckInSchedule, CheckInFrequency, User } from '@/lib/types'
 import { CalendarCheck } from '@phosphor-icons/react'
 import { addDays, format } from 'date-fns'
+import { toast } from 'sonner'
 
 /**
  * Props for the {@link CheckInScheduleDialog} component.
@@ -69,8 +70,14 @@ export function CheckInScheduleDialog({
   )
   const [notes, setNotes] = useState(existingSchedule?.notes || '')
 
-  /** Builds the schedule data object and invokes `onSubmit`. */
+  /** Validates trainerId and builds the schedule data object, then invokes `onSubmit`. */
   const handleSubmit = () => {
+    if (!trainerId) {
+      toast.error('Trainer required', {
+        description: 'Please select a trainer before saving.',
+      })
+      return
+    }
 
     const scheduleData: Omit<CheckInSchedule, 'id' | 'createdAt' | 'completedCheckIns' | 'missedCheckIns'> = {
       trainerId,

@@ -352,6 +352,119 @@ describe('GuidedScheduler', () => {
         expect(createdSessions[0].recurrence).toEqual(
             expect.objectContaining({ frequency: 'daily', endDate: '2026-03-22' })
         )
+        expect(findAvailableTrainersMock).toHaveBeenCalledTimes(6)
+        expect(findAvailableTrainersMock.mock.calls.slice(-3)).toEqual([
+            [expect.objectContaining({ dates: ['2026-03-20', '2026-03-21', '2026-03-22'] }), expect.any(Date)],
+            [expect.objectContaining({ dates: ['2026-03-20', '2026-03-21', '2026-03-22'] }), expect.any(Date)],
+            [expect.objectContaining({ dates: ['2026-03-20', '2026-03-21', '2026-03-22'] }), expect.any(Date)],
+        ])
+    })
+
+    it('uses weekly occurrence dates for trainer analysis', async () => {
+        const user = userEvent.setup()
+
+        renderGuidedScheduler()
+
+        await fillParameters(user)
+
+        const endDateInput = screen.getByLabelText(/end date/i)
+        await user.click(endDateInput)
+        await user.clear(endDateInput)
+        await user.type(endDateInput, '2026-04-03')
+        await user.tab()
+
+        await user.click(screen.getByRole('combobox', { name: /recurrence pattern/i }))
+        await user.click(screen.getByRole('option', { name: /weekly/i }))
+
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        expect(findAvailableTrainersMock).toHaveBeenCalledTimes(3)
+        expect(findAvailableTrainersMock).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ dates: ['2026-03-20', '2026-03-27', '2026-04-03'] }),
+            expect.any(Date)
+        )
+        expect(findAvailableTrainersMock).toHaveBeenNthCalledWith(
+            2,
+            expect.objectContaining({ dates: ['2026-03-20', '2026-03-27', '2026-04-03'] }),
+            expect.any(Date)
+        )
+        expect(findAvailableTrainersMock).toHaveBeenNthCalledWith(
+            3,
+            expect.objectContaining({ dates: ['2026-03-20', '2026-03-27', '2026-04-03'] }),
+            expect.any(Date)
+        )
+    })
+
+    it('filters out trainers who are not available for every recurring occurrence', async () => {
+        const user = userEvent.setup()
+
+        findAvailableTrainersMock
+            .mockReturnValueOnce([
+                {
+                    trainer: users[0],
+                    score: 90,
+                    matchReasons: ['Available on first occurrence'],
+                    conflicts: [],
+                    availability: 'available',
+                },
+            ])
+            .mockReturnValueOnce([])
+            .mockReturnValueOnce([])
+
+        renderGuidedScheduler()
+
+        await fillParameters(user)
+
+        const endDateInput = screen.getByLabelText(/end date/i)
+        await user.click(endDateInput)
+        await user.clear(endDateInput)
+        await user.type(endDateInput, '2026-04-03')
+        await user.tab()
+
+        await user.click(screen.getByRole('combobox', { name: /recurrence pattern/i }))
+        await user.click(screen.getByRole('option', { name: /weekly/i }))
+
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        expect(screen.getByText(/no available trainers/i)).toBeInTheDocument()
+        expect(screen.queryByText(/taylor trainer/i)).toBeNull()
+        expect(toastError).toHaveBeenCalledWith('No qualified trainers available')
+    })
+
+    it('uses calendar-month increments for monthly recurrence', async () => {
+        const user = userEvent.setup()
+        const onSessionsCreated = vi.fn()
+
+        renderGuidedScheduler({ onSessionsCreated })
+
+        await fillParameters(user)
+
+        const endDateInput = screen.getByLabelText(/end date/i)
+        await user.click(endDateInput)
+        await user.clear(endDateInput)
+        await user.type(endDateInput, '2026-05-20')
+        await user.tab()
+
+        await user.click(screen.getByRole('combobox', { name: /recurrence pattern/i }))
+        await user.click(screen.getByRole('option', { name: /monthly/i }))
+
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+        await user.click(screen.getByText(/1\. taylor trainer/i))
+        await user.click(screen.getByRole('button', { name: /confirm & schedule/i }))
+
+        expect(findAvailableTrainersMock).toHaveBeenCalledTimes(3)
+        expect(findAvailableTrainersMock).toHaveBeenNthCalledWith(
+            1,
+            expect.objectContaining({ dates: ['2026-03-20', '2026-04-20', '2026-05-20'] }),
+            expect.any(Date)
+        )
+
+        const createdSessions = onSessionsCreated.mock.calls[0][0] as Array<Partial<{ recurrence: { frequency: string; endDate: string } }>>
+        expect(createdSessions).toHaveLength(3)
+        expect(createdSessions[0].recurrence).toEqual(
+            expect.objectContaining({ frequency: 'monthly', endDate: '2026-05-20' })
+        )
     })
 
     it('uses updated time, location, and capacity values when scheduling sessions', async () => {
@@ -391,14 +504,12 @@ describe('GuidedScheduler', () => {
         )
 
         const createdSessions = onSessionsCreated.mock.calls[0][0] as Array<Partial<{ startTime: string; endTime: string }>>
-        const expectedStartTime = new Date('2026-03-20')
-        expectedStartTime.setHours(8, 30, 0, 0)
 
-        const expectedEndTime = new Date('2026-03-20')
-        expectedEndTime.setHours(12, 15, 0, 0)
+        const expectedStartTimestamp = new Date('2026-03-20T08:30:00').getTime()
+        const expectedEndTimestamp = new Date('2026-03-20T12:15:00').getTime()
 
-        expect(createdSessions[0].startTime).toBe(expectedStartTime.toISOString())
-        expect(createdSessions[0].endTime).toBe(expectedEndTime.toISOString())
+        expect(new Date(createdSessions[0].startTime ?? '').getTime()).toBe(expectedStartTimestamp)
+        expect(new Date(createdSessions[0].endTime ?? '').getTime()).toBe(expectedEndTimestamp)
     })
 
     it('sorts equally recommended trainers by descending score', async () => {

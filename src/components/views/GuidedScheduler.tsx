@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -33,7 +33,7 @@ import {
 import { TrainerScheduler, SchedulingConstraints, TrainerMatch } from '@/lib/scheduler'
 import { User, Course, Session, WellnessCheckIn, RecoveryPlan, StressLevel } from '@/lib/types'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import { addDays, addMonths, format, parse } from 'date-fns'
 import { calculateTrainerWorkload } from '@/lib/workload-balancer'
 import { calculateBurnoutRisk } from '@/lib/burnout-analytics'
 
@@ -89,6 +89,48 @@ const recommendationLabels: Record<TrainerInsights['recommendationLevel'], strin
 const BURNOUT_RISK_MAX = 100
 
 const guidedSchedulerSteps = ['parameters', 'trainer-selection', 'confirmation'] as const
+
+/**
+ * Builds the list of occurrence dates for the selected recurrence pattern using local dates.
+ *
+ * @param startDate - The first occurrence date in `yyyy-MM-dd` format.
+ * @param endDate - The last recurrence boundary in `yyyy-MM-dd` format, when provided.
+ * @param recurrenceType - The recurrence pattern to expand.
+ * @returns Ordered list of occurrence dates in `yyyy-MM-dd` format.
+ */
+function buildOccurrenceDates(
+  startDate: string,
+  endDate: string,
+  recurrenceType: 'none' | 'daily' | 'weekly' | 'monthly'
+): string[] {
+  const start = parse(startDate, 'yyyy-MM-dd', new Date())
+  const end = endDate ? parse(endDate, 'yyyy-MM-dd', new Date()) : start
+  const dates: string[] = []
+
+  let currentDate = start
+
+  while (currentDate <= end) {
+    dates.push(format(currentDate, 'yyyy-MM-dd'))
+
+    if (recurrenceType === 'none') {
+      break
+    }
+
+    if (recurrenceType === 'daily') {
+      currentDate = addDays(currentDate, 1)
+      continue
+    }
+
+    if (recurrenceType === 'weekly') {
+      currentDate = addDays(currentDate, 7)
+      continue
+    }
+
+    currentDate = addMonths(currentDate, 1)
+  }
+
+  return dates
+}
 
 /**
  * Renders a step-by-step Guided Trainer Scheduler panel.
@@ -147,34 +189,63 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     const course = courses.find(c => c.id === selectedCourse)
     if (!course) return
 
-    const dates: string[] = []
-    const start = new Date(startDate)
-    const end = endDate ? new Date(endDate) : new Date(startDate)
-
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      dates.push(new Date(d).toISOString().split('T')[0])
-    }
+    const dates = buildOccurrenceDates(startDate, endDate, recurrenceType)
+    const parsedDates = dates.map((date) => parse(date, 'yyyy-MM-dd', new Date()))
+    const scheduleWindowStart = parsedDates[0]
+    const scheduleWindowEnd = parsedDates[parsedDates.length - 1] ?? scheduleWindowStart
 
     setSessionDates(dates)
 
     const constraints: SchedulingConstraints = {
       courseId: selectedCourse,
       requiredCertifications: course.certifications,
-      dates: [startDate],
+      dates,
       startTime,
       endTime,
       location: location || 'TBD',
       capacity
     }
 
-    const trainers = scheduler.findAvailableTrainers(constraints, new Date(startDate))
+    const trainers = new Map<string, TrainerMatch & { matchedDateCount: number; totalScore: number }>()
 
-    const enrichedTrainers: TrainerInsights[] = trainers.map(match => {
+    for (const targetDate of parsedDates) {
+      const matchesForDate = scheduler.findAvailableTrainers(constraints, targetDate)
+
+      for (const match of matchesForDate) {
+        const existingMatch = trainers.get(match.trainer.id)
+
+        if (existingMatch) {
+          existingMatch.matchedDateCount += 1
+          existingMatch.totalScore += match.score
+          existingMatch.matchReasons = Array.from(new Set([...existingMatch.matchReasons, ...match.matchReasons]))
+          existingMatch.conflicts = Array.from(new Set([...existingMatch.conflicts, ...match.conflicts]))
+          existingMatch.availability = existingMatch.availability === 'partial' || match.availability === 'partial'
+            ? 'partial'
+            : match.availability
+          continue
+        }
+
+        trainers.set(match.trainer.id, {
+          ...match,
+          matchedDateCount: 1,
+          totalScore: match.score,
+        })
+      }
+    }
+
+    const availableTrainers = Array.from(trainers.values())
+      .filter((match) => match.matchedDateCount === parsedDates.length)
+      .map(({ matchedDateCount: _matchedDateCount, totalScore, ...match }) => ({
+        ...match,
+        score: Math.round(totalScore / parsedDates.length),
+      }))
+
+    const enrichedTrainers: TrainerInsights[] = availableTrainers.map(match => {
       const workload = calculateTrainerWorkload(
         match.trainer,
         sessions || [],
-        new Date(startDate),
-        new Date(end)
+        scheduleWindowStart,
+        scheduleWindowEnd
       )
 
       const recentCheckIns = (wellnessCheckIns || [])
@@ -280,15 +351,8 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     if (!course) return
 
     const sessionsToCreate: Partial<Session>[] = sessionDates.map(dateStr => {
-      const [startHour, startMin] = startTime.split(':').map(Number)
-      const [endHour, endMin] = endTime.split(':').map(Number)
-
-      const date = new Date(dateStr)
-      const startDateTime = new Date(date)
-      startDateTime.setHours(startHour, startMin, 0, 0)
-
-      const endDateTime = new Date(date)
-      endDateTime.setHours(endHour, endMin, 0, 0)
+      const startDateTime = parse(`${dateStr} ${startTime}`, 'yyyy-MM-dd HH:mm', new Date())
+      const endDateTime = parse(`${dateStr} ${endTime}`, 'yyyy-MM-dd HH:mm', new Date())
 
       return {
         courseId: selectedCourse,

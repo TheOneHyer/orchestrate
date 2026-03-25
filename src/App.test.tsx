@@ -92,6 +92,7 @@ const getPreviewSeedModeMock = vi.fn(() => 'off')
 const isPreviewSeedEnabledMock = vi.fn(() => false)
 
 const kvSeed: Record<string, unknown> = {}
+const kvState: Record<string, unknown> = {}
 
 vi.mock('sonner', () => ({
     toast: {
@@ -110,8 +111,16 @@ vi.mock('@github/spark/hooks', async () => {
                 : initialValue
             const [value, setValue] = React.useState<T>(seeded)
 
+            React.useEffect(() => {
+                kvState[key] = value
+            }, [key, value])
+
             const setter = (next: T | ((current: T) => T)) => {
-                setValue((current) => (typeof next === 'function' ? (next as (current: T) => T)(current) : next))
+                setValue((current) => {
+                    const resolvedValue = typeof next === 'function' ? (next as (current: T) => T)(current) : next
+                    kvState[key] = resolvedValue
+                    return resolvedValue
+                })
             }
 
             return [value, setter, vi.fn()] as const
@@ -518,6 +527,7 @@ describe('App', () => {
         getPreviewSeedModeMock.mockReturnValue('off')
         isPreviewSeedEnabledMock.mockReturnValue(false)
         Object.keys(kvSeed).forEach((key) => delete kvSeed[key])
+        Object.keys(kvState).forEach((key) => delete kvState[key])
         kvSeed['users'] = [
             {
                 id: 'admin-1',
@@ -985,6 +995,338 @@ describe('App', () => {
         await waitFor(() => {
             expect(screen.getByText(/current user:\s*admin user/i)).toBeInTheDocument()
         })
+    })
+
+    it('reverts to a permitted view and prunes user-owned data when deleting the active user', async () => {
+        const user = userEvent.setup()
+
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+        kvSeed['active-user-id'] = 'admin-1'
+        kvSeed['auth-passwords'] = {
+            'admin-1': 'admin-secret',
+            'trainer-1': 'trainer-secret',
+        }
+        kvSeed['sessions'] = [
+            {
+                id: 'session-1',
+                courseId: 'course-1',
+                trainerId: 'admin-1',
+                title: 'Admin-led Session',
+                startTime: '2026-03-20T09:00:00.000Z',
+                endTime: '2026-03-20T11:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: ['admin-1', 'trainer-1'],
+                status: 'scheduled',
+            },
+        ]
+        kvSeed['enrollments'] = [
+            {
+                id: 'enrollment-1',
+                userId: 'admin-1',
+                courseId: 'course-1',
+                status: 'enrolled',
+                progress: 25,
+                enrolledAt: '2026-03-01T00:00:00.000Z',
+            },
+            {
+                id: 'enrollment-2',
+                userId: 'trainer-1',
+                courseId: 'course-1',
+                status: 'enrolled',
+                progress: 50,
+                enrolledAt: '2026-03-01T00:00:00.000Z',
+            },
+        ]
+        kvSeed['attendance-records'] = [
+            {
+                id: 'attendance-1',
+                sessionId: 'session-1',
+                userId: 'admin-1',
+                status: 'present',
+                markedBy: 'trainer-1',
+                markedAt: '2026-03-20T09:05:00.000Z',
+            },
+            {
+                id: 'attendance-2',
+                sessionId: 'session-1',
+                userId: 'trainer-1',
+                status: 'present',
+                markedBy: 'admin-1',
+                markedAt: '2026-03-20T09:05:00.000Z',
+            },
+        ]
+        kvSeed['notifications'] = [
+            {
+                id: 'notification-1',
+                userId: 'admin-1',
+                type: 'system',
+                title: 'Admin notice',
+                message: 'Message',
+                read: false,
+                createdAt: '2026-03-20T08:00:00.000Z',
+            },
+            {
+                id: 'notification-2',
+                userId: 'trainer-1',
+                type: 'system',
+                title: 'Trainer notice',
+                message: 'Message',
+                read: false,
+                createdAt: '2026-03-20T08:00:00.000Z',
+            },
+        ]
+        kvSeed['wellness-check-ins'] = [
+            {
+                id: 'checkin-1',
+                trainerId: 'admin-1',
+                timestamp: '2026-03-18T10:00:00.000Z',
+                mood: 3,
+                stress: 'moderate',
+                energy: 'neutral',
+                workloadSatisfaction: 3,
+                sleepQuality: 3,
+                physicalWellbeing: 3,
+                mentalClarity: 3,
+                followUpRequired: false,
+            },
+        ]
+        kvSeed['recovery-plans'] = [
+            {
+                id: 'plan-1',
+                trainerId: 'admin-1',
+                createdBy: 'trainer-1',
+                createdAt: '2026-03-18T00:00:00.000Z',
+                status: 'active',
+                triggerReason: 'Load',
+                targetUtilization: 60,
+                currentUtilization: 85,
+                startDate: '2026-03-18',
+                targetCompletionDate: '2026-04-18',
+                actions: [],
+                checkIns: ['checkin-1'],
+            },
+        ]
+        kvSeed['check-in-schedules'] = [
+            {
+                id: 'schedule-1',
+                trainerId: 'admin-1',
+                frequency: 'weekly',
+                startDate: '2026-03-20T00:00:00.000Z',
+                nextScheduledDate: '2026-03-27T00:00:00.000Z',
+                status: 'active',
+                notificationEnabled: true,
+                autoReminders: true,
+                reminderHoursBefore: 24,
+                createdBy: 'trainer-1',
+                createdAt: '2026-03-19T00:00:00.000Z',
+                completedCheckIns: 0,
+                missedCheckIns: 0,
+            },
+        ]
+        kvSeed['schedule-templates'] = [
+            {
+                id: 'template-1',
+                name: 'Admin Template',
+                description: 'Owned by admin',
+                category: 'general',
+                recurrenceType: 'weekly',
+                sessions: [
+                    {
+                        dayOfWeek: 1,
+                        time: '09:00',
+                        duration: 60,
+                        capacity: 10,
+                        requiresCertifications: [],
+                    },
+                ],
+                autoAssignTrainers: true,
+                notifyParticipants: true,
+                createdBy: 'admin-1',
+                createdAt: '2026-03-19T00:00:00.000Z',
+                usageCount: 0,
+                tags: [],
+                isActive: true,
+            },
+            {
+                id: 'template-2',
+                name: 'Shared Template',
+                description: 'Keeps other trainers',
+                category: 'general',
+                recurrenceType: 'weekly',
+                sessions: [
+                    {
+                        dayOfWeek: 2,
+                        time: '10:00',
+                        duration: 90,
+                        capacity: 8,
+                        requiresCertifications: [],
+                        preferredTrainers: ['admin-1', 'trainer-1'],
+                    },
+                ],
+                autoAssignTrainers: true,
+                notifyParticipants: true,
+                createdBy: 'trainer-1',
+                createdAt: '2026-03-19T00:00:00.000Z',
+                usageCount: 0,
+                tags: [],
+                isActive: true,
+            },
+        ]
+        kvSeed['risk-history-snapshots'] = [
+            {
+                id: 'snapshot-1',
+                trainerId: 'admin-1',
+                timestamp: '2026-03-20T00:00:00.000Z',
+                riskScore: 70,
+                riskLevel: 'critical',
+                utilizationRate: 90,
+                hoursScheduled: 40,
+                sessionCount: 4,
+                consecutiveDays: 5,
+                factorCount: 3,
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        expect(screen.getByText(/local session/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete active user$/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
+            expect(screen.getByText(/active view:\s*people/i)).toBeInTheDocument()
+        })
+
+        expect(kvState['auth-passwords']).toEqual({ 'trainer-1': 'trainer-secret' })
+        expect(kvState['enrollments']).toEqual([
+            expect.objectContaining({ id: 'enrollment-2', userId: 'trainer-1' }),
+        ])
+        expect(kvState['attendance-records']).toEqual([
+            expect.objectContaining({ id: 'attendance-2', userId: 'trainer-1' }),
+        ])
+        expect(kvState['notifications']).toEqual([
+            expect.objectContaining({ id: 'notification-2', userId: 'trainer-1' }),
+        ])
+        expect(kvState['wellness-check-ins']).toEqual([])
+        expect(kvState['recovery-plans']).toEqual([])
+        expect(kvState['check-in-schedules']).toEqual([])
+        expect(kvState['risk-history-snapshots']).toEqual([])
+        expect(kvState['sessions']).toEqual([
+            expect.objectContaining({
+                id: 'session-1',
+                trainerId: '',
+                enrolledStudents: ['trainer-1'],
+                status: 'scheduled',
+            }),
+        ])
+        expect(kvState['schedule-templates']).toEqual([
+            expect.objectContaining({
+                id: 'template-2',
+                sessions: [
+                    expect.objectContaining({ preferredTrainers: ['trainer-1'] }),
+                ],
+            }),
+        ])
+    })
+
+    it('removes deleted students from session rosters even when they have no stored password entry', async () => {
+        const user = userEvent.setup()
+
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+        kvSeed['auth-passwords'] = { 'admin-1': 'admin-secret' }
+        kvSeed['sessions'] = [
+            {
+                id: 'session-1',
+                courseId: 'course-1',
+                trainerId: 'admin-1',
+                title: 'Roster Cleanup Session',
+                startTime: '2026-03-20T09:00:00.000Z',
+                endTime: '2026-03-20T11:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: ['trainer-1'],
+                status: 'scheduled',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete user$/i }))
+
+        await waitFor(() => {
+            expect(kvState['sessions']).toEqual([
+                expect.objectContaining({
+                    id: 'session-1',
+                    trainerId: 'admin-1',
+                    enrolledStudents: [],
+                }),
+            ])
+        })
+
+        expect(kvState['auth-passwords']).toEqual({ 'admin-1': 'admin-secret' })
     })
 
     it('clears one-time people deep-link payload after consumption callback', async () => {

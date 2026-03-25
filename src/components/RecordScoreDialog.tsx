@@ -171,7 +171,7 @@ export function RecordScoreDialog({
                                 ) : (
                                     <>
                                         <XCircle size={16} />
-                                        {wouldFail ? 'Fail — enrollment will be marked Failed' : ''}
+                                        Fail — enrollment will be marked Failed
                                     </>
                                 )}
                             </div>

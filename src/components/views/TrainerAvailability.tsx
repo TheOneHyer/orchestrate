@@ -120,6 +120,26 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   }, [filteredTrainers, sessions, weekStart])
 
   /**
+   * Memoized map of trainer sessions indexed by trainerId and date key.
+   * Prevents repeated O(sessions) scans during grid rendering.
+   */
+  const trainerSessionMap = useMemo(() => {
+    const map = new Map<string, Map<string, Session[]>>()
+    sessions.forEach(session => {
+      if (!map.has(session.trainerId)) {
+        map.set(session.trainerId, new Map())
+      }
+      const dateKey = format(new Date(session.startTime), 'yyyy-MM-dd')
+      const dayMap = map.get(session.trainerId)!
+      if (!dayMap.has(dateKey)) {
+        dayMap.set(dateKey, [])
+      }
+      dayMap.get(dateKey)!.push(session)
+    })
+    return map
+  }, [sessions])
+
+  /**
    * Returns all sessions assigned to the given trainer that fall on the specified day.
    *
    * @param trainerId - The trainer ID to filter by.
@@ -127,10 +147,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
    * @returns The matching sessions.
    */
   const getTrainerSessionsForDay = (trainerId: string, day: Date) => {
-    return sessions.filter(s =>
-      s.trainerId === trainerId &&
-      isSameDay(new Date(s.startTime), day)
-    )
+    const dateKey = format(day, 'yyyy-MM-dd')
+    return trainerSessionMap.get(trainerId)?.get(dateKey) || []
   }
 
   /**

@@ -301,7 +301,6 @@ export class TrainerScheduler {
         schedEndMinutes += 24 * 60
       }
 
-      /** Whether the session's time window overlaps with the current shift schedule. */
       const hasOverlap = (
         (sessionStartMinutes >= schedStartMinutes && sessionStartMinutes < schedEndMinutes) ||
         (sessionEndMinutes > schedStartMinutes && sessionEndMinutes <= schedEndMinutes) ||

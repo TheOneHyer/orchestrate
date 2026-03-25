@@ -333,8 +333,9 @@ describe('RecordScoreDialog', () => {
             expect(input.value).toBe('72')
         })
 
-        it('resets the input to the enrollment score when the dialog is reopened', () => {
+        it('resets the input to the enrollment score when the dialog is reopened', async () => {
             const enrollment = createEnrollment({ score: 72 })
+            const user = userEvent.setup()
             const { rerender } = render(
                 <RecordScoreDialog
                     open
@@ -347,7 +348,8 @@ describe('RecordScoreDialog', () => {
             )
 
             const input = screen.getByRole('spinbutton') as HTMLInputElement
-            fireEvent.change(input, { target: { value: '88', valueAsNumber: 88 } })
+            // Use fireEvent for number inputs since userEvent has issues with spinbuttons
+            fireEvent.change(input, { target: { value: '88' } })
             expect(input.value).toBe('88')
 
             rerender(
@@ -418,7 +420,7 @@ describe('RecordScoreDialog', () => {
             expect(screen.getByTestId('score-preview')).toHaveTextContent(/pass/i)
         })
 
-        it('does not call onSubmit when the form is submitted programmatically with no score value', () => {
+        it('does not call onSubmit when the form is submitted programmatically with no score value', async () => {
             const onSubmit = vi.fn()
 
             render(
@@ -433,7 +435,7 @@ describe('RecordScoreDialog', () => {
             )
 
             const form = document.querySelector('form')!
-            fireEvent.submit(form)
+            form.requestSubmit()
 
             expect(onSubmit).not.toHaveBeenCalled()
         })

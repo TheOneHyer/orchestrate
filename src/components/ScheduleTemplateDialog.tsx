@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -64,6 +64,11 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
       }
     ]
   )
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setError(null)
+  }, [open])
 
   /** Appends a new default session to the template's session list. */
   const handleAddSession = () => {
@@ -118,14 +123,34 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
 
   /** Validates required fields and invokes `onSave` with the assembled template data. */
   const handleSave = () => {
+    setError(null)
+    const parsedCycleDays = parseInt(cycleDays, 10)
+
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      setError('Template name is required.')
+      return
+    }
+
+    if (sessions.length === 0) {
+      setError('At least one session is required.')
+      return
+    }
+
+    if (recurrenceType === 'custom') {
+      if (isNaN(parsedCycleDays) || parsedCycleDays <= 0) {
+        setError('Cycle days must be a positive integer.')
+        return
+      }
+    }
 
     onSave({
-      name: name.trim(),
+      name: trimmedName,
       description: description.trim(),
       courseId: courseId || undefined,
       category,
       recurrenceType,
-      cycleDays: recurrenceType === 'custom' ? parseInt(cycleDays) : undefined,
+      cycleDays: recurrenceType === 'custom' ? parsedCycleDays : undefined,
       sessions,
       autoAssignTrainers,
       notifyParticipants,
@@ -401,6 +426,12 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
             </div>
           </div>
         </div>
+
+        {error && (
+          <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
