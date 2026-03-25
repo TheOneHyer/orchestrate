@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -223,7 +223,8 @@ describe('Layout', () => {
         expect(onSwitchUser).toHaveBeenCalledWith('trainer-1')
 
         await userEvent.click(screen.getByRole('button', { name: /open active user menu/i }))
-        await userEvent.click(screen.getAllByText(/reset session/i)[0])
+        const menu = screen.getByRole('menu')
+        await userEvent.click(within(menu).getByRole('menuitem', { name: /reset session/i }))
         expect(onLogout).toHaveBeenCalledOnce()
     })
 })

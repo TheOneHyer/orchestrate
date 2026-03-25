@@ -41,22 +41,37 @@ export function matchStudentsByIdentifiers(identifiers: string[], students: User
 
   identifiers.forEach((identifier) => {
     const normalizedIdentifier = identifier.trim().toLowerCase()
-    const student = students.find((candidate) => {
-      const normalizedName = candidate.name.trim().toLowerCase()
+    const strictMatch = students.find((candidate) => {
       const normalizedEmail = candidate.email.trim().toLowerCase()
       const normalizedId = candidate.id.trim().toLowerCase()
-      const emailLocalPart = normalizedEmail.split('@')[0]
 
       return normalizedIdentifier === normalizedId ||
-        normalizedIdentifier === normalizedEmail ||
-        normalizedIdentifier === emailLocalPart ||
+        normalizedIdentifier === normalizedEmail
+    })
+
+    if (strictMatch) {
+      if (!matchedSet.has(strictMatch.id)) {
+        matchedSet.add(strictMatch.id)
+        matchedIds.push(strictMatch.id)
+      }
+      return
+    }
+
+    const candidateMatches = students.filter((candidate) => {
+      const normalizedName = candidate.name.trim().toLowerCase()
+      const normalizedEmail = candidate.email.trim().toLowerCase()
+      const emailLocalPart = normalizedEmail.split('@')[0]
+
+      return normalizedIdentifier === emailLocalPart ||
         normalizedIdentifier === normalizedName
     })
 
-    if (!student) {
+    if (candidateMatches.length !== 1) {
       unmatched.push(identifier)
       return
     }
+
+    const [student] = candidateMatches
 
     if (!matchedSet.has(student.id)) {
       matchedSet.add(student.id)

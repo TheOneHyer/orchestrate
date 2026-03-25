@@ -479,7 +479,7 @@ function App() {
       setActiveView('dashboard')
       setNavigationPayload(null)
     }
-  }, [activeView, currentUser.role])
+  }, [currentUser.role])
 
   const handleSwitchUser = useCallback((userId: string) => {
     setActiveUserId(userId)

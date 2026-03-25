@@ -436,6 +436,9 @@ describe('EnrollStudentsDialog', () => {
 
         await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
         expect(onOpenChange).toHaveBeenCalledWith(false)
+        expect(screen.queryByText(/added 1 student from bulk upload/i)).not.toBeInTheDocument()
+        expect(screen.getByPlaceholderText(/stu-1/i)).toHaveValue('')
+        expect(screen.getByPlaceholderText(/scan or enter badge value/i)).toHaveValue('')
     })
 
     it('matches students by identifier even when search query filters them out of the visible list', async () => {

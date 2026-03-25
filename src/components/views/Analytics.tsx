@@ -118,7 +118,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
   const employeeCount = filteredUsers.filter(u => u.role === 'employee').length
   const trainerCount = filteredUsers.filter(u => u.role === 'trainer').length
 
-  const topCourses = filteredCourses
+  const fullCourses = filteredCourses
     .map(course => {
       const courseEnrollments = filteredEnrollments.filter(e => e.courseId === course.id)
       const courseCompletions = courseEnrollments.filter(e => e.status === 'completed').length
@@ -134,10 +134,11 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
         avgScore: courseAvgScore
       }
     })
+  const topCourses = fullCourses
     .sort((a, b) => b.completionRate - a.completionRate)
     .slice(0, 5)
 
-  const atRiskCourses = topCourses.filter((course) => course.completionRate < 60 || course.avgScore < 75)
+  const atRiskCourses = fullCourses.filter((course) => course.completionRate < 60 || course.avgScore < 75)
 
   return (
     <div className="p-6 space-y-6">
@@ -305,9 +306,9 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
             <CardDescription>Employees by department</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {Array.from(new Set(users.map(u => u.department)))
+            {Array.from(new Set(filteredUsers.map(u => u.department)))
               .map(dept => {
-                const deptUsers = users.filter(u => u.department === dept && u.role === 'employee')
+                const deptUsers = filteredUsers.filter(u => u.department === dept && u.role === 'employee')
                 const count = deptUsers.length
                 const percentage = employeeCount > 0 ? (count / employeeCount) * 100 : 0
                 return { dept, count, percentage }
@@ -332,7 +333,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
           </CardHeader>
           <CardContent className="space-y-3">
             {(() => {
-              const trainersWithSchedules = users.filter(u =>
+              const trainersWithSchedules = filteredUsers.filter(u =>
                 u.role === 'trainer' &&
                 u.trainerProfile?.shiftSchedules &&
                 u.trainerProfile.shiftSchedules.length > 0

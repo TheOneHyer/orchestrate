@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -67,6 +67,12 @@ export function EnrollStudentsDialog({
     )
   }, [availableStudents, session.enrolledStudents, searchQuery])
 
+  const visibleStudentIds = useMemo(() => {
+    return filteredStudents.map((student) => student.id)
+  }, [filteredStudents])
+
+  const allVisibleSelected = visibleStudentIds.length > 0 && visibleStudentIds.every((id) => selectedStudents.includes(id))
+
   const conflictCheck = useMemo(() => {
     if (selectedStudents.length === 0) {
       return { hasConflicts: false, conflicts: [], allowedStudents: [] }
@@ -84,13 +90,35 @@ export function EnrollStudentsDialog({
   }
 
   const handleSelectAll = () => {
-    if (selectedStudents.length === filteredStudents.length) {
-      setSelectedStudents([])
-    } else {
-      setSelectedStudents(filteredStudents.map(s => s.id))
-      setShowConflicts(true)
+    if (visibleStudentIds.length === 0) {
+      return
     }
+
+    setSelectedStudents((previous) => {
+      const everyVisibleSelected = visibleStudentIds.every((id) => previous.includes(id))
+      if (everyVisibleSelected) {
+        return previous.filter((id) => !visibleStudentIds.includes(id))
+      }
+
+      setShowConflicts(true)
+      return Array.from(new Set([...previous, ...visibleStudentIds]))
+    })
   }
+
+  const resetTransientState = useCallback(() => {
+    setSelectedStudents([])
+    setSearchQuery('')
+    setShowConflicts(false)
+    setBulkIdentifiers('')
+    setBadgeScanValue('')
+    setImportSummary(null)
+  }, [])
+
+  useEffect(() => {
+    if (!open) {
+      resetTransientState()
+    }
+  }, [open, resetTransientState])
 
   const addMatchedStudents = (studentIds: string[]) => {
     if (studentIds.length === 0) {
@@ -144,22 +172,12 @@ export function EnrollStudentsDialog({
     } else {
       onEnrollStudents(selectedStudents)
     }
-    setSelectedStudents([])
-    setSearchQuery('')
-    setShowConflicts(false)
-    setBulkIdentifiers('')
-    setBadgeScanValue('')
-    setImportSummary(null)
+    resetTransientState()
     onOpenChange(false)
   }
 
   const handleCancel = () => {
-    setSelectedStudents([])
-    setSearchQuery('')
-    setShowConflicts(false)
-    setBulkIdentifiers('')
-    setBadgeScanValue('')
-    setImportSummary(null)
+    resetTransientState()
     onOpenChange(false)
   }
 
@@ -208,7 +226,7 @@ export function EnrollStudentsDialog({
               size="sm"
               onClick={handleSelectAll}
             >
-              {selectedStudents.length === filteredStudents.length ? 'Deselect All' : 'Select All'}
+              {allVisibleSelected ? 'Deselect All' : 'Select All'}
             </Button>
           </div>
 
@@ -317,10 +335,10 @@ export function EnrollStudentsDialog({
                     <div
                       key={student.id}
                       className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${isSelected
-                          ? hasConflict
-                            ? 'bg-destructive/5 border-destructive'
-                            : 'bg-primary/5 border-primary'
-                          : 'hover:bg-muted/50'
+                        ? hasConflict
+                          ? 'bg-destructive/5 border-destructive'
+                          : 'bg-primary/5 border-primary'
+                        : 'hover:bg-muted/50'
                         }`}
                     >
                       <Checkbox

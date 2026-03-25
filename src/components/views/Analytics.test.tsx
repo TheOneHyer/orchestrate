@@ -364,6 +364,7 @@ describe('Analytics', () => {
       createUser({ id: 'u1', name: 'Ops Employee', email: 'ops@example.com', role: 'employee', department: 'Ops' }),
       createUser({ id: 'u2', name: 'HR Employee', email: 'hr@example.com', role: 'employee', department: 'HR' }),
       createUser({ id: 't1', name: 'Trainer', email: 'trainer@example.com', role: 'trainer', department: 'Ops' }),
+      createUser({ id: 't2', name: 'HR Trainer', email: 'hr-trainer@example.com', role: 'trainer', department: 'HR' }),
     ]
     const courses: Course[] = [
       { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
@@ -371,7 +372,7 @@ describe('Analytics', () => {
     ]
     const sessions: Session[] = [
       { id: 's1', courseId: 'c1', trainerId: 't1', title: 'Open Safety Session', startTime: '2026-03-02T09:00:00.000Z', endTime: '2026-03-02T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: ['u1'], status: 'scheduled' },
-      { id: 's2', courseId: 'c2', trainerId: 't1', title: 'Completed HR Session', startTime: '2026-03-03T09:00:00.000Z', endTime: '2026-03-03T10:00:00.000Z', location: 'Room B', capacity: 10, enrolledStudents: ['u2'], status: 'completed' },
+      { id: 's2', courseId: 'c2', trainerId: 't2', title: 'Completed HR Session', startTime: '2026-03-03T09:00:00.000Z', endTime: '2026-03-03T10:00:00.000Z', location: 'Room B', capacity: 10, enrolledStudents: ['u2'], status: 'completed' },
     ]
     const enrollments: Enrollment[] = [
       { id: 'e1', userId: 'u1', courseId: 'c1', status: 'in-progress', progress: 40, score: 0, enrolledAt: '2026-02-01' },

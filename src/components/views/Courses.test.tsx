@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Courses } from './Courses'
 import type { Course, Enrollment, User } from '@/lib/types'
@@ -19,6 +19,10 @@ beforeEach(() => {
     toastError.mockClear()
     toastSuccess.mockClear()
     vi.stubGlobal('confirm', vi.fn(() => true))
+})
+
+afterEach(() => {
+    vi.unstubAllGlobals()
 })
 
 function createUser(overrides: Partial<User> = {}): User {

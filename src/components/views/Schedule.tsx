@@ -397,6 +397,10 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   }
 
   const handleDragStart = (e: React.DragEvent, session: Session) => {
+    if (!canManageSchedule) {
+      return
+    }
+
     setDraggedSession(session)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/html', e.currentTarget.innerHTML)
@@ -407,6 +411,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
   const handleBoardColumnDrop = (e: React.DragEvent, status: Session['status']) => {
     e.preventDefault()
+
+    if (!canManageSchedule) {
+      setDraggedSession(null)
+      return
+    }
 
     if (!draggedSession || draggedSession.status === status) {
       setDraggedSession(null)
@@ -958,11 +967,13 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           <div
             key={status}
             className="space-y-3 rounded-lg border border-border bg-secondary/20 p-3"
-            onDragOver={(event) => {
-              event.preventDefault()
-              event.dataTransfer.dropEffect = 'move'
-            }}
-            onDrop={(event) => handleBoardColumnDrop(event, status as Session['status'])}
+            {...(canManageSchedule ? {
+              onDragOver: (event: React.DragEvent<HTMLDivElement>) => {
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+              },
+              onDrop: (event: React.DragEvent<HTMLDivElement>) => handleBoardColumnDrop(event, status as Session['status']),
+            } : {})}
           >
             <div className="flex items-center justify-between">
               <h3 className="font-semibold capitalize">{status.replace('-', ' ')}</h3>
@@ -973,9 +984,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                 return (
                   <button
                     key={session.id}
-                    draggable
-                    onDragStart={(event) => handleDragStart(event, session)}
-                    onDragEnd={handleDragEnd}
+                    {...(canManageSchedule ? {
+                      draggable: true,
+                      onDragStart: (event: React.DragEvent<HTMLButtonElement>) => handleDragStart(event, session),
+                      onDragEnd: handleDragEnd,
+                    } : {})}
                     onClick={() => handleSessionClick(session)}
                     className="w-full p-3 rounded-lg border border-border bg-card hover:bg-secondary transition-colors text-left"
                   >

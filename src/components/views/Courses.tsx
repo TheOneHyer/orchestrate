@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Clock, GraduationCap, MagnifyingGlass, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { FieldErrors, useFieldArray, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { z } from 'zod'
 
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +28,66 @@ interface CourseEditorState {
   certifications: string
   published: boolean
   moduleDetails: Module[]
+}
+
+const courseEditorSchema = z.object({
+  title: z.string().trim().min(1, 'Title and description are required.'),
+  description: z.string().trim().min(1, 'Title and description are required.'),
+  duration: z.coerce.number().int().positive('Duration must be a positive whole number in minutes.'),
+  passScore: z.string().trim()
+    .min(1, 'Pass score must be between 0 and 100.')
+    .refine((value) => {
+      const parsedValue = Number(value)
+      return Number.isInteger(parsedValue) && parsedValue >= 0 && parsedValue <= 100
+    }, 'Pass score must be between 0 and 100.'),
+  certifications: z.string(),
+  published: z.boolean(),
+  moduleDetails: z.array(z.object({
+    id: z.string().min(1),
+    title: z.string().trim().min(1, 'Each module needs a title and positive duration.'),
+    description: z.string(),
+    contentType: z.enum(['text', 'video', 'slideshow', 'quiz']),
+    content: z.custom<Module['content']>(),
+    duration: z.coerce.number().int().positive('Each module needs a title and positive duration.'),
+    order: z.number().int(),
+  })).min(1, 'At least one module is required.'),
+})
+
+function getFirstValidationErrorMessage(errors: FieldErrors<CourseEditorState>): string {
+  if (typeof errors.title?.message === 'string') {
+    return errors.title.message
+  }
+
+  if (typeof errors.description?.message === 'string') {
+    return errors.description.message
+  }
+
+  if (typeof errors.duration?.message === 'string') {
+    return errors.duration.message
+  }
+
+  if (typeof errors.passScore?.message === 'string') {
+    return errors.passScore.message
+  }
+
+  if (typeof errors.moduleDetails?.message === 'string') {
+    return errors.moduleDetails.message
+  }
+
+  const moduleErrors = Array.isArray(errors.moduleDetails) ? errors.moduleDetails : []
+  const firstModuleError = moduleErrors.find((moduleError) => {
+    return typeof moduleError?.title?.message === 'string' || typeof moduleError?.duration?.message === 'string'
+  })
+
+  if (typeof firstModuleError?.title?.message === 'string') {
+    return firstModuleError.title.message
+  }
+
+  if (typeof firstModuleError?.duration?.message === 'string') {
+    return firstModuleError.duration.message
+  }
+
+  return 'Please review the course details and try again.'
 }
 
 const initialEditorState: CourseEditorState = {
@@ -96,6 +159,17 @@ function createEditorStateFromCourse(course: Course): CourseEditorState {
 }
 
 /**
+ * Returns true when a module's content differs from the untouched default
+ * scaffold for its content type.
+ *
+ * @param moduleItem - Module entry to evaluate.
+ * @returns Whether the module content appears intentionally filled.
+ */
+function hasMeaningfulModuleContent(moduleItem: Module): boolean {
+  return JSON.stringify(moduleItem.content) !== JSON.stringify(createDefaultModuleContent(moduleItem.contentType))
+}
+
+/**
  * Renders the Courses library view with filtering, publishing, and structured module editing.
  *
  * @param courses - All courses to display.
@@ -126,9 +200,26 @@ export function Courses({
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [editorDialogOpen, setEditorDialogOpen] = useState(false)
   const [editingCourse, setEditingCourse] = useState<Course | null>(null)
-  const [editorState, setEditorState] = useState<CourseEditorState>(initialEditorState)
   const [isSaving, setIsSaving] = useState(false)
   const processedPayloadRef = useRef<unknown>(null)
+  const {
+    control,
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    reset,
+    getValues,
+  } = useForm<CourseEditorState>({
+    resolver: zodResolver(courseEditorSchema),
+    defaultValues: initialEditorState,
+    mode: 'onSubmit',
+  })
+  const { fields: moduleFields, append, remove, move, replace } = useFieldArray({
+    control,
+    name: 'moduleDetails',
+  })
+  const watchedModules = watch('moduleDetails')
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course) => {
@@ -152,7 +243,7 @@ export function Courses({
 
     if (navigationPayload.create) {
       setEditingCourse(null)
-      setEditorState(initialEditorState)
+      reset(initialEditorState)
       setEditorDialogOpen(true)
       processedPayloadRef.current = navigationPayload
       onNavigationPayloadConsumed?.()
@@ -197,24 +288,25 @@ export function Courses({
   }
 
   const handleOpenEditor = (course?: Course) => {
+    setDetailDialogOpen(false)
     setEditingCourse(course || null)
-    setEditorState(course ? createEditorStateFromCourse(course) : initialEditorState)
+    reset(course ? createEditorStateFromCourse(course) : initialEditorState)
     setEditorDialogOpen(true)
   }
 
   const handleCloseEditor = () => {
-    setEditorState(initialEditorState)
+    reset(initialEditorState)
     setEditingCourse(null)
     setEditorDialogOpen(false)
   }
 
   const handleModuleChange = (index: number, updates: Partial<Module>) => {
-    setEditorState((current) => ({
-      ...current,
-      moduleDetails: current.moduleDetails.map((moduleItem, moduleIndex) => (
-        moduleIndex === index ? { ...moduleItem, ...updates } : moduleItem
-      )),
-    }))
+    const currentModule = getValues(`moduleDetails.${index}`)
+    if (!currentModule) {
+      return
+    }
+
+    setValue(`moduleDetails.${index}`, { ...currentModule, ...updates }, { shouldDirty: true, shouldValidate: true })
   }
 
   const handleModuleContentTypeChange = (index: number, contentType: Module['contentType']) => {
@@ -225,58 +317,43 @@ export function Courses({
   }
 
   const handleAddModule = () => {
-    setEditorState((current) => ({
-      ...current,
-      moduleDetails: [
-        ...current.moduleDetails,
-        {
-          id: `module-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          title: `Module ${current.moduleDetails.length + 1}`,
-          description: '',
-          contentType: 'text',
-          content: createDefaultModuleContent('text'),
-          duration: 15,
-          order: current.moduleDetails.length,
-        },
-      ],
-    }))
-  }
-
-  const handleMoveModule = (index: number, direction: -1 | 1) => {
-    setEditorState((current) => {
-      const nextIndex = index + direction
-      if (nextIndex < 0 || nextIndex >= current.moduleDetails.length) {
-        return current
-      }
-
-      const reordered = [...current.moduleDetails]
-      const [moduleItem] = reordered.splice(index, 1)
-      reordered.splice(nextIndex, 0, moduleItem)
-
-      return {
-        ...current,
-        moduleDetails: reordered.map((entry, order) => ({ ...entry, order })),
-      }
+    const currentModules = getValues('moduleDetails')
+    append({
+      id: `module-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      title: `Module ${currentModules.length + 1}`,
+      description: '',
+      contentType: 'text',
+      content: createDefaultModuleContent('text'),
+      duration: 15,
+      order: currentModules.length,
     })
   }
 
-  const handleRemoveModule = (index: number) => {
-    setEditorState((current) => ({
-      ...current,
-      moduleDetails: current.moduleDetails
-        .filter((_, moduleIndex) => moduleIndex !== index)
-        .map((moduleItem, order) => ({ ...moduleItem, order })),
-    }))
+  const handleMoveModule = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction
+    if (nextIndex < 0 || nextIndex >= moduleFields.length) {
+      return
+    }
+
+    move(index, nextIndex)
+    const reordered = getValues('moduleDetails').map((entry, order) => ({ ...entry, order }))
+    replace(reordered)
   }
 
-  const buildCoursePayload = () => {
-    const title = editorState.title.trim()
-    const description = editorState.description.trim()
-    const duration = Number(editorState.duration)
-    const passScoreRaw = editorState.passScore.trim()
+  const handleRemoveModule = (index: number) => {
+    remove(index)
+    const reordered = getValues('moduleDetails').map((moduleItem, order) => ({ ...moduleItem, order }))
+    replace(reordered)
+  }
+
+  const buildCoursePayload = (values: CourseEditorState) => {
+    const title = values.title.trim()
+    const description = values.description.trim()
+    const duration = Number(values.duration)
+    const passScoreRaw = values.passScore.trim()
     const passScore = Number(passScoreRaw)
-    const certifications = editorState.certifications.split(',').map((value) => value.trim()).filter(Boolean)
-    const moduleDetails = editorState.moduleDetails.map((moduleItem, order) => ({
+    const certifications = values.certifications.split(',').map((value) => value.trim()).filter(Boolean)
+    const moduleDetails = values.moduleDetails.map((moduleItem, order) => ({
       ...moduleItem,
       title: moduleItem.title.trim(),
       description: moduleItem.description.trim(),
@@ -284,28 +361,15 @@ export function Courses({
       order,
     }))
 
-    if (!title || !description) {
-      throw new Error('Title and description are required.')
-    }
+    const placeholderModule = moduleDetails.find((moduleItem) => {
+      if (moduleItem.contentType === 'text') {
+        return false
+      }
 
-    if (!Number.isInteger(duration) || duration <= 0) {
-      throw new Error('Duration must be a positive whole number in minutes.')
-    }
-
-    if (!passScoreRaw) {
-      throw new Error('Pass score must be between 0 and 100.')
-    }
-
-    if (!Number.isInteger(passScore) || passScore < 0 || passScore > 100) {
-      throw new Error('Pass score must be between 0 and 100.')
-    }
-
-    if (moduleDetails.length === 0) {
-      throw new Error('At least one module is required.')
-    }
-
-    if (moduleDetails.some((moduleItem) => !moduleItem.title || !Number.isInteger(moduleItem.duration) || moduleItem.duration <= 0)) {
-      throw new Error('Each module needs a title and positive duration.')
+      return !hasMeaningfulModuleContent(moduleItem)
+    })
+    if (placeholderModule) {
+      throw new Error(`Module content must be filled for module type ${placeholderModule.contentType}.`)
     }
 
     return {
@@ -314,13 +378,13 @@ export function Courses({
       duration,
       passScore,
       certifications,
-      published: editorState.published,
+      published: values.published,
       modules: summarizeModuleTitles(moduleDetails),
       moduleDetails,
     }
   }
 
-  const handleSaveCourse = async () => {
+  const handleSaveCourse = handleSubmit(async (values) => {
     if (isSaving) {
       return
     }
@@ -335,7 +399,7 @@ export function Courses({
     let coursePayload: Omit<Course, 'id'> | Partial<Course>
     try {
       coursePayload = {
-        ...buildCoursePayload(),
+        ...buildCoursePayload(values),
         createdBy: editingCourse?.createdBy || currentUser.id,
         createdAt: editingCourse?.createdAt || new Date().toISOString(),
       }
@@ -384,6 +448,21 @@ export function Courses({
     } finally {
       setIsSaving(false)
     }
+  }, (errors) => {
+    toast.error('Course validation failed', {
+      description: getFirstValidationErrorMessage(errors),
+    })
+  })
+
+  const handleSaveButtonClick = () => {
+    if (!canCreateCourse || (!onCreateCourse && !onUpdateCourse)) {
+      toast.error('Course management unavailable', {
+        description: 'You do not have permission to manage courses.',
+      })
+      return
+    }
+
+    void handleSaveCourse()
   }
 
   const handleDeleteSelectedCourse = async () => {
@@ -670,8 +749,7 @@ export function Courses({
                 <Label htmlFor="course-title">Title</Label>
                 <Input
                   id="course-title"
-                  value={editorState.title}
-                  onChange={(event) => setEditorState((current) => ({ ...current, title: event.target.value }))}
+                  {...register('title')}
                   placeholder="e.g., Workplace Safety Basics"
                 />
               </div>
@@ -679,8 +757,7 @@ export function Courses({
                 <Label htmlFor="course-description">Description</Label>
                 <Textarea
                   id="course-description"
-                  value={editorState.description}
-                  onChange={(event) => setEditorState((current) => ({ ...current, description: event.target.value }))}
+                  {...register('description')}
                   placeholder="Briefly describe this course"
                 />
               </div>
@@ -691,8 +768,7 @@ export function Courses({
                   type="number"
                   min="1"
                   step="1"
-                  value={editorState.duration}
-                  onChange={(event) => setEditorState((current) => ({ ...current, duration: event.target.value }))}
+                  {...register('duration')}
                 />
               </div>
               <div className="space-y-2">
@@ -703,24 +779,24 @@ export function Courses({
                   min="0"
                   max="100"
                   step="1"
-                  value={editorState.passScore}
-                  onChange={(event) => setEditorState((current) => ({ ...current, passScore: event.target.value }))}
+                  {...register('passScore')}
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
                 <Label htmlFor="course-certifications">Certifications (comma-separated)</Label>
                 <Input
                   id="course-certifications"
-                  value={editorState.certifications}
-                  onChange={(event) => setEditorState((current) => ({ ...current, certifications: event.target.value }))}
+                  {...register('certifications')}
                   placeholder="Safety 101, OSHA Intro"
                 />
               </div>
               <div className="flex items-center gap-3 md:col-span-2">
                 <Checkbox
                   id="course-published"
-                  checked={editorState.published}
-                  onCheckedChange={(checked) => setEditorState((current) => ({ ...current, published: checked === true }))}
+                  checked={watch('published')}
+                  onCheckedChange={(checked) => {
+                    setValue('published', checked === true, { shouldDirty: true, shouldValidate: true })
+                  }}
                 />
                 <Label htmlFor="course-published">Publish immediately</Label>
               </div>
@@ -738,222 +814,223 @@ export function Courses({
                 </Button>
               </div>
 
-              {editorState.moduleDetails.length === 0 && (
+              {moduleFields.length === 0 && (
                 <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
                   Add your first module to start building the course.
                 </div>
               )}
 
-              {editorState.moduleDetails.map((moduleItem, index) => (
-                <div key={moduleItem.id} className="space-y-3 rounded-lg border p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="font-medium">Module {index + 1}</div>
-                    <div className="flex gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => handleMoveModule(index, -1)} disabled={index === 0}>Move Up</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => handleMoveModule(index, 1)} disabled={index === editorState.moduleDetails.length - 1}>Move Down</Button>
-                      <Button type="button" variant="destructive" size="sm" onClick={() => handleRemoveModule(index)}>Remove</Button>
-                    </div>
-                  </div>
+              {moduleFields.map((moduleField, index) => {
+                const moduleItem = watchedModules[index] ?? moduleField
 
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Module Title</Label>
-                      <Input
-                        value={moduleItem.title}
-                        onChange={(event) => handleModuleChange(index, { title: event.target.value })}
-                        placeholder="e.g., Incident Response Overview"
-                      />
+                return (
+                  <div key={moduleField.id} className="space-y-3 rounded-lg border p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-medium">Module {index + 1}</div>
+                      <div className="flex gap-2">
+                        <Button type="button" variant="outline" size="sm" onClick={() => handleMoveModule(index, -1)} disabled={index === 0}>Move Up</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => handleMoveModule(index, 1)} disabled={index === moduleFields.length - 1}>Move Down</Button>
+                        <Button type="button" variant="destructive" size="sm" onClick={() => handleRemoveModule(index)}>Remove</Button>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Duration (minutes)</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={moduleItem.duration}
-                        onChange={(event) => handleModuleChange(index, { duration: Number(event.target.value) })}
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Description</Label>
-                      <Textarea
-                        value={moduleItem.description}
-                        onChange={(event) => handleModuleChange(index, { description: event.target.value })}
-                        placeholder="Describe the goal of this module"
-                      />
-                    </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Content Type</Label>
-                      <Select value={moduleItem.contentType} onValueChange={(value) => handleModuleContentTypeChange(index, value as Module['contentType'])}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="text">Text</SelectItem>
-                          <SelectItem value="video">Video</SelectItem>
-                          <SelectItem value="slideshow">Slideshow</SelectItem>
-                          <SelectItem value="quiz">Quiz</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {moduleItem.contentType === 'text' && (
-                      (() => {
-                        const textContent = moduleItem.content as Extract<Module['content'], { body: string }>
 
-                        return (
-                          <div className="space-y-2 md:col-span-2">
-                            <Label>Body</Label>
-                            <Textarea
-                              value={textContent.body}
-                              onChange={(event) => handleModuleChange(index, { content: { body: event.target.value } })}
-                              placeholder="Add text-based learning content"
-                            />
-                          </div>
-                        )
-                      })()
-                    )}
-                    {moduleItem.contentType === 'video' && (
-                      (() => {
-                        const videoContent = moduleItem.content as Extract<Module['content'], { url: string }>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Module Title</Label>
+                        <Input
+                          {...register(`moduleDetails.${index}.title` as const)}
+                          placeholder="e.g., Incident Response Overview"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Duration (minutes)</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          step="1"
+                          {...register(`moduleDetails.${index}.duration` as const, { valueAsNumber: true })}
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Description</Label>
+                        <Textarea
+                          {...register(`moduleDetails.${index}.description` as const)}
+                          placeholder="Describe the goal of this module"
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Content Type</Label>
+                        <Select value={moduleItem.contentType} onValueChange={(value) => handleModuleContentTypeChange(index, value as Module['contentType'])}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="text">Text</SelectItem>
+                            <SelectItem value="video">Video</SelectItem>
+                            <SelectItem value="slideshow">Slideshow</SelectItem>
+                            <SelectItem value="quiz">Quiz</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {moduleItem.contentType === 'text' && (
+                        (() => {
+                          const textContent = moduleItem.content as Extract<Module['content'], { body: string }>
 
-                        return (
-                          <>
+                          return (
                             <div className="space-y-2 md:col-span-2">
-                              <Label>Video URL</Label>
-                              <Input
-                                value={videoContent.url}
-                                onChange={(event) => handleModuleChange(index, { content: { ...videoContent, url: event.target.value } })}
-                                placeholder="https://example.com/video"
+                              <Label>Body</Label>
+                              <Textarea
+                                value={textContent.body}
+                                onChange={(event) => handleModuleChange(index, { content: { body: event.target.value } })}
+                                placeholder="Add text-based learning content"
                               />
                             </div>
-                            <div className="space-y-2">
-                              <Label>Duration (seconds)</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={videoContent.durationSeconds ?? ''}
-                                onChange={(event) => {
-                                  const { value } = event.target
-                                  handleModuleChange(index, {
+                          )
+                        })()
+                      )}
+                      {moduleItem.contentType === 'video' && (
+                        (() => {
+                          const videoContent = moduleItem.content as Extract<Module['content'], { url: string }>
+
+                          return (
+                            <>
+                              <div className="space-y-2 md:col-span-2">
+                                <Label>Video URL</Label>
+                                <Input
+                                  value={videoContent.url}
+                                  onChange={(event) => handleModuleChange(index, { content: { ...videoContent, url: event.target.value } })}
+                                  placeholder="https://example.com/video"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Duration (seconds)</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={videoContent.durationSeconds ?? ''}
+                                  onChange={(event) => {
+                                    const { value } = event.target
+                                    handleModuleChange(index, {
+                                      content: {
+                                        ...videoContent,
+                                        durationSeconds: value === '' ? undefined : Number(value),
+                                      },
+                                    })
+                                  }}
+                                />
+                              </div>
+                            </>
+                          )
+                        })()
+                      )}
+                      {moduleItem.contentType === 'slideshow' && (
+                        (() => {
+                          const slideshowContent = moduleItem.content as Extract<Module['content'], { slides: string[] }>
+
+                          return (
+                            <div className="space-y-2 md:col-span-2">
+                              <Label>Slides (one per line)</Label>
+                              <Textarea
+                                value={slideshowContent.slides.join('\n')}
+                                onChange={(event) => handleModuleChange(index, { content: { slides: event.target.value.split('\n').map((value) => value.trim()).filter(Boolean) } })}
+                                placeholder="Slide 1\nSlide 2"
+                              />
+                            </div>
+                          )
+                        })()
+                      )}
+                      {moduleItem.contentType === 'quiz' && (
+                        (() => {
+                          const quizContent = moduleItem.content as Extract<Module['content'], { questions: Array<{ prompt: string; choices: string[]; correctIndex: number }> }>
+                          const firstQuestion = quizContent.questions[0] || { prompt: '', choices: ['', ''], correctIndex: 0 }
+
+                          return (
+                            <>
+                              <div className="space-y-2 md:col-span-2">
+                                <Label>Question Prompt</Label>
+                                <Input
+                                  value={firstQuestion.prompt}
+                                  onChange={(event) => handleModuleChange(index, {
                                     content: {
-                                      ...videoContent,
-                                      durationSeconds: value === '' ? undefined : Number(value),
+                                      questions: [{
+                                        prompt: event.target.value,
+                                        choices: firstQuestion.choices,
+                                        correctIndex: firstQuestion.correctIndex,
+                                      }],
                                     },
-                                  })
-                                }}
-                              />
-                            </div>
-                          </>
-                        )
-                      })()
-                    )}
-                    {moduleItem.contentType === 'slideshow' && (
-                      (() => {
-                        const slideshowContent = moduleItem.content as Extract<Module['content'], { slides: string[] }>
-
-                        return (
-                          <div className="space-y-2 md:col-span-2">
-                            <Label>Slides (one per line)</Label>
-                            <Textarea
-                              value={slideshowContent.slides.join('\n')}
-                              onChange={(event) => handleModuleChange(index, { content: { slides: event.target.value.split('\n').map((value) => value.trim()).filter(Boolean) } })}
-                              placeholder="Slide 1\nSlide 2"
-                            />
-                          </div>
-                        )
-                      })()
-                    )}
-                    {moduleItem.contentType === 'quiz' && (
-                      (() => {
-                        const quizContent = moduleItem.content as Extract<Module['content'], { questions: Array<{ prompt: string; choices: string[]; correctIndex: number }> }>
-                        const firstQuestion = quizContent.questions[0] || { prompt: '', choices: ['', ''], correctIndex: 0 }
-
-                        return (
-                          <>
-                            <div className="space-y-2 md:col-span-2">
-                              <Label>Question Prompt</Label>
-                              <Input
-                                value={firstQuestion.prompt}
-                                onChange={(event) => handleModuleChange(index, {
-                                  content: {
-                                    questions: [{
-                                      prompt: event.target.value,
-                                      choices: firstQuestion.choices,
-                                      correctIndex: firstQuestion.correctIndex,
-                                    }],
-                                  },
-                                })}
-                                placeholder="What is the safest first step?"
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Choice A</Label>
-                              <Input
-                                value={firstQuestion.choices[0] || ''}
-                                onChange={(event) => handleModuleChange(index, {
-                                  content: {
-                                    questions: [{
-                                      prompt: firstQuestion.prompt,
-                                      choices: [event.target.value, firstQuestion.choices[1] || ''],
-                                      correctIndex: firstQuestion.correctIndex,
-                                    }],
-                                  },
-                                })}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Choice B</Label>
-                              <Input
-                                value={firstQuestion.choices[1] || ''}
-                                onChange={(event) => handleModuleChange(index, {
-                                  content: {
-                                    questions: [{
-                                      prompt: firstQuestion.prompt,
-                                      choices: [firstQuestion.choices[0] || '', event.target.value],
-                                      correctIndex: firstQuestion.correctIndex,
-                                    }],
-                                  },
-                                })}
-                              />
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                              <Label>Correct Answer</Label>
-                              <Select
-                                value={String(firstQuestion.correctIndex)}
-                                onValueChange={(value) => handleModuleChange(index, {
-                                  content: {
-                                    questions: [{
-                                      prompt: firstQuestion.prompt,
-                                      choices: firstQuestion.choices,
-                                      correctIndex: Number(value),
-                                    }],
-                                  },
-                                })}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="0">Choice A</SelectItem>
-                                  <SelectItem value="1">Choice B</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </>
-                        )
-                      })()
-                    )}
+                                  })}
+                                  placeholder="What is the safest first step?"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Choice A</Label>
+                                <Input
+                                  value={firstQuestion.choices[0] || ''}
+                                  onChange={(event) => handleModuleChange(index, {
+                                    content: {
+                                      questions: [{
+                                        prompt: firstQuestion.prompt,
+                                        choices: [event.target.value, firstQuestion.choices[1] || ''],
+                                        correctIndex: firstQuestion.correctIndex,
+                                      }],
+                                    },
+                                  })}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Choice B</Label>
+                                <Input
+                                  value={firstQuestion.choices[1] || ''}
+                                  onChange={(event) => handleModuleChange(index, {
+                                    content: {
+                                      questions: [{
+                                        prompt: firstQuestion.prompt,
+                                        choices: [firstQuestion.choices[0] || '', event.target.value],
+                                        correctIndex: firstQuestion.correctIndex,
+                                      }],
+                                    },
+                                  })}
+                                />
+                              </div>
+                              <div className="space-y-2 md:col-span-2">
+                                <Label>Correct Answer</Label>
+                                <Select
+                                  value={String(firstQuestion.correctIndex)}
+                                  onValueChange={(value) => handleModuleChange(index, {
+                                    content: {
+                                      questions: [{
+                                        prompt: firstQuestion.prompt,
+                                        choices: firstQuestion.choices,
+                                        correctIndex: Number(value),
+                                      }],
+                                    },
+                                  })}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="0">Choice A</SelectItem>
+                                    <SelectItem value="1">Choice B</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </>
+                          )
+                        })()
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={handleCloseEditor} disabled={isSaving}>
               Cancel
             </Button>
-            <Button type="button" onClick={handleSaveCourse} disabled={isSaving}>
+            <Button type="button" onClick={handleSaveButtonClick} disabled={isSaving}>
               {isSaving ? 'Saving...' : editingCourse ? 'Save Changes' : 'Save Course'}
             </Button>
           </DialogFooter>

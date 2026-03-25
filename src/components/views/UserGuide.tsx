@@ -344,7 +344,7 @@ const sections: Section[] = [
         <GuideSection title="Creating or Editing a Course">
           <GuideList items={[
             'Click Create Course or open an existing course and choose Edit Course.',
-            'Enter a name, description, estimated duration, pass score, and required certifications.',
+            'Enter a name, description, estimated duration, pass score, and awarded certifications.',
             'Build one or more modules and choose a content type for each: Text, Video, Slideshow, or Quiz.',
             'Reorder or remove modules as needed.',
             'Save as Draft to keep it hidden, or publish it so it becomes available for scheduling.',

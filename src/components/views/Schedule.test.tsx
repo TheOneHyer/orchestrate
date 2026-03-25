@@ -143,6 +143,7 @@ describe('Schedule', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     vi.useRealTimers()
   })
 
@@ -1659,9 +1660,11 @@ describe('Schedule', () => {
     expect(screen.getByRole('button', { name: /^view course$/i })).toBeInTheDocument()
 
     const dataTransfer = createDragDataTransfer()
+    dataTransfer.dropEffect = 'none'
     const completedColumn = screen.getByText(/^completed$/i).parentElement?.parentElement
     expect(completedColumn).not.toBeNull()
 
+    fireEvent.dragStart(boardCard, { dataTransfer })
     fireEvent.dragOver(completedColumn as HTMLElement, { dataTransfer })
     expect(dataTransfer.dropEffect).toBe('move')
   })

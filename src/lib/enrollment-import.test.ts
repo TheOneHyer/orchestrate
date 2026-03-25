@@ -42,4 +42,11 @@ describe('enrollment-import', () => {
       unmatched: ['unknown'],
     })
   })
+
+  it('suppresses duplicate matches when multiple identifiers resolve to the same student', () => {
+    expect(matchStudentsByIdentifiers(['stu-1', 'alice@example.com', 'unknown'], students)).toEqual({
+      matchedIds: ['stu-1'],
+      unmatched: ['unknown'],
+    })
+  })
 })

@@ -254,10 +254,12 @@ describe('helpers', () => {
             const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1234567890)
             const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.123456789)
 
-            expect(generateId()).toMatch(/^1234567890-[a-z0-9]+$/)
-
-            nowSpy.mockRestore()
-            randomSpy.mockRestore()
+            try {
+                expect(generateId()).toMatch(/^1234567890-[a-z0-9]+$/)
+            } finally {
+                nowSpy.mockRestore()
+                randomSpy.mockRestore()
+            }
         })
     })
 
@@ -283,6 +285,8 @@ describe('helpers', () => {
                 {},
                 { createdAt: '2026-03-02T00:00:00.000Z' }
             )).toBeGreaterThan(0)
+
+            expect(sortByDate({}, {})).toBe(0)
         })
     })
 
