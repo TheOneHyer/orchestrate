@@ -111,7 +111,6 @@ export function RecordScoreDialog({
                         Enter the final assessment score for this enrollment.
                     </DialogDescription>
                 </DialogHeader>
-
                 <Form {...form}>
                     <form className="space-y-4 py-2" onSubmit={form.handleSubmit(handleSubmit)}>
                         <div className="space-y-1">
