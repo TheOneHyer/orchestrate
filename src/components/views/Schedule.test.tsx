@@ -2016,6 +2016,51 @@ describe('Schedule', () => {
       expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
     })
 
+    it('does not reopen RecordScoreDialog when the backing enrollment returns after disappearing', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const { rerender } = renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+
+      rerender(
+        <Schedule
+          sessions={[baseSession]}
+          courses={[baseCourse]}
+          users={[baseTrainer, baseEmployee]}
+          currentUser={{ ...baseTrainer, role: 'admin' }}
+          onCreateSession={vi.fn()}
+          onUpdateSession={vi.fn()}
+          onNavigate={vi.fn()}
+          enrollments={[]}
+          onRecordScore={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
+
+      rerender(
+        <Schedule
+          sessions={[baseSession]}
+          courses={[baseCourse]}
+          users={[baseTrainer, baseEmployee]}
+          currentUser={{ ...baseTrainer, role: 'admin' }}
+          onCreateSession={vi.fn()}
+          onUpdateSession={vi.fn()}
+          onNavigate={vi.fn()}
+          enrollments={[baseEnrollment]}
+          onRecordScore={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
+    })
+
     it('closes an open RecordScoreDialog if the enrollment course no longer exists', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 })
       const { rerender } = renderSchedule({
