@@ -153,7 +153,7 @@ function App() {
     setSessions(seedData.sessions)
     setCourses(seedData.courses)
     setEnrollments(seedData.enrollments)
-    setAttendanceRecords(seedData.attendanceRecords ?? [])
+    setAttendanceRecords([])
     setNotifications(seedData.notifications)
     setWellnessCheckIns(seedData.wellnessCheckIns)
     setRecoveryPlans(seedData.recoveryPlans)
