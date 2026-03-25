@@ -606,7 +606,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
               </ul>
             </div>
           )}
-            {daySessions.length === 0 ? (
+          {daySessions.length === 0 ? (
             <div className="flex items-center justify-center h-[350px] text-muted-foreground">
               No sessions scheduled for this day
             </div>

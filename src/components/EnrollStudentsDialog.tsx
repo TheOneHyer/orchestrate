@@ -62,8 +62,8 @@ export function EnrollStudentsDialog({
     return availableStudents.filter(student =>
       !session.enrolledStudents.includes(student.id) &&
       (student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       student.department.toLowerCase().includes(searchQuery.toLowerCase()))
+        student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        student.department.toLowerCase().includes(searchQuery.toLowerCase()))
     )
   }, [availableStudents, session.enrolledStudents, searchQuery])
 
@@ -173,8 +173,8 @@ export function EnrollStudentsDialog({
     return availableStudents.find(s => s.id === id)
   }
 
-  const enrollableCount = conflictCheck.hasConflicts 
-    ? conflictCheck.allowedStudents.length 
+  const enrollableCount = conflictCheck.hasConflicts
+    ? conflictCheck.allowedStudents.length
     : selectedStudents.length
 
   const remainingCapacity = session.capacity - session.enrolledStudents.length
@@ -316,13 +316,12 @@ export function EnrollStudentsDialog({
                   return (
                     <div
                       key={student.id}
-                      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-                        isSelected 
-                          ? hasConflict 
-                            ? 'bg-destructive/5 border-destructive' 
-                            : 'bg-primary/5 border-primary' 
+                      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${isSelected
+                          ? hasConflict
+                            ? 'bg-destructive/5 border-destructive'
+                            : 'bg-primary/5 border-primary'
                           : 'hover:bg-muted/50'
-                      }`}
+                        }`}
                     >
                       <Checkbox
                         id={student.id}
