@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -231,6 +231,49 @@ describe('RecordScoreDialog', () => {
             await user.clear(screen.getByRole('spinbutton'))
             await user.type(screen.getByRole('spinbutton'), '90')
             expect(screen.getByRole('button', { name: /save score/i })).not.toBeDisabled()
+        })
+
+        it('clears the current score when the input is emptied', async () => {
+            const user = userEvent.setup()
+            render(
+                <RecordScoreDialog
+                    open
+                    onOpenChange={vi.fn()}
+                    enrollment={createEnrollment({ score: 72 })}
+                    course={createCourse()}
+                    student={createStudent()}
+                    onSubmit={vi.fn()}
+                />,
+            )
+
+            const input = screen.getByRole('spinbutton') as HTMLInputElement
+            await user.clear(input)
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: /save score/i })).toBeDisabled()
+            })
+            expect(screen.queryByTestId('score-preview')).not.toBeInTheDocument()
+        })
+
+        it('treats non-numeric input as an empty score value', async () => {
+            render(
+                <RecordScoreDialog
+                    open
+                    onOpenChange={vi.fn()}
+                    enrollment={createEnrollment({ score: undefined })}
+                    course={createCourse()}
+                    student={createStudent()}
+                    onSubmit={vi.fn()}
+                />,
+            )
+
+            const input = screen.getByRole('spinbutton') as HTMLInputElement
+            fireEvent.change(input, { target: { value: 'not-a-number' } })
+
+            await waitFor(() => {
+                expect(screen.getByRole('button', { name: /save score/i })).toBeDisabled()
+            })
+            expect(screen.queryByTestId('score-preview')).not.toBeInTheDocument()
         })
     })
 

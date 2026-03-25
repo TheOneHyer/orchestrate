@@ -148,6 +148,17 @@ describe('AddPersonDialog', () => {
         )
     })
 
+    it('ignores duplicate certifications when adding the same value twice', async () => {
+        render(<AddPersonDialog {...baseProps} />)
+
+        await userEvent.type(screen.getByLabelText(/certifications/i), 'CPR')
+        await userEvent.click(screen.getByRole('button', { name: /^add$/i }))
+        await userEvent.type(screen.getByLabelText(/certifications/i), 'CPR')
+        await userEvent.click(screen.getByRole('button', { name: /^add$/i }))
+
+        expect(screen.getAllByText('CPR')).toHaveLength(1)
+    })
+
     it('removes previously selected shifts', async () => {
         render(<AddPersonDialog {...baseProps} />)
 

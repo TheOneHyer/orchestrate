@@ -396,6 +396,44 @@ describe('EnrollStudentsDialog', () => {
         expect(screen.getByText(/1 selected/i)).toBeInTheDocument()
     })
 
+    it('pluralizes bulk import summaries when multiple students are matched', async () => {
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        await userEvent.type(screen.getByPlaceholderText(/stu-1/i), 'stu-1\nstu-2')
+        await userEvent.click(screen.getByRole('button', { name: /import list/i }))
+
+        expect(screen.getByText(/added 2 students from bulk upload/i)).toBeInTheDocument()
+        expect(screen.getByText(/2 selected/i)).toBeInTheDocument()
+    })
+
+    it('pluralizes badge scan summaries when multiple students are matched', async () => {
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        await userEvent.type(screen.getByPlaceholderText(/scan or enter badge value/i), 'stu-1, stu-2')
+        await userEvent.click(screen.getByRole('button', { name: /scan badge/i }))
+
+        expect(screen.getByText(/badge scan matched 2 students/i)).toBeInTheDocument()
+        expect(screen.getByText(/2 selected/i)).toBeInTheDocument()
+    })
+
     it('shows guidance when importing an empty list or scanning an unknown badge value', async () => {
         render(
             <EnrollStudentsDialog

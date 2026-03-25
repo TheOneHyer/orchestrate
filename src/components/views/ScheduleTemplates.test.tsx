@@ -85,7 +85,9 @@ vi.mock('@/components/ScheduleTemplateDialog', () => ({
 
 vi.mock('@/components/ApplyTemplateDialog', () => ({
     ApplyTemplateDialog: ({ open, template, onApply }: { open: boolean; template: ScheduleTemplate | null; onApply: (sessions: Array<Partial<Session>>) => void }) => {
-        if (!open || !template) return null
+        if (!open || !template) {
+            return <button onClick={() => onApply([])}>Mock Apply Without Selection</button>
+        }
         return (
             <div>
                 <p>Applying {template.name}</p>
@@ -388,6 +390,19 @@ describe('ScheduleTemplates', () => {
 
         expect(toastSuccess).toHaveBeenCalledWith('2 sessions created successfully')
         expect(setTemplatesMock).toHaveBeenCalled()
+    })
+
+    it('creates sessions without updating template usage when no template is selected', async () => {
+        const user = userEvent.setup()
+        const onCreateSessions = vi.fn()
+
+        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={onCreateSessions} />)
+
+        await user.click(screen.getByRole('button', { name: /mock apply without selection/i }))
+
+        expect(onCreateSessions).toHaveBeenCalledWith([])
+        expect(setTemplatesMock).not.toHaveBeenCalled()
+        expect(toastSuccess).toHaveBeenCalledWith('0 sessions created successfully')
     })
 
     it('opens apply dialog from dropdown menu apply action', async () => {

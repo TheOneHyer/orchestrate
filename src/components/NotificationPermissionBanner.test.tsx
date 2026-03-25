@@ -241,4 +241,34 @@ describe('NotificationPermissionBanner', () => {
 
         expect(setDismissed).not.toHaveBeenCalled()
     })
+
+    it('does not update banner state when permission rejects after unmount', async () => {
+        const user = userEvent.setup()
+        const setDismissed = vi.fn()
+        let rejectPermission!: (reason?: unknown) => void
+        const requestPermission = vi.fn(
+            () => new Promise<NotificationPermission>((_, reject) => { rejectPermission = reject })
+        )
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
+
+        mockUsePushNotifications.mockReturnValue({
+            isSupported: true,
+            settings: { permission: 'default' },
+            requestPermission,
+        })
+        mockUseKV.mockReturnValue([false, setDismissed])
+
+        const { unmount } = render(<NotificationPermissionBanner />)
+
+        await user.click(await screen.findByRole('button', { name: /enable/i }))
+        unmount()
+
+        rejectPermission(new Error('permission-failure-after-unmount'))
+        await act(async () => {
+            await Promise.resolve()
+        })
+
+        expect(setDismissed).not.toHaveBeenCalled()
+        consoleErrorSpy.mockRestore()
+    })
 })

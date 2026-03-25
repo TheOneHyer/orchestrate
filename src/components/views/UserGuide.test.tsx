@@ -1,6 +1,6 @@
 import userEvent from '@testing-library/user-event'
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { UserGuide } from './UserGuide'
 
@@ -122,5 +122,35 @@ describe('UserGuide', () => {
     expect(await screen.findByTestId('role-badge-admin')).toBeInTheDocument()
     expect(await screen.findByTestId('role-badge-trainer')).toBeInTheDocument()
     expect(await screen.findByTestId('role-badge-employee')).toBeInTheDocument()
+  })
+
+  it('falls back to the overview section when the active section state is invalid', async () => {
+    vi.resetModules()
+
+    try {
+      vi.doMock('react', async () => {
+        const actual = await vi.importActual<typeof import('react')>('react')
+
+        return {
+          ...actual,
+          useState: ((initialState: unknown) => {
+            if (initialState === 'overview') {
+              return actual.useState('missing-section')
+            }
+
+            return actual.useState(initialState)
+          }) as typeof actual.useState,
+        }
+      })
+
+      const { UserGuide: IsolatedUserGuide } = await import('./UserGuide')
+
+      render(<IsolatedUserGuide />)
+
+      expect(screen.getByText(/what is orchestrate/i)).toBeInTheDocument()
+    } finally {
+      vi.doUnmock('react')
+      vi.resetModules()
+    }
   })
 })

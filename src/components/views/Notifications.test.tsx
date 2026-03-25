@@ -166,6 +166,36 @@ describe('Notifications', () => {
     expect(onMarkAsUnread).toHaveBeenCalledWith('n-2')
   })
 
+  it('navigates read notifications without marking them as read again', async () => {
+    const onMarkAsRead = vi.fn()
+    const onNavigate = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <Notifications
+        notifications={[
+          {
+            ...baseNotification,
+            id: 'n-read',
+            title: 'Read session reminder',
+            read: true,
+          },
+        ]}
+        onMarkAsRead={onMarkAsRead}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={onNavigate}
+      />
+    )
+
+    await user.click(screen.getByText(/read session reminder/i))
+
+    expect(onMarkAsRead).not.toHaveBeenCalled()
+    expect(onNavigate).toHaveBeenCalledWith('schedule')
+  })
+
   it('dismisses a single notification entry', async () => {
     const onDismiss = vi.fn()
     const user = userEvent.setup()

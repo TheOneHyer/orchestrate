@@ -68,7 +68,6 @@ describe('ScheduleTemplateDialog', () => {
                 courses={courses}
             />
         )
-
         await user.type(screen.getByLabelText(/template name/i), '  Safety Rotation  ')
         await user.type(screen.getByLabelText(/description/i), '  Rotating weekly schedule  ')
 
@@ -306,6 +305,32 @@ describe('ScheduleTemplateDialog', () => {
             })
         )
         expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it('shows a validation error when custom cycle days are invalid', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/template name/i), 'Broken Rotation')
+        await user.click(screen.getByRole('combobox', { name: /recurrence type/i }))
+        await user.click(await screen.findByRole('option', { name: /custom/i }))
+
+        const cycleInput = await screen.findByLabelText(/cycle duration/i)
+        await user.clear(cycleInput)
+        await user.type(cycleInput, '0')
+        await user.click(screen.getByRole('button', { name: /create template/i }))
+
+        expect(onSave).not.toHaveBeenCalled()
+        expect(screen.getByText(/cycle days must be a positive integer/i)).toBeInTheDocument()
     })
 
     it('persists auto-assign and notify toggles when switched off', async () => {
