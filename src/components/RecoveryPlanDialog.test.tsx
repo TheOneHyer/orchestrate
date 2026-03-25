@@ -328,4 +328,70 @@ describe('RecoveryPlanDialog', () => {
         expect(screen.queryByText(/provide 3-5 consecutive days of paid time off/i)).not.toBeInTheDocument()
         expect(screen.getByText(/no actions added yet/i)).toBeInTheDocument()
     })
+
+    it('validates that all required fields are present before submission', async () => {
+        render(
+            <RecoveryPlanDialog
+                {...baseProps}
+                latestCheckIn={latestCheckIn}
+                currentUtilization={90}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
+        expect(baseProps.onSubmit).toHaveBeenCalledOnce()
+    })
+
+    it('displays validation error when actions list becomes empty after removal', async () => {
+        render(<RecoveryPlanDialog {...baseProps} />)
+
+        await user.type(screen.getByLabelText(/trigger reason/i), 'Test reason')
+        await user.click(screen.getByRole('combobox'))
+        await user.click(await screen.findByRole('option', { name: /workload reduction/i }))
+
+        expect(screen.getByRole('button', { name: /create recovery plan/i })).not.toBeDisabled()
+        
+        await user.click(screen.getByRole('button', { name: /remove action workload reduction/i }))
+
+        expect(screen.getByRole('button', { name: /create recovery plan/i })).toBeDisabled()
+        expect(screen.getByText(/no actions added yet/i)).toBeInTheDocument()
+    })
+
+    it('handles form submission with all fields populated and custom values', async () => {
+        render(<RecoveryPlanDialog {...baseProps} currentUtilization={85} />)
+
+        await user.type(screen.getByLabelText(/trigger reason/i), 'Long-term sustainability plan needed')
+        fireEvent.change(screen.getByLabelText(/target utilization/i), { target: { value: '60' } })
+        fireEvent.change(screen.getByLabelText(/duration \(weeks\)/i), { target: { value: '8' } })
+
+        await user.click(screen.getByRole('combobox'))
+        const options = await screen.findAllByRole('option')
+        await user.click(options[0])
+
+        await user.clear(screen.getByLabelText(/description/i))
+        await user.type(screen.getByLabelText(/description/i), 'Custom action description')
+
+        await user.type(screen.getByLabelText(/plan notes \(optional\)/i, { selector: 'textarea' }), 'Priority case')
+
+        await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
+
+        expect(baseProps.onSubmit).toHaveBeenCalledOnce()
+        expect(baseProps.onSubmit).toHaveBeenCalledWith(
+            expect.objectContaining({
+                trainerId: 'trainer-1',
+                createdBy: 'admin-1',
+                status: 'active',
+                triggerReason: 'Long-term sustainability plan needed',
+                targetUtilization: 60,
+                currentUtilization: 85,
+                notes: 'Priority case',
+                actions: expect.arrayContaining([
+                    expect.objectContaining({
+                        description: 'Custom action description',
+                    }),
+                ]),
+            })
+        )
+        expect(baseProps.onClose).toHaveBeenCalled()
+    })
 })
