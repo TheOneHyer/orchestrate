@@ -6,8 +6,10 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Textarea } from '@/components/ui/textarea'
 import { User, Session } from '@/lib/types'
 import { checkStudentEnrollmentConflicts } from '@/lib/conflict-detection'
+import { matchStudentsByIdentifiers, parseEnrollmentIdentifiers } from '@/lib/enrollment-import'
 import { MagnifyingGlass, Warning, UserPlus, Clock } from '@phosphor-icons/react'
 import { format } from 'date-fns'
 
@@ -52,6 +54,9 @@ export function EnrollStudentsDialog({
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [showConflicts, setShowConflicts] = useState(false)
+  const [bulkIdentifiers, setBulkIdentifiers] = useState('')
+  const [badgeScanValue, setBadgeScanValue] = useState('')
+  const [importSummary, setImportSummary] = useState<string | null>(null)
 
   const filteredStudents = useMemo(() => {
     return availableStudents.filter(student =>
@@ -87,6 +92,52 @@ export function EnrollStudentsDialog({
     }
   }
 
+  const addMatchedStudents = (studentIds: string[]) => {
+    if (studentIds.length === 0) {
+      return
+    }
+
+    setSelectedStudents((previous) => Array.from(new Set([...previous, ...studentIds])))
+    setShowConflicts(true)
+  }
+
+  const handleImportIdentifiers = () => {
+    const identifiers = parseEnrollmentIdentifiers(bulkIdentifiers)
+    const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, filteredStudents)
+
+    addMatchedStudents(matchedIds)
+
+    if (matchedIds.length === 0 && unmatched.length === 0) {
+      setImportSummary('Enter at least one student ID, email, or full name to import.')
+      return
+    }
+
+    if (matchedIds.length === 0) {
+      setImportSummary(`No matching students found. Unmatched: ${unmatched.join(', ')}`)
+      return
+    }
+
+    const unmatchedMessage = unmatched.length > 0 ? ` Unmatched: ${unmatched.join(', ')}.` : ''
+    setImportSummary(`Added ${matchedIds.length} student${matchedIds.length === 1 ? '' : 's'} from bulk upload.${unmatchedMessage}`)
+  }
+
+  const handleBadgeScan = () => {
+    const identifiers = parseEnrollmentIdentifiers(badgeScanValue)
+    const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, filteredStudents)
+
+    addMatchedStudents(matchedIds)
+
+    if (matchedIds.length > 0) {
+      setImportSummary(`Badge scan matched ${matchedIds.length} student${matchedIds.length === 1 ? '' : 's'}.`)
+      setBadgeScanValue('')
+      return
+    }
+
+    setImportSummary(unmatched.length > 0
+      ? `No student matched badge value: ${unmatched.join(', ')}`
+      : 'Scan a student badge ID, email, or email username to add them.')
+  }
+
   const handleEnroll = () => {
     if (conflictCheck.hasConflicts) {
       onEnrollStudents(conflictCheck.allowedStudents)
@@ -96,6 +147,9 @@ export function EnrollStudentsDialog({
     setSelectedStudents([])
     setSearchQuery('')
     setShowConflicts(false)
+    setBulkIdentifiers('')
+    setBadgeScanValue('')
+    setImportSummary(null)
     onOpenChange(false)
   }
 
@@ -103,6 +157,9 @@ export function EnrollStudentsDialog({
     setSelectedStudents([])
     setSearchQuery('')
     setShowConflicts(false)
+    setBulkIdentifiers('')
+    setBadgeScanValue('')
+    setImportSummary(null)
     onOpenChange(false)
   }
 
@@ -166,6 +223,44 @@ export function EnrollStudentsDialog({
               </span>
             </div>
           </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="space-y-2 rounded-lg border p-3">
+              <div>
+                <div className="font-medium">Bulk Upload</div>
+                <div className="text-sm text-muted-foreground">Paste student IDs, emails, or full names separated by commas or new lines.</div>
+              </div>
+              <Textarea
+                value={bulkIdentifiers}
+                onChange={(event) => setBulkIdentifiers(event.target.value)}
+                placeholder="stu-1\nstu-2\nalice@example.com"
+              />
+              <Button type="button" variant="outline" onClick={handleImportIdentifiers}>
+                Import List
+              </Button>
+            </div>
+
+            <div className="space-y-2 rounded-lg border p-3">
+              <div>
+                <div className="font-medium">Badge Scan</div>
+                <div className="text-sm text-muted-foreground">Simulate a badge scan with a student ID, email, or email username.</div>
+              </div>
+              <Input
+                value={badgeScanValue}
+                onChange={(event) => setBadgeScanValue(event.target.value)}
+                placeholder="Scan or enter badge value"
+              />
+              <Button type="button" variant="outline" onClick={handleBadgeScan}>
+                Scan Badge
+              </Button>
+            </div>
+          </div>
+
+          {importSummary && (
+            <Alert>
+              <AlertDescription>{importSummary}</AlertDescription>
+            </Alert>
+          )}
 
           {remainingCapacity < enrollableCount && (
             <Alert variant="destructive">

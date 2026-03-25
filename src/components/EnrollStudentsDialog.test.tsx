@@ -356,4 +356,85 @@ describe('EnrollStudentsDialog', () => {
         expect(screen.getByText(/session capacity exceeded/i)).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /enroll 1 student/i })).toBeDisabled()
     })
+
+    it('imports students from a bulk identifier list and reports unmatched entries', async () => {
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        await userEvent.type(screen.getByPlaceholderText(/stu-1/i), 'stu-1\nmissing-user')
+        await userEvent.click(screen.getByRole('button', { name: /import list/i }))
+
+        expect(screen.getByText(/added 1 student from bulk upload/i)).toBeInTheDocument()
+        expect(screen.getByText(/unmatched: missing-user/i)).toBeInTheDocument()
+        expect(screen.getByText(/1 selected/i)).toBeInTheDocument()
+    })
+
+    it('matches a simulated badge scan using an email local part', async () => {
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        await userEvent.type(screen.getByPlaceholderText(/scan or enter badge value/i), 'stu-2')
+        await userEvent.click(screen.getByRole('button', { name: /scan badge/i }))
+
+        expect(screen.getByText(/badge scan matched 1 student/i)).toBeInTheDocument()
+        expect(screen.getByText(/1 selected/i)).toBeInTheDocument()
+    })
+
+    it('shows guidance when importing an empty list or scanning an unknown badge value', async () => {
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /import list/i }))
+        expect(screen.getByText(/enter at least one student id/i)).toBeInTheDocument()
+
+        await userEvent.type(screen.getByPlaceholderText(/scan or enter badge value/i), 'unknown-badge')
+        await userEvent.click(screen.getByRole('button', { name: /scan badge/i }))
+        expect(screen.getByText(/no student matched badge value/i)).toBeInTheDocument()
+    })
+
+    it('clears temporary import state when cancel is pressed', async () => {
+        const onOpenChange = vi.fn()
+
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={onOpenChange}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        await userEvent.type(screen.getByPlaceholderText(/stu-1/i), 'stu-1')
+        await userEvent.click(screen.getByRole('button', { name: /import list/i }))
+        expect(screen.getByText(/added 1 student from bulk upload/i)).toBeInTheDocument()
+
+        await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+        expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
 })

@@ -1441,4 +1441,253 @@ describe('Schedule', () => {
       conflictSpy.mockRestore()
     }
   })
+
+  it('filters sessions by trainer, course, status, and date window', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const secondTrainer: User = {
+      ...baseTrainer,
+      id: 'u-trainer-2',
+      name: 'Jordan Trainer',
+      department: 'Operations',
+      email: 'jordan@example.com',
+    }
+    const secondCourse: Course = {
+      ...baseCourse,
+      id: 'c-2',
+      title: 'Equipment Basics',
+    }
+    const cancelledPastSession: Session = {
+      ...baseSession,
+      id: 's-past',
+      title: 'Past Cancelled Session',
+      trainerId: 'u-trainer-2',
+      courseId: 'c-2',
+      status: 'cancelled',
+      startTime: '2026-03-18T09:00:00.000Z',
+      endTime: '2026-03-18T10:00:00.000Z',
+    }
+
+    renderSchedule({
+      sessions: [baseSession, cancelledPastSession],
+      users: [baseTrainer, secondTrainer, baseEmployee],
+      courses: [baseCourse, secondCourse],
+    })
+
+    const filters = screen.getAllByRole('combobox')
+
+    await user.click(filters[0])
+    await user.click(screen.getByRole('option', { name: /jordan trainer/i }))
+    expect(screen.getByText(/past cancelled session/i)).toBeInTheDocument()
+    expect(screen.queryByText(/morning safety session/i)).not.toBeInTheDocument()
+
+    await user.click(filters[1])
+    await user.click(screen.getByRole('option', { name: /equipment basics/i }))
+    expect(screen.getByText(/past cancelled session/i)).toBeInTheDocument()
+
+    await user.click(filters[3])
+    await user.click(screen.getByRole('option', { name: /^cancelled$/i }))
+    expect(screen.getByText(/past cancelled session/i)).toBeInTheDocument()
+
+    await user.click(filters[4])
+    await user.click(screen.getByRole('option', { name: /past sessions/i }))
+    expect(screen.getByText(/past cancelled session/i)).toBeInTheDocument()
+  })
+
+  it('deletes a selected session from the details dialog', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onDeleteSession = vi.fn()
+    vi.stubGlobal('confirm', vi.fn(() => true))
+
+    renderSchedule({
+      currentUser: { ...baseTrainer, role: 'admin' },
+      onDeleteSession,
+    })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /delete session/i }))
+
+    expect(onDeleteSession).toHaveBeenCalledWith('s-1')
+  })
+
+  it('does not delete a session when confirmation is cancelled', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onDeleteSession = vi.fn()
+    vi.stubGlobal('confirm', vi.fn(() => false))
+
+    renderSchedule({
+      currentUser: { ...baseTrainer, role: 'admin' },
+      onDeleteSession,
+    })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /delete session/i }))
+
+    expect(onDeleteSession).not.toHaveBeenCalled()
+  })
+
+  it('filters sessions by department and shows cancelled work in board view', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const operationsTrainer: User = {
+      ...baseTrainer,
+      id: 'u-ops-trainer',
+      name: 'Ops Trainer',
+      department: 'Operations',
+      email: 'ops-trainer@example.com',
+    }
+    const cancelledSession: Session = {
+      ...baseSession,
+      id: 's-cancelled-board',
+      title: 'Cancelled Board Session',
+      trainerId: 'u-ops-trainer',
+      status: 'cancelled',
+      startTime: '2026-03-21T09:00:00.000Z',
+      endTime: '2026-03-21T10:00:00.000Z',
+    }
+
+    renderSchedule({
+      sessions: [baseSession, cancelledSession],
+      users: [baseTrainer, operationsTrainer, baseEmployee],
+    })
+
+    const filters = screen.getAllByRole('combobox')
+    await user.click(filters[2])
+    await user.click(screen.getByRole('option', { name: /operations/i }))
+    expect(screen.getByText(/cancelled board session/i)).toBeInTheDocument()
+    expect(screen.queryByText(/morning safety session/i)).toBeNull()
+
+    await user.click(screen.getByRole('tab', { name: /board/i }))
+    expect(screen.getByText(/cancelled board session/i)).toBeInTheDocument()
+    expect(screen.getByText(/^cancelled$/i)).toBeInTheDocument()
+  })
+
+  it('updates session status when a board card is dropped into a different status column', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({ onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /board/i }))
+
+    const dataTransfer = createDragDataTransfer()
+    const sessionCard = screen.getByRole('button', { name: /morning safety session/i })
+    const completedColumn = screen.getByText(/^completed$/i).parentElement?.parentElement
+
+    expect(completedColumn).not.toBeNull()
+
+    fireEvent.dragStart(sessionCard, { dataTransfer })
+    fireEvent.drop(completedColumn as HTMLElement, { dataTransfer })
+
+    expect(onUpdateSession).toHaveBeenCalledWith('s-1', { status: 'completed' })
+  })
+
+  it('does not update session status when a board card is dropped into the same column', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({ onUpdateSession })
+
+    await user.click(screen.getByRole('tab', { name: /board/i }))
+
+    const dataTransfer = createDragDataTransfer()
+    const sessionCard = screen.getByRole('button', { name: /morning safety session/i })
+    const scheduledColumn = screen.getByText(/^scheduled$/i).parentElement?.parentElement
+
+    expect(scheduledColumn).not.toBeNull()
+
+    fireEvent.dragStart(sessionCard, { dataTransfer })
+    fireEvent.drop(scheduledColumn as HTMLElement, { dataTransfer })
+
+    expect(onUpdateSession).not.toHaveBeenCalled()
+  })
+
+  it('closes the edit dialog when cancel is clicked', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: { ...baseTrainer, role: 'admin' } })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    expect(screen.getByRole('dialog', { name: /edit session/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /edit session/i })).toBeNull()
+    })
+  })
+
+  it('closes the edit dialog with Escape', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: { ...baseTrainer, role: 'admin' } })
+
+    await user.click(screen.getByRole('tab', { name: /list/i }))
+    await user.click(screen.getByRole('button', { name: /morning safety session/i }))
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+
+    expect(screen.getByRole('dialog', { name: /edit session/i })).toBeInTheDocument()
+    await user.keyboard('{Escape}')
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /edit session/i })).toBeNull()
+    })
+  })
+
+  it('supports board drag-over and board-card open details with search filtering', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const cancelledSession: Session = {
+      ...baseSession,
+      id: 's-cancelled-path',
+      title: 'Cancelled Drill',
+      status: 'cancelled',
+      startTime: '2026-03-20T14:00:00.000Z',
+      endTime: '2026-03-20T15:00:00.000Z',
+    }
+
+    renderSchedule({ sessions: [baseSession, cancelledSession] })
+
+    await user.type(screen.getByPlaceholderText(/search by session, trainer, location, or course/i), 'cancelled drill')
+    expect(screen.getByText(/cancelled drill/i)).toBeInTheDocument()
+    expect(screen.queryByText(/morning safety session/i)).toBeNull()
+
+    await user.click(screen.getByRole('tab', { name: /board/i }))
+    const boardCard = screen.getByRole('button', { name: /cancelled drill/i })
+    await user.click(boardCard)
+    expect(screen.getByRole('button', { name: /^view course$/i })).toBeInTheDocument()
+
+    const dataTransfer = createDragDataTransfer()
+    const completedColumn = screen.getByText(/^completed$/i).parentElement?.parentElement
+    expect(completedColumn).not.toBeNull()
+
+    fireEvent.dragOver(completedColumn as HTMLElement, { dataTransfer })
+    expect(dataTransfer.dropEffect).toBe('move')
+  })
+
+  it('opens session details when clicking a calendar event card in month view', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: { ...baseTrainer, role: 'admin' } })
+
+    await user.click(screen.getByText(/morning safety session/i))
+
+    expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument()
+  })
+
+  it('opens guided scheduler when clicking an empty month calendar cell body as a manager', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: { ...baseTrainer, role: 'admin' } })
+
+    const emptyCellBody = Array.from(document.querySelectorAll('[data-calendar-cell-body]')).find((cell) => {
+      return !cell.querySelector('[draggable]')
+    })
+
+    expect(emptyCellBody).not.toBeUndefined()
+    await user.click(emptyCellBody as HTMLElement)
+
+    expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
 })

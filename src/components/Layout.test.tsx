@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Layout } from './Layout'
+import type { User } from '@/lib/types'
 
 const mockToggleTheme = vi.fn()
 const mockUseTheme = vi.fn()
@@ -23,6 +24,26 @@ vi.mock('@/components/NotificationSettingsDialog', () => ({
         </div>
     ),
 }))
+
+const adminUser: User = {
+    id: 'admin-1',
+    name: 'Admin User',
+    email: 'admin@example.com',
+    role: 'admin',
+    department: 'Administration',
+    certifications: [],
+    hireDate: '2025-01-01',
+}
+
+const trainerUser: User = {
+    id: 'trainer-1',
+    name: 'Trainer One',
+    email: 'trainer@example.com',
+    role: 'trainer',
+    department: 'Training',
+    certifications: [],
+    hireDate: '2025-01-01',
+}
 
 describe('Layout', () => {
     beforeEach(() => {
@@ -172,5 +193,37 @@ describe('Layout', () => {
         )
 
         expect(screen.getByTestId('theme-icon-moon')).toBeInTheDocument()
+    })
+
+    it('opens the active session menu and switches users or resets the session', async () => {
+        const onSwitchUser = vi.fn()
+        const onLogout = vi.fn()
+
+        render(
+            <Layout
+                activeView="dashboard"
+                onNavigate={vi.fn()}
+                userRole="admin"
+                currentUser={adminUser}
+                users={[adminUser, trainerUser]}
+                onSwitchUser={onSwitchUser}
+                onLogout={onLogout}
+            >
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /open active user menu/i }))
+
+        expect(screen.getByText(/active session/i)).toBeInTheDocument()
+        expect(screen.getByText(/switch roles locally/i)).toBeInTheDocument()
+        expect(screen.getByText(/trainer one/i)).toBeInTheDocument()
+
+        await userEvent.click(screen.getByText('Trainer One'))
+        expect(onSwitchUser).toHaveBeenCalledWith('trainer-1')
+
+        await userEvent.click(screen.getByRole('button', { name: /open active user menu/i }))
+        await userEvent.click(screen.getAllByText(/reset session/i)[0])
+        expect(onLogout).toHaveBeenCalledOnce()
     })
 })

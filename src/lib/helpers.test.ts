@@ -7,10 +7,12 @@ import {
     checkScheduleConflict,
     findAvailableTrainers,
     formatDuration,
+    generateId,
     hasPermission,
     hasConfiguredSchedule,
     getTrainersWithoutSchedules,
-    calculateSessionDuration
+    calculateSessionDuration,
+    sortByDate
 } from './helpers'
 import type { Session, User } from './types'
 
@@ -244,6 +246,43 @@ describe('helpers', () => {
 
         it('formats mixed hours and minutes', () => {
             expect(formatDuration(90)).toBe('1h 30m')
+        })
+    })
+
+    describe('generateId', () => {
+        it('builds an id from the timestamp and random suffix', () => {
+            const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1234567890)
+            const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.123456789)
+
+            expect(generateId()).toMatch(/^1234567890-[a-z0-9]+$/)
+
+            nowSpy.mockRestore()
+            randomSpy.mockRestore()
+        })
+    })
+
+    describe('sortByDate', () => {
+        it('sorts by startTime before createdAt fallback', () => {
+            const records = [
+                { startTime: '2026-03-16T09:00:00.000Z', createdAt: '2026-03-01T00:00:00.000Z' },
+                { startTime: '2026-03-17T09:00:00.000Z', createdAt: '2026-03-02T00:00:00.000Z' },
+            ]
+
+            records.sort(sortByDate)
+
+            expect(records[0].startTime).toBe('2026-03-17T09:00:00.000Z')
+        })
+
+        it('falls back to createdAt and then zero when timestamps are missing', () => {
+            expect(sortByDate(
+                { createdAt: '2026-03-01T00:00:00.000Z' },
+                { createdAt: '2026-03-02T00:00:00.000Z' }
+            )).toBeGreaterThan(0)
+
+            expect(sortByDate(
+                {},
+                { createdAt: '2026-03-02T00:00:00.000Z' }
+            )).toBeGreaterThan(0)
         })
     })
 

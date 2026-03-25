@@ -152,6 +152,7 @@ const sections: Section[] = [
 
         <GuideSection title="Header Controls">
           <GuideList items={[
+            'Active Session menu — shows the current local user, lets you switch between seeded users to validate role-based behavior, and can reset the local session.',
             'Speaker icon — opens Notification Sound Settings where you can choose a sound type, adjust volume, and enable/disable browser push notifications.',
             'Moon / Sun icon — toggles between dark and light theme. Your preference is saved automatically.',
           ]} />
@@ -219,9 +220,8 @@ const sections: Section[] = [
           <p>Switch between views using the tab bar at the top:</p>
           <GuideList items={[
             'Calendar — a month-or-week grid with colour-coded session blocks. Hover over a block to see a summary; click it to open the details panel.',
-            'Gantt — a timeline view showing sessions as horizontal bars across days. Drag a session bar left or right to reschedule it. Conflict detection runs automatically during the drag.',
             'List — a scrollable table of all sessions ordered by date. Useful for bulk review and quick editing.',
-            'Kanban — sessions grouped into columns by status (Scheduled, In Progress, Completed, Cancelled). Drag cards between columns to update status.',
+            'Board — sessions grouped into columns by status (Scheduled, In Progress, Completed, Cancelled). Drag cards between columns to update status.',
           ]} />
         </GuideSection>
 
@@ -240,7 +240,7 @@ const sections: Section[] = [
           </p>
           <GuideList items={[
             'Edit any session field inline.',
-            'Enroll Students — opens a searchable dialog that shows all employees and highlights those with scheduling conflicts in red.',
+            'Enroll Students — opens a searchable dialog that supports manual selection, bulk upload, and simulated badge scanning while highlighting scheduling conflicts in red.',
             'Change session status.',
             'Delete the session (admin only).',
           ]} />
@@ -258,8 +258,8 @@ const sections: Section[] = [
 
         <GuideSection title="Filtering">
           <p>
-            Use the filter bar to narrow sessions by department, trainer, date range, course, or
-            status. Filters apply across all view modes.
+            Use the filter bar to narrow sessions by search term, department, trainer, day, course, or
+            status. Filters apply across calendar, list, and board views.
           </p>
         </GuideSection>
       </div>
@@ -330,32 +330,38 @@ const sections: Section[] = [
 
         <GuideSection title="Course List">
           <p>
-            Courses are displayed as cards or in a table (toggle the layout in the top-right
-            corner). Each card shows:
+            Courses are displayed as cards with searchable metadata and draft or published status. Each card shows:
           </p>
           <GuideList items={[
             'Course name and description.',
-            'Category / department tag.',
-            'Total enrollment and completion percentage.',
+            'A preview of the first structured module type.',
+            'Current learner progress for the active user when enrolled.',
             'Required certifications for trainers.',
-            'Status badge (Active / Draft / Archived).',
+            'Status badge (Published / Draft).',
           ]} />
         </GuideSection>
 
-        <GuideSection title="Creating a Course (Admin)">
+        <GuideSection title="Creating or Editing a Course">
           <GuideList items={[
-            'Click New Course.',
-            'Enter a name, description, category, and estimated duration.',
-            'Add any required trainer certifications.',
-            'Set the maximum capacity per session.',
-            'Save as Draft to keep it hidden, or Publish to make it available for scheduling.',
+            'Click Create Course or open an existing course and choose Edit Course.',
+            'Enter a name, description, estimated duration, pass score, and required certifications.',
+            'Build one or more modules and choose a content type for each: Text, Video, Slideshow, or Quiz.',
+            'Reorder or remove modules as needed.',
+            'Save as Draft to keep it hidden, or publish it so it becomes available for scheduling.',
           ]} />
         </GuideSection>
 
         <GuideSection title="Viewing Course Details">
           <p>
-            Click a course to open its detail view, which includes a roster of enrolled
-            employees, session history, and completion statistics.
+            Click a course to open its detail view, which includes module breakdown, pass score,
+            certifications, and management actions for publishing, editing, or deleting the course.
+          </p>
+        </GuideSection>
+
+        <GuideSection title="Course Status Filtering">
+          <p>
+            Use the status filter above the catalog to focus on published or draft courses. This is
+            useful when reviewing content before release or validating trainer-owned drafts.
           </p>
         </GuideSection>
       </div>

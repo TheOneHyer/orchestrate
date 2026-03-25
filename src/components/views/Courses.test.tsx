@@ -18,6 +18,7 @@ vi.mock('sonner', () => ({
 beforeEach(() => {
     toastError.mockClear()
     toastSuccess.mockClear()
+    vi.stubGlobal('confirm', vi.fn(() => true))
 })
 
 function createUser(overrides: Partial<User> = {}): User {
@@ -47,6 +48,23 @@ function createCourse(overrides: Partial<Course> = {}): Course {
         passScore: 80,
         ...overrides,
     }
+}
+
+async function addMinimalModule(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: /add module/i }))
+    await user.clear(screen.getByDisplayValue('Module 1'))
+    await user.type(screen.getByPlaceholderText(/incident response overview/i), 'Intro Module')
+}
+
+async function fillValidCourseForm(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
+    await user.type(screen.getByLabelText(/description/i), 'Course description')
+    await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
+    await user.type(screen.getByLabelText(/duration \(minutes\)/i), '120')
+    await user.clear(screen.getByLabelText(/pass score/i))
+    await user.type(screen.getByLabelText(/pass score/i), '85')
+    await user.type(screen.getByLabelText(/certifications/i), 'Safety Cert')
+    await addMinimalModule(user)
 }
 
 describe('Courses', () => {
@@ -184,7 +202,8 @@ describe('Courses', () => {
 
         await user.click(screen.getByRole('button', { name: /create course/i }))
 
-        expect(onNavigate).toHaveBeenCalledWith('courses', { create: true })
+        expect(onNavigate).not.toHaveBeenCalled()
+        expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
     })
 
     it('filters courses by title or description using case-insensitive search', async () => {
@@ -457,14 +476,7 @@ describe('Courses', () => {
             />
         )
 
-        await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
-        await user.type(screen.getByLabelText(/description/i), 'Course description')
-        await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
-        await user.type(screen.getByLabelText(/duration \(minutes\)/i), '120')
-        await user.clear(screen.getByLabelText(/pass score/i))
-        await user.type(screen.getByLabelText(/pass score/i), '85')
-        await user.type(screen.getByLabelText(/modules/i), 'Intro, Practical')
-        await user.type(screen.getByLabelText(/certifications/i), 'Safety Cert')
+        await fillValidCourseForm(user)
 
         await user.click(screen.getByRole('button', { name: /save course/i }))
 
@@ -474,17 +486,23 @@ describe('Courses', () => {
                 description: 'Course description',
                 duration: 120,
                 passScore: 85,
-                modules: ['Intro', 'Practical'],
+                modules: ['Intro Module'],
                 certifications: ['Safety Cert'],
                 createdBy: 'admin-1',
                 published: false,
+                moduleDetails: [
+                    expect.objectContaining({
+                        title: 'Intro Module',
+                        contentType: 'text',
+                    }),
+                ],
             })
         )
         expect(onCreateCourse.mock.calls[0]?.[0]?.id).toBeUndefined()
         expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
         expect(toastSuccess).toHaveBeenCalledWith(
             'Course created',
-            expect.objectContaining({ description: expect.stringMatching(/draft course/i) })
+            expect.objectContaining({ description: expect.stringMatching(/added to the catalog/i) })
         )
     })
 
@@ -503,15 +521,14 @@ describe('Courses', () => {
             />
         )
 
-        await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
-        await user.type(screen.getByLabelText(/description/i), 'Course description')
+        await fillValidCourseForm(user)
         await user.click(screen.getByRole('button', { name: /save course/i }))
 
         expect(onCreateCourse).toHaveBeenCalledTimes(1)
         expect(screen.getByRole('heading', { name: /create course/i })).toBeInTheDocument()
         expect(screen.getByLabelText(/title/i)).toHaveValue('New Safety Course')
         expect(toastError).toHaveBeenCalledWith(
-            'Course creation failed',
+            'Course save failed',
             expect.objectContaining({ description: 'Service unavailable' })
         )
         expect(toastSuccess).not.toHaveBeenCalled()
@@ -532,12 +549,11 @@ describe('Courses', () => {
             />
         )
 
-        await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
-        await user.type(screen.getByLabelText(/description/i), 'Course description')
+        await fillValidCourseForm(user)
         await user.click(screen.getByRole('button', { name: /save course/i }))
 
         expect(toastError).toHaveBeenCalledWith(
-            'Course creation failed',
+            'Course save failed',
             expect.objectContaining({ description: 'Please try again after resolving the issue.' })
         )
     })
@@ -678,7 +694,7 @@ describe('Courses', () => {
 
         expect(onCreateCourse).not.toHaveBeenCalled()
         expect(toastError).toHaveBeenCalledWith(
-            'Missing required fields',
+            'Course validation failed',
             expect.objectContaining({ description: expect.stringMatching(/title and description/i) })
         )
     })
@@ -702,10 +718,11 @@ describe('Courses', () => {
         await user.type(screen.getByLabelText(/description/i), 'Course description')
         await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
         await user.type(screen.getByLabelText(/duration \(minutes\)/i), '0')
+        await addMinimalModule(user)
         await user.click(screen.getByRole('button', { name: /save course/i }))
 
         expect(toastError).toHaveBeenCalledWith(
-            'Invalid duration',
+            'Course validation failed',
             expect.objectContaining({ description: expect.stringMatching(/positive whole number/i) })
         )
         expect(onCreateCourse).not.toHaveBeenCalled()
@@ -732,10 +749,11 @@ describe('Courses', () => {
         await user.type(screen.getByLabelText(/duration \(minutes\)/i), '60')
         await user.clear(screen.getByLabelText(/pass score/i))
         await user.type(screen.getByLabelText(/pass score/i), '101')
+        await addMinimalModule(user)
         await user.click(screen.getByRole('button', { name: /save course/i }))
 
         expect(toastError).toHaveBeenCalledWith(
-            'Invalid pass score',
+            'Course validation failed',
             expect.objectContaining({ description: expect.stringMatching(/between 0 and 100/i) })
         )
         expect(onCreateCourse).not.toHaveBeenCalled()
@@ -761,11 +779,64 @@ describe('Courses', () => {
         await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
         await user.type(screen.getByLabelText(/duration \(minutes\)/i), '60')
         await user.clear(screen.getByLabelText(/pass score/i))
+        await addMinimalModule(user)
         await user.click(screen.getByRole('button', { name: /save course/i }))
 
         expect(toastError).toHaveBeenCalledWith(
-            'Invalid pass score',
+            'Course validation failed',
             expect.objectContaining({ description: expect.stringMatching(/between 0 and 100/i) })
+        )
+        expect(onCreateCourse).not.toHaveBeenCalled()
+    })
+
+    it('shows validation error when no modules are defined', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'New Safety Course')
+        await user.type(screen.getByLabelText(/description/i), 'Course description')
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Course validation failed',
+            expect.objectContaining({ description: expect.stringMatching(/at least one module is required/i) })
+        )
+        expect(onCreateCourse).not.toHaveBeenCalled()
+    })
+
+    it('shows validation error when a module is missing required details', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await fillValidCourseForm(user)
+        await user.clear(screen.getByDisplayValue('Intro Module'))
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Course validation failed',
+            expect.objectContaining({ description: expect.stringMatching(/each module needs a title and positive duration/i) })
         )
         expect(onCreateCourse).not.toHaveBeenCalled()
     })
@@ -786,7 +857,7 @@ describe('Courses', () => {
         await user.click(screen.getByRole('button', { name: /save course/i }))
 
         expect(toastError).toHaveBeenCalledWith(
-            'Course creation unavailable',
+            'Course management unavailable',
             expect.objectContaining({ description: expect.stringMatching(/permission/i) })
         )
     })
@@ -831,5 +902,320 @@ describe('Courses', () => {
         expect(within(dialog).getByText('Draft')).toBeInTheDocument()
         expect(within(dialog).getByText(/no modules defined\./i)).toBeInTheDocument()
         expect(within(dialog).queryByText('Certifications')).toBeNull()
+    })
+
+    it('edits an existing course and saves updated structured module data', async () => {
+        const user = userEvent.setup()
+        const onUpdateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[
+                    createCourse({
+                        id: 'c1',
+                        title: 'Safety Foundations',
+                        description: 'Original description',
+                        moduleDetails: [
+                            {
+                                id: 'module-1',
+                                title: 'Original Module',
+                                description: 'Original module description',
+                                contentType: 'text',
+                                duration: 15,
+                                content: { body: 'Original body' },
+                            },
+                        ],
+                    }),
+                ]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onUpdateCourse={onUpdateCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /edit course/i }))
+        await user.clear(screen.getByLabelText(/title/i))
+        await user.type(screen.getByLabelText(/title/i), 'Updated Safety Foundations')
+        await user.clear(screen.getByLabelText(/description/i))
+        await user.type(screen.getByLabelText(/description/i), 'Updated course description')
+        await user.clear(screen.getByDisplayValue('Original Module'))
+        await user.type(screen.getByPlaceholderText(/incident response overview/i), 'Updated Module')
+        await user.clear(screen.getByDisplayValue('Original body'))
+        await user.type(screen.getByPlaceholderText(/add text-based learning content/i), 'Updated body content')
+
+        await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+        expect(onUpdateCourse).toHaveBeenCalledWith(
+            'c1',
+            expect.objectContaining({
+                title: 'Updated Safety Foundations',
+                description: 'Updated course description',
+                modules: ['Updated Module'],
+                moduleDetails: [
+                    expect.objectContaining({
+                        title: 'Updated Module',
+                        contentType: 'text',
+                        content: { body: 'Updated body content' },
+                    }),
+                ],
+            })
+        )
+    })
+
+    it('publishes and deletes a selected course from the detail dialog', async () => {
+        const user = userEvent.setup()
+        const onUpdateCourse = vi.fn()
+        const onDeleteCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onUpdateCourse={onUpdateCourse}
+                onDeleteCourse={onDeleteCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /publish course/i }))
+        expect(onUpdateCourse).toHaveBeenCalledWith('c1', { published: true })
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Course published',
+            expect.objectContaining({ description: expect.stringMatching(/available/i) })
+        )
+
+        await user.click(screen.getByRole('button', { name: /delete course/i }))
+        expect(onDeleteCourse).toHaveBeenCalledWith('c1')
+        expect(toastSuccess).toHaveBeenLastCalledWith(
+            'Course deleted',
+            expect.objectContaining({ description: expect.stringMatching(/removed/i) })
+        )
+    })
+
+    it('moves a published course back to draft', async () => {
+        const user = userEvent.setup()
+        const onUpdateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Published Course', published: true })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onUpdateCourse={onUpdateCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /move to draft/i }))
+
+        expect(onUpdateCourse).toHaveBeenCalledWith('c1', { published: false })
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Course moved to draft',
+            expect.objectContaining({ description: expect.stringMatching(/hidden from employees/i) })
+        )
+    })
+
+    it('shows an error when deleting a course fails', async () => {
+        const user = userEvent.setup()
+        const onDeleteCourse = vi.fn().mockRejectedValue(new Error('delete failed'))
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onDeleteCourse={onDeleteCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /delete course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Delete failed',
+            expect.objectContaining({ description: 'delete failed' })
+        )
+    })
+
+    it('supports video, slideshow, and quiz module content while creating a course', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        const dialog = screen.getByRole('dialog')
+
+        await user.type(screen.getByLabelText(/title/i), 'Mixed Media Course')
+        await user.type(screen.getByLabelText(/description/i), 'Structured content types')
+        await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
+        await user.type(screen.getByLabelText(/duration \(minutes\)/i), '90')
+        await user.clear(screen.getByLabelText(/pass score/i))
+        await user.type(screen.getByLabelText(/pass score/i), '88')
+
+        await user.click(screen.getByRole('button', { name: /add module/i }))
+        await user.clear(screen.getByDisplayValue('Module 1'))
+        await user.type(screen.getByPlaceholderText(/incident response overview/i), 'Video Module')
+        await user.click(within(dialog).getAllByRole('combobox')[0])
+        await user.click(screen.getByRole('option', { name: 'Video' }))
+        await user.type(screen.getByPlaceholderText(/https:\/\/example.com\/video/i), 'https://example.com/video')
+
+        await user.click(screen.getByRole('button', { name: /add module/i }))
+        await user.clear(screen.getByDisplayValue('Module 2'))
+        await user.type(screen.getAllByPlaceholderText(/incident response overview/i)[1], 'Slideshow Module')
+        await user.click(within(dialog).getAllByRole('combobox')[1])
+        await user.click(screen.getByRole('option', { name: 'Slideshow' }))
+        await user.type(screen.getByPlaceholderText(/slide 1/i), 'Slide A\nSlide B')
+
+        await user.click(screen.getByRole('button', { name: /add module/i }))
+        await user.clear(screen.getByDisplayValue('Module 3'))
+        await user.type(screen.getAllByPlaceholderText(/incident response overview/i)[2], 'Quiz Module')
+        await user.click(within(dialog).getAllByRole('combobox')[2])
+        await user.click(screen.getByRole('option', { name: 'Quiz' }))
+        await user.type(screen.getByPlaceholderText(/what is the safest first step/i), 'What is the safest action?')
+
+        const choiceInputs = within(dialog).getAllByRole('textbox')
+        await user.type(choiceInputs[choiceInputs.length - 2], 'Stop')
+        await user.type(choiceInputs[choiceInputs.length - 1], 'Go')
+        await user.click(within(dialog).getAllByRole('combobox')[3])
+        await user.click(screen.getByRole('option', { name: /choice b/i }))
+
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(onCreateCourse).toHaveBeenCalledWith(
+            expect.objectContaining({
+                modules: ['Video Module', 'Slideshow Module', 'Quiz Module'],
+                moduleDetails: [
+                    expect.objectContaining({ contentType: 'video' }),
+                    expect.objectContaining({ contentType: 'slideshow' }),
+                    expect.objectContaining({ contentType: 'quiz' }),
+                ],
+            })
+        )
+    })
+
+    it('reorders and removes modules before saving a course', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'Ordered Modules Course')
+        await user.type(screen.getByLabelText(/description/i), 'Module ordering test')
+        await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
+        await user.type(screen.getByLabelText(/duration \(minutes\)/i), '60')
+        await user.clear(screen.getByLabelText(/pass score/i))
+        await user.type(screen.getByLabelText(/pass score/i), '80')
+
+        await user.click(screen.getByRole('button', { name: /add module/i }))
+        await user.clear(screen.getByDisplayValue('Module 1'))
+        await user.type(screen.getByPlaceholderText(/incident response overview/i), 'First Module')
+
+        await user.click(screen.getByRole('button', { name: /add module/i }))
+        await user.clear(screen.getByDisplayValue('Module 2'))
+        await user.type(screen.getAllByPlaceholderText(/incident response overview/i)[1], 'Second Module')
+
+        await user.click(screen.getAllByRole('button', { name: /move up/i })[1])
+        await user.click(screen.getAllByRole('button', { name: /remove/i })[1])
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(onCreateCourse).toHaveBeenCalledWith(
+            expect.objectContaining({
+                modules: ['Second Module'],
+                moduleDetails: [expect.objectContaining({ title: 'Second Module' })],
+            })
+        )
+    })
+
+    it('filters the course catalog by published status', async () => {
+        const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+        render(
+            <Courses
+                courses={[
+                    createCourse({ id: 'c1', title: 'Published Course', published: true }),
+                    createCourse({ id: 'c2', title: 'Draft Course', published: false }),
+                ]}
+                enrollments={[]}
+                currentUser={createUser({ role: 'admin' })}
+                onNavigate={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByRole('combobox'))
+        await user.click(screen.getByRole('option', { name: /draft/i }))
+        expect(screen.getByText('Draft Course')).toBeInTheDocument()
+        expect(screen.queryByText('Published Course')).toBeNull()
+
+        await user.click(screen.getByRole('combobox'))
+        await user.click(screen.getByRole('option', { name: /published/i }))
+        expect(screen.getByText('Published Course')).toBeInTheDocument()
+        expect(screen.queryByText('Draft Course')).toBeNull()
+    })
+
+    it('shows an error when publishing fails', async () => {
+        const user = userEvent.setup()
+        const onUpdateCourse = vi.fn().mockRejectedValue(new Error('publish failed'))
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onUpdateCourse={onUpdateCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /publish course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Status update failed',
+            expect.objectContaining({ description: 'publish failed' })
+        )
+    })
+
+    it('does not delete a course when confirmation is cancelled', async () => {
+        const user = userEvent.setup()
+        const onDeleteCourse = vi.fn()
+        vi.stubGlobal('confirm', vi.fn(() => false))
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onDeleteCourse={onDeleteCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /delete course/i }))
+        expect(onDeleteCourse).not.toHaveBeenCalled()
     })
 })
