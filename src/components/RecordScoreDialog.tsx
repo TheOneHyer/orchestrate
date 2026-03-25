@@ -110,8 +110,6 @@ export function RecordScoreDialog({
                     <DialogDescription>
                         Enter the final assessment score for this enrollment.
                     </DialogDescription>
-                </DialogHeader>
-
                 <Form {...form}>
                     <form className="space-y-4 py-2" onSubmit={form.handleSubmit(handleSubmit)}>
                         <div className="space-y-1">
@@ -151,9 +149,11 @@ export function RecordScoreDialog({
                                         />
                                     </FormControl>
                                     <FormMessage />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                                    {hasScore && !isScoreValid && (
+                                        <p className="text-sm text-red-600" data-testid="score-error">
+                                            Please enter a whole number between 0 and 100.
+                                        </p>
+                                    )}
                                 </FormItem>
                             )}
                         />
@@ -177,17 +177,16 @@ export function RecordScoreDialog({
                             </div>
                         )}
 
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={!canSubmit}>
+                                Save Score
+                            </Button>
+                        </DialogFooter>
                     </form>
                 </Form>
-
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>
-                        Cancel
-                    </Button>
-                    <Button type="submit" onClick={form.handleSubmit(handleSubmit)} disabled={!canSubmit}>
-                        Save Score
-                    </Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     )
