@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ScheduleTemplateDialog } from './ScheduleTemplateDialog'
+import type { ScheduleTemplate } from '@/lib/types'
 
 const courses = [
     { id: 'course-1', title: 'Safety 101' },
@@ -331,6 +332,139 @@ describe('ScheduleTemplateDialog', () => {
 
         expect(onSave).not.toHaveBeenCalled()
         expect(screen.getByText(/cycle days must be a positive integer/i)).toBeInTheDocument()
+    })
+
+    it('shows a validation error when a session time is blank', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/template name/i), 'Broken Time Template')
+
+        const timeInput = document.querySelector('input[type="time"]')
+        if (!(timeInput instanceof HTMLInputElement)) {
+            throw new Error('Session time input was not found')
+        }
+
+        await user.clear(timeInput)
+        await user.click(screen.getByRole('button', { name: /create template/i }))
+
+        expect(onSave).not.toHaveBeenCalled()
+        expect(screen.getByText(/session 1: time is required/i)).toBeInTheDocument()
+    })
+
+    it('shows a validation error when a session duration is not a positive integer', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/template name/i), 'Broken Duration Template')
+
+        const durationInput = screen.getByRole('spinbutton', {
+            name: /duration for session 1/i,
+        })
+
+        await user.clear(durationInput)
+        await user.type(durationInput, '0')
+        await user.click(screen.getByRole('button', { name: /create template/i }))
+
+        expect(onSave).not.toHaveBeenCalled()
+        expect(screen.getByText(/session 1: duration must be a positive integer/i)).toBeInTheDocument()
+    })
+
+    it('shows a validation error when a session capacity is not a positive integer', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/template name/i), 'Broken Capacity Template')
+
+        const capacityInput = screen.getByRole('spinbutton', {
+            name: /capacity for session 1/i,
+        })
+
+        await user.clear(capacityInput)
+        await user.type(capacityInput, '0')
+        await user.click(screen.getByRole('button', { name: /create template/i }))
+
+        expect(onSave).not.toHaveBeenCalled()
+        expect(screen.getByText(/session 1: capacity must be a positive integer/i)).toBeInTheDocument()
+    })
+
+    it('parses string session numbers when editing existing template data', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+        const importedTemplate = {
+            id: 'template-strings',
+            name: 'Imported Template',
+            description: 'Imported from persisted data',
+            category: 'general',
+            recurrenceType: 'weekly',
+            sessions: [
+                {
+                    dayOfWeek: 1,
+                    time: '09:00',
+                    duration: '45',
+                    capacity: '12',
+                    requiresCertifications: [],
+                },
+            ],
+            autoAssignTrainers: true,
+            notifyParticipants: true,
+            createdBy: 'admin-1',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            usageCount: 0,
+            tags: [],
+            isActive: true,
+        } as unknown as ScheduleTemplate
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+                template={importedTemplate}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /update template/i }))
+
+        expect(onSave).toHaveBeenCalledOnce()
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                sessions: [
+                    expect.objectContaining({
+                        duration: 45,
+                        capacity: 12,
+                    }),
+                ],
+            })
+        )
     })
 
     it('persists auto-assign and notify toggles when switched off', async () => {

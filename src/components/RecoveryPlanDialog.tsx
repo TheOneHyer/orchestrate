@@ -52,6 +52,8 @@ const RECOVERY_ACTION_TEMPLATES: Record<RecoveryAction, string> = {
   'custom': 'Custom action'
 }
 
+type EditableRecoveryPlanActionField = 'description' | 'targetDate' | 'notes'
+
 /**
  * Dialog for creating a structured recovery plan to support trainer wellbeing.
  *
@@ -200,30 +202,9 @@ export function RecoveryPlanDialog({
    * @param field - The field key to change (excluding `id`).
    * @param value - The new value for the field.
    */
-  const updateAction = (index: number, field: keyof Omit<RecoveryPlanAction, 'id'>, value: unknown) => {
+  const updateAction = (index: number, field: EditableRecoveryPlanActionField, value: string) => {
     const updated = [...actions]
-    if (field === 'description' || field === 'targetDate' || field === 'notes' || field === 'completedDate' || field === 'completedBy' || field === 'impact') {
-      if (typeof value !== 'string') {
-        throw new Error(`Invalid value for action field "${field}": expected string.`)
-      }
-      updated[index] = { ...updated[index], [field]: value }
-    } else if (field === 'completed') {
-      if (typeof value !== 'boolean') {
-        throw new Error('Invalid value for action field "completed": expected boolean.')
-      }
-      updated[index] = { ...updated[index], completed: value }
-    } else if (field === 'type') {
-      if (typeof value !== 'string') {
-        throw new Error('Invalid value for action field "type": expected string.')
-      }
-      if (!(value in RECOVERY_ACTION_TEMPLATES)) {
-        throw new Error(`Invalid value for action field "type": ${value}`)
-      }
-      updated[index] = { ...updated[index], type: value as RecoveryPlanAction['type'] }
-    } else {
-      const _exhaustive: never = field
-      throw new Error(`Unhandled recovery plan action field: ${_exhaustive}`)
-    }
+    updated[index] = { ...updated[index], [field]: value }
     setActions(updated)
   }
 

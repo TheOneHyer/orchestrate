@@ -36,6 +36,14 @@ interface CheckInScheduleDialogProps {
 
 const checkInFrequencies = ['daily', 'weekly', 'biweekly', 'monthly', 'custom'] as const
 
+const frequencyLabels: Record<CheckInFrequency, string> = {
+  daily: 'Every Day',
+  weekly: 'Every Week',
+  biweekly: 'Every 2 Weeks',
+  monthly: 'Every Month',
+  custom: 'Custom Interval',
+}
+
 /**
  * Validates check-in schedule form input prior to submission.
  *
@@ -180,16 +188,7 @@ export function CheckInScheduleDialog({
    * @param freq - The schedule frequency key.
    * @returns User-facing frequency label.
    */
-  const getFrequencyLabel = (freq: CheckInFrequency) => {
-    switch (freq) {
-      case 'daily': return 'Every Day'
-      case 'weekly': return 'Every Week'
-      case 'biweekly': return 'Every 2 Weeks'
-      case 'monthly': return 'Every Month'
-      case 'custom': return 'Custom Interval'
-      default: return freq
-    }
-  }
+  const getFrequencyLabel = (freq: CheckInFrequency) => frequencyLabels[freq]
 
   /**
    * Transforms validated form values into a schedule payload and submits it.

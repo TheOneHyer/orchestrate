@@ -242,6 +242,102 @@ describe('CheckInScheduleDialog', () => {
     expect(screen.getByLabelText(/custom days/i)).toBeInTheDocument()
   })
 
+  it('shows validation errors for invalid existing schedule dates', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+    const existing = makeExistingSchedule({
+      startDate: 'not-a-date',
+      endDate: 'also-not-a-date',
+    })
+
+    render(
+      <CheckInScheduleDialog
+        {...makeProps({ onSubmit })}
+        existingSchedule={existing}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /update schedule/i }))
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByText(/start date is invalid/i)).toBeInTheDocument()
+    expect(screen.getByText(/end date is invalid/i)).toBeInTheDocument()
+  })
+
+  it('shows a validation error when custom days are below the minimum', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+
+    render(<CheckInScheduleDialog {...makeProps({ onSubmit })} />)
+
+    await user.click(screen.getByRole('combobox', { name: /trainer/i }))
+    await user.click(await screen.findByRole('option', { name: /alex trainer/i }))
+    await user.click(screen.getByRole('combobox', { name: /check-in frequency/i }))
+    await user.click(await screen.findByRole('option', { name: /custom interval/i }))
+
+    await user.clear(screen.getByLabelText(/custom days/i))
+    await user.type(screen.getByLabelText(/custom days/i), '0')
+    await user.click(screen.getByRole('button', { name: /create schedule/i }))
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByText(/custom days must be at least 1/i)).toBeInTheDocument()
+  })
+
+  it('requires an end date when the optional end date toggle is enabled', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+
+    render(<CheckInScheduleDialog {...makeProps({ onSubmit })} />)
+
+    await user.click(screen.getByRole('combobox', { name: /trainer/i }))
+    await user.click(await screen.findByRole('option', { name: /alex trainer/i }))
+    await user.click(screen.getByTestId('end-date-switch'))
+    await user.clear(screen.getByLabelText(/end date/i))
+    await user.click(screen.getByRole('button', { name: /create schedule/i }))
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByText(/end date is required/i)).toBeInTheDocument()
+  })
+
+  it('requires the end date to be after the start date', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+
+    render(<CheckInScheduleDialog {...makeProps({ onSubmit })} />)
+
+    await user.click(screen.getByRole('combobox', { name: /trainer/i }))
+    await user.click(await screen.findByRole('option', { name: /alex trainer/i }))
+    await user.clear(screen.getByLabelText(/start date/i))
+    await user.type(screen.getByLabelText(/start date/i), '2026-03-10')
+    await user.click(screen.getByTestId('end-date-switch'))
+    await user.clear(screen.getByLabelText(/end date/i))
+    await user.type(screen.getByLabelText(/end date/i), '2026-03-05')
+    await user.click(screen.getByRole('button', { name: /create schedule/i }))
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByText(/end date must be after start date/i)).toBeInTheDocument()
+  })
+
+  it('updates reminder hours before submitting', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+
+    render(<CheckInScheduleDialog {...makeProps({ onSubmit })} />)
+
+    await user.click(screen.getByRole('combobox', { name: /trainer/i }))
+    await user.click(await screen.findByRole('option', { name: /alex trainer/i }))
+    await user.click(screen.getByRole('combobox', { name: /reminder time/i }))
+    await user.click(await screen.findByRole('option', { name: /^4 hours before$/i }))
+    await user.click(screen.getByRole('button', { name: /create schedule/i }))
+
+    expect(onSubmit).toHaveBeenCalledOnce()
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reminderHoursBefore: 4,
+      })
+    )
+  })
+
   it('submits custom schedules with customDays, endDate, and trimmed notes', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()
