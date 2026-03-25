@@ -372,6 +372,78 @@ export function Courses({
       throw new Error(`Module content must be filled for module type ${placeholderModule.contentType}.`)
     }
 
+    const videoModuleSchema = z.object({
+      contentType: z.literal('video'),
+      content: z.object({
+        url: z
+          .string()
+          .transform((value) => value.trim())
+          .min(1),
+      }),
+    })
+
+    const slideshowModuleSchema = z.object({
+      contentType: z.literal('slideshow'),
+      content: z.object({
+        slides: z
+          .array(
+            z
+              .string()
+              .transform((value) => value.trim())
+          )
+          .min(1)
+          .refine((slides) => slides.some((slide) => slide.length > 0)),
+      }),
+    })
+
+    const quizModuleSchema = z.object({
+      contentType: z.literal('quiz'),
+      content: z.object({
+        question: z
+          .string()
+          .transform((value) => value.trim())
+          .min(1),
+        choices: z
+          .array(
+            z.object({
+              label: z
+                .string()
+                .transform((value) => value.trim())
+                .min(1),
+              correct: z.boolean().optional(),
+            })
+          )
+          .min(1)
+          .refine((choices) => choices.some((choice) => choice.correct === true)),
+      }),
+    })
+
+    const nonTextModuleContentSchema = z.discriminatedUnion('contentType', [
+      videoModuleSchema,
+      slideshowModuleSchema,
+      quizModuleSchema,
+    ])
+
+    moduleDetails.forEach((moduleItem) => {
+      if (moduleItem.contentType === 'text') {
+        return
+      }
+
+      if (
+        moduleItem.contentType !== 'video' &&
+        moduleItem.contentType !== 'slideshow' &&
+        moduleItem.contentType !== 'quiz'
+      ) {
+        return
+      }
+
+      const parsed = nonTextModuleContentSchema.safeParse(moduleItem)
+      if (!parsed.success) {
+        throw new Error(`Module content must be filled for module type ${moduleItem.contentType}.`)
+      }
+
+      Object.assign(moduleItem, parsed.data)
+    })
     return {
       title,
       description,
