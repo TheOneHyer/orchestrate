@@ -153,6 +153,14 @@ describe('shouldNotifyCompletion', () => {
         expect(() => shouldNotifyCompletion('enrolled', Number.NaN, 80)).toThrow(RangeError)
     })
 
+    it('throws RangeError when score is positive infinity', () => {
+        expect(() => shouldNotifyCompletion('enrolled', Number.POSITIVE_INFINITY, 80)).toThrow(RangeError)
+    })
+
+    it('throws RangeError when score is negative infinity', () => {
+        expect(() => shouldNotifyCompletion('enrolled', Number.NEGATIVE_INFINITY, 80)).toThrow(RangeError)
+    })
+
     it('throws RangeError when passScore is NaN', () => {
         expect(() => shouldNotifyCompletion('enrolled', 80, Number.NaN)).toThrow(RangeError)
     })
