@@ -343,4 +343,25 @@ describe('workload-balancer', () => {
 
         expect(opportunities.length).toBeGreaterThan(0)
     })
+
+    it('returns no opportunities when candidate trainer has insufficient available hours', () => {
+        const overloaded = createTrainer('trainer-overloaded', 'Olivia', ['Forklift'])
+        const candidate = createTrainer('trainer-candidate', 'Parker', ['Forklift'])
+        const overloadedSessions = generateSessions(10, overloaded.id, 'course-a', 9, 'session-')
+        const candidateSessions = generateSessions(10, candidate.id, 'course-a', 9, 'candidate-')
+        const courses = [createCourse('course-a', ['Forklift'])]
+
+        const overloadedWorkload = calculateTrainerWorkload(overloaded, overloadedSessions, WEEK_START, WEEK_END)
+        const candidateWorkload = calculateTrainerWorkload(candidate, candidateSessions, WEEK_START, WEEK_END)
+
+        const opportunities = findRedistributionOpportunities(
+            overloadedWorkload,
+            candidateWorkload,
+            overloadedSessions,
+            courses
+        )
+
+        expect(candidateWorkload.availableHours).toBe(0)
+        expect(opportunities).toEqual([])
+    })
 })

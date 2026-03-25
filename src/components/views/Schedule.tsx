@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock, Robot, UserCircleGear, UserPlus } from '@phosphor-icons/react'
-import { Session, Course, User } from '@/lib/types'
+import { Session, Course, User, Enrollment } from '@/lib/types'
+import { RecordScoreDialog } from '@/components/RecordScoreDialog'
 import { format, startOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, isSameDay, isSameMonth, eachDayOfInterval, startOfDay, differenceInMinutes, setHours, setMinutes } from 'date-fns'
 import { formatDuration } from '@/lib/helpers'
 import { AutoScheduler } from './AutoScheduler'
@@ -28,6 +29,8 @@ interface ScheduleProps {
   users: User[]
   /** The currently authenticated user; controls which scheduling actions are available. */
   currentUser: User
+  /** All enrollments visible to the current user, used to display per-student status in session details. */
+  enrollments?: Enrollment[]
   /** Callback invoked when a new session is to be created. @param session - Partial session data. */
   onCreateSession: (session: Partial<Session>) => void
   /**
@@ -48,6 +51,12 @@ interface ScheduleProps {
   navigationPayload?: unknown
   /** Optional callback invoked after a navigation payload has been consumed. */
   onNavigationPayloadConsumed?: () => void
+  /**
+   * Callback invoked when an admin or trainer records a score for an enrollment.
+   * @param enrollmentId - ID of the enrollment being scored.
+   * @param score - The assessment score (0–100).
+   */
+  onRecordScore?: (enrollmentId: string, score: number) => void
 }
 
 /**
@@ -92,7 +101,7 @@ function isViewType(v: string): v is ViewType {
  * Navigation payload deep-links are processed once per payload so later session list refreshes do not reopen the same sheet unexpectedly.
  * @returns The Schedule component's React element.
  */
-export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onDeleteSession, onNavigate, navigationPayload, onNavigationPayloadConsumed }: ScheduleProps) {
+export function Schedule({ sessions, courses, users, currentUser, enrollments, onCreateSession, onUpdateSession, onDeleteSession, onNavigate, navigationPayload, onNavigationPayloadConsumed, onRecordScore }: ScheduleProps) {
   const [viewType, setViewType] = useState<ViewType>('calendar')
   const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('month')
   const [searchQuery, setSearchQuery] = useState('')
@@ -107,6 +116,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   const [guidedSchedulerOpen, setGuidedSchedulerOpen] = useState(false)
   const [guidedSchedulerPrefilledDate, setGuidedSchedulerPrefilledDate] = useState<Date | null>(null)
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
+  const [recordScoreEnrollmentId, setRecordScoreEnrollmentId] = useState<string | null>(null)
   const [currentDate, setCurrentDate] = useState(new Date())
   const [draggedSession, setDraggedSession] = useState<Session | null>(null)
   const [dragOverDay, setDragOverDay] = useState<Date | null>(null)
@@ -1221,6 +1231,50 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                     )}
                   </div>
                 )}
+                {selectedSession.enrolledStudents.length > 0 && (
+                  <div className="pt-2">
+                    <Label className="mb-2 block">Enrolled Students</Label>
+                    <div className="space-y-2">
+                      {selectedSession.enrolledStudents.map((studentId) => {
+                        const student = users.find((u) => u.id === studentId)
+                        const sessionEnrollment = (enrollments ?? []).find(
+                          (e) => e.userId === studentId && e.sessionId === selectedSession.id,
+                        )
+                        if (!student) return null
+                        return (
+                          <div
+                            key={studentId}
+                            className="flex items-center justify-between text-sm bg-muted/40 rounded-md px-3 py-1.5"
+                            data-testid={`enrolled-student-${studentId}`}
+                          >
+                            <div className="flex flex-col min-w-0">
+                              <span className="font-medium truncate">{student.name}</span>
+                              {sessionEnrollment && (
+                                <span className="text-xs text-muted-foreground capitalize">
+                                  {sessionEnrollment.status}
+                                  {sessionEnrollment.score !== undefined
+                                    ? ` · ${sessionEnrollment.score}%`
+                                    : ''}
+                                </span>
+                              )}
+                            </div>
+                            {canManageSchedule && onRecordScore && sessionEnrollment && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="ml-2 shrink-0"
+                                onClick={() => setRecordScoreEnrollmentId(sessionEnrollment.id)}
+                                data-testid={`record-score-btn-${studentId}`}
+                              >
+                                Record Score
+                              </Button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Button
                     className={canManageSchedule ? 'flex-1' : 'w-full'}
@@ -1391,6 +1445,29 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           onEnrollStudents={handleEnrollStudents}
         />
       )}
+
+      {(() => {
+        if (!recordScoreEnrollmentId || !onRecordScore) return null
+        const enrollment = (enrollments ?? []).find((e) => e.id === recordScoreEnrollmentId)
+        if (!enrollment) return null
+        const course = courses.find((c) => c.id === enrollment.courseId)
+        if (!course) return null
+        const student = users.find((u) => u.id === enrollment.userId)
+        if (!student) return null
+        return (
+          <RecordScoreDialog
+            key={recordScoreEnrollmentId}
+            open={recordScoreEnrollmentId !== null}
+            onOpenChange={(open) => {
+              if (!open) setRecordScoreEnrollmentId(null)
+            }}
+            enrollment={enrollment}
+            course={course}
+            student={student}
+            onSubmit={onRecordScore}
+          />
+        )
+      })()}
     </div>
   )
 }

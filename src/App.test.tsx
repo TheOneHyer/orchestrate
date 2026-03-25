@@ -195,11 +195,13 @@ vi.mock('@/components/views/Schedule', () => ({
         onCreateSession,
         onUpdateSession,
         onDeleteSession,
+        onRecordScore,
     }: {
         sessions: Array<{ id: string; title: string; status: string }>
         onCreateSession: (session: unknown) => void
         onUpdateSession: (id: string, session: unknown) => void
         onDeleteSession?: (id: string) => void
+        onRecordScore?: (enrollmentId: string, score: number) => void
     }) => (
         <div>
             <div>Schedule View</div>
@@ -226,6 +228,10 @@ vi.mock('@/components/views/Schedule', () => ({
                 onCreateSession(payload)
             }}>Create Session With Id</button>
             <button onClick={() => onDeleteSession?.('session-1')}>Delete Session</button>
+            <button onClick={() => onRecordScore?.('enrollment-rs-1', 90)}>Record Score Pass</button>
+            <button onClick={() => onRecordScore?.('enrollment-rs-1', 50)}>Record Score Fail</button>
+            <button onClick={() => onRecordScore?.('enrollment-rs-1', 80)}>Record Score Notify</button>
+            <button onClick={() => onRecordScore?.('unknown-enrollment', 90)}>Record Score Unknown</button>
         </div>
     ),
 }))
@@ -1601,5 +1607,111 @@ describe('App', () => {
 
         expect(localStorage.getItem('reminder-schedule-1-2099-01-01T09:00:00.000Z')).toBeNull()
         expect(localStorage.getItem('unrelated-key')).toBe('keep')
+    })
+
+    describe('handleRecordScore', () => {
+        beforeEach(() => {
+            kvSeed['courses'] = [
+                {
+                    id: 'course-rs',
+                    title: 'Record Score Course',
+                    description: 'For testing',
+                    duration: 60,
+                    passScore: 80,
+                    modules: [],
+                    certifications: [],
+                    createdBy: 'admin-1',
+                    createdAt: '2024-01-01T00:00:00.000Z',
+                    published: true,
+                },
+            ]
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-rs-1',
+                    userId: 'admin-1',
+                    courseId: 'course-rs',
+                    sessionId: 'session-1',
+                    status: 'in-progress',
+                    progress: 50,
+                    enrolledAt: '2024-01-01T00:00:00.000Z',
+                },
+            ]
+        })
+
+        it('fires a completion notification when a passing score is submitted', async () => {
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+
+            await user.click(screen.getByRole('button', { name: /record score pass/i }))
+            expect(screen.getByText(/notification count:\s*2/i)).toBeInTheDocument()
+        })
+
+        it('does not fire a notification when a failing score is submitted', async () => {
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score fail/i }))
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
+
+        it('is a no-op when the enrollment ID is not found', async () => {
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score unknown/i }))
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
+
+        it('does not send a duplicate notification when enrollment is already completed', async () => {
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-rs-1',
+                    userId: 'admin-1',
+                    courseId: 'course-rs',
+                    sessionId: 'session-1',
+                    status: 'completed',
+                    progress: 100,
+                    enrolledAt: '2024-01-01T00:00:00.000Z',
+                },
+            ]
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score notify/i }))
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
+
+        it('uses default pass score of 80 and does not fire notification when course is not found', async () => {
+            // Override enrollments to have a courseId that has no matching course
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-rs-1',
+                    userId: 'admin-1',
+                    courseId: 'course-nonexistent',
+                    sessionId: 'session-1',
+                    status: 'in-progress',
+                    progress: 50,
+                    enrolledAt: '2024-01-01T00:00:00.000Z',
+                },
+            ]
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            // Score 90 >= default passScore 80, so notify=true, but course is undefined → no notification
+            await user.click(screen.getByRole('button', { name: /record score pass/i }))
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
     })
 })

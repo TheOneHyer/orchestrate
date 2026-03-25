@@ -449,4 +449,15 @@ describe('People', () => {
 
         expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
     })
+
+    it('does not show delete button in profile view for non-admin users', async () => {
+        const user = userEvent.setup()
+        const trainerUser = createUser({ id: 'u-trainer', name: 'Trainer User', role: 'trainer', email: 'trainer@example.com' })
+
+        renderPeople({ currentUser: trainerUser })
+
+        await user.click(screen.getByText('Trainer User'))
+        expect(screen.queryByRole('button', { name: /delete person/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /mock delete person/i })).not.toBeInTheDocument()
+    })
 })

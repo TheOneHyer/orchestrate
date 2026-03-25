@@ -9,7 +9,7 @@
 | Feature | Description |
 | --- | --- |
 | **Dashboard** | Role-specific home screen with key metrics, upcoming sessions, and live notifications |
-| **Multi-View Scheduling** | Calendar, Gantt, list, and Kanban views with drag-and-drop rescheduling and conflict detection |
+| **Multi-View Scheduling** | Calendar, list, and Kanban board views with drag-and-drop rescheduling and conflict detection (Gantt view: planned) |
 | **Schedule Templates** | Reusable recurring-session templates (daily / weekly / monthly / custom) |
 | **Courses** | Course catalog with module management, enrollment counts, and progress tracking |
 | **People** | Employee and trainer directory with profiles, certifications, and training history |
@@ -113,7 +113,10 @@ orchestrate/
 │   │   │   ├── CertificationDashboard.tsx
 │   │   │   ├── Notifications.tsx
 │   │   │   └── UserGuide.tsx
-│   │   ├── Dialogs/                   # Modal dialogs
+│   │   ├── AddPersonDialog.tsx        # Modal dialogs (co-located with components)
+│   │   ├── EnrollStudentsDialog.tsx
+│   │   ├── RecordScoreDialog.tsx
+│   │   ├── … (other dialog components)
 │   │   ├── charts/                    # D3 / Recharts visualisations
 │   │   └── ui/                        # shadcn/ui component library
 │   ├── hooks/                         # Custom React hooks
@@ -134,7 +137,7 @@ orchestrate/
 | Layer | Technology |
 | --- | --- |
 | Framework | React 19, TypeScript 5.7 |
-| Build Tool | Vite 7 with SWC |
+| Build Tool | Vite 8 with SWC |
 | Styling | Tailwind CSS 4, shadcn/ui, Radix UI |
 | State / Storage | `@github/spark` KV store (useKV hook) |
 | Charts | Recharts, D3.js |

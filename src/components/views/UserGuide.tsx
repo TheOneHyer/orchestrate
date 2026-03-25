@@ -83,20 +83,6 @@ function GuideList({ items }: { items: string[] }) {
   )
 }
 
-/**
- * Renders a single label–value pair used in guide reference tables.
- * @param label - The field label text.
- * @param value - The field value text.
- */
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-2 text-sm">
-      <span className="font-medium text-foreground min-w-32">{label}:</span>
-      <span className="text-muted-foreground">{value}</span>
-    </div>
-  )
-}
-
 const sections: Section[] = [
   {
     id: 'overview',

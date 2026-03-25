@@ -183,6 +183,17 @@ describe('risk-history-tracker', () => {
         expect(trend?.changeRate).toBe(0)
     })
 
+    it('keeps trend stable with exactly three snapshots when there is no older comparison window', () => {
+        const trend = analyzeRiskTrend(createTrainer(), [
+            createSnapshot({ id: 'e1', timestamp: '2026-03-10T12:00:00.000Z', riskScore: 52, riskLevel: 'high' }),
+            createSnapshot({ id: 'e2', timestamp: '2026-03-12T12:00:00.000Z', riskScore: 54, riskLevel: 'high' }),
+            createSnapshot({ id: 'e3', timestamp: '2026-03-15T12:00:00.000Z', riskScore: 53, riskLevel: 'high' }),
+        ], 'month')
+
+        expect(trend?.trendDirection).toBe('stable')
+        expect(trend?.changeRate).toBe(0)
+    })
+
     it('keeps trend stable when enough history exists but the average change stays within thresholds', () => {
         const trend = analyzeRiskTrend(createTrainer(), [
             createSnapshot({ id: 's1', timestamp: '2026-02-20T12:00:00.000Z', riskScore: 40, riskLevel: 'medium' }),

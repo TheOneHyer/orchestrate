@@ -39,6 +39,7 @@ import { getPreviewSeedMode, isPreviewSeedEnabled, PreviewSeedMode } from '@/lib
 import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
+import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
   dashboard: ['admin', 'trainer', 'employee'],
@@ -818,6 +819,49 @@ function App() {
   }, [setNotifications])
 
   /**
+   * Records a final assessment score for an enrollment and, when the score
+   * triggers a `'completed'` status transition for the first time, emits a
+   * completion notification to the enrolled student.
+   *
+   * Progress is always set to `100` and `completedAt` is stamped when a score
+   * is applied. A completion notification is only sent when the enrollment was
+   * previously NOT already in `'completed'` status, preventing duplicate alerts
+   * on subsequent score edits.
+   *
+   * @param enrollmentId - ID of the enrollment being scored.
+   * @param score - The assessment score (0–100 inclusive).
+   */
+  const handleRecordScore = useCallback((enrollmentId: string, score: number) => {
+    const enrollment = safeEnrollments.find((e) => e.id === enrollmentId)
+    if (!enrollment) return
+
+    const course = safeCourses.find((c) => c.id === enrollment.courseId)
+    const passScore = course?.passScore ?? 80
+
+    const update = applyScore(score, passScore)
+    const notify = shouldNotifyCompletion(enrollment.status, score, passScore)
+
+    setEnrollments((current) =>
+      (current || []).map((e) =>
+        e.id === enrollmentId ? { ...e, ...update } : e,
+      ),
+    )
+
+    if (notify && course) {
+      const student = safeUsers.find((u) => u.id === enrollment.userId)
+      handleCreateNotification({
+        userId: enrollment.userId,
+        type: 'completion',
+        title: `Course Completed — ${course.title}`,
+        message: `${student?.name ?? 'A student'} completed "${course.title}" with a score of ${score}%.`,
+        priority: 'medium',
+        read: false,
+        metadata: { enrollmentId, courseId: course.id, score },
+      })
+    }
+  }, [safeEnrollments, safeCourses, safeUsers, setEnrollments, handleCreateNotification])
+
+  /**
    * Returns the JSX for the currently active view, selected by the
    * `activeView` state string. Each case passes the relevant slice of
    * application state and the appropriate handler callbacks down to the
@@ -848,12 +892,14 @@ function App() {
             courses={visibleCourses}
             users={safeUsers}
             currentUser={currentUser}
+            enrollments={visibleEnrollments}
             onCreateSession={handleCreateSession}
             onUpdateSession={handleUpdateSession}
             onDeleteSession={handleDeleteSession}
             onNavigate={handleNavigate}
             navigationPayload={navigationPayload}
             onNavigationPayloadConsumed={clearNavigationPayload}
+            onRecordScore={handleRecordScore}
           />
         )
       case 'schedule-templates':

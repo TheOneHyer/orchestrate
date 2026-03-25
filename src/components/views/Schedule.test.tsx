@@ -4,7 +4,7 @@ import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Schedule } from './Schedule'
-import type { User, Course, Session } from '@/lib/types'
+import type { User, Course, Session, Enrollment } from '@/lib/types'
 import * as conflictDetection from '@/lib/conflict-detection'
 
 const toastError = vi.fn()
@@ -16,7 +16,6 @@ vi.mock('sonner', () => ({
     success: (...args: unknown[]) => toastSuccess(...args),
   },
 }))
-
 vi.mock('./AutoScheduler', () => ({
   AutoScheduler: ({
     onSessionsCreated,
@@ -63,6 +62,37 @@ vi.mock('@/components/EnrollStudentsDialog', () => ({
     ) : null
   ),
 }))
+
+vi.mock('@/components/RecordScoreDialog', () => ({
+  RecordScoreDialog: ({
+    open,
+    onOpenChange,
+    enrollment,
+    onSubmit,
+  }: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    enrollment: { id: string }
+    onSubmit: (enrollmentId: string, score: number) => void
+  }) => (
+    open ? (
+      <div data-testid="record-score-dialog">
+        <button data-testid="submit-score" onClick={() => onSubmit(enrollment.id, 88)}>Submit 88</button>
+        <button data-testid="close-score-dialog" onClick={() => onOpenChange(false)}>Close</button>
+      </div>
+    ) : null
+  ),
+}))
+
+const baseEnrollment: Enrollment = {
+  id: 'enroll-1',
+  userId: 'u-employee',
+  courseId: 'c-1',
+  sessionId: 's-1',
+  status: 'in-progress',
+  progress: 50,
+  enrolledAt: '2024-01-15T00:00:00.000Z',
+}
 
 const baseTrainer: User = {
   id: 'u-trainer',
@@ -1689,5 +1719,119 @@ describe('Schedule', () => {
     await user.click(emptyCellBody as HTMLElement)
 
     expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
+
+  describe('enrolled students list and record score', () => {
+    it('shows enrolled students list in session details when session has enrolled students', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.getByText('Evan Employee')).toBeInTheDocument()
+    })
+
+    it('shows enrollment status and score in the student row when enrollment has a score', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [{ ...baseEnrollment, score: 75, status: 'failed' }],
+        onRecordScore: vi.fn(),
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.getByText(/failed/i)).toBeInTheDocument()
+      expect(screen.getByText(/75%/i)).toBeInTheDocument()
+    })
+
+    it('shows Record Score button when canManageSchedule and onRecordScore are provided', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.getByTestId('record-score-btn-u-employee')).toBeInTheDocument()
+    })
+
+    it('does not show Record Score button when onRecordScore is not provided', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        // onRecordScore intentionally omitted
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.queryByTestId('record-score-btn-u-employee')).not.toBeInTheDocument()
+    })
+
+    it('does not show enrolled students section when session has no enrolled students', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        sessions: [{ ...baseSession, enrolledStudents: [] }],
+        enrollments: [],
+        onRecordScore: vi.fn(),
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.queryByText('Enrolled Students')).not.toBeInTheDocument()
+    })
+
+    it('opens RecordScoreDialog when Record Score is clicked and calls onRecordScore on submit', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const onRecordScore = vi.fn()
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore,
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+
+      await user.click(screen.getByTestId('submit-score'))
+      expect(onRecordScore).toHaveBeenCalledWith('enroll-1', 88)
+    })
+
+    it('closes RecordScoreDialog when onOpenChange(false) is called', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+
+      await user.click(screen.getByTestId('close-score-dialog'))
+      expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
+    })
+
+    it('skips rendering student rows whose userId is not found in users list', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        sessions: [{ ...baseSession, enrolledStudents: ['unknown-user-id'] }],
+        enrollments: [{ ...baseEnrollment, userId: 'unknown-user-id' }],
+        onRecordScore: vi.fn(),
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.getByText('Enrolled Students')).toBeInTheDocument()
+      expect(screen.queryByTestId('enrolled-student-unknown-user-id')).not.toBeInTheDocument()
+    })
   })
 })

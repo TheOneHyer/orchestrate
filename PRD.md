@@ -23,7 +23,7 @@ This is an enterprise-grade learning management and scheduling system that coord
 
 ### Multi-View Scheduling System
 
-- **Functionality**: Display training sessions in calendar, Gantt chart, list, and kanban board views with filtering
+- **Functionality**: Display training sessions in calendar, list, and Kanban board views with filtering and drag-and-drop rescheduling. A Gantt chart timeline view is planned for a future release.
 - **Purpose**: Accommodates different planning preferences and use cases (day planning vs. project timeline)
 - **Trigger**: Navigate to Schedule section, switch view toggle
 - **Progression**: Select schedule view → Apply filters (department/trainer/date) → Click session → Side panel opens → Edit or view full details
@@ -200,8 +200,8 @@ Animations should feel responsive and purposeful, reinforcing the connected natu
 
 - **Components**:
   - Calendar: Custom D3-based calendar with event blocks (shadcn calendar too limited)
-  - Gantt Chart: Custom D3 timeline with draggable sessions
-  - Kanban Board: Custom drag-drop using framer-motion with Card components
+  - Gantt Chart: Custom D3 timeline with draggable sessions *(planned — not yet implemented)*
+  - Kanban Board (Board view): Custom drag-drop using framer-motion with Card components
   - Side Panel: Sheet component for contextual editing
   - Forms: Form, Input, Select, Textarea, Checkbox, Switch components
   - Data Tables: Table component with sorting, filtering, pagination
@@ -210,7 +210,7 @@ Animations should feel responsive and purposeful, reinforcing the connected natu
   - Modals: Dialog component for confirmations and complex forms
   - Notifications: Toast (sonner) for system messages, custom notification panel for persistent items
   - Progress: Progress component for course completion
-  - Tabs: Tabs component for view switching (calendar/gantt/list/board)
+  - Tabs: Tabs component for view switching (calendar/list/board); gantt tab planned
   - Badges: Badge component for status indicators and counts
   - Avatars: Avatar component for user representations
   - Buttons: Button component with primary (blue), secondary (outline), and destructive variants
@@ -264,5 +264,5 @@ Animations should feel responsive and purposeful, reinforcing the connected natu
   - Tables convert to stacked card layout with key fields prominent
   - Multi-column dashboards stack vertically
   - Touch targets minimum 44px height for all interactive elements
-  - Gantt chart shows compressed timeline with horizontal scroll
+  - Gantt chart shows compressed timeline with horizontal scroll *(planned)*
   - Forms display single column with full-width inputs

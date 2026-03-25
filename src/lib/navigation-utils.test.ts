@@ -133,4 +133,9 @@ describe('normalizeNavigationValue', () => {
             view: 'burnout-dashboard',
         })
     })
+    it('returns the two-segment path as view when segment is not people or schedule', () => {
+        expect(normalizeNavigationValue('/training/module-1')).toEqual({
+            view: 'training/module-1',
+        })
+    })
 })
