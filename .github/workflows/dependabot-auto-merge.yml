@@ -186,13 +186,12 @@ jobs:
                 return;
               }
 
-              if (pullRequest.mergeable_state === 'behind') {
-                              if (pullRequest.draft) {
-                                core.notice('Pull request is draft. Skipping auto-merge.');
-                                return;
-                              }
+              if (pullRequest.draft) {
+                core.notice('Pull request is draft. Skipping auto-merge.');
+                return;
+              }
 
-                              if (pullRequest.mergeable_state === 'behind') {
+              if (pullRequest.mergeable_state === 'behind') {
                 core.notice('A new commit left the PR behind main. Branch updates via GITHUB_TOKEN do not trigger new CI runs, so manual intervention is required.');
                 await upsertComment([
                   '## Dependabot auto-merge skipped',
