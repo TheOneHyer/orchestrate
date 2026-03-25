@@ -24,6 +24,8 @@ export function createDefaultModuleContent(contentType: Module['contentType']): 
       }
     case 'text':
       return { body: '' }
+    default:
+      throw new Error(`Unsupported module content type: ${String(contentType)}`)
   }
 }
 
