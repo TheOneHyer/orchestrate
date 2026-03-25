@@ -99,6 +99,12 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
     ? utilizationTrends.find(t => t.trainerId === selectedTrainer)
     : null
 
+  /**
+   * Returns the icon component that represents the given burnout risk level.
+   *
+   * @param level - Risk level string (`'critical'`, `'high'`, `'medium'`, or other).
+   * @returns A Phosphor icon element styled for the risk level.
+   */
   const getRiskIcon = (level: string) => {
     switch (level) {
       case 'critical':
@@ -112,6 +118,12 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
     }
   }
 
+  /**
+   * Returns the badge variant string for the given burnout risk level.
+   *
+   * @param level - Risk level string (`'critical'`, `'high'`, `'medium'`, or other).
+   * @returns A shadcn Badge variant name.
+   */
   const getRiskColor = (level: string) => {
     switch (level) {
       case 'critical':

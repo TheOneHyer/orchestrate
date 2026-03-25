@@ -207,7 +207,7 @@ vi.mock('@/components/views/Schedule', () => ({
         onMarkAttendance,
     }: {
         sessions: Array<{ id: string; title: string; status: string }>
-        attendanceRecords?: Array<{ id: string; notes?: string }>
+        attendanceRecords?: Array<{ id: string; userId: string; status: string; notes?: string }>
         onCreateSession: (session: unknown) => void
         onUpdateSession: (id: string, session: unknown) => void
         onDeleteSession?: (id: string) => void
@@ -219,6 +219,11 @@ vi.mock('@/components/views/Schedule', () => ({
             <div>Session Count: {sessions.length}</div>
             <div>Attendance Count: {attendanceRecords?.length ?? 0}</div>
             <div>Attendance Notes: {attendanceRecords?.[0]?.notes ?? ''}</div>
+            {attendanceRecords?.map((record) => (
+                <div key={record.id} data-testid={`attendance-record-${record.id}`}>
+                    {record.userId}: {record.status}
+                </div>
+            ))}
             {sessions.map((session) => (
                 <div key={session.id}>{session.id}|{session.title} ({session.status})</div>
             ))}
@@ -1701,6 +1706,8 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^mark present$/i }))
 
         expect(screen.getByText(/attendance count:\s*2/i)).toBeInTheDocument()
+        expect(screen.getByTestId('attendance-record-attendance-1')).toHaveTextContent('trainer-1: present')
+        expect(screen.getByTestId('attendance-record-attendance-2')).toHaveTextContent('someone-else: present')
     })
 
     it('preserves existing attendance notes when status is updated without notes', async () => {

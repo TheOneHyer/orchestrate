@@ -20,6 +20,7 @@ import { createDefaultModuleContent, normalizeCourseModules, summarizeModuleTitl
 import { formatDuration } from '@/lib/helpers'
 import { Course, Enrollment, Module, User } from '@/lib/types'
 
+/** Form state shape used by the course editor dialog. */
 interface CourseEditorState {
   title: string
   description: string
@@ -53,6 +54,12 @@ const courseEditorSchema = z.object({
   })).min(1, 'At least one module is required.'),
 })
 
+/**
+ * Returns the human-readable message of the first validation error found in the form errors map.
+ *
+ * @param errors - The React Hook Form `FieldErrors` object for `CourseEditorState`.
+ * @returns The first error message string, or a generic fallback.
+ */
 function getFirstValidationErrorMessage(errors: FieldErrors<CourseEditorState>): string {
   if (typeof errors.title?.message === 'string') {
     return errors.title.message
@@ -312,6 +319,10 @@ export function Courses({
       return
     }
 
+    if (courses.length === 0) {
+      return
+    }
+
     const latestCourse = courses.find((course) => course.id === selectedCourse.id)
     if (!latestCourse) {
       setSelectedCourse(null)
@@ -324,17 +335,34 @@ export function Courses({
     }
   }, [courses, selectedCourse])
 
+  /**
+   * Returns the enrollment record for the given course belonging to the current user, if any.
+   *
+   * @param courseId - The course ID to look up.
+   * @returns The matching `Enrollment`, or `undefined` when none exists.
+   */
   const getEnrollmentForCourse = (courseId: string) => {
     return enrollments.find((enrollment) => enrollment.courseId === courseId && enrollment.userId === currentUser.id)
   }
 
   const canCreateCourse = currentUser.role === 'admin' || currentUser.role === 'trainer'
+  /** Returns `true` when the current user has permission to manage (edit/delete) the given course. */
   const canManageCourse = (course: Course) => currentUser.role === 'admin' || course.createdBy === currentUser.id
 
+  /**
+   * Navigates to the course detail view for the given course.
+   *
+   * @param course - The course to open.
+   */
   const handleOpenCourse = (course: Course) => {
     onNavigate('courses', { courseId: course.id })
   }
 
+  /**
+   * Opens the course editor dialog, optionally pre-populated with an existing course.
+   *
+   * @param course - The course to edit; omit to open the editor for a new course.
+   */
   const handleOpenEditor = (course?: Course) => {
     setDetailDialogOpen(false)
     setEditingCourse(course || null)
@@ -342,12 +370,19 @@ export function Courses({
     setEditorDialogOpen(true)
   }
 
+  /** Resets the editor form and closes the course editor dialog. */
   const handleCloseEditor = () => {
     reset(initialEditorState)
     setEditingCourse(null)
     setEditorDialogOpen(false)
   }
 
+  /**
+   * Merges partial updates into the module at the given index in the form.
+   *
+   * @param index - Index of the module to update.
+   * @param updates - Partial module fields to apply.
+   */
   const handleModuleChange = (index: number, updates: Partial<Module>) => {
     const currentModule = getValues(`moduleDetails.${index}`)
     if (!currentModule) {
@@ -357,6 +392,12 @@ export function Courses({
     setValue(`moduleDetails.${index}`, { ...currentModule, ...updates }, { shouldDirty: true, shouldValidate: true })
   }
 
+  /**
+   * Updates the content type of the module at the given index and resets its content to the default for that type.
+   *
+   * @param index - Index of the module to update.
+   * @param contentType - The new content type to apply.
+   */
   const handleModuleContentTypeChange = (index: number, contentType: Module['contentType']) => {
     handleModuleChange(index, {
       contentType,
@@ -364,6 +405,7 @@ export function Courses({
     })
   }
 
+  /** Appends a new default module to the course's module list. */
   const handleAddModule = () => {
     const currentModules = getValues('moduleDetails')
     append({
@@ -377,6 +419,12 @@ export function Courses({
     })
   }
 
+  /**
+   * Moves the module at the given index one step in the specified direction.
+   *
+   * @param index - Index of the module to move.
+   * @param direction - `-1` to move up, `1` to move down.
+   */
   const handleMoveModule = (index: number, direction: -1 | 1) => {
     const nextIndex = index + direction
     if (nextIndex < 0 || nextIndex >= moduleFields.length) {
@@ -388,12 +436,23 @@ export function Courses({
     replace(reordered)
   }
 
+  /**
+   * Removes the module at the given index and reorders the remaining modules.
+   *
+   * @param index - Index of the module to remove.
+   */
   const handleRemoveModule = (index: number) => {
     remove(index)
     const reordered = getValues('moduleDetails').map((moduleItem, order) => ({ ...moduleItem, order }))
     replace(reordered)
   }
 
+  /**
+   * Transforms the validated editor form values into a course data payload ready for persistence.
+   *
+   * @param values - Validated `CourseEditorState` form values.
+   * @returns An object containing all normalized course fields.
+   */
   const buildCoursePayload = (values: CourseEditorState) => {
     const title = values.title.trim()
     const description = values.description.trim()
@@ -506,6 +565,7 @@ export function Courses({
     })
   })
 
+  /** Guards against missing permissions and callbacks before triggering the async course save. */
   const handleSaveButtonClick = () => {
     if (editingCourse) {
       if (!canManageCourse(editingCourse)) {
@@ -540,6 +600,7 @@ export function Courses({
     void handleSaveCourse()
   }
 
+  /** Confirms and deletes the currently selected course, also removing linked sessions. */
   const handleDeleteSelectedCourse = async () => {
     if (!selectedCourse || !onDeleteCourse || !canManageCourse(selectedCourse) || isDeleting) {
       return
@@ -570,6 +631,7 @@ export function Courses({
     }
   }
 
+  /** Toggles the published state of the selected course and persists the change. */
   const handlePublishToggle = async () => {
     if (!selectedCourse || !onUpdateCourse || !canManageCourse(selectedCourse) || isPublishing) {
       return

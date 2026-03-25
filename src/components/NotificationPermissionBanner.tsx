@@ -49,6 +49,7 @@ export function NotificationPermissionBanner() {
     setIsVisible(true)
   }, [isSupported, settings?.permission, dismissed])
 
+  /** Requests browser notification permission and dismisses the banner on success or denial. */
   const handleEnableNotifications = async () => {
     if (isRequesting) {
       return
@@ -78,6 +79,7 @@ export function NotificationPermissionBanner() {
     }
   }
 
+  /** Dismisses the notification permission banner without requesting permission. */
   const handleDismiss = () => {
     setDismissed(true)
   }

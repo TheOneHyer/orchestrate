@@ -43,6 +43,12 @@ export function WorkloadDistribution({ data, trainers }: WorkloadDistributionPro
     return 'hsl(var(--chart-2))'
   }
 
+  /**
+   * Returns the CSS class name corresponding to the workload risk level.
+   *
+   * @param utilization - Utilization percentage (0–100+).
+   * @returns A `risk-indicator-*` CSS class name.
+   */
   const getRiskClass = (utilization: number) => {
     if (utilization >= 95) return 'risk-indicator-critical'
     if (utilization >= 85) return 'risk-indicator-high'
@@ -50,6 +56,12 @@ export function WorkloadDistribution({ data, trainers }: WorkloadDistributionPro
     return 'risk-indicator-low'
   }
 
+  /**
+   * Returns a human-readable risk label for the given utilization percentage.
+   *
+   * @param utilization - Utilization percentage (0–100+).
+   * @returns One of `'Critical risk'`, `'High risk'`, `'Medium risk'`, or `'Low risk'`.
+   */
   const getRiskLabel = (utilization: number) => {
     if (utilization >= 95) return 'Critical risk'
     if (utilization >= 85) return 'High risk'

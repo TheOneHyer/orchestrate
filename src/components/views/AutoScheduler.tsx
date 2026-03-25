@@ -69,6 +69,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
 
   const selectedCourseData = courses.find(c => c.id === selectedCourse)
 
+  /** Runs feasibility analysis and trainer availability lookup for the selected course and date. */
   const analyzeFeasibility = () => {
     if (!selectedCourse || !startDate) {
       toast.error('Please fill in all required fields')
@@ -112,6 +113,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
     }, 1000)
   }
 
+  /** Runs the automatic scheduler to assign the best available trainer and create sessions. */
   const executeAutoSchedule = () => {
     if (!selectedCourse || !startDate) {
       toast.error('Please fill in all required fields')

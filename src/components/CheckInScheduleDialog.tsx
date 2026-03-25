@@ -69,8 +69,8 @@ export function CheckInScheduleDialog({
   )
   const [notes, setNotes] = useState(existingSchedule?.notes || '')
 
+  /** Builds the schedule data object and invokes `onSubmit`. */
   const handleSubmit = () => {
-    if (!trainerId) return
 
     const scheduleData: Omit<CheckInSchedule, 'id' | 'createdAt' | 'completedCheckIns' | 'missedCheckIns'> = {
       trainerId,
@@ -92,6 +92,7 @@ export function CheckInScheduleDialog({
     handleClose()
   }
 
+  /** Resets all form fields to their default values. */
   const handleClose = () => {
     if (!existingSchedule) {
       setTrainerId('')

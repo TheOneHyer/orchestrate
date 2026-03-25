@@ -65,6 +65,7 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
     ]
   )
 
+  /** Appends a new default session to the template's session list. */
   const handleAddSession = () => {
     setSessions([
       ...sessions,
@@ -79,14 +80,26 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
     ])
   }
 
+  /**
+   * Removes the session at the given index from the template.
+   *
+   * @param index - Index of the session to remove.
+   */
   const handleRemoveSession = (index: number) => {
     setSessions(sessions.filter((_, i) => i !== index))
   }
 
+  /**
+   * Merges partial updates into the session at the given index.
+   *
+   * @param index - Index of the session to update.
+   * @param updates - Partial session fields to apply.
+   */
   const handleUpdateSession = (index: number, updates: Partial<ScheduleTemplateSession>) => {
     setSessions(sessions.map((session, i) => (i === index ? { ...session, ...updates } : session)))
   }
 
+  /** Adds the current tag input value to the template's tag list if it is non-empty and unique. */
   const handleAddTag = () => {
     if (tagInput.trim() && !tags.includes(tagInput.trim())) {
       setTags([...tags, tagInput.trim()])
@@ -94,12 +107,17 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
     }
   }
 
+  /**
+   * Removes the given tag from the template's tag list.
+   *
+   * @param tag - The tag string to remove.
+   */
   const handleRemoveTag = (tag: string) => {
     setTags(tags.filter(t => t !== tag))
   }
 
+  /** Validates required fields and invokes `onSave` with the assembled template data. */
   const handleSave = () => {
-    if (!name.trim() || sessions.length === 0) return
 
     onSave({
       name: name.trim(),

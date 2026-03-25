@@ -137,6 +137,7 @@ export function RecoveryPlanDialog({
     }
   }, [open, latestCheckIn, currentUtilization])
 
+  /** Validates required fields and invokes `onSubmit` with the constructed recovery plan. */
   const handleSubmit = () => {
     setSubmitAttempted(true)
 
@@ -165,6 +166,7 @@ export function RecoveryPlanDialog({
     handleClose()
   }
 
+  /** Resets all dialog fields to their initial state and calls `onClose`. */
   const handleClose = () => {
     setTargetUtilization(70)
     setDurationWeeks(4)
@@ -176,6 +178,11 @@ export function RecoveryPlanDialog({
     onClose()
   }
 
+  /**
+   * Appends a new recovery action of the given type, pre-populated from the action templates.
+   *
+   * @param type - The kind of recovery action to add.
+   */
   const addAction = (type: RecoveryAction) => {
     const newAction: Omit<RecoveryPlanAction, 'id'> = {
       type,
@@ -186,12 +193,24 @@ export function RecoveryPlanDialog({
     setActions([...actions, newAction])
   }
 
+  /**
+   * Updates a single field on the recovery action at the given index.
+   *
+   * @param index - Index of the action to update.
+   * @param field - The field key to change (excluding `id`).
+   * @param value - The new value for the field.
+   */
   const updateAction = (index: number, field: keyof Omit<RecoveryPlanAction, 'id'>, value: any) => {
     const updated = [...actions]
     updated[index] = { ...updated[index], [field]: value }
     setActions(updated)
   }
 
+  /**
+   * Removes the recovery action at the given index.
+   *
+   * @param index - Index of the action to remove.
+   */
   const removeAction = (index: number) => {
     setActions(actions.filter((_, idx) => idx !== index))
   }

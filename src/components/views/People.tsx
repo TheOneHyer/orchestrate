@@ -118,6 +118,12 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     return matchesSearch && matchesRole
   })
 
+  /**
+   * Returns total, completed, and in-progress enrollment counts for the given user.
+   *
+   * @param userId - The user ID to look up enrollments for.
+   * @returns An object with `total`, `completed`, and `inProgress` counts.
+   */
   const getUserEnrollmentStats = (userId: string) => {
     const userEnrollments = enrollments.filter(e => e.userId === userId)
     return {
@@ -127,14 +133,25 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     }
   }
 
+  /**
+   * Sets the selected user to display in the detail panel.
+   *
+   * @param user - The user to select.
+   */
   const handleUserClick = (user: User) => {
     setSelectedUser(user)
   }
 
+  /** Opens the trainer profile edit dialog for the selected user. */
   const handleEditProfile = () => {
     setEditDialogOpen(true)
   }
 
+  /**
+   * Persists the updated user and refreshes the selected user display.
+   *
+   * @param updatedUser - The updated user object to save.
+   */
   const handleSaveProfile = (updatedUser: User) => {
     if (onUpdateUser) {
       onUpdateUser(updatedUser)
@@ -143,6 +160,11 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     setEditDialogOpen(false)
   }
 
+  /**
+   * Saves the new user and closes the add-person dialog.
+   *
+   * @param newUser - The newly created user object.
+   */
   const handleAddPerson = (newUser: User) => {
     if (onAddUser) {
       onAddUser(newUser)
@@ -150,6 +172,12 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     setAddDialogOpen(false)
   }
 
+  /**
+   * Stores the user to delete and shows the delete confirmation dialog.
+   *
+   * @param user - The user targeted for deletion.
+   * @param e - Optional mouse event; when provided, propagation is stopped.
+   */
   const handleDeleteClick = (user: User, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation()
@@ -158,6 +186,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
     setDeleteDialogOpen(true)
   }
 
+  /** Deletes the stored user, clears the selection if needed, and closes the confirmation dialog. */
   const handleConfirmDelete = () => {
     if (userToDelete && onDeleteUser) {
       onDeleteUser(userToDelete.id)

@@ -71,6 +71,7 @@ describe('use-certification-notifications', () => {
     })
 
     afterEach(() => {
+        vi.restoreAllMocks()
         vi.useRealTimers()
     })
 

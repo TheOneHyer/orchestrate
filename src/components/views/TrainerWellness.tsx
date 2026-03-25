@@ -148,6 +148,11 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
   const totalActiveRecoveryPlans = safeRecoveryPlans.filter(p => p.status === 'active').length
   const pendingFollowUps = safeCheckIns.filter(c => c.followUpRequired && !c.followUpCompleted).length
 
+  /**
+   * Records a new wellness check-in and conditionally recommends a recovery plan.
+   *
+   * @param checkInData - The check-in fields excluding auto-generated `id` and `timestamp`.
+   */
   const handleCreateCheckIn = (checkInData: Omit<WellnessCheckIn, 'id' | 'timestamp'>) => {
     const newCheckIn: WellnessCheckIn = {
       ...checkInData,
@@ -190,6 +195,11 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
     }
   }
 
+  /**
+   * Creates and persists a new trainer recovery plan.
+   *
+   * @param plan - The recovery plan fields excluding auto-generated `id` and `createdAt`.
+   */
   const handleCreateRecoveryPlan = (plan: Omit<RecoveryPlan, 'id' | 'createdAt'>) => {
     const newPlan: RecoveryPlan = {
       ...plan,
@@ -205,6 +215,11 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
     })
   }
 
+  /**
+   * Creates a new check-in schedule or updates an existing one if `editingSchedule` is set.
+   *
+   * @param scheduleData - The schedule fields excluding auto-generated `id`, `createdAt`, and counters.
+   */
   const handleCreateOrUpdateSchedule = (scheduleData: Omit<CheckInSchedule, 'id' | 'createdAt' | 'completedCheckIns' | 'missedCheckIns'>) => {
     if (editingSchedule) {
       setSchedules((current) =>
@@ -235,6 +250,11 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
     setEditingSchedule(undefined)
   }
 
+  /**
+   * Toggles the schedule's status between `'active'` and `'paused'`.
+   *
+   * @param scheduleId - ID of the schedule to toggle.
+   */
   const handleToggleScheduleStatus = (scheduleId: string) => {
     setSchedules((current) =>
       (current || []).map(s =>
@@ -245,6 +265,11 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
     )
   }
 
+  /**
+   * Permanently removes the check-in schedule with the given ID.
+   *
+   * @param scheduleId - ID of the schedule to delete.
+   */
   const handleDeleteSchedule = (scheduleId: string) => {
     setSchedules((current) => (current || []).filter(s => s.id !== scheduleId))
     toast.success('Schedule Deleted', {
@@ -252,6 +277,12 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
     })
   }
 
+  /**
+   * Returns the Tailwind background color class for the given wellness status.
+   *
+   * @param status - The wellness status string.
+   * @returns A `bg-*` Tailwind class.
+   */
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'excellent': return 'bg-green-500'
@@ -263,6 +294,12 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
     }
   }
 
+  /**
+   * Returns a styled Badge element for the given wellness status string.
+   *
+   * @param status - The wellness status string.
+   * @returns A Badge JSX element.
+   */
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'excellent': return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Excellent</Badge>
@@ -533,6 +570,12 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
                   const isOverdue = daysUntilNext < 0
                   const isDueSoon = daysUntilNext >= 0 && daysUntilNext <= 2
 
+                  /**
+                   * Returns a human-readable label for the given check-in frequency.
+                   *
+                   * @param freq - The frequency identifier string.
+                   * @returns A localized label string.
+                   */
                   const getFrequencyLabel = (freq: string) => {
                     switch (freq) {
                       case 'daily': return 'Daily'

@@ -81,6 +81,7 @@ export function ManageCertificationsDialog({
     prevOpenRef.current = open
   }, [open, certifications])
 
+  /** Adds a new certification record from the form, or replaces the one currently being edited. */
   const handleAdd = () => {
     if (!formData.certificationName || !formData.issuedDate || !formData.expirationDate) {
       return
@@ -109,11 +110,21 @@ export function ManageCertificationsDialog({
     setFormData(getEmptyFormData())
   }
 
+  /**
+   * Populates the form with an existing certification for editing.
+   *
+   * @param index - Index of the certification in the local list.
+   */
   const handleEdit = (index: number) => {
     setEditingIndex(index)
     setFormData(localCerts[index])
   }
 
+  /**
+   * Removes a certification from the local list and adjusts the editing index accordingly.
+   *
+   * @param index - Index of the certification to remove.
+   */
   const handleDelete = (index: number) => {
     setLocalCerts(localCerts.filter((_, i) => i !== index))
 
@@ -130,11 +141,13 @@ export function ManageCertificationsDialog({
     }
   }
 
+  /** Persists the local certification list via `onSave` and closes the dialog. */
   const handleSave = () => {
     onSave(localCerts)
     onOpenChange(false)
   }
 
+  /** Discards local changes by resetting the certification list to the original prop value. */
   const handleCancel = () => {
     setLocalCerts(certifications)
     setEditingIndex(null)

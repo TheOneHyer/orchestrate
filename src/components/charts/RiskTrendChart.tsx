@@ -71,6 +71,7 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
     return `Utilization average ${average.toFixed(1)}% trend ${trendDirection}`
   }, [chartData, showUtilization])
 
+  /** Renders a custom tooltip showing date and metric values for the hovered chart point. */
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload

@@ -125,6 +125,11 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     })
   }
 
+  /**
+   * Removes the shift schedule at the given index from the trainer profile.
+   *
+   * @param index - Index of the shift schedule to remove.
+   */
   const removeShiftSchedule = (index: number) => {
     if (!editedUser.trainerProfile) return
 
@@ -137,6 +142,12 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     })
   }
 
+  /**
+   * Merges partial updates into the shift schedule at the given index and recalculates weekly hours.
+   *
+   * @param index - Index of the shift schedule to update.
+   * @param updates - Partial shift schedule fields to apply.
+   */
   const updateShiftSchedule = (index: number, updates: Partial<ShiftSchedule>) => {
     if (!editedUser.trainerProfile) return
 
@@ -156,6 +167,12 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     })
   }
 
+  /**
+   * Toggles whether the given day is marked as worked in a specific shift schedule.
+   *
+   * @param scheduleIndex - Index of the shift schedule to modify.
+   * @param day - The day of the week to toggle.
+   */
   const toggleDayWorked = (scheduleIndex: number, day: DayOfWeek) => {
     if (!editedUser.trainerProfile) return
 
@@ -167,6 +184,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     updateShiftSchedule(scheduleIndex, { daysWorked })
   }
 
+  /** Appends the current `newRole` input value to the trainer's authorized roles list. */
   const addAuthorizedRole = () => {
     if (!editedUser.trainerProfile || !newRole.trim()) return
 
@@ -180,6 +198,11 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     setNewRole('')
   }
 
+  /**
+   * Removes the specified role from the trainer's authorized roles list.
+   *
+   * @param role - The role string to remove.
+   */
   const removeAuthorizedRole = (role: string) => {
     if (!editedUser.trainerProfile) return
 
@@ -192,6 +215,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     })
   }
 
+  /** Appends the current `newSpecialization` input value to the trainer's specializations list. */
   const addSpecialization = () => {
     if (!editedUser.trainerProfile || !newSpecialization.trim()) return
 
@@ -205,6 +229,11 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     setNewSpecialization('')
   }
 
+  /**
+   * Removes the specified specialization from the trainer's specializations list.
+   *
+   * @param spec - The specialization string to remove.
+   */
   const removeSpecialization = (spec: string) => {
     if (!editedUser.trainerProfile) return
 
@@ -217,11 +246,17 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     })
   }
 
+  /** Persists the edited trainer profile via `onSave` and closes the dialog. */
   const handleSave = () => {
     onSave(editedUser)
     onOpenChange(false)
   }
 
+  /**
+   * Updates the trainer profile's certification records in local state.
+   *
+   * @param certifications - The new array of certification records to apply.
+   */
   const handleCertificationsSave = (certifications: CertificationRecord[]) => {
     if (!editedUser.trainerProfile) return
 

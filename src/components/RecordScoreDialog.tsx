@@ -26,13 +26,14 @@ import type { Course, Enrollment, User } from '@/lib/types'
 
 const scoreSchema = z.object({
     score: z
-        .number({ invalid_type_error: 'Please enter a whole number between 0 and 100.' })
+    .number({ message: 'Please enter a whole number between 0 and 100.' })
         .int('Please enter a whole number between 0 and 100.')
         .min(0, 'Please enter a whole number between 0 and 100.')
         .max(100, 'Please enter a whole number between 0 and 100.')
         .optional(),
 })
 
+/** Form values inferred from the score validation schema. */
 type ScoreFormValues = z.infer<typeof scoreSchema>
 
 /** Props for the RecordScoreDialog component. */
@@ -85,7 +86,7 @@ export function RecordScoreDialog({
 
     useEffect(() => {
         form.reset({ score: enrollment.score ?? undefined })
-    }, [open, enrollment.id, enrollment.score, form])
+    }, [open, enrollment.id, enrollment.score, form.reset])
 
     const score = form.watch('score')
     const hasScore = typeof score === 'number'
@@ -94,6 +95,7 @@ export function RecordScoreDialog({
     const wouldPass = canSubmit && score >= course.passScore
     const wouldFail = canSubmit && !wouldPass
 
+    /** Submits the validated score and closes the dialog. */
     function handleSubmit(values: ScoreFormValues) {
         if (values.score === undefined) {
             return

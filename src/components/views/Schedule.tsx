@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -247,12 +247,12 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
 
     return selectedSession.enrolledStudents.filter((studentId) => studentId === currentUser.id)
   }, [currentUser.id, currentUser.role, selectedSession])
-  const recordScoreContext = useMemo(() => {
-    if (!recordScoreEnrollmentId || !onRecordScore) {
+  const resolveRecordScoreContext = useCallback((enrollmentId: string | null) => {
+    if (!enrollmentId || !onRecordScore) {
       return null
     }
 
-    const enrollment = (enrollments ?? []).find((entry) => entry.id === recordScoreEnrollmentId)
+    const enrollment = (enrollments ?? []).find((entry) => entry.id === enrollmentId)
     if (!enrollment) {
       return null
     }
@@ -272,7 +272,19 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
       course,
       student,
     }
-  }, [courses, enrollments, onRecordScore, recordScoreEnrollmentId, usersById])
+  }, [courses, enrollments, onRecordScore, usersById])
+
+  const recordScoreContext = useMemo(() => {
+    return resolveRecordScoreContext(recordScoreEnrollmentId)
+  }, [recordScoreEnrollmentId, resolveRecordScoreContext])
+
+  const handleOpenRecordScore = useCallback((enrollmentId: string) => {
+    if (!resolveRecordScoreContext(enrollmentId)) {
+      return
+    }
+
+    setRecordScoreEnrollmentId(enrollmentId)
+  }, [resolveRecordScoreContext])
 
   useEffect(() => {
     if (hasCreatePayload(navigationPayload)) {
@@ -309,22 +321,42 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     onNavigationPayloadConsumed?.()
   }, [navigationPayload, onNavigationPayloadConsumed, sessions])
 
+  /**
+   * Opens the session detail side sheet for the given session.
+   *
+   * @param session - The session to display.
+   */
   const handleSessionClick = (session: Session) => {
     setSelectedSession(session)
     setSheetOpen(true)
   }
 
+  /**
+   * Creates all sessions returned by the auto-scheduler and closes the auto-scheduler dialog.
+   *
+   * @param sessions - Partial session objects to create.
+   */
   const handleAutoSchedule = (sessions: Partial<Session>[]) => {
     sessions.forEach(session => onCreateSession(session))
     setAutoSchedulerOpen(false)
   }
 
+  /**
+   * Creates all sessions returned by the guided scheduler and closes the guided-scheduler dialog.
+   *
+   * @param sessions - Partial session objects to create.
+   */
   const handleGuidedSchedule = (sessions: Partial<Session>[]) => {
     sessions.forEach(session => onCreateSession(session))
     setGuidedSchedulerOpen(false)
     setGuidedSchedulerPrefilledDate(null)
   }
 
+  /**
+   * Opens the guided scheduler dialog, optionally pre-filling the date.
+   *
+   * @param prefilledDate - When provided, the scheduler starts with this date selected.
+   */
   const handleOpenGuidedScheduler = (prefilledDate?: Date) => {
     if (prefilledDate) {
       setGuidedSchedulerPrefilledDate(prefilledDate)
@@ -334,6 +366,11 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     setGuidedSchedulerOpen(true)
   }
 
+  /**
+   * Enrolls the given students in the currently selected session.
+   *
+   * @param studentIds - IDs of the students to enroll.
+   */
   const handleEnrollStudents = (studentIds: string[]) => {
     if (!selectedSession) return
 
@@ -352,8 +389,8 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     })
   }
 
+  /** Populates the edit form with the selected session's values and opens the edit dialog. */
   const handleEditClick = () => {
-    if (!selectedSession) return
 
     setEditingSession(selectedSession)
     setEditForm({
@@ -368,8 +405,8 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     setSheetOpen(false)
   }
 
+  /** Validates and persists the current edit form values for the selected session. */
   const handleSaveSessionEdit = () => {
-    if (!editingSession) return
 
     const trimmedTitle = editForm.title.trim()
     const trimmedLocation = editForm.location.trim()
@@ -483,6 +520,11 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
   const canManageSchedule = allowedScheduleManagers.includes(currentUser.role)
   const canDeleteSession = currentUser.role === 'admin' && typeof onDeleteSession === 'function'
 
+  /**
+   * Moves the current calendar date by one period in the given direction, or resets to today.
+   *
+   * @param direction - `'prev'` to go back, `'next'` to go forward, `'today'` to reset.
+   */
   const navigateDate = (direction: 'prev' | 'next' | 'today') => {
     if (direction === 'today') {
       setCurrentDate(new Date())
@@ -499,6 +541,12 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     }
   }
 
+  /**
+   * Initiates a drag-and-drop operation for a calendar session card.
+   *
+   * @param e - The React drag event.
+   * @param session - The session being dragged.
+   */
   const handleDragStart = (e: React.DragEvent, session: Session) => {
     if (!canManageSchedule) {
       return
@@ -512,6 +560,12 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     }
   }
 
+  /**
+   * Handles a session card being dropped onto a board status column, updating the session's status.
+   *
+   * @param e - The React drag event.
+   * @param status - The target status column.
+   */
   const handleBoardColumnDrop = (e: React.DragEvent, status: Session['status']) => {
     e.preventDefault()
 
@@ -536,6 +590,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     setDraggedSession(null)
   }
 
+  /** Confirms and permanently deletes the currently selected session. */
   const handleDeleteSelectedSession = () => {
     if (!selectedSession || !canDeleteSession) {
       return
@@ -554,6 +609,11 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     })
   }
 
+  /**
+   * Cleans up drag state after a drag operation ends.
+   *
+   * @param e - The React drag event.
+   */
   const handleDragEnd = (e: React.DragEvent) => {
     setDraggedSession(null)
     setDragOverDay(null)
@@ -563,6 +623,12 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     }
   }
 
+  /**
+   * Updates drag-over state and checks for scheduling conflicts as the user drags over a calendar day.
+   *
+   * @param e - The React drag event.
+   * @param day - The calendar day being dragged over.
+   */
   const handleDragOver = (e: React.DragEvent, day: Date) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
@@ -597,11 +663,18 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     }
   }
 
+  /** Clears the drag-over highlight and conflict messages when the cursor leaves a calendar day. */
   const handleDragLeave = () => {
     setDragOverDay(null)
     setDragConflicts([])
   }
 
+  /**
+   * Handles a session card being dropped on a calendar day, rescheduling the session to that date.
+   *
+   * @param e - The React drag event.
+   * @param targetDay - The calendar day the session was dropped onto.
+   */
   const handleDrop = (e: React.DragEvent, targetDay: Date) => {
     e.preventDefault()
     setDragOverDay(null)
@@ -653,6 +726,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     setDraggedSession(null)
   }
 
+  /** Renders the daily calendar view showing sessions for the current date. */
   const renderDailyView = () => {
     const isToday = isSameDay(currentDate, new Date())
     const daySessions = filteredSessions
@@ -780,6 +854,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     )
   }
 
+  /** Renders the weekly calendar view showing sessions for the current week. */
   const renderWeeklyView = () => {
     const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 })
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -879,6 +954,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     )
   }
 
+  /** Renders the monthly calendar view showing sessions for the current month. */
   const renderMonthlyView = () => {
     const monthStart = startOfMonth(currentDate)
     const monthEnd = endOfMonth(currentDate)
@@ -990,12 +1066,14 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     )
   }
 
+  /** Renders the appropriate calendar sub-view (daily, weekly, or monthly) based on the active period. */
   const renderCalendarView = () => {
     if (calendarPeriod === 'day') return renderDailyView()
     if (calendarPeriod === 'week') return renderWeeklyView()
     return renderMonthlyView()
   }
 
+  /** Renders a flat chronological list of all filtered sessions. */
   const renderListView = () => {
     const sortedSessions = [...filteredSessions].sort((a, b) =>
       new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
@@ -1056,6 +1134,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     )
   }
 
+  /** Renders the kanban board view with sessions grouped into status columns. */
   const renderBoardView = () => {
     const statusGroups = {
       scheduled: filteredSessions.filter(s => s.status === 'scheduled'),
@@ -1332,6 +1411,13 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
                         const student = usersById.get(studentId)
                         const sessionEnrollment = selectedSessionEnrollments.get(studentId)
                         const attendanceRecord = selectedSessionAttendance.get(studentId)
+                        const canRecordScoreForEnrollment = Boolean(
+                          canManageSchedule &&
+                          onRecordScore &&
+                          sessionEnrollment &&
+                          courses.some((course) => course.id === sessionEnrollment.courseId) &&
+                          usersById.has(sessionEnrollment.userId)
+                        )
                         if (!student) return null
                         return (
                           <div
@@ -1380,11 +1466,11 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
                                   </Button>
                                 </>
                               )}
-                              {canManageSchedule && onRecordScore && sessionEnrollment && (
+                              {canRecordScoreForEnrollment && sessionEnrollment && (
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => setRecordScoreEnrollmentId(sessionEnrollment.id)}
+                                  onClick={() => handleOpenRecordScore(sessionEnrollment.id)}
                                   data-testid={`record-score-btn-${studentId}`}
                                 >
                                   Record Score
@@ -1578,6 +1664,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
   )
 }
 
+/** Props for the RecordScoreDialogWrapper component. */
 interface RecordScoreDialogWrapperProps {
   context: {
     enrollment: Enrollment
@@ -1589,6 +1676,10 @@ interface RecordScoreDialogWrapperProps {
   onRecordScore?: ScheduleProps['onRecordScore']
 }
 
+/**
+ * Thin wrapper that syncs the score dialog's open state with the enrollment context and renders
+ * a `RecordScoreDialog` when context and a matching enrollment ID are both present.
+ */
 function RecordScoreDialogWrapper({
   context,
   recordScoreEnrollmentId,

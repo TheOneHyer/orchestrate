@@ -145,6 +145,7 @@ export function ApplyTemplateDialog({ open, onOpenChange, template, onApply }: A
     return sessions
   }
 
+  /** Generates sessions from the template and passes them to `onApply`. */
   const handleApply = () => {
     const sessions = generateSessions()
     onApply(sessions)

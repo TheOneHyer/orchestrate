@@ -335,6 +335,13 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
     const trainerIds = trainers.map(trainer => trainer.id)
     const employeeIds = employees.map(employee => employee.id)
 
+    /**
+     * Builds an array of enrolled student IDs by cycling through the employee pool.
+     *
+     * @param offset - Starting index into the employee ID array.
+     * @param desiredCount - Number of student IDs to include.
+     * @returns An array of `desiredCount` employee IDs.
+     */
     const buildEnrolledStudents = (offset: number, desiredCount: number): string[] => {
         return Array.from({ length: desiredCount }, (_, index) => employeeIds[(offset + index) % employeeIds.length])
     }

@@ -131,6 +131,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
   const selectedCourseData = courses.find(c => c.id === selectedCourse)
 
+  /** Runs trainer analysis for the selected course and start date and populates trainer insights. */
   const analyzeTrainers = () => {
     if (!selectedCourse || !startDate) {
       toast.error('Please fill in all required fields')
@@ -258,11 +259,17 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     }
   }
 
+  /**
+   * Sets the selected trainer and advances the wizard to the confirmation step.
+   *
+   * @param trainerId - The ID of the trainer to select.
+   */
   const handleTrainerSelect = (trainerId: string) => {
     setSelectedTrainerId(trainerId)
     setStep('confirmation')
   }
 
+  /** Creates sessions for the selected trainer and course, then invokes `onSchedule`. */
   const confirmAndSchedule = () => {
     if (!selectedTrainerId) {
       toast.error('Please select a trainer')
@@ -312,6 +319,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
   const selectedTrainerInsights = trainerInsights.find(t => t.trainer.id === selectedTrainerId)
 
+  /** Renders the first wizard step where the user configures session parameters. */
   const renderParametersStep = () => (
     <Card>
       <CardHeader>
@@ -439,8 +447,15 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     </Card>
   )
 
+  /** Returns the Tailwind color class for the given trainer recommendation level. */
   const getRecommendationColor = (level: TrainerInsights['recommendationLevel']) => recommendationColorClasses[level]
 
+  /**
+   * Returns the icon component for the given trainer recommendation level.
+   *
+   * @param level - The recommendation level to get an icon for.
+   * @returns A Phosphor icon element.
+   */
   const getRecommendationIcon = (level: TrainerInsights['recommendationLevel']) => {
     switch (level) {
       case 'optimal': return <Sparkle size={20} weight="fill" className="text-green-600" />
@@ -450,8 +465,10 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     }
   }
 
+  /** Returns the display label string for the given trainer recommendation level. */
   const getRecommendationText = (level: TrainerInsights['recommendationLevel']) => recommendationLabels[level]
 
+  /** Renders the second wizard step where the user selects a trainer from the analyzed options. */
   const renderTrainerSelectionStep = () => {
     const filteredInsights = hideUnconfigured
       ? trainerInsights.filter(insights =>
@@ -674,6 +691,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     )
   }
 
+  /** Renders the third wizard step where the user reviews and confirms the scheduled sessions. */
   const renderConfirmationStep = () => (
     <div className="space-y-4">
       <Card>

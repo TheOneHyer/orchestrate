@@ -57,6 +57,7 @@ export function AddCertificationDialog({ users, onAddCertification }: AddCertifi
     }
   }
 
+  /** Validates form fields and submits the new certification to all selected trainers. */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 

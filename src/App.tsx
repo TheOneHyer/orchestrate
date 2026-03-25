@@ -1,7 +1,10 @@
-import { useState, useCallback, useEffect, useMemo, type FormEvent } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useKV } from '@github/spark/hooks'
+import { useForm } from 'react-hook-form'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
+import { z } from 'zod'
 import { Layout } from '@/components/Layout'
 import { Dashboard } from '@/components/views/Dashboard'
 import { Schedule } from '@/components/views/Schedule'
@@ -88,6 +91,20 @@ function createEntityId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
 }
 
+const signInSchema = z.object({
+  email: z.string().min(1, 'Email is required').email('Enter a valid email address.'),
+  password: z.string().min(1, 'Password is required'),
+})
+
+const firstAdminSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required'),
+  email: z.string().min(1, 'Email is required').email('Enter a valid email address.'),
+  password: z.string().min(1, 'Password is required'),
+})
+
+type SignInFormValues = z.infer<typeof signInSchema>
+type FirstAdminFormValues = z.infer<typeof firstAdminSchema>
+
 /**
  * Root application component for the Orchestrate training management platform.
  *
@@ -106,13 +123,30 @@ function createEntityId(prefix: string) {
 function App() {
   const [activeView, setActiveView] = useState('dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
-  const [firstAdminName, setFirstAdminName] = useState('')
-  const [loginEmail, setLoginEmail] = useState('')
-  const [loginPassword, setLoginPassword] = useState('')
+
+  const signInForm = useForm<SignInFormValues>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+    mode: 'onSubmit',
+  })
+
+  const firstAdminForm = useForm<FirstAdminFormValues>({
+    resolver: zodResolver(firstAdminSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+    },
+    mode: 'onSubmit',
+  })
 
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
   const previewMode = !import.meta.env.PROD
+  const useServerAuth = import.meta.env.VITE_USE_SERVER_AUTH === 'true'
 
   const [users, setUsers] = useKV<User[]>('users', [])
   const [activeUserId, setActiveUserId] = useKV<string>('active-user-id', '')
@@ -558,11 +592,9 @@ function App() {
   // SECURITY NOTE: `authPasswords` stores plaintext demo credentials for preview-only flows.
   // This is not production-safe; replace with server-side auth (hashed passwords over TLS,
   // and token-based sessions or OAuth) before shipping.
-  const handleSignIn = useCallback(async (event?: FormEvent<HTMLFormElement>) => {
-    event?.preventDefault()
-
-    const email = loginEmail.trim().toLowerCase()
-    const password = loginPassword
+  const handleSignIn = useCallback(async (values: SignInFormValues) => {
+    const email = values.email.trim().toLowerCase()
+    const password = values.password
 
     if (!email || !password) {
       toast.error('Sign-in failed', {
@@ -571,7 +603,34 @@ function App() {
       return
     }
 
-    if (!previewMode) {
+    const authenticateLocally = (): boolean => {
+      const matchedUser = safeUsers.find((user) => user.email.trim().toLowerCase() === email)
+      if (!matchedUser) {
+        toast.error('Sign-in failed', {
+          description: 'No account matches that email address.',
+        })
+        return false
+      }
+
+      const expectedPassword = authPasswords?.[matchedUser.id]
+      if (!expectedPassword || expectedPassword !== password) {
+        toast.error('Sign-in failed', {
+          description: 'Incorrect password.',
+        })
+        return false
+      }
+
+      setActiveUserId(matchedUser.id)
+      setActiveView('dashboard')
+      setNavigationPayload(null)
+      signInForm.setValue('password', '')
+      toast.success('Signed in', {
+        description: `Welcome back, ${matchedUser.name}.`,
+      })
+      return true
+    }
+
+    if (!previewMode && useServerAuth) {
       try {
         const response = await fetch('/api/auth/sign-in', {
           method: 'POST',
@@ -582,9 +641,12 @@ function App() {
         })
 
         if (!response.ok) {
-          toast.error('Sign-in failed', {
-            description: 'Authentication failed. Verify your credentials and try again.',
-          })
+          const authenticated = authenticateLocally()
+          if (!authenticated) {
+            toast.error('Sign-in failed', {
+              description: 'Authentication failed. Verify your credentials and try again.',
+            })
+          }
           return
         }
 
@@ -604,58 +666,46 @@ function App() {
         setActiveUserId(authenticatedUserId)
         setActiveView('dashboard')
         setNavigationPayload(null)
-        setLoginPassword('')
+        signInForm.setValue('password', '')
         toast.success('Signed in', {
           description: `Welcome back, ${authenticatedUser?.name ?? email}.`,
         })
       } catch {
-        toast.error('Sign-in failed', {
-          description: 'Unable to reach the authentication service.',
-        })
+        const authenticated = authenticateLocally()
+        if (!authenticated) {
+          toast.error('Sign-in failed', {
+            description: 'Unable to reach the authentication service.',
+          })
+        }
       }
       return
     }
 
-    const matchedUser = safeUsers.find((user) => user.email.trim().toLowerCase() === email)
-    if (!matchedUser) {
-      toast.error('Sign-in failed', {
-        description: 'No account matches that email address.',
-      })
-      return
-    }
-
-    const expectedPassword = authPasswords?.[matchedUser.id]
-    if (!expectedPassword || expectedPassword !== password) {
-      toast.error('Sign-in failed', {
-        description: 'Incorrect password.',
-      })
-      return
-    }
-
-    setActiveUserId(matchedUser.id)
-    setActiveView('dashboard')
-    setNavigationPayload(null)
-    setLoginPassword('')
-    toast.success('Signed in', {
-      description: `Welcome back, ${matchedUser.name}.`,
-    })
-  }, [authPasswords, loginEmail, loginPassword, previewMode, safeUsers, setActiveUserId])
+    authenticateLocally()
+  }, [authPasswords, previewMode, safeUsers, setActiveUserId, signInForm, useServerAuth])
 
   const handleSignOut = useCallback(() => {
     setActiveUserId('')
     setActiveView('dashboard')
     setNavigationPayload(null)
-    setLoginPassword('')
-  }, [setActiveUserId])
+    signInForm.setValue('password', '')
+  }, [setActiveUserId, signInForm])
 
-  const createFirstAdmin = useCallback(() => {
+  const createFirstAdmin = useCallback((values: FirstAdminFormValues) => {
     if (hasPersistedUsers) {
       return
     }
 
-    const name = firstAdminName.trim()
-    const email = loginEmail.trim().toLowerCase()
-    const password = loginPassword
+    if (!previewMode) {
+      toast.error('Setup unavailable', {
+        description: 'Initial admin bootstrap in this client flow is preview-only.',
+      })
+      return
+    }
+
+    const name = values.name.trim()
+    const email = values.email.trim().toLowerCase()
+    const password = values.password
 
     if (!name || !email || !password) {
       toast.error('Setup incomplete', {
@@ -677,22 +727,18 @@ function App() {
     }
 
     setUsers([firstAdmin])
-
-    if (previewMode) {
-      setAuthPasswords({ [firstAdmin.id]: password })
-    }
+    setAuthPasswords({ [firstAdmin.id]: password })
 
     setActiveUserId(firstAdmin.id)
     setActiveView('dashboard')
     setNavigationPayload(null)
-    setFirstAdminName('')
-    setLoginEmail('')
-    setLoginPassword('')
+    firstAdminForm.reset()
+    signInForm.reset({ email: '', password: '' })
 
     toast.success('First admin created', {
       description: `${name} can now manage the workspace.`,
     })
-  }, [firstAdminName, hasPersistedUsers, loginEmail, loginPassword, previewMode, setActiveUserId, setAuthPasswords, setUsers])
+  }, [firstAdminForm, hasPersistedUsers, previewMode, setActiveUserId, setAuthPasswords, setUsers, signInForm])
 
   const handleAssignRole = useCallback((userId: string, role: User['role']) => {
     const targetUser = safeUsers.find((entry) => entry.id === userId)
@@ -721,7 +767,24 @@ function App() {
 
       return existingUsers.map((entry) => (
         entry.id === userId
-          ? { ...entry, role, updatedAt: new Date().toISOString() }
+          ? {
+            ...entry,
+            role,
+            trainerProfile: role === 'trainer' && !entry.trainerProfile
+              ? {
+                authorizedRoles: [],
+                shiftSchedules: [],
+                tenure: {
+                  hireDate: entry.hireDate,
+                  yearsOfService: 0,
+                  monthsOfService: 0,
+                },
+                specializations: [],
+                certificationRecords: [],
+              }
+              : entry.trainerProfile,
+            updatedAt: new Date().toISOString(),
+          }
           : entry
       ))
     })
@@ -736,6 +799,16 @@ function App() {
     })
   }, [activeUserId, activeView, safeUsers, setUsers])
 
+  /**
+   * Applies partial updates to a session, returning a new session object.
+   * Shows a concurrent-edit warning toast when the stored `updatedAt` timestamp
+   * differs from the expected one supplied in `updates`.
+   *
+   * @param session - The existing session to update.
+   * @param id - The ID of the session to match; unmatched sessions are returned unchanged.
+   * @param updates - Partial session fields to merge in.
+   * @returns The updated session with a fresh `updatedAt` timestamp.
+   */
   const applySessionUpdates = (session: Session, id: string, updates: Partial<Session>): Session => {
     if (session.id !== id) {
       return session
@@ -753,6 +826,16 @@ function App() {
     return { ...session, ...sessionUpdates, updatedAt: new Date().toISOString() }
   }
 
+  /**
+   * Applies partial updates to a user, returning a new user object.
+   * Shows a concurrent-edit warning toast when the stored `updatedAt` timestamp
+   * differs from the expected one supplied in `updates`.
+   *
+   * @param user - The existing user to update.
+   * @param id - The ID of the user to match; unmatched users are returned unchanged.
+   * @param updates - Partial user fields to merge in.
+   * @returns The updated user with a fresh `updatedAt` timestamp.
+   */
   const applyUserUpdates = (user: User, id: string, updates: Partial<User>): User => {
     if (user.id !== id) {
       return user
@@ -773,6 +856,16 @@ function App() {
     }
   }
 
+  /**
+   * Applies partial updates to a course, returning a new course object.
+   * Shows a concurrent-edit warning toast when the stored `updatedAt` timestamp
+   * differs from the expected one supplied in `updates`.
+   *
+   * @param course - The existing course to update.
+   * @param id - The ID of the course to match; unmatched courses are returned unchanged.
+   * @param updates - Partial course fields to merge in.
+   * @returns The updated course with a fresh `updatedAt` timestamp.
+   */
   const applyCourseUpdates = (course: Course, id: string, updates: Partial<Course>): Course => {
     if (course.id !== id) {
       return course
@@ -1479,15 +1572,17 @@ function App() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <form className="space-y-4" onSubmit={firstAdminForm.handleSubmit(createFirstAdmin)}>
                   <div className="space-y-2">
                     <Label htmlFor="setup-name">Name</Label>
                     <Input
                       id="setup-name"
                       placeholder="Administrator"
-                      value={firstAdminName}
-                      onChange={(event) => setFirstAdminName(event.target.value)}
+                      {...firstAdminForm.register('name')}
                     />
+                    {firstAdminForm.formState.errors.name && (
+                      <p className="text-sm text-destructive">{firstAdminForm.formState.errors.name.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="setup-email">Email</Label>
@@ -1495,23 +1590,27 @@ function App() {
                       id="setup-email"
                       type="email"
                       placeholder="admin@company.com"
-                      value={loginEmail}
-                      onChange={(event) => setLoginEmail(event.target.value)}
+                      {...firstAdminForm.register('email')}
                     />
+                    {firstAdminForm.formState.errors.email && (
+                      <p className="text-sm text-destructive">{firstAdminForm.formState.errors.email.message}</p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="setup-password">Password</Label>
                     <Input
                       id="setup-password"
                       type="password"
-                      value={loginPassword}
-                      onChange={(event) => setLoginPassword(event.target.value)}
+                      {...firstAdminForm.register('password')}
                     />
+                    {firstAdminForm.formState.errors.password && (
+                      <p className="text-sm text-destructive">{firstAdminForm.formState.errors.password.message}</p>
+                    )}
                   </div>
-                  <Button type="button" className="w-full" onClick={createFirstAdmin}>
+                  <Button type="submit" className="w-full">
                     Create First Admin
                   </Button>
-                </div>
+                </form>
               </CardContent>
             </Card>
           </div>
@@ -1531,25 +1630,29 @@ function App() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form className="space-y-4" onSubmit={handleSignIn}>
+              <form className="space-y-4" onSubmit={signInForm.handleSubmit(handleSignIn)}>
                 <div className="space-y-2">
                   <Label htmlFor="login-email">Email</Label>
                   <Input
                     id="login-email"
                     type="email"
                     placeholder="name@company.com"
-                    value={loginEmail}
-                    onChange={(event) => setLoginEmail(event.target.value)}
+                    {...signInForm.register('email')}
                   />
+                  {signInForm.formState.errors.email && (
+                    <p className="text-sm text-destructive">{signInForm.formState.errors.email.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Password</Label>
                   <Input
                     id="login-password"
                     type="password"
-                    value={loginPassword}
-                    onChange={(event) => setLoginPassword(event.target.value)}
+                    {...signInForm.register('password')}
                   />
+                  {signInForm.formState.errors.password && (
+                    <p className="text-sm text-destructive">{signInForm.formState.errors.password.message}</p>
+                  )}
                 </div>
                 <Button type="submit" className="w-full">
                   Sign In

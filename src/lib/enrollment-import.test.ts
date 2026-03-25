@@ -93,7 +93,7 @@ describe('enrollment-import', () => {
     })
   })
 
-  it('applies first-match-wins semantics when two students share the same id', () => {
+  it('deduplicates duplicate ids when two students share the same id', () => {
     const duplicateIdStudents: User[] = [
       { id: 'stu-1', name: 'Alice Adams', email: 'alice@example.com', role: 'employee', department: 'Ops', certifications: [], hireDate: '2025-01-01' },
       { id: 'stu-1', name: 'Alice Clone', email: 'alice-clone@example.com', role: 'employee', department: 'Ops', certifications: [], hireDate: '2025-01-01' },
