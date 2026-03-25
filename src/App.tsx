@@ -106,7 +106,32 @@ function createEntityId(prefix: string) {
 function App() {
   const [activeView, setActiveView] = useState('dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
-  const [showSetup, setShowSetup] = useState(false)
+  const [firstAdminName, setFirstAdminName] = useState('')
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  // ... rest of state declarations
+
+  const hasPersistedUsers = safeUsers.length > 0
+  const showSetup = !hasPersistedUsers
+
+  // ... rest of component logic
+
+  const createFirstAdmin = useCallback(() => {
+    if (!firstAdminName.trim()) return
+    const firstAdmin: User = {
+      id: generateId(),
+      name: firstAdminName,
+      email: `admin-${Date.now()}@local`,
+      role: 'admin',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    setUsers((currentUsers) => [...(currentUsers || []), firstAdmin])
+    setActiveUserId(firstAdmin.id)
+    setActiveView('dashboard')
+    setNavigationPayload(null)
+    setFirstAdminName('')
+  }, [])
   const [firstAdminName, setFirstAdminName] = useState('')
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
