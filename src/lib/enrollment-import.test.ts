@@ -85,4 +85,33 @@ describe('enrollment-import', () => {
       unmatched: ['Ben Brown', 'alex'],
     })
   })
+
+  it('matches a student via email local-part when not already in the matched set', () => {
+    expect(matchStudentsByIdentifiers(['alice'], students)).toEqual({
+      matchedIds: ['stu-1'],
+      unmatched: [],
+    })
+  })
+
+  it('applies first-match-wins semantics when two students share the same id', () => {
+    const duplicateIdStudents: User[] = [
+      { id: 'stu-1', name: 'Alice Adams', email: 'alice@example.com', role: 'employee', department: 'Ops', certifications: [], hireDate: '2025-01-01' },
+      { id: 'stu-1', name: 'Alice Clone', email: 'alice-clone@example.com', role: 'employee', department: 'Ops', certifications: [], hireDate: '2025-01-01' },
+    ]
+    expect(matchStudentsByIdentifiers(['stu-1'], duplicateIdStudents)).toEqual({
+      matchedIds: ['stu-1'],
+      unmatched: [],
+    })
+  })
+
+  it('applies first-match-wins semantics when two students share the same email', () => {
+    const duplicateEmailStudents: User[] = [
+      { id: 'stu-1', name: 'Alice Adams', email: 'shared@example.com', role: 'employee', department: 'Ops', certifications: [], hireDate: '2025-01-01' },
+      { id: 'stu-2', name: 'Bob Brown', email: 'shared@example.com', role: 'employee', department: 'HR', certifications: [], hireDate: '2025-01-01' },
+    ]
+    expect(matchStudentsByIdentifiers(['shared@example.com'], duplicateEmailStudents)).toEqual({
+      matchedIds: ['stu-1'],
+      unmatched: [],
+    })
+  })
 })

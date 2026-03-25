@@ -490,6 +490,52 @@ describe('use-certification-notifications', () => {
 
         expiringSpy.mockRestore()
     })
+
+    it('safely skips alerts for a userId not present in the users array', () => {
+        const trainer = createTrainer('trainer-real', createCertRecord(10, 0))
+        const expiringSpy = vi.spyOn(certificationTracker, 'getExpiringCertifications').mockReturnValue([
+            {
+                userId: 'ghost-user-not-in-array',
+                userName: 'Ghost User',
+                certification: createCertRecord(10, 0),
+                daysUntilExpiration: 10,
+                urgency: 'high',
+            },
+        ])
+
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications([trainer], onCreateNotification, onUpdateUsers))
+
+        expect(onCreateNotification).not.toHaveBeenCalled()
+        expect(onUpdateUsers).not.toHaveBeenCalled()
+
+        expiringSpy.mockRestore()
+    })
+
+    it('safely skips alerts when the certification name does not match any record', () => {
+        const trainer = createTrainer('trainer-no-cert-match', createCertRecord(10, 0))
+        const expiringSpy = vi.spyOn(certificationTracker, 'getExpiringCertifications').mockReturnValue([
+            {
+                userId: trainer.id,
+                userName: trainer.name,
+                certification: { ...createCertRecord(10, 0), certificationName: 'Nonexistent Cert XYZ' },
+                daysUntilExpiration: 10,
+                urgency: 'high',
+            },
+        ])
+
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications([trainer], onCreateNotification, onUpdateUsers))
+
+        expect(onCreateNotification).not.toHaveBeenCalled()
+        expect(onUpdateUsers).not.toHaveBeenCalled()
+
+        expiringSpy.mockRestore()
+    })
 })
 
 it('emits no notifications when users array is empty', () => {

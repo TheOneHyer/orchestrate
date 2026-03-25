@@ -1795,6 +1795,22 @@ describe('Schedule', () => {
     expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
   })
 
+  it('opens guided scheduler when clicking an empty week calendar cell body as a manager', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: { ...baseTrainer, role: 'admin' }, sessions: [] })
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+
+    const emptyCellBody = Array.from(document.querySelectorAll('[data-calendar-cell-body]')).find((cell) => {
+      return !cell.querySelector('[draggable]')
+    })
+
+    expect(emptyCellBody).not.toBeUndefined()
+    await user.click(emptyCellBody as HTMLElement)
+
+    expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
+
   describe('enrolled students list and record score', () => {
     it('shows enrolled students list in session details when session has enrolled students', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 })
@@ -2132,5 +2148,29 @@ describe('Schedule', () => {
       expect(screen.getByText('Enrolled Students')).toBeInTheDocument()
       expect(screen.queryByTestId('enrolled-student-unknown-user-id')).not.toBeInTheDocument()
     })
+  })
+
+  it('opens session details when a session card is clicked in the weekly calendar view', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule()
+
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+    await user.click(screen.getByText(/morning safety session/i))
+
+    expect(screen.getByRole('heading', { name: /morning safety session/i })).toBeInTheDocument()
+  })
+
+  it('resets the monthly view back to today when the Today button is clicked in month view', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule()
+
+    const monthHeadingBefore = screen.getByRole('heading', { level: 3 }).textContent
+    await user.click(screen.getByRole('button', { name: /next month/i }))
+    expect(screen.getByRole('heading', { level: 3 }).textContent).not.toEqual(monthHeadingBefore)
+
+    await user.click(screen.getByRole('button', { name: /^today$/i }))
+    expect(screen.getByRole('heading', { level: 3 }).textContent).toEqual(monthHeadingBefore)
   })
 })

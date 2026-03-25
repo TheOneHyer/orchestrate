@@ -165,7 +165,7 @@ export function Notifications({
       case 'completion':
         return <CheckCircleFilled size={20} className={className} />
       default:
-        return <Info size={20} className={className} />
+        return <Info size={20} className={className} data-testid="icon-info" />
     }
   }
 

@@ -397,4 +397,65 @@ describe('ManageCertificationsDialog', () => {
     expect(within(renewingContainer).getByText(/renewal required/i, { selector: 'span' })).toBeInTheDocument()
     expect(within(expiredContainer).queryByText(/renewal required/i, { selector: 'span' })).not.toBeInTheDocument()
   })
+
+  it('does not add a certification when issued date is missing', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ManageCertificationsDialog
+        {...defaultProps}
+        certifications={[]}
+      />
+    )
+
+    await user.type(screen.getByLabelText(/certification name/i), 'Confined Space')
+    await user.type(screen.getByLabelText(/expiration date/i), '2030-01-01')
+    const addButton = screen.getByRole('button', { name: /^add certification$/i })
+    expect(addButton).toBeDisabled()
+    await user.click(addButton)
+
+    expect(screen.queryByTestId('certification-item-confined-space-0')).not.toBeInTheDocument()
+  })
+
+  it('does not add a certification when expiration date is missing', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <ManageCertificationsDialog
+        {...defaultProps}
+        certifications={[]}
+      />
+    )
+
+    await user.type(screen.getByLabelText(/certification name/i), 'HAZWOPER')
+    await user.type(screen.getByLabelText(/issued date/i), '2024-01-01')
+    const addButton = screen.getByRole('button', { name: /^add certification$/i })
+    expect(addButton).toBeDisabled()
+    await user.click(addButton)
+
+    expect(screen.queryByTestId('certification-item-hazwoper-0')).not.toBeInTheDocument()
+  })
+
+  it('clears edit mode when the certification currently being edited is deleted', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+
+    render(
+      <ManageCertificationsDialog
+        {...defaultProps}
+        onSave={onSave}
+        certifications={[makeCert({ certificationName: 'First Aid' }), makeCert({ certificationName: 'CPR' })]}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /edit certification first aid/i }))
+    expect(screen.getByRole('button', { name: /update certification/i })).toBeInTheDocument()
+
+    // Delete the same certification that is currently being edited
+    await user.click(screen.getByRole('button', { name: /delete certification first aid/i }))
+
+    expect(onSave).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: /update certification/i })).not.toBeInTheDocument()
+    expect(screen.queryByText('First Aid')).not.toBeInTheDocument()
+  })
 })

@@ -109,32 +109,6 @@ function App() {
   const [firstAdminName, setFirstAdminName] = useState('')
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
-  // ... rest of state declarations
-
-  const hasPersistedUsers = safeUsers.length > 0
-  const showSetup = !hasPersistedUsers
-
-  // ... rest of component logic
-
-  const createFirstAdmin = useCallback(() => {
-    if (!firstAdminName.trim()) return
-    const firstAdmin: User = {
-      id: generateId(),
-      name: firstAdminName,
-      email: `admin-${Date.now()}@local`,
-      role: 'admin',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    setUsers((currentUsers) => [...(currentUsers || []), firstAdmin])
-    setActiveUserId(firstAdmin.id)
-    setActiveView('dashboard')
-    setNavigationPayload(null)
-    setFirstAdminName('')
-  }, [])
-  const [firstAdminName, setFirstAdminName] = useState('')
-  const [loginEmail, setLoginEmail] = useState('')
-  const [loginPassword, setLoginPassword] = useState('')
 
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
@@ -391,10 +365,6 @@ function App() {
   const safeEnrollments = enrollments || []
   const safeNotifications = notifications || []
   const hasPersistedUsers = safeUsers.length > 0
-
-  useEffect(() => {
-    setShowSetup(!hasPersistedUsers)
-  }, [hasPersistedUsers])
 
   const fallbackUser = useMemo<User>(() => ({
     id: '1',
@@ -715,7 +685,6 @@ function App() {
     setActiveUserId(firstAdmin.id)
     setActiveView('dashboard')
     setNavigationPayload(null)
-    setShowSetup(false)
     setFirstAdminName('')
     setLoginEmail('')
     setLoginPassword('')
@@ -1488,7 +1457,7 @@ function App() {
   }
 
   if (!activeUserId) {
-    if (!hasPersistedUsers || showSetup) {
+    if (!hasPersistedUsers) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
