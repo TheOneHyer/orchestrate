@@ -25,6 +25,7 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+      checks: read
     env:
       COMMENT_MARKER: '<!-- dependabot-auto-merge -->'
       MANUAL_RESOLUTION_MENTION: '@${{ github.repository_owner }}'
