@@ -79,10 +79,6 @@ export function NotificationPermissionBanner() {
   }
 
   const handleDismiss = () => {
-    if (isRequesting) {
-      return
-    }
-
     setDismissed(true)
   }
 

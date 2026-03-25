@@ -28,6 +28,10 @@ describe('course-modules', () => {
     })
   })
 
+  it('throws for unsupported module content types', () => {
+    expect(() => createDefaultModuleContent('unsupported' as Module['contentType'])).toThrow(/unsupported module content type/i)
+  })
+
   it('normalizes legacy string modules into structured modules', () => {
     const course = createCourse({ modules: ['Intro', 'Quiz'] })
 

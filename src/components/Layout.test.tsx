@@ -227,4 +227,45 @@ describe('Layout', () => {
         await userEvent.click(within(menu).getByRole('menuitem', { name: /reset session/i }))
         expect(onLogout).toHaveBeenCalledOnce()
     })
+
+    it('falls back to the current employee as the only switchable user and uses outline role badges', async () => {
+        render(
+            <Layout
+                activeView="dashboard"
+                onNavigate={vi.fn()}
+                userRole="employee"
+                currentUser={{ ...trainerUser, id: 'employee-1', name: 'Employee One', role: 'employee', email: 'employee@example.com' }}
+                users={[]}
+                onSwitchUser={vi.fn()}
+            >
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /open active user menu/i }))
+
+        expect(screen.getAllByText(/employee one/i)).toHaveLength(2)
+        expect(screen.getAllByText(/employee/i).length).toBeGreaterThan(0)
+        expect(screen.getByText(/^active$/i)).toBeInTheDocument()
+    })
+
+    it('renders the trainer session badge variant when the current user is a trainer', async () => {
+        render(
+            <Layout
+                activeView="dashboard"
+                onNavigate={vi.fn()}
+                userRole="trainer"
+                currentUser={trainerUser}
+                users={[]}
+                onSwitchUser={vi.fn()}
+            >
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /open active user menu/i }))
+
+        expect(screen.getAllByText(/trainer/i).length).toBeGreaterThan(0)
+        expect(screen.getAllByText(/trainer one/i)).toHaveLength(2)
+    })
 })

@@ -85,6 +85,47 @@ describe('useNotificationSound', () => {
         expect(result.current.settings.quietHours.allowCritical).toBe(true)
     })
 
+    it('falls back to default settings when persisted settings are undefined and merges updates from defaults', () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([undefined, setter] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+
+        expect(result.current.settings.enabled).toBe(true)
+        expect(result.current.settings.soundType).toBe('pleasant')
+
+        act(() => {
+            result.current.updateSettings({ enabled: false })
+        })
+
+        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: unknown) => Record<string, unknown>
+        const merged = updaterFn(undefined)
+
+        expect(merged.enabled).toBe(false)
+        expect(merged.volume).toBe(0.4)
+        expect(merged.soundType).toBe('pleasant')
+    })
+
+    it('falls back to default settings when persisted settings are undefined and merges updates from defaults', () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([undefined, setter] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+
+        expect(result.current.settings.enabled).toBe(true)
+        expect(result.current.settings.soundType).toBe('pleasant')
+
+        act(() => {
+            result.current.updateSettings({ enabled: false })
+        })
+
+        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: unknown) => Record<string, unknown>
+        const merged = updaterFn(undefined)
+        expect(merged.enabled).toBe(false)
+        expect(merged.volume).toBe(0.4)
+        expect(merged.soundType).toBe('pleasant')
+    })
+
     it('updateSettings merges partial changes without losing other settings', () => {
         const setter = vi.fn()
         vi.mocked(useKV).mockReturnValue([
@@ -301,6 +342,63 @@ describe('useNotificationSound', () => {
         expect(consoleErrorSpy).toHaveBeenCalled()
 
         consoleErrorSpy.mockRestore()
+    })
+
+    it('falls back to webkitAudioContext when AudioContext is unavailable', () => {
+        vi.stubGlobal('AudioContext', undefined)
+        Object.defineProperty(window, 'webkitAudioContext', {
+            configurable: true,
+            writable: true,
+            value: MockAudioContext,
+        })
+
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                volume: 0.4,
+                soundType: 'pleasant',
+                quietHours: { enabled: false, startTime: '22:00', endTime: '08:00', allowCritical: true }
+            },
+            vi.fn()
+        ] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+
+        act(() => {
+            result.current.playSound('medium')
+        })
+
+        expect(MockAudioContext).toHaveBeenCalledOnce()
+
+        vi.stubGlobal('AudioContext', MockAudioContext)
+    })
+
+    it('falls back to webkitAudioContext when AudioContext is unavailable', () => {
+        vi.stubGlobal('AudioContext', undefined)
+        Object.defineProperty(window, 'webkitAudioContext', {
+            configurable: true,
+            writable: true,
+            value: MockAudioContext,
+        })
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                volume: 0.4,
+                soundType: 'pleasant',
+                quietHours: { enabled: false, startTime: '22:00', endTime: '08:00', allowCritical: true }
+            },
+            vi.fn()
+        ] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+
+        act(() => {
+            result.current.playSound('medium')
+        })
+
+        expect(MockAudioContext).toHaveBeenCalledOnce()
+
+        vi.stubGlobal('AudioContext', MockAudioContext)
     })
 
     it('uses testSound helper to trigger audio playback', () => {

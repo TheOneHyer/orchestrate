@@ -134,6 +134,17 @@ describe('trainer-profile-generator', () => {
         })
     })
 
+    it('generates an empty shift schedule and no mapped roles for trainers without shifts or known certifications', () => {
+        const trainer = createTrainer({ shifts: undefined, certifications: ['Unmapped Certification'] })
+
+        const result = generateTrainerProfile(trainer)
+
+        expect(result.trainerProfile?.shiftSchedules).toEqual([])
+        expect(result.trainerProfile?.authorizedRoles).toEqual([])
+        expect(result.trainerProfile?.specializations).toEqual([])
+        expect(result.trainerProfile?.maxWeeklyHours).toBe(40)
+    })
+
     it('ensures all trainers in a user list get generated profiles', () => {
         const users: Array<User | TrainerWithShifts> = [
             createEmployee({ id: 'employee-1' }),

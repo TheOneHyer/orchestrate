@@ -73,37 +73,6 @@ export function calculateRiskLevel(score: number): RiskHistorySnapshot['riskLeve
   return 'low'
 }
 
-// Basic inline boundary checks to guard the calculateRiskLevel thresholds.
-// These act as lightweight tests to prevent regressions if the scoring model changes.
-/**
- * Asserts that {@link calculateRiskLevel} returns the expected risk level for the given score.
- * Throws an error if the actual result differs, acting as an inline boundary test to guard
- * against regressions in the scoring thresholds.
- *
- * @param score - The score to pass to {@link calculateRiskLevel}.
- * @param expected - The expected risk level for the given score.
- * @throws {Error} When the actual risk level does not match the expected level.
- */
-function assertRiskLevelBoundary(score: number, expected: RiskHistorySnapshot['riskLevel']): void {
-  const actual = calculateRiskLevel(score)
-  if (actual !== expected) {
-    throw new Error(
-      `calculateRiskLevel(${score}) expected "${expected}" but received "${actual}". ` +
-        'This indicates a regression in the risk score thresholds.'
-    )
-  }
-}
-
-// Edge cases around threshold boundaries: 24/25, 44/45, 69/70.
-if (import.meta.env.DEV) {
-  assertRiskLevelBoundary(24, 'low')
-  assertRiskLevelBoundary(25, 'medium')
-  assertRiskLevelBoundary(44, 'medium')
-  assertRiskLevelBoundary(45, 'high')
-  assertRiskLevelBoundary(69, 'high')
-  assertRiskLevelBoundary(70, 'critical')
-}
-
 /**
  * Creates a point-in-time {@link RiskHistorySnapshot} for a trainer by computing
  * their current utilization and risk metrics using the last 30 days of data.

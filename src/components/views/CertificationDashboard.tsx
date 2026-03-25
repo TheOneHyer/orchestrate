@@ -51,19 +51,6 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
     }
   }
 
-  const getUrgencyColor = (urgency: string) => {
-    switch (urgency) {
-      case 'critical':
-        return 'border-l-4 border-l-red-500 bg-red-50'
-      case 'high':
-        return 'border-l-4 border-l-amber-500 bg-amber-50'
-      case 'medium':
-        return 'border-l-4 border-l-blue-500 bg-blue-50'
-      default:
-        return 'border-l-4 border-l-gray-300 bg-gray-50'
-    }
-  }
-
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
