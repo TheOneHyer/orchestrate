@@ -26,7 +26,7 @@ import type { Course, Enrollment, User } from '@/lib/types'
 
 const scoreSchema = z.object({
     score: z
-    .number({ message: 'Please enter a whole number between 0 and 100.' })
+        .number({ message: 'Please enter a whole number between 0 and 100.' })
         .int('Please enter a whole number between 0 and 100.')
         .min(0, 'Please enter a whole number between 0 and 100.')
         .max(100, 'Please enter a whole number between 0 and 100.')
