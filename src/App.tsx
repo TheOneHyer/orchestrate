@@ -321,10 +321,6 @@ function App() {
   ])
 
   useEffect(() => {
-    if (!previewSeedEnabled) {
-      return
-    }
-
     if (!users || users.length === 0) {
       return
     }
@@ -343,7 +339,7 @@ function App() {
 
       return changed ? next : existing
     })
-  }, [previewSeedEnabled, users, setAuthPasswords])
+  }, [users, setAuthPasswords])
 
   useEffect(() => {
     if (users && users.length > 0) {
@@ -665,6 +661,7 @@ function App() {
     }
 
     const expectedUpdatedAt = updates.updatedAt
+    const { updatedAt: _ignoredUpdatedAt, ...userUpdates } = updates
     if (expectedUpdatedAt && user.updatedAt && expectedUpdatedAt !== user.updatedAt) {
       toast.error('Concurrent edit warning', {
         description: 'This profile changed since you opened it. Your latest update was saved with last-write-wins.',
@@ -673,8 +670,8 @@ function App() {
 
     return {
       ...user,
-      ...updates,
-      updatedAt: updates.updatedAt ?? new Date().toISOString(),
+      ...userUpdates,
+      updatedAt: new Date().toISOString(),
     }
   }
 
@@ -875,7 +872,12 @@ function App() {
    * @param newUser - The fully constructed user record to add.
    */
   const handleAddUser = (newUser: User) => {
-    setUsers((currentUsers) => [...(currentUsers || []), { ...newUser, updatedAt: new Date().toISOString() }])
+    const updatedAt = new Date().toISOString()
+    setUsers((currentUsers) => [...(currentUsers || []), { ...newUser, updatedAt }])
+    setAuthPasswords((current) => ({
+      ...(current || {}),
+      [newUser.id]: current?.[newUser.id] ?? 'password123',
+    }))
   }
 
   /**

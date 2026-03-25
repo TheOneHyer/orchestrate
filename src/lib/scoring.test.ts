@@ -70,6 +70,30 @@ describe('applyScore', () => {
             expect(() => applyScore(-1, 80)).toThrow(RangeError)
         })
 
+        it('throws RangeError when score is NaN', () => {
+            expect(() => applyScore(Number.NaN, 80)).toThrow(RangeError)
+        })
+
+        it('throws RangeError when passScore is NaN', () => {
+            expect(() => applyScore(80, Number.NaN)).toThrow(RangeError)
+        })
+
+        it('throws RangeError when passScore is infinite', () => {
+            expect(() => applyScore(80, Number.POSITIVE_INFINITY)).toThrow(RangeError)
+        })
+
+        it('throws RangeError when passScore is negative infinity', () => {
+            expect(() => applyScore(80, Number.NEGATIVE_INFINITY)).toThrow(RangeError)
+        })
+
+        it('throws RangeError when score is positive infinity', () => {
+            expect(() => applyScore(Number.POSITIVE_INFINITY, 80)).toThrow(RangeError)
+        })
+
+        it('throws RangeError when score is negative infinity', () => {
+            expect(() => applyScore(Number.NEGATIVE_INFINITY, 80)).toThrow(RangeError)
+        })
+
         it('throws RangeError when score exceeds 100', () => {
             expect(() => applyScore(101, 80)).toThrow(RangeError)
         })
@@ -123,6 +147,22 @@ describe('shouldNotifyCompletion', () => {
 
     it('throws RangeError when score is below 0', () => {
         expect(() => shouldNotifyCompletion('enrolled', -1, 80)).toThrow(RangeError)
+    })
+
+    it('throws RangeError when score is NaN', () => {
+        expect(() => shouldNotifyCompletion('enrolled', Number.NaN, 80)).toThrow(RangeError)
+    })
+
+    it('throws RangeError when passScore is NaN', () => {
+        expect(() => shouldNotifyCompletion('enrolled', 80, Number.NaN)).toThrow(RangeError)
+    })
+
+    it('throws RangeError when passScore is positive infinity', () => {
+        expect(() => shouldNotifyCompletion('enrolled', 80, Number.POSITIVE_INFINITY)).toThrow(RangeError)
+    })
+
+    it('throws RangeError when passScore is negative infinity', () => {
+        expect(() => shouldNotifyCompletion('enrolled', 80, Number.NEGATIVE_INFINITY)).toThrow(RangeError)
     })
 
     it('throws RangeError when score exceeds 100', () => {

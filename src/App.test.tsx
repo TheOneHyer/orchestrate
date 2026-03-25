@@ -742,6 +742,26 @@ describe('App', () => {
         expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
     })
 
+    it('lets a newly added user sign in with the default local password', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /add user/i }))
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /^sign out$/i }))
+
+        expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+
+        await user.type(screen.getByLabelText(/email/i), 'added@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(screen.getByText(/current user:\s*added user/i)).toBeInTheDocument()
+    })
+
     it('tracks attendance as first-class session data', async () => {
         const user = userEvent.setup()
 
@@ -1969,6 +1989,60 @@ describe('App', () => {
             'Concurrent edit warning',
             expect.objectContaining({ description: expect.stringMatching(/profile changed/i) }),
         )
+    })
+
+    it('keeps warning on repeated stale user updates after the stored timestamp is refreshed', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        toastError.mockClear()
+
+        await user.click(screen.getByRole('button', { name: /apply stale user update/i }))
+        await user.click(screen.getByRole('button', { name: /apply stale user update/i }))
+
+        expect(
+            toastError.mock.calls.filter(
+                ([title, options]) =>
+                    title === 'Concurrent edit warning' &&
+                    typeof options === 'object' &&
+                    options !== null &&
+                    'description' in options &&
+                    /profile changed/i.test(String(options.description)),
+            ),
+        ).toHaveLength(2)
     })
 
     it('deletes session-linked enrollments when a session is deleted', async () => {

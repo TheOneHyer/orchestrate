@@ -1051,7 +1051,7 @@ describe('Courses', () => {
         )
 
         await user.click(screen.getByRole('button', { name: /publish course/i }))
-        expect(onUpdateCourse).toHaveBeenCalledWith('c1', { published: true })
+        expect(onUpdateCourse).toHaveBeenCalledWith('c1', expect.objectContaining({ published: true, updatedAt: expect.any(String) }))
         expect(toastSuccess).toHaveBeenCalledWith(
             'Course published',
             expect.objectContaining({ description: expect.stringMatching(/available/i) })
@@ -1082,7 +1082,7 @@ describe('Courses', () => {
 
         await user.click(screen.getByRole('button', { name: /move to draft/i }))
 
-        expect(onUpdateCourse).toHaveBeenCalledWith('c1', { published: false })
+        expect(onUpdateCourse).toHaveBeenCalledWith('c1', expect.objectContaining({ published: false, updatedAt: expect.any(String) }))
         expect(toastSuccess).toHaveBeenCalledWith(
             'Course moved to draft',
             expect.objectContaining({ description: expect.stringMatching(/hidden from employees/i) })

@@ -461,14 +461,20 @@ describe('Analytics', () => {
     expect(screen.getByText(/filtered enrollments/i).nextElementSibling).toHaveTextContent('1')
   })
 
-  it('computes attendance rate from present and late attendance records', () => {
+  it('computes attendance rate from present and late attendance records', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const users: User[] = [
+      createUser({ id: 't1', name: 'Ops Trainer', email: 'ops-trainer@example.com', role: 'trainer', department: 'Ops' }),
+      createUser({ id: 't2', name: 'HR Trainer', email: 'hr-trainer@example.com', role: 'trainer', department: 'HR' }),
+    ]
     const sessions: Session[] = [
       { id: 's1', courseId: 'c1', trainerId: 't1', title: 'Session 1', startTime: '2026-03-01T09:00:00.000Z', endTime: '2026-03-01T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: [], status: 'completed' },
+      { id: 's2', courseId: 'c1', trainerId: 't2', title: 'Session 2', startTime: '2026-03-02T09:00:00.000Z', endTime: '2026-03-02T10:00:00.000Z', location: 'Room B', capacity: 10, enrolledStudents: [], status: 'scheduled' },
     ]
 
     render(
       <Analytics
-        users={[]}
+        users={users}
         courses={[]}
         sessions={sessions}
         enrollments={[]}
@@ -476,10 +482,15 @@ describe('Analytics', () => {
           { id: 'a1', sessionId: 's1', userId: 'u1', status: 'present', markedAt: '2026-03-01T09:00:00.000Z', markedBy: 't1' },
           { id: 'a2', sessionId: 's1', userId: 'u2', status: 'late', markedAt: '2026-03-01T09:10:00.000Z', markedBy: 't1' },
           { id: 'a3', sessionId: 's1', userId: 'u3', status: 'absent', markedAt: '2026-03-01T09:05:00.000Z', markedBy: 't1' },
+          { id: 'a4', sessionId: 's2', userId: 'u4', status: 'absent', markedAt: '2026-03-02T09:05:00.000Z', markedBy: 't1' },
         ]}
       />,
     )
 
+    await user.click(screen.getByRole('combobox', { name: /filter by department/i }))
+    await user.click(screen.getByRole('option', { name: /^ops$/i }))
+
     expect(screen.getByTestId('attendance-rate')).toHaveTextContent('67%')
+    expect(screen.getByText(/2 present\/late of 3 marks/i)).toBeInTheDocument()
   })
 })

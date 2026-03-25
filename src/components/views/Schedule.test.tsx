@@ -1848,6 +1848,52 @@ describe('Schedule', () => {
       expect(screen.queryByTestId('mark-absent-btn-u-employee')).not.toBeInTheDocument()
     })
 
+    it('renders attendance action buttons and calls onMarkAttendance for admins', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const onMarkAttendance = vi.fn()
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        attendanceRecords: [],
+        currentUser: { ...baseTrainer, role: 'admin' },
+        onMarkAttendance,
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('mark-present-btn-u-employee'))
+      await user.click(screen.getByTestId('mark-absent-btn-u-employee'))
+
+      expect(onMarkAttendance).toHaveBeenNthCalledWith(1, 's-1', 'u-employee', 'present')
+      expect(onMarkAttendance).toHaveBeenNthCalledWith(2, 's-1', 'u-employee', 'absent')
+    })
+
+    it('disables the matching attendance action when that state is already recorded', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const onMarkAttendance = vi.fn()
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        attendanceRecords: [
+          {
+            id: 'attendance-1',
+            sessionId: 's-1',
+            userId: 'u-employee',
+            status: 'present',
+            markedAt: '2026-03-20T08:00:00.000Z',
+            markedBy: 'u-trainer',
+          },
+        ],
+        currentUser: { ...baseTrainer, role: 'admin' },
+        onMarkAttendance,
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+
+      expect(screen.getByTestId('mark-present-btn-u-employee')).toBeDisabled()
+      expect(screen.getByTestId('mark-absent-btn-u-employee')).toBeEnabled()
+      expect(screen.getByText(/attendance:\s*present/i)).toBeInTheDocument()
+    })
+
     it('does not show enrolled students section when session has no enrolled students', async () => {
       const user = userEvent.setup({ pointerEventsCheck: 0 })
 

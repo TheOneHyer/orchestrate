@@ -60,7 +60,11 @@ export function RecordScoreDialog({
 
     const parsedScore = rawValue === '' ? null : Number(rawValue)
     const isValid =
-        parsedScore !== null && !Number.isNaN(parsedScore) && parsedScore >= 0 && parsedScore <= 100
+        parsedScore !== null &&
+        Number.isFinite(parsedScore) &&
+        Number.isInteger(parsedScore) &&
+        parsedScore >= 0 &&
+        parsedScore <= 100
     const wouldPass = isValid && parsedScore !== null && parsedScore >= course.passScore
     const wouldFail = isValid && !wouldPass
 

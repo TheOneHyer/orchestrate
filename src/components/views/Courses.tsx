@@ -565,7 +565,7 @@ export function Courses({
     setIsPublishing(true)
 
     try {
-      await Promise.resolve(onUpdateCourse(selectedCourse.id, { published: nextPublished, updatedAt: selectedCourse.updatedAt }))
+      await Promise.resolve(onUpdateCourse(selectedCourse.id, { published: nextPublished, updatedAt: nextUpdatedAt }))
       setSelectedCourse({ ...selectedCourse, published: nextPublished, updatedAt: nextUpdatedAt })
       toast.success(nextPublished ? 'Course published' : 'Course moved to draft', {
         description: `${selectedCourse.title} is now ${nextPublished ? 'available' : 'hidden from employees'} for scheduling.`,

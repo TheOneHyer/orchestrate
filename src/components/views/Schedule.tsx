@@ -185,6 +185,81 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
 
   const trainerOptions = users.filter((user) => user.role === 'trainer')
   const departmentOptions = Array.from(new Set(trainerOptions.map((user) => user.department))).sort()
+  const usersById = useMemo(() => new Map(users.map((user) => [user.id, user] as const)), [users])
+  const enrollmentsBySessionId = useMemo(() => {
+    const bySessionId = new Map<string, Map<string, Enrollment>>()
+
+    for (const enrollment of enrollments ?? []) {
+      if (!enrollment.sessionId) {
+        continue
+      }
+
+      const sessionEnrollments = bySessionId.get(enrollment.sessionId)
+      if (sessionEnrollments) {
+        sessionEnrollments.set(enrollment.userId, enrollment)
+        continue
+      }
+
+      bySessionId.set(enrollment.sessionId, new Map([[enrollment.userId, enrollment]]))
+    }
+
+    return bySessionId
+  }, [enrollments])
+  const attendanceBySessionId = useMemo(() => {
+    const bySessionId = new Map<string, Map<string, AttendanceRecord>>()
+
+    for (const attendanceRecord of attendanceRecords ?? []) {
+      const sessionAttendance = bySessionId.get(attendanceRecord.sessionId)
+      if (sessionAttendance) {
+        sessionAttendance.set(attendanceRecord.userId, attendanceRecord)
+        continue
+      }
+
+      bySessionId.set(attendanceRecord.sessionId, new Map([[attendanceRecord.userId, attendanceRecord]]))
+    }
+
+    return bySessionId
+  }, [attendanceRecords])
+  const selectedSessionEnrollments = useMemo(
+    () =>
+      selectedSession
+        ? enrollmentsBySessionId.get(selectedSession.id) ?? new Map<string, Enrollment>()
+        : new Map<string, Enrollment>(),
+    [selectedSession, enrollmentsBySessionId],
+  )
+  const selectedSessionAttendance = useMemo(
+    () =>
+      selectedSession
+        ? attendanceBySessionId.get(selectedSession.id) ?? new Map<string, AttendanceRecord>()
+        : new Map<string, AttendanceRecord>(),
+    [selectedSession, attendanceBySessionId],
+  )
+  const recordScoreContext = useMemo(() => {
+    if (!recordScoreEnrollmentId || !onRecordScore) {
+      return null
+    }
+
+    const enrollment = (enrollments ?? []).find((entry) => entry.id === recordScoreEnrollmentId)
+    if (!enrollment) {
+      return null
+    }
+
+    const course = courses.find((entry) => entry.id === enrollment.courseId)
+    if (!course) {
+      return null
+    }
+
+    const student = usersById.get(enrollment.userId)
+    if (!student) {
+      return null
+    }
+
+    return {
+      enrollment,
+      course,
+      student,
+    }
+  }, [courses, enrollments, onRecordScore, recordScoreEnrollmentId, usersById])
 
   useEffect(() => {
     if (hasCreatePayload(navigationPayload)) {
@@ -1242,13 +1317,9 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
                     <Label className="mb-2 block">Enrolled Students</Label>
                     <div className="space-y-2">
                       {selectedSession.enrolledStudents.map((studentId) => {
-                        const student = users.find((u) => u.id === studentId)
-                        const sessionEnrollment = (enrollments ?? []).find(
-                          (e) => e.userId === studentId && e.sessionId === selectedSession.id,
-                        )
-                        const attendanceRecord = (attendanceRecords ?? []).find(
-                          (record) => record.sessionId === selectedSession.id && record.userId === studentId,
-                        )
+                        const student = usersById.get(studentId)
+                        const sessionEnrollment = selectedSessionEnrollments.get(studentId)
+                        const attendanceRecord = selectedSessionAttendance.get(studentId)
                         if (!student) return null
                         return (
                           <div
@@ -1485,28 +1556,19 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
         />
       )}
 
-      {(() => {
-        if (!recordScoreEnrollmentId || !onRecordScore) return null
-        const enrollment = (enrollments ?? []).find((e) => e.id === recordScoreEnrollmentId)
-        if (!enrollment) return null
-        const course = courses.find((c) => c.id === enrollment.courseId)
-        if (!course) return null
-        const student = users.find((u) => u.id === enrollment.userId)
-        if (!student) return null
-        return (
-          <RecordScoreDialog
-            key={recordScoreEnrollmentId}
-            open={recordScoreEnrollmentId !== null}
-            onOpenChange={(open) => {
-              if (!open) setRecordScoreEnrollmentId(null)
-            }}
-            enrollment={enrollment}
-            course={course}
-            student={student}
-            onSubmit={onRecordScore}
-          />
-        )
-      })()}
+      {recordScoreContext && onRecordScore && (
+        <RecordScoreDialog
+          key={recordScoreContext.enrollment.id}
+          open={recordScoreEnrollmentId !== null}
+          onOpenChange={(open) => {
+            if (!open) setRecordScoreEnrollmentId(null)
+          }}
+          enrollment={recordScoreContext.enrollment}
+          course={recordScoreContext.course}
+          student={recordScoreContext.student}
+          onSubmit={onRecordScore}
+        />
+      )}
     </div>
   )
 }

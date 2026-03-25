@@ -1,13 +1,17 @@
 import type { Enrollment } from './types'
 
 /**
- * Asserts that a score value is within the valid 0–100 range.
+ * Asserts that a score value is a finite number within the valid 0–100 range.
  *
  * @param value - The numeric value to validate.
  * @param name - The parameter name used in the error message.
- * @throws {RangeError} When `value` is outside the 0–100 range.
+ * @throws {RangeError} When `value` is non-finite or outside the 0–100 range.
  */
 function assertScoreRange(value: number, name: string): void {
+    if (!Number.isFinite(value)) {
+        throw new RangeError(`${name} must be a finite number between 0 and 100, received ${value}`)
+    }
+
     if (value < 0 || value > 100) {
         throw new RangeError(`${name} must be between 0 and 100, received ${value}`)
     }
