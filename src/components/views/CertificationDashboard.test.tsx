@@ -247,6 +247,29 @@ describe('CertificationDashboard', () => {
         expect(screen.getByText(/1 certification expiring within 30 days/i)).toBeInTheDocument()
     })
 
+    it('renders plural high-priority copy for multiple high alerts', () => {
+        const users: User[] = [
+            createTrainer(
+                { id: 'trainer-high-1', name: 'High One', email: 'high1@example.com' },
+                [createRecord({ certificationName: 'CPR', expirationDate: '2026-04-08T00:00:00.000Z' })]
+            ),
+            createTrainer(
+                { id: 'trainer-high-2', name: 'High Two', email: 'high2@example.com' },
+                [createRecord({ certificationName: 'First Aid', expirationDate: '2026-04-12T00:00:00.000Z' })]
+            ),
+        ]
+
+        render(
+            <CertificationDashboard
+                users={users}
+                onNavigate={vi.fn()}
+                onAddCertification={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText(/2 certifications expiring within 30 days/i)).toBeInTheDocument()
+    })
+
     it('renders singular certification count in trainer summary badge', () => {
         const users: User[] = [
             createTrainer(

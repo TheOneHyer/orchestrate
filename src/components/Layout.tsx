@@ -14,13 +14,18 @@ import {
   Sun,
   Certificate,
   SpeakerHigh,
-  BookOpen
+  BookOpen,
+  SignOut,
+  CaretDown
 } from '@phosphor-icons/react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/hooks/use-theme'
 import { NotificationSettingsDialog } from '@/components/NotificationSettingsDialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { User } from '@/lib/types'
 
 /**
  * Props for the {@link Layout} component.
@@ -39,6 +44,14 @@ interface LayoutProps {
   notificationCount?: number
   /** Role of the currently signed-in user; controls which nav items are rendered. */
   userRole: 'admin' | 'trainer' | 'employee'
+  /** The active user shown in the header. */
+  currentUser?: User
+  /** All available users that can be switched to locally. */
+  users?: User[]
+  /** Callback invoked when the user selects another active user. */
+  onSwitchUser?: (userId: string) => void
+  /** Callback invoked when the user signs out of the local session simulation. */
+  onLogout?: () => void
 }
 
 /**
@@ -49,7 +62,7 @@ interface LayoutProps {
  * renders `children`. Role-based filtering ensures admins see all nav items while trainers
  * and employees see only the views relevant to them.
  */
-export function Layout({ children, activeView, onNavigate, notificationCount = 0, userRole }: LayoutProps) {
+export function Layout({ children, activeView, onNavigate, notificationCount = 0, userRole, currentUser, users = [], onSwitchUser, onLogout }: LayoutProps) {
   const { theme, toggleTheme } = useTheme()
   const [showNotificationSettings, setShowNotificationSettings] = useState(false)
 
@@ -68,6 +81,10 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
   ]
 
   const filteredNavItems = navItems.filter(item => item.roles.includes(userRole))
+  const switchableUsers = users.length > 0 ? users : currentUser ? [currentUser] : []
+  const currentUserInitials = currentUser
+    ? currentUser.name.split(' ').map((namePart) => namePart[0]).join('').slice(0, 2).toUpperCase()
+    : 'NA'
 
   return (
     <div className="flex h-screen bg-secondary">
@@ -144,6 +161,80 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
 
       <main className="flex-1 overflow-auto flex flex-col">
         <header className="border-b border-border bg-card px-6 py-4 flex items-center justify-end gap-2">
+          {currentUser && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="h-auto min-w-[220px] items-center justify-between gap-3 rounded-lg px-3 py-2"
+                  aria-label="Open active user menu"
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {currentUserInitials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="min-w-0 text-left">
+                      <span className="block truncate text-sm font-medium">{currentUser.name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">{currentUser.email}</span>
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <Badge variant={currentUser.role === 'admin' ? 'default' : currentUser.role === 'trainer' ? 'secondary' : 'outline'} className="capitalize">
+                      {currentUser.role}
+                    </Badge>
+                    <CaretDown size={16} weight="bold" />
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-72">
+                <DropdownMenuLabel>Active Session</DropdownMenuLabel>
+                <div className="px-2 pb-2 text-xs text-muted-foreground">
+                  Switch roles locally to validate permission-scoped workflows.
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Switch User</DropdownMenuLabel>
+                {switchableUsers.map((userOption) => (
+                  <DropdownMenuItem
+                    key={userOption.id}
+                    onClick={() => onSwitchUser?.(userOption.id)}
+                    disabled={userOption.id === currentUser.id}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <span className="flex min-w-0 items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={userOption.avatar} alt={userOption.name} />
+                        <AvatarFallback className="bg-secondary text-secondary-foreground">
+                          {userOption.name.split(' ').map((namePart) => namePart[0]).join('').slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm">{userOption.name}</span>
+                        <span className="block truncate text-xs text-muted-foreground">{userOption.department}</span>
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      {userOption.id === currentUser.id && <Badge variant="secondary">Active</Badge>}
+                      <Badge variant={userOption.role === 'admin' ? 'default' : userOption.role === 'trainer' ? 'secondary' : 'outline'} className="capitalize">
+                        {userOption.role}
+                      </Badge>
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+                {onLogout && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={onLogout} className="text-destructive focus:text-destructive">
+                      <SignOut size={16} className="mr-2" />
+                      Reset Session
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button
             variant="ghost"
             size="icon"

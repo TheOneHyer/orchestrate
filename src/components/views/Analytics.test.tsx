@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, expect, it } from 'vitest'
 
 import { Analytics } from './Analytics'
@@ -355,5 +356,84 @@ describe('Analytics', () => {
     render(<Analytics users={[]} courses={[]} sessions={[]} enrollments={enrollments} />)
 
     expect(screen.getByTestId('average-score')).toHaveTextContent('50%')
+  })
+
+  it('filters analytics metrics and operational highlights', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const users: User[] = [
+      createUser({ id: 'u1', name: 'Ops Employee', email: 'ops@example.com', role: 'employee', department: 'Ops' }),
+      createUser({ id: 'u2', name: 'HR Employee', email: 'hr@example.com', role: 'employee', department: 'HR' }),
+      createUser({ id: 't1', name: 'Trainer', email: 'trainer@example.com', role: 'trainer', department: 'Ops' }),
+      createUser({ id: 't2', name: 'HR Trainer', email: 'hr-trainer@example.com', role: 'trainer', department: 'HR' }),
+    ]
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+      { id: 'c2', title: 'HR Compliance', description: 'Desc', modules: [], duration: 45, certifications: [], createdBy: 't1', createdAt: '2026-01-02', published: false, passScore: 85 },
+    ]
+    const sessions: Session[] = [
+      { id: 's1', courseId: 'c1', trainerId: 't1', title: 'Open Safety Session', startTime: '2026-03-02T09:00:00.000Z', endTime: '2026-03-02T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: ['u1'], status: 'scheduled' },
+      { id: 's2', courseId: 'c2', trainerId: 't2', title: 'Completed HR Session', startTime: '2026-03-03T09:00:00.000Z', endTime: '2026-03-03T10:00:00.000Z', location: 'Room B', capacity: 10, enrolledStudents: ['u2'], status: 'completed' },
+    ]
+    const enrollments: Enrollment[] = [
+      { id: 'e1', userId: 'u1', courseId: 'c1', status: 'in-progress', progress: 40, score: 0, enrolledAt: '2026-02-01' },
+      { id: 'e2', userId: 'u2', courseId: 'c2', status: 'completed', progress: 100, score: 91, enrolledAt: '2026-02-02' },
+    ]
+
+    render(<Analytics users={users} courses={courses} sessions={sessions} enrollments={enrollments} />)
+
+    await user.click(screen.getByRole('combobox', { name: /filter by department/i }))
+    await user.click(screen.getByRole('option', { name: 'HR' }))
+    expect(screen.getByTestId('employee-count')).toHaveTextContent('1')
+
+    await user.click(screen.getByRole('combobox', { name: /filter by course/i }))
+    await user.click(screen.getByRole('option', { name: /hr compliance/i }))
+
+    await user.click(screen.getByRole('combobox', { name: /filter by status/i }))
+    await user.click(screen.getByRole('option', { name: /^completed$/i }))
+
+    expect(screen.getByText(/operational highlights/i)).toBeInTheDocument()
+    expect(screen.getByTestId('employee-count')).toHaveTextContent('1')
+    expect(screen.getByTestId('completion-rate')).toHaveTextContent('100%')
+    expect(screen.getByText(/open sessions/i)).toBeInTheDocument()
+    expect(screen.queryByText(/open safety session/i)).toBeNull()
+  })
+
+  it('excludes sessions whose trainer is not in the selected department', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const users: User[] = [
+      createUser({ id: 't1', name: 'Ops Trainer', email: 'ops@example.com', role: 'trainer', department: 'Ops' }),
+      createUser({ id: 't2', name: 'HR Trainer', email: 'hr@example.com', role: 'trainer', department: 'HR' }),
+    ]
+    const sessions: Session[] = [
+      { id: 's1', courseId: 'c1', trainerId: 't1', title: 'Ops Session', startTime: '2026-03-01T09:00:00.000Z', endTime: '2026-03-01T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: [], status: 'completed' },
+      { id: 's2', courseId: 'c1', trainerId: 't2', title: 'HR Session', startTime: '2026-03-02T09:00:00.000Z', endTime: '2026-03-02T10:00:00.000Z', location: 'Room B', capacity: 10, enrolledStudents: [], status: 'scheduled' },
+    ]
+
+    render(<Analytics users={users} courses={[]} sessions={sessions} enrollments={[]} />)
+
+    await user.click(screen.getByRole('combobox', { name: /filter by department/i }))
+    await user.click(screen.getByRole('option', { name: 'HR' }))
+
+    // Only the HR trainer's session should remain: 0 completed out of 1
+    expect(screen.getByTestId('sessions-completed')).toHaveTextContent('0/1')
+  })
+
+  it('does not empty sessions KPI when failed enrollment-only status filter is selected', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const sessions: Session[] = [
+      { id: 's1', courseId: 'c1', trainerId: 't1', title: 'Session A', startTime: '2026-03-01T09:00:00.000Z', endTime: '2026-03-01T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: [], status: 'completed' },
+      { id: 's2', courseId: 'c1', trainerId: 't1', title: 'Session B', startTime: '2026-03-02T09:00:00.000Z', endTime: '2026-03-02T10:00:00.000Z', location: 'Room B', capacity: 10, enrolledStudents: [], status: 'scheduled' },
+    ]
+    const enrollments: Enrollment[] = [
+      { id: 'e1', userId: 'u1', courseId: 'c1', status: 'failed', progress: 100, score: 40, enrolledAt: '2026-02-01' },
+    ]
+
+    render(<Analytics users={[]} courses={[]} sessions={sessions} enrollments={enrollments} />)
+
+    await user.click(screen.getByRole('combobox', { name: /filter by status/i }))
+    await user.click(screen.getByRole('option', { name: /failed/i }))
+
+    // Sessions should not be filtered to zero by an enrollment-only status
+    expect(screen.getByTestId('sessions-completed')).toHaveTextContent('1/2')
   })
 })

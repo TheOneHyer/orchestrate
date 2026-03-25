@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -181,6 +181,56 @@ describe('RecoveryPlanDialog', () => {
                 type: 'support-session',
             })
         )
+    })
+
+    it('updates action details, notes, and numeric fields before submit', async () => {
+        render(<RecoveryPlanDialog {...baseProps} currentUtilization={88} />)
+
+        await user.type(screen.getByLabelText(/trigger reason/i), 'Need a short-term recovery plan')
+        fireEvent.change(screen.getByLabelText(/target utilization/i), { target: { value: '65' } })
+        fireEvent.change(screen.getByLabelText(/duration \(weeks\)/i), { target: { value: '6' } })
+
+        await user.click(screen.getByRole('combobox'))
+        await user.click(await screen.findByRole('option', { name: /schedule adjustment/i }))
+
+        await user.clear(screen.getByLabelText(/description/i))
+        await user.type(screen.getByLabelText(/description/i), 'Move sessions to reduce fatigue')
+        fireEvent.change(screen.getByLabelText(/target date/i), { target: { value: '2026-04-15' } })
+        await user.type(screen.getByLabelText(/notes \(optional\)/i, { selector: 'input' }), 'Coordinate with operations lead')
+        await user.type(screen.getByLabelText(/plan notes \(optional\)/i, { selector: 'textarea' }), 'Escalate if utilization stays above target')
+
+        await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
+
+        expect(baseProps.onSubmit).toHaveBeenCalledWith(
+            expect.objectContaining({
+                targetUtilization: 65,
+                currentUtilization: 88,
+                notes: 'Escalate if utilization stays above target',
+                actions: [
+                    expect.objectContaining({
+                        type: 'schedule-adjustment',
+                        description: 'Move sessions to reduce fatigue',
+                        notes: 'Coordinate with operations lead',
+                        targetDate: expect.stringMatching(/^2026-04-15T00:00:00/),
+                    }),
+                ],
+            })
+        )
+
+        const submittedPlan = baseProps.onSubmit.mock.calls[0][0]
+        const durationDays = (new Date(submittedPlan.targetCompletionDate).getTime() - new Date(submittedPlan.startDate).getTime()) / (1000 * 60 * 60 * 24)
+        expect(durationDays).toBeGreaterThanOrEqual(41)
+    })
+
+    it('falls back to default numeric values when target utilization or duration are cleared', async () => {
+        render(<RecoveryPlanDialog {...baseProps} currentUtilization={82} />)
+
+        await user.type(screen.getByLabelText(/trigger reason/i), 'Numeric fallback coverage')
+        await user.clear(screen.getByLabelText(/target utilization/i))
+        await user.clear(screen.getByLabelText(/duration \(weeks\)/i))
+
+        expect(screen.getByLabelText(/target utilization/i)).toHaveValue(70)
+        expect(screen.getByLabelText(/duration \(weeks\)/i)).toHaveValue(4)
     })
 
     it('disables submit and shows validation text when trigger reason is empty', async () => {

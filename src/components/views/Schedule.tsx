@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,6 +36,8 @@ interface ScheduleProps {
    * @param updates - Partial updates to apply.
    */
   onUpdateSession: (id: string, updates: Partial<Session>) => void
+  /** Callback invoked when an existing session is deleted. */
+  onDeleteSession?: (id: string) => void
   /**
    * Callback for navigating to another view.
    * @param view - Target view name.
@@ -90,9 +92,15 @@ function isViewType(v: string): v is ViewType {
  * Navigation payload deep-links are processed once per payload so later session list refreshes do not reopen the same sheet unexpectedly.
  * @returns The Schedule component's React element.
  */
-export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onNavigate, navigationPayload, onNavigationPayloadConsumed }: ScheduleProps) {
+export function Schedule({ sessions, courses, users, currentUser, onCreateSession, onUpdateSession, onDeleteSession, onNavigate, navigationPayload, onNavigationPayloadConsumed }: ScheduleProps) {
   const [viewType, setViewType] = useState<ViewType>('calendar')
   const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('month')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [trainerFilter, setTrainerFilter] = useState('all')
+  const [courseFilter, setCourseFilter] = useState('all')
+  const [departmentFilter, setDepartmentFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [dateFilter, setDateFilter] = useState<'all' | 'next-7' | 'next-30' | 'past'>('all')
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [autoSchedulerOpen, setAutoSchedulerOpen] = useState(false)
@@ -119,6 +127,50 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   useEffect(() => {
     sessionsRef.current = sessions
   }, [sessions])
+
+  const filteredSessions = useMemo(() => {
+    const userById = new Map(users.map((user) => [user.id, user]))
+    const courseById = new Map(courses.map((courseItem) => [courseItem.id, courseItem]))
+    const now = new Date()
+    const query = searchQuery.trim().toLowerCase()
+
+    return sessions.filter((session) => {
+      const trainer = userById.get(session.trainerId)
+      const course = courseById.get(session.courseId)
+
+      const matchesQuery = !query || [
+        session.title,
+        session.location,
+        trainer?.name || '',
+        course?.title || '',
+      ].some((value) => value.toLowerCase().includes(query))
+
+      const matchesTrainer = trainerFilter === 'all' || session.trainerId === trainerFilter
+      const matchesCourse = courseFilter === 'all' || session.courseId === courseFilter
+      const matchesDepartment = departmentFilter === 'all' || trainer?.department === departmentFilter
+      const matchesStatus = statusFilter === 'all' || session.status === statusFilter
+
+      const sessionStart = new Date(session.startTime)
+      const diffDays = (sessionStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      const matchesDate = (() => {
+        switch (dateFilter) {
+          case 'next-7':
+            return diffDays >= 0 && diffDays <= 7
+          case 'next-30':
+            return diffDays >= 0 && diffDays <= 30
+          case 'past':
+            return diffDays < 0
+          default:
+            return true
+        }
+      })()
+
+      return matchesQuery && matchesTrainer && matchesCourse && matchesDepartment && matchesStatus && matchesDate
+    })
+  }, [sessions, users, courses, searchQuery, trainerFilter, courseFilter, departmentFilter, statusFilter, dateFilter])
+
+  const trainerOptions = users.filter((user) => user.role === 'trainer')
+  const departmentOptions = Array.from(new Set(trainerOptions.map((user) => user.department))).sort()
 
   useEffect(() => {
     if (hasCreatePayload(navigationPayload)) {
@@ -326,6 +378,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
   const availableStudents = users.filter(u => u.role === 'employee')
   const canManageSchedule = allowedScheduleManagers.includes(currentUser.role)
+  const canDeleteSession = currentUser.role === 'admin' && typeof onDeleteSession === 'function'
 
   const navigateDate = (direction: 'prev' | 'next' | 'today') => {
     if (direction === 'today') {
@@ -344,12 +397,59 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   }
 
   const handleDragStart = (e: React.DragEvent, session: Session) => {
+    if (!canManageSchedule) {
+      return
+    }
+
     setDraggedSession(session)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/html', e.currentTarget.innerHTML)
     if (e.currentTarget instanceof HTMLElement) {
       e.currentTarget.style.opacity = '0.4'
     }
+  }
+
+  const handleBoardColumnDrop = (e: React.DragEvent, status: Session['status']) => {
+    e.preventDefault()
+
+    if (!canManageSchedule) {
+      setDraggedSession(null)
+      return
+    }
+
+    if (!draggedSession || draggedSession.status === status) {
+      setDraggedSession(null)
+      return
+    }
+
+    onUpdateSession(draggedSession.id, { status })
+
+    if (selectedSession?.id === draggedSession.id) {
+      setSelectedSession({ ...draggedSession, status })
+    }
+
+    toast.success('Session status updated', {
+      description: `${draggedSession.title} moved to ${status.replace('-', ' ')}.`
+    })
+    setDraggedSession(null)
+  }
+
+  const handleDeleteSelectedSession = () => {
+    if (!selectedSession || !canDeleteSession) {
+      return
+    }
+
+    const confirmed = window.confirm(`Delete ${selectedSession.title}? This cannot be undone.`)
+    if (!confirmed) {
+      return
+    }
+
+    onDeleteSession(selectedSession.id)
+    setSheetOpen(false)
+    setSelectedSession(null)
+    toast.success('Session deleted', {
+      description: 'The session and its linked enrollments have been removed.',
+    })
   }
 
   const handleDragEnd = (e: React.DragEvent) => {
@@ -452,7 +552,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
   const renderDailyView = () => {
     const isToday = isSameDay(currentDate, new Date())
-    const daySessions = sessions
+    const daySessions = filteredSessions
       .filter(s => isSameDay(new Date(s.startTime), currentDate))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
     const isDragOver = dragOverDay && isSameDay(dragOverDay, currentDate)
@@ -614,7 +714,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
         <div className="grid grid-cols-7 gap-2">
           {weekDays.map(day => {
-            const daySessions = sessions.filter(s => isSameDay(new Date(s.startTime), day))
+            const daySessions = filteredSessions.filter(s => isSameDay(new Date(s.startTime), day))
             const isToday = isSameDay(day, new Date())
             const isDragOver = dragOverDay && isSameDay(dragOverDay, day)
             const hasConflict = isDragOver && dragConflicts.length > 0
@@ -724,7 +824,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           </div>
           <div className="grid grid-cols-7">
             {calendarDays.map((day, idx) => {
-              const daySessions = sessions.filter(s => isSameDay(new Date(s.startTime), day))
+              const daySessions = filteredSessions.filter(s => isSameDay(new Date(s.startTime), day))
               const isToday = isSameDay(day, new Date())
               const isCurrentMonth = isSameMonth(day, currentDate)
               const isDragOver = dragOverDay && isSameDay(dragOverDay, day)
@@ -794,7 +894,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
   }
 
   const renderListView = () => {
-    const sortedSessions = [...sessions].sort((a, b) =>
+    const sortedSessions = [...filteredSessions].sort((a, b) =>
       new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
     )
 
@@ -855,25 +955,40 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
 
   const renderBoardView = () => {
     const statusGroups = {
-      scheduled: sessions.filter(s => s.status === 'scheduled'),
-      'in-progress': sessions.filter(s => s.status === 'in-progress'),
-      completed: sessions.filter(s => s.status === 'completed'),
+      scheduled: filteredSessions.filter(s => s.status === 'scheduled'),
+      'in-progress': filteredSessions.filter(s => s.status === 'in-progress'),
+      completed: filteredSessions.filter(s => s.status === 'completed'),
+      cancelled: filteredSessions.filter(s => s.status === 'cancelled'),
     }
 
     return (
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-4">
         {Object.entries(statusGroups).map(([status, statusSessions]) => (
-          <div key={status} className="space-y-3">
+          <div
+            key={status}
+            className="space-y-3 rounded-lg border border-border bg-secondary/20 p-3"
+            {...(canManageSchedule ? {
+              onDragOver: (event: React.DragEvent<HTMLDivElement>) => {
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+              },
+              onDrop: (event: React.DragEvent<HTMLDivElement>) => handleBoardColumnDrop(event, status as Session['status']),
+            } : {})}
+          >
             <div className="flex items-center justify-between">
               <h3 className="font-semibold capitalize">{status.replace('-', ' ')}</h3>
               <Badge variant="outline">{statusSessions.length}</Badge>
             </div>
             <div className="space-y-2">
               {statusSessions.map(session => {
-                const course = courses.find(c => c.id === session.courseId)
                 return (
                   <button
                     key={session.id}
+                    {...(canManageSchedule ? {
+                      draggable: true,
+                      onDragStart: (event: React.DragEvent<HTMLButtonElement>) => handleDragStart(event, session),
+                      onDragEnd: handleDragEnd,
+                    } : {})}
                     onClick={() => handleSessionClick(session)}
                     className="w-full p-3 rounded-lg border border-border bg-card hover:bg-secondary transition-colors text-left"
                   >
@@ -919,6 +1034,76 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           </div>
         )}
       </div>
+
+      <Card>
+        <CardContent className="grid gap-3 pt-6 md:grid-cols-2 xl:grid-cols-6">
+          <div className="xl:col-span-2">
+            <Input
+              placeholder="Search by session, trainer, location, or course..."
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+            />
+          </div>
+          <Select value={trainerFilter} onValueChange={setTrainerFilter}>
+            <SelectTrigger aria-label="Filter by trainer">
+              <SelectValue placeholder="Filter by trainer" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All trainers</SelectItem>
+              {trainerOptions.map((trainer) => (
+                <SelectItem key={trainer.id} value={trainer.id}>{trainer.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={courseFilter} onValueChange={setCourseFilter}>
+            <SelectTrigger aria-label="Filter by course">
+              <SelectValue placeholder="Filter by course" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All courses</SelectItem>
+              {courses.map((course) => (
+                <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger aria-label="Filter by department">
+              <SelectValue placeholder="Filter by department" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All departments</SelectItem>
+              {departmentOptions.map((department) => (
+                <SelectItem key={department} value={department}>{department}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger aria-label="Status">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All status</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="in-progress">In progress</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="cancelled">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={dateFilter} onValueChange={(value) => setDateFilter(value as typeof dateFilter)}>
+              <SelectTrigger aria-label="Date window">
+                <SelectValue placeholder="Date window" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All dates</SelectItem>
+                <SelectItem value="next-7">Next 7 days</SelectItem>
+                <SelectItem value="next-30">Next 30 days</SelectItem>
+                <SelectItem value="past">Past sessions</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs value={viewType} onValueChange={(v) => { if (isViewType(v)) { setViewType(v) } else { console.warn(`Unknown view type: "${v}"`) } }}>
         <div className="flex items-center justify-between">
@@ -1029,6 +1214,11 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
                       <UserPlus size={18} className="mr-2" />
                       Enroll Students
                     </Button>
+                    {canDeleteSession && (
+                      <Button variant="destructive" className="flex-1" onClick={handleDeleteSelectedSession}>
+                        Delete Session
+                      </Button>
+                    )}
                   </div>
                 )}
                 <div className="flex gap-2">

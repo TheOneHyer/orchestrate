@@ -1,5 +1,7 @@
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
 import { User, Enrollment, Session, Course } from '@/lib/types'
 
@@ -52,23 +54,74 @@ function trainerLabel(count: number): string {
  * @returns The rendered Analytics page element.
  */
 export function Analytics({ users, enrollments, sessions, courses }: AnalyticsProps) {
-  const totalEnrollments = enrollments.length
-  const completedEnrollments = enrollments.filter(e => e.status === 'completed').length
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all')
+  const [courseFilter, setCourseFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  const departmentOptions = useMemo(() => {
+    return Array.from(new Set(users.map((user) => user.department))).sort((left, right) => left.localeCompare(right))
+  }, [users])
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => departmentFilter === 'all' || user.department === departmentFilter)
+  }, [departmentFilter, users])
+
+  const filteredCourses = useMemo(() => {
+    return courses.filter((course) => courseFilter === 'all' || course.id === courseFilter)
+  }, [courseFilter, courses])
+
+  const filteredSessions = useMemo(() => {
+    const allowedCourseIds = new Set(filteredCourses.map((course) => course.id))
+    const allowedTrainerIds = new Set(filteredUsers.map((user) => user.id))
+    const enrollmentStatusFilters = new Set(['enrolled', 'in-progress', 'completed', 'failed'])
+
+    return sessions.filter((session) => {
+      const matchesDepartment = departmentFilter === 'all' || allowedTrainerIds.has(session.trainerId)
+      const matchesCourse = courseFilter === 'all' || allowedCourseIds.has(session.courseId)
+      const matchesStatus = statusFilter === 'all' || enrollmentStatusFilters.has(statusFilter) || session.status === statusFilter
+
+      return matchesDepartment && matchesCourse && matchesStatus
+    })
+  }, [courseFilter, departmentFilter, filteredCourses, filteredUsers, sessions, statusFilter])
+
+  const filteredEnrollments = useMemo(() => {
+    const allowedCourseIds = new Set(filteredCourses.map((course) => course.id))
+    const allowedUserIds = new Set(filteredUsers.map((user) => user.id))
+    const sessionStatusById = new Map(sessions.map((session) => [session.id, session.status]))
+    const enrollmentStatusFilters = new Set(['enrolled', 'in-progress', 'completed', 'failed'])
+    const sessionStatusFilters = new Set(['scheduled', 'cancelled'])
+
+    return enrollments.filter((enrollment) => {
+      const matchesDepartment = departmentFilter === 'all' || allowedUserIds.has(enrollment.userId)
+      const matchesCourse = courseFilter === 'all' || allowedCourseIds.has(enrollment.courseId)
+      const isEnrollmentStatus = enrollmentStatusFilters.has(statusFilter)
+      const isSessionStatus = sessionStatusFilters.has(statusFilter)
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (isEnrollmentStatus && enrollment.status === statusFilter) ||
+        (isSessionStatus && !!enrollment.sessionId && sessionStatusById.get(enrollment.sessionId) === statusFilter)
+
+      return matchesDepartment && matchesCourse && matchesStatus
+    })
+  }, [courseFilter, departmentFilter, enrollments, filteredCourses, filteredUsers, sessions, statusFilter])
+
+  const totalEnrollments = filteredEnrollments.length
+  const completedEnrollments = filteredEnrollments.filter(e => e.status === 'completed').length
   const completionRate = totalEnrollments > 0 ? Math.round((completedEnrollments / totalEnrollments) * 100) : 0
 
-  const totalSessions = sessions.length
-  const completedSessions = sessions.filter(s => s.status === 'completed').length
+  const totalSessions = filteredSessions.length
+  const completedSessions = filteredSessions.filter(s => s.status === 'completed').length
 
-  const averageScore = enrollments
+  const averageScore = filteredEnrollments
     .filter(e => e.score !== undefined)
-    .reduce((sum, e) => sum + (e.score || 0), 0) / enrollments.filter(e => e.score !== undefined).length || 0
+    .reduce((sum, e) => sum + (e.score || 0), 0) / filteredEnrollments.filter(e => e.score !== undefined).length || 0
 
-  const employeeCount = users.filter(u => u.role === 'employee').length
-  const trainerCount = users.filter(u => u.role === 'trainer').length
+  const employeeCount = filteredUsers.filter(u => u.role === 'employee').length
+  const trainerCount = filteredUsers.filter(u => u.role === 'trainer').length
 
-  const topCourses = courses
+  const fullCourses = filteredCourses
     .map(course => {
-      const courseEnrollments = enrollments.filter(e => e.courseId === course.id)
+      const courseEnrollments = filteredEnrollments.filter(e => e.courseId === course.id)
       const courseCompletions = courseEnrollments.filter(e => e.status === 'completed').length
       const courseAvgScore = courseEnrollments
         .filter(e => e.score !== undefined)
@@ -82,14 +135,57 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
         avgScore: courseAvgScore
       }
     })
+  const topCourses = fullCourses
     .sort((a, b) => b.completionRate - a.completionRate)
     .slice(0, 5)
+
+  const atRiskCourses = fullCourses.filter((course) => course.completionRate < 60 || course.avgScore < 75)
 
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
         <p className="text-muted-foreground mt-1">Training performance and insights</p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+          <SelectTrigger aria-label="Filter by department">
+            <SelectValue placeholder="Filter by department" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All departments</SelectItem>
+            {departmentOptions.map((department) => (
+              <SelectItem key={department} value={department}>{department}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={courseFilter} onValueChange={setCourseFilter}>
+          <SelectTrigger aria-label="Filter by course">
+            <SelectValue placeholder="Filter by course" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All courses</SelectItem>
+            {courses.map((course) => (
+              <SelectItem key={course.id} value={course.id}>{course.title}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger aria-label="Filter by status">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="in-progress">In progress</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="failed">Failed enrollments</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -157,6 +253,27 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
 
       <Card>
         <CardHeader>
+          <CardTitle>Operational Highlights</CardTitle>
+          <CardDescription>Focus areas based on the current filters</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Filtered enrollments</div>
+            <div className="mt-1 text-2xl font-semibold">{totalEnrollments}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Courses needing attention</div>
+            <div className="mt-1 text-2xl font-semibold">{atRiskCourses.length}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Open sessions</div>
+            <div className="mt-1 text-2xl font-semibold">{filteredSessions.filter((session) => session.status === 'scheduled' || session.status === 'in-progress').length}</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Course Performance</CardTitle>
           <CardDescription>Top courses by completion rate</CardDescription>
         </CardHeader>
@@ -190,9 +307,9 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
             <CardDescription>Employees by department</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {Array.from(new Set(users.map(u => u.department)))
+            {Array.from(new Set(filteredUsers.map(u => u.department)))
               .map(dept => {
-                const deptUsers = users.filter(u => u.department === dept && u.role === 'employee')
+                const deptUsers = filteredUsers.filter(u => u.department === dept && u.role === 'employee')
                 const count = deptUsers.length
                 const percentage = employeeCount > 0 ? (count / employeeCount) * 100 : 0
                 return { dept, count, percentage }
@@ -217,7 +334,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
           </CardHeader>
           <CardContent className="space-y-3">
             {(() => {
-              const trainersWithSchedules = users.filter(u =>
+              const trainersWithSchedules = filteredUsers.filter(u =>
                 u.role === 'trainer' &&
                 u.trainerProfile?.shiftSchedules &&
                 u.trainerProfile.shiftSchedules.length > 0
