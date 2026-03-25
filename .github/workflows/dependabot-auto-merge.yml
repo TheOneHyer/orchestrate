@@ -275,7 +275,7 @@ jobs:
                     '',
                     `${mentionTarget} please review the PR manually.`,
                     '',
-                    `Merge error: ${error instanceof Error ? error.message : String(error)}`,
+                    `Merge error: ${mergeErrorMessage}`,
                   ].join('\n'));
                   throw error;
                 }
