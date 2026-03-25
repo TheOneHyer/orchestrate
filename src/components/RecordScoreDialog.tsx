@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
     Dialog,
@@ -57,6 +57,14 @@ export function RecordScoreDialog({
     const [rawValue, setRawValue] = useState(
         enrollment.score !== undefined ? String(enrollment.score) : '',
     )
+
+    useEffect(() => {
+        if (!open) {
+            return
+        }
+
+        setRawValue(enrollment.score !== undefined ? String(enrollment.score) : '')
+    }, [open, enrollment.id, enrollment.score])
 
     const parsedScore = rawValue === '' ? null : Number(rawValue)
     const isValid =

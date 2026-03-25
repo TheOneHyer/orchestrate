@@ -307,6 +307,23 @@ export function Courses({
     onNavigationPayloadConsumed?.()
   }, [courses, navigationPayload, onNavigationPayloadConsumed, reset])
 
+  useEffect(() => {
+    if (!selectedCourse) {
+      return
+    }
+
+    const latestCourse = courses.find((course) => course.id === selectedCourse.id)
+    if (!latestCourse) {
+      setSelectedCourse(null)
+      setDetailDialogOpen(false)
+      return
+    }
+
+    if (latestCourse !== selectedCourse) {
+      setSelectedCourse(latestCourse)
+    }
+  }, [courses, selectedCourse])
+
   const getEnrollmentForCourse = (courseId: string) => {
     return enrollments.find((enrollment) => enrollment.courseId === courseId && enrollment.userId === currentUser.id)
   }
@@ -463,7 +480,6 @@ export function Courses({
     try {
       if (editingCourse) {
         await Promise.resolve(onUpdateCourse(editingCourse.id, { ...coursePayload, updatedAt: editingCourse.updatedAt }))
-        setSelectedCourse((current) => current?.id === editingCourse.id ? { ...editingCourse, ...coursePayload } : current)
         toast.success('Course updated', {
           description: `${coursePayload.title} has been saved.`,
         })
@@ -560,13 +576,11 @@ export function Courses({
     }
 
     const nextPublished = !selectedCourse.published
-    const nextUpdatedAt = new Date().toISOString()
 
     setIsPublishing(true)
 
     try {
-      await Promise.resolve(onUpdateCourse(selectedCourse.id, { published: nextPublished, updatedAt: nextUpdatedAt }))
-      setSelectedCourse({ ...selectedCourse, published: nextPublished, updatedAt: nextUpdatedAt })
+      await Promise.resolve(onUpdateCourse(selectedCourse.id, { published: nextPublished, updatedAt: selectedCourse.updatedAt }))
       toast.success(nextPublished ? 'Course published' : 'Course moved to draft', {
         description: `${selectedCourse.title} is now ${nextPublished ? 'available' : 'hidden from employees'} for scheduling.`,
       })

@@ -332,6 +332,78 @@ describe('RecordScoreDialog', () => {
             expect(input.value).toBe('72')
         })
 
+        it('resets the input to the enrollment score when the dialog is reopened', async () => {
+            const user = userEvent.setup()
+            const enrollment = createEnrollment({ score: 72 })
+            const { rerender } = render(
+                <RecordScoreDialog
+                    open
+                    onOpenChange={vi.fn()}
+                    enrollment={enrollment}
+                    course={createCourse()}
+                    student={createStudent()}
+                    onSubmit={vi.fn()}
+                />,
+            )
+
+            const input = screen.getByRole('spinbutton') as HTMLInputElement
+            await user.clear(input)
+            await user.type(input, '88')
+            expect(input.value).toBe('88')
+
+            rerender(
+                <RecordScoreDialog
+                    open={false}
+                    onOpenChange={vi.fn()}
+                    enrollment={enrollment}
+                    course={createCourse()}
+                    student={createStudent()}
+                    onSubmit={vi.fn()}
+                />,
+            )
+
+            rerender(
+                <RecordScoreDialog
+                    open
+                    onOpenChange={vi.fn()}
+                    enrollment={enrollment}
+                    course={createCourse()}
+                    student={createStudent()}
+                    onSubmit={vi.fn()}
+                />,
+            )
+
+            expect((screen.getByRole('spinbutton') as HTMLInputElement).value).toBe('72')
+        })
+
+        it('resets the input when the dialog switches to a different enrollment', () => {
+            const { rerender } = render(
+                <RecordScoreDialog
+                    open
+                    onOpenChange={vi.fn()}
+                    enrollment={createEnrollment({ id: 'enroll-1', score: 72 })}
+                    course={createCourse()}
+                    student={createStudent()}
+                    onSubmit={vi.fn()}
+                />,
+            )
+
+            expect((screen.getByRole('spinbutton') as HTMLInputElement).value).toBe('72')
+
+            rerender(
+                <RecordScoreDialog
+                    open
+                    onOpenChange={vi.fn()}
+                    enrollment={createEnrollment({ id: 'enroll-2', score: 95 })}
+                    course={createCourse()}
+                    student={createStudent()}
+                    onSubmit={vi.fn()}
+                />,
+            )
+
+            expect((screen.getByRole('spinbutton') as HTMLInputElement).value).toBe('95')
+        })
+
         it('shows a pass or fail preview immediately for the pre-filled score', () => {
             render(
                 <RecordScoreDialog
