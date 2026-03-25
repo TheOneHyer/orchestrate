@@ -85,7 +85,7 @@ describe('course-modules', () => {
     ])
   })
 
-  it('summarizes ordered module titles and preserves blank entries', () => {
+  it('summarizes ordered module titles and filters blank entries', () => {
     const modules: Module[] = [
       {
         id: 'module-2',
@@ -116,7 +116,7 @@ describe('course-modules', () => {
       },
     ]
 
-    expect(summarizeModuleTitles(modules)).toEqual(['Intro', 'Summary', ''])
+    expect(summarizeModuleTitles(modules)).toEqual(['Intro', 'Summary'])
   })
 
   it('writes synchronized modules back to a course', () => {
