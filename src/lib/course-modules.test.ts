@@ -85,7 +85,7 @@ describe('course-modules', () => {
     ])
   })
 
-  it('summarizes ordered module titles and removes blanks', () => {
+  it('summarizes ordered module titles and preserves blank entries', () => {
     const modules: Module[] = [
       {
         id: 'module-2',
