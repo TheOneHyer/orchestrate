@@ -99,17 +99,19 @@ describe('usePushNotifications', () => {
         const originalNotification = globalThis.Notification
         delete (globalThis as { Notification?: typeof Notification }).Notification
 
-        const { result } = renderHook(() => usePushNotifications())
-        let permission: NotificationPermission | undefined
+        try {
+            const { result } = renderHook(() => usePushNotifications())
+            let permission: NotificationPermission | undefined
 
-        await act(async () => {
-            permission = await result.current.requestPermission()
-        })
+            await act(async () => {
+                permission = await result.current.requestPermission()
+            })
 
-        expect(permission).toBe('denied')
-
-        if (hadNotification) {
-            vi.stubGlobal('Notification', originalNotification)
+            expect(permission).toBe('denied')
+        } finally {
+            if (hadNotification) {
+                vi.stubGlobal('Notification', originalNotification)
+            }
         }
     })
 
