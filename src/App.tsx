@@ -331,7 +331,7 @@ function App() {
       const next = { ...existing }
 
       users.forEach((user) => {
-        if (!next[user.id]) {
+        if (!(user.id in next)) {
           next[user.id] = 'password123'
           changed = true
         }
