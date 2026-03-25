@@ -32,8 +32,8 @@
 - **pnpm** 10.32.1 via Corepack
 
 > **pnpm is the only supported package manager for this project.**
-> Do **not** use `npm install` or `yarn install` — they will create a `package-lock.json` or `yarn.lock` and produce a different dependency graph than the committed `pnpm-lock.yaml`.
-> Both files are listed in `.gitignore`; only `pnpm-lock.yaml` is committed.
+> Using any other package manager will create an alternate lockfile and a different dependency graph than the committed `pnpm-lock.yaml`.
+> Only `pnpm-lock.yaml` is committed; alternate lockfiles are listed in `.gitignore`.
 
 ### Installation
 

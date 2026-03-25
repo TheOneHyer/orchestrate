@@ -34,7 +34,7 @@ jobs:
       WAIT_TIMEOUT_MS: "1800000"
     steps:
       - name: Evaluate and merge Dependabot PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -211,6 +211,7 @@ jobs:
                   });
                   return;
                 } catch (error) {
+                  const branchUpdateMessage = error instanceof Error ? error.message : String(error);
                   await upsertComment([
                     '## Dependabot auto-merge skipped',
                     '',
@@ -218,7 +219,7 @@ jobs:
                     '',
                     `${mentionTarget} please review this PR and resolve it manually.`,
                     '',
-                    `Branch update error: ${error.message}`,
+                    `Branch update error: ${branchUpdateMessage}`,
                   ].join('\n'));
                   core.setFailed('Failed to update Dependabot PR branch from main.');
                   return;
@@ -275,6 +276,7 @@ jobs:
                   ].join('\n'));
                   return;
                 } catch (error) {
+                  const mergeErrorMessage = error instanceof Error ? error.message : String(error);
                   await upsertComment([
                     '## Dependabot auto-merge skipped',
                     '',
@@ -282,7 +284,7 @@ jobs:
                     '',
                     `${mentionTarget} please review the PR manually.`,
                     '',
-                    `Merge error: ${error.message}`,
+                    `Merge error: ${mergeErrorMessage}`,
                   ].join('\n'));
                   throw error;
                 }
