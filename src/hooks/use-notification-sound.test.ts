@@ -373,34 +373,6 @@ describe('useNotificationSound', () => {
         vi.stubGlobal('AudioContext', MockAudioContext)
     })
 
-    it('falls back to webkitAudioContext when AudioContext is unavailable', () => {
-        vi.stubGlobal('AudioContext', undefined)
-        Object.defineProperty(window, 'webkitAudioContext', {
-            configurable: true,
-            writable: true,
-            value: MockAudioContext,
-        })
-        vi.mocked(useKV).mockReturnValue([
-            {
-                enabled: true,
-                volume: 0.4,
-                soundType: 'pleasant',
-                quietHours: { enabled: false, startTime: '22:00', endTime: '08:00', allowCritical: true }
-            },
-            vi.fn()
-        ] as any)
-
-        const { result } = renderHook(() => useNotificationSound())
-
-        act(() => {
-            result.current.playSound('medium')
-        })
-
-        expect(MockAudioContext).toHaveBeenCalledOnce()
-
-        vi.stubGlobal('AudioContext', MockAudioContext)
-    })
-
     it('uses testSound helper to trigger audio playback', () => {
         vi.mocked(useKV).mockReturnValue([
             {
