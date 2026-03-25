@@ -89,7 +89,15 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
     return enrollments.filter((enrollment) => {
       const matchesDepartment = departmentFilter === 'all' || allowedUserIds.has(enrollment.userId)
       const matchesCourse = courseFilter === 'all' || allowedCourseIds.has(enrollment.courseId)
-      const matchesStatus = statusFilter === 'all' || enrollment.status === statusFilter
+      const isEnrollmentStatus =
+        statusFilter === 'enrolled' ||
+        statusFilter === 'in-progress' ||
+        statusFilter === 'completed' ||
+        statusFilter === 'failed'
+      const matchesStatus =
+        statusFilter === 'all' ||
+        !isEnrollmentStatus ||
+        enrollment.status === statusFilter
 
       return matchesDepartment && matchesCourse && matchesStatus
     })
