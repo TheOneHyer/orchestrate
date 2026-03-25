@@ -1185,26 +1185,36 @@ function App() {
     const course = safeCourses.find((c) => c.id === enrollment.courseId)
     const passScore = course?.passScore ?? 80
 
-    const update = applyScore(score, passScore)
-    const notify = shouldNotifyCompletion(enrollment.status, score, passScore)
+    try {
+      const update = applyScore(score, passScore)
+      const notify = shouldNotifyCompletion(enrollment.status, score, passScore)
 
-    setEnrollments((current) =>
-      (current || []).map((e) =>
-        e.id === enrollmentId ? { ...e, ...update } : e,
-      ),
-    )
+      setEnrollments((current) =>
+        (current || []).map((e) =>
+          e.id === enrollmentId ? { ...e, ...update } : e,
+        ),
+      )
 
-    if (notify && course) {
-      const student = safeUsers.find((u) => u.id === enrollment.userId)
-      handleCreateNotification({
-        userId: enrollment.userId,
-        type: 'completion',
-        title: `Course Completed — ${course.title}`,
-        message: `${student?.name ?? 'A student'} completed "${course.title}" with a score of ${score}%.`,
-        priority: 'medium',
-        read: false,
-        metadata: { enrollmentId, courseId: course.id, score },
-      })
+      if (notify && course) {
+        const student = safeUsers.find((u) => u.id === enrollment.userId)
+        handleCreateNotification({
+          userId: enrollment.userId,
+          type: 'completion',
+          title: `Course Completed — ${course.title}`,
+          message: `${student?.name ?? 'A student'} completed "${course.title}" with a score of ${score}%.`,
+          priority: 'medium',
+          read: false,
+          metadata: { enrollmentId, courseId: course.id, score },
+        })
+      }
+    } catch (error: unknown) {
+      if (error instanceof RangeError) {
+        toast.error('Unable to record score', {
+          description: error.message,
+        })
+        return
+      }
+      throw error
     }
   }, [safeEnrollments, safeCourses, safeUsers, setEnrollments, handleCreateNotification])
 
