@@ -2256,6 +2256,7 @@ describe('App', () => {
         const user = userEvent.setup()
         localStorage.setItem('reminder-schedule-1-2099-01-01T09:00:00.000Z', 'true')
         localStorage.setItem('unrelated-key', 'keep')
+        kvSeed['auth-passwords'] = { 'admin-1': 'stale-password' }
 
         render(<App />)
 
@@ -2264,6 +2265,7 @@ describe('App', () => {
 
         expect(localStorage.getItem('reminder-schedule-1-2099-01-01T09:00:00.000Z')).toBeNull()
         expect(localStorage.getItem('unrelated-key')).toBe('keep')
+        expect(kvState['auth-passwords']).toEqual({})
     })
 
     it('shows sign-in errors for missing credentials, unknown users, and wrong passwords', async () => {
@@ -2735,6 +2737,31 @@ describe('App', () => {
             await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
             await user.click(screen.getByRole('button', { name: /record score pass/i }))
             await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+
+            const persistedEnrollments = kvState['enrollments'] as Array<{
+                id: string
+                status: string
+                progress: number
+                score?: number
+            }>
+            const updatedEnrollment = persistedEnrollments.find((enrollment) => enrollment.id === 'enrollment-rs-1')
+            const untouchedEnrollment = persistedEnrollments.find((enrollment) => enrollment.id === 'enrollment-rs-2')
+
+            expect(updatedEnrollment).toEqual(
+                expect.objectContaining({
+                    id: 'enrollment-rs-1',
+                    status: 'completed',
+                    progress: 100,
+                    score: 90,
+                }),
+            )
+            expect(untouchedEnrollment).toEqual(
+                expect.objectContaining({
+                    id: 'enrollment-rs-2',
+                    status: 'in-progress',
+                    progress: 10,
+                }),
+            )
 
             expect(screen.getByText(/dashboard enrollments:\s*2/i)).toBeInTheDocument()
             expect(screen.getByText(/enrollment: enrollment-rs-2/i)).toBeInTheDocument()

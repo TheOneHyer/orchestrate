@@ -819,16 +819,41 @@ const sections: Section[] = [
 ]
 
 /**
+ * Returns the matching section for the provided key, or the first section when no match exists.
+ *
+ * @param availableSections - Ordered section list to search.
+ * @param key - Optional section ID to resolve.
+ * @returns The matching section or the first available fallback section.
+ */
+export function getSectionOrFallback(availableSections: Section[], key?: string): Section {
+  if (availableSections.length === 0) {
+    return {
+      id: '',
+      label: 'No Sections Available',
+      icon: BookOpen,
+      roles: [],
+      content: <p>No guide sections are available</p>,
+    }
+  }
+  return availableSections.find((section) => section.id === key) ?? availableSections[0]
+}
+
+interface UserGuideProps {
+  /** Optional initial section ID used to seed local navigation state. */
+  initialSection?: string
+}
+
+/**
  * Renders the full-page User Guide for Orchestrate.
  *
  * Provides a sidebar-navigated reference covering every major feature of the application,
  * organised into role-tagged sections (Overview, Schedule, Templates, People, Reports,
  * Trainer Availability, Wellness, Courses, Notifications, Settings, and Glossary).
  */
-export function UserGuide() {
-  const [activeSection, setActiveSection] = useState('overview')
+export function UserGuide({ initialSection = 'overview' }: UserGuideProps) {
+  const [activeSection, setActiveSection] = useState(initialSection)
 
-  const current = sections.find(s => s.id === activeSection) ?? sections[0]
+  const current = getSectionOrFallback(sections, activeSection)
 
   return (
     <div className="p-6 space-y-6">

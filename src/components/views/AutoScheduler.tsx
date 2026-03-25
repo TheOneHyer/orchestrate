@@ -10,12 +10,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
-import { 
-  Robot, 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Users, 
-  CheckCircle, 
+import {
+  Robot,
+  Calendar as CalendarIcon,
+  Clock,
+  Users,
+  CheckCircle,
   WarningCircle,
   Lightning,
   ArrowRight
@@ -52,7 +52,7 @@ interface AutoSchedulerProps {
  */
 export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: AutoSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])
-  
+
   const [selectedCourse, setSelectedCourse] = useState<string>('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -61,7 +61,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
   const [location, setLocation] = useState('')
   const [capacity, setCapacity] = useState(20)
   const [recurrenceType, setRecurrenceType] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none')
-  
+
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [availableTrainers, setAvailableTrainers] = useState<TrainerMatch[]>([])
@@ -69,7 +69,6 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
 
   const selectedCourseData = courses.find(c => c.id === selectedCourse)
 
-  /** Runs feasibility analysis and trainer availability lookup for the selected course and date. */
   const analyzeFeasibility = () => {
     if (!selectedCourse || !startDate) {
       toast.error('Please fill in all required fields')
@@ -113,7 +112,6 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
     }, 1000)
   }
 
-  /** Runs the automatic scheduler to assign the best available trainer and create sessions. */
   const executeAutoSchedule = () => {
     if (!selectedCourse || !startDate) {
       toast.error('Please fill in all required fields')
@@ -132,7 +130,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
     const dates: string[] = []
     const start = new Date(startDate)
     const end = endDate ? new Date(endDate) : new Date(startDate)
-    
+
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       dates.push(new Date(d).toISOString().split('T')[0])
     }
@@ -159,7 +157,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
     if (result.success) {
       onSessionsCreated(result.sessions)
       toast.success(`Successfully scheduled ${result.sessions.length} session(s)!`)
-      
+
       if (result.recommendations.length > 0) {
         result.recommendations.forEach(rec => {
           toast.info(rec, { duration: 5000 })
@@ -359,11 +357,11 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
                         <span className="font-semibold text-foreground">
                           {index + 1}. {match.trainer.name}
                         </span>
-                        <Badge 
+                        <Badge
                           variant={
                             match.availability === 'available' ? 'default' :
-                            match.availability === 'partial' ? 'secondary' :
-                            'outline'
+                              match.availability === 'partial' ? 'secondary' :
+                                'outline'
                           }
                         >
                           {match.availability}
@@ -372,7 +370,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
                       <div className="text-sm text-muted-foreground mt-1">
                         {match.trainer.department} • Works: {match.trainer.shifts?.join(', ') ?? 'N/A'}
                       </div>
-                      
+
                       <div className="mt-3 space-y-1">
                         {match.matchReasons.length > 0 && (
                           <div className="flex items-start gap-2 text-sm">
@@ -384,7 +382,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
                             </div>
                           </div>
                         )}
-                        
+
                         {match.conflicts.length > 0 && (
                           <div className="flex items-start gap-2 text-sm">
                             <WarningCircle size={16} className="text-orange-600 mt-0.5 shrink-0" />
@@ -397,7 +395,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
                         )}
                       </div>
                     </div>
-                    
+
                     <div className="text-right">
                       <div className="text-2xl font-bold text-primary">
                         {match.score}

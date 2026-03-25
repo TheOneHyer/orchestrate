@@ -94,7 +94,6 @@ export function RecordScoreDialog({
     const isScoreValid = hasScore && Number.isInteger(score) && score >= 0 && score <= 100
     const canSubmit = isScoreValid
     const wouldPass = canSubmit && score >= course.passScore
-    const wouldFail = canSubmit && !wouldPass
 
     /** Submits the validated score and closes the dialog. */
     function handleSubmit(values: ScoreFormValues) {

@@ -213,6 +213,7 @@ function App() {
     })
   }, [
     setUsers,
+    setAttendanceRecords,
     setAuthPasswords,
     setSessions,
     setCourses,
@@ -1228,7 +1229,6 @@ function App() {
       (currentSnapshots || []).filter((snapshot) => snapshot.trainerId !== userId)
     )
   }, [
-    VIEW_ACCESS,
     activeUserId,
     activeView,
     safeUsers,

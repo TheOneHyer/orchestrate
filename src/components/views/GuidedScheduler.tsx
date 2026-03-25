@@ -219,9 +219,13 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
           existingMatch.totalScore += match.score
           existingMatch.matchReasons = Array.from(new Set([...existingMatch.matchReasons, ...match.matchReasons]))
           existingMatch.conflicts = Array.from(new Set([...existingMatch.conflicts, ...match.conflicts]))
-          existingMatch.availability = existingMatch.availability === 'partial' || match.availability === 'partial'
-            ? 'partial'
-            : match.availability
+          if (existingMatch.availability === 'unavailable' || match.availability === 'unavailable') {
+            existingMatch.availability = 'unavailable'
+          } else {
+            existingMatch.availability = existingMatch.availability === 'partial' || match.availability === 'partial'
+              ? 'partial'
+              : match.availability
+          }
           continue
         }
 
@@ -234,7 +238,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     }
 
     const availableTrainers = Array.from(trainers.values())
-      .filter((match) => match.matchedDateCount === parsedDates.length)
+      .filter((match) => match.matchedDateCount === parsedDates.length && match.availability !== 'unavailable')
       .map(({ matchedDateCount: _matchedDateCount, totalScore, ...match }) => ({
         ...match,
         score: Math.round(totalScore / parsedDates.length),
@@ -462,7 +466,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
         <div className="space-y-2">
           <Label htmlFor="recurrence">Recurrence Pattern</Label>
-          <Select value={recurrenceType} onValueChange={(v: any) => setRecurrenceType(v)}>
+          <Select value={recurrenceType} onValueChange={(v: 'none' | 'daily' | 'weekly' | 'monthly') => setRecurrenceType(v)}>
             <SelectTrigger id="recurrence">
               <SelectValue />
             </SelectTrigger>

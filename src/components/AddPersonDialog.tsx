@@ -67,7 +67,6 @@ export function AddPersonDialog({ open, onOpenChange, onSave, existingEmails }: 
     }
   }
 
-  /** Removes a certification string from the form data. */
   const handleRemoveCertification = (cert: string) => {
     setFormData(prev => ({
       ...prev,
@@ -75,11 +74,6 @@ export function AddPersonDialog({ open, onOpenChange, onSave, existingEmails }: 
     }))
   }
 
-  /**
-   * Validates all form fields and populates `errors` state.
-   *
-   * @returns `true` when the form is valid, `false` when there are validation errors.
-   */
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
@@ -107,7 +101,6 @@ export function AddPersonDialog({ open, onOpenChange, onSave, existingEmails }: 
     return Object.keys(newErrors).length === 0
   }
 
-  /** Validates the form, constructs a new User object, and invokes `onSave`. */
   const handleSave = () => {
     if (!validateForm()) {
       toast.error('Please fix the errors before saving')
@@ -143,7 +136,6 @@ export function AddPersonDialog({ open, onOpenChange, onSave, existingEmails }: 
     toast.success(`${formData.name} has been added successfully`)
   }
 
-  /** Resets the form to its initial state and clears all validation errors. */
   const handleClose = () => {
     setFormData({
       name: '',

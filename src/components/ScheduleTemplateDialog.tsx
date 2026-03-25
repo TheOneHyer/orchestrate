@@ -97,7 +97,6 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
     setTags(template?.tags || [])
     setTagInput('')
     setSessions(template?.sessions || [createDefaultSession()])
-    setError(null)
   }, [open, template])
 
   /** Appends a new default session to the template's session list. */

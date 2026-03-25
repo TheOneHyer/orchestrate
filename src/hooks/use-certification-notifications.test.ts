@@ -528,8 +528,6 @@ describe('use-certification-notifications', () => {
 
         expect(onCreateNotification).not.toHaveBeenCalled()
         expect(onUpdateUsers).not.toHaveBeenCalled()
-
-        expiringSpy.mockRestore()
     })
     it('emits no notifications when users array is empty', () => {
         const onCreateNotification = vi.fn()

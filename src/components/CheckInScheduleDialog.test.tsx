@@ -117,6 +117,49 @@ describe('CheckInScheduleDialog', () => {
     expect(screen.queryByLabelText(/custom days/i)).not.toBeInTheDocument()
   })
 
+  it('initializes create-mode defaults when no existing schedule is provided', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-02-01T12:00:00.000Z'))
+
+    render(<CheckInScheduleDialog {...makeProps()} />)
+
+    expect((screen.getByLabelText(/start date/i) as HTMLInputElement).value).toBe('2026-02-01')
+    expect((screen.getByLabelText(/end date/i) as HTMLInputElement).value).toBe('2026-05-02')
+    expect(screen.getByRole('switch', { name: /enable notifications/i })).toBeChecked()
+    expect(screen.getByRole('switch', { name: /automatic reminders/i })).toBeChecked()
+    expect((screen.getByLabelText(/notes/i) as HTMLTextAreaElement).value).toBe('')
+
+    vi.useRealTimers()
+  })
+
+  it('initializes edit-mode defaults from existing schedule and optional fallbacks', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15T12:00:00.000Z'))
+
+    const existing = makeExistingSchedule({
+      frequency: 'custom',
+      customDays: undefined,
+      startDate: '2026-04-01T00:00:00.000Z',
+      endDate: undefined,
+      notificationEnabled: false,
+      autoReminders: false,
+      reminderHoursBefore: 12,
+      notes: undefined,
+    })
+
+    render(<CheckInScheduleDialog {...makeProps({ existingSchedule: existing })} />)
+
+    expect((screen.getByLabelText(/start date/i) as HTMLInputElement).value).toBe('2026-04-01')
+    expect((screen.getByLabelText(/end date/i) as HTMLInputElement).value).toBe('2026-06-13')
+    expect(screen.getByLabelText(/end date/i)).toBeDisabled()
+    expect((screen.getByLabelText(/custom days/i) as HTMLInputElement).value).toBe('7')
+    expect(screen.getByRole('switch', { name: /enable notifications/i })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: /automatic reminders/i })).not.toBeChecked()
+    expect((screen.getByLabelText(/notes/i) as HTMLTextAreaElement).value).toBe('')
+
+    vi.useRealTimers()
+  })
+
   it('submit button is disabled when no trainer is selected', () => {
     // In this test, makeProps provides a trainer option list but no default trainer selection,
     // so the create action should remain disabled until a selection is made.

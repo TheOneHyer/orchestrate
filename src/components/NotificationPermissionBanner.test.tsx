@@ -251,24 +251,27 @@ describe('NotificationPermissionBanner', () => {
         )
         const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => { })
 
-        mockUsePushNotifications.mockReturnValue({
-            isSupported: true,
-            settings: { permission: 'default' },
-            requestPermission,
-        })
-        mockUseKV.mockReturnValue([false, setDismissed])
+        try {
+            mockUsePushNotifications.mockReturnValue({
+                isSupported: true,
+                settings: { permission: 'default' },
+                requestPermission,
+            })
+            mockUseKV.mockReturnValue([false, setDismissed])
 
-        const { unmount } = render(<NotificationPermissionBanner />)
+            const { unmount } = render(<NotificationPermissionBanner />)
 
-        await user.click(await screen.findByRole('button', { name: /enable/i }))
-        unmount()
+            await user.click(await screen.findByRole('button', { name: /enable/i }))
+            unmount()
 
-        rejectPermission(new Error('permission-failure-after-unmount'))
-        await act(async () => {
-            await Promise.resolve()
-        })
+            rejectPermission(new Error('permission-failure-after-unmount'))
+            await act(async () => {
+                await Promise.resolve()
+            })
 
-        expect(setDismissed).not.toHaveBeenCalled()
-        consoleErrorSpy.mockRestore()
+            expect(setDismissed).not.toHaveBeenCalled()
+        } finally {
+            consoleErrorSpy.mockRestore()
+        }
     })
 })

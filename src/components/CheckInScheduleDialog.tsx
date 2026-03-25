@@ -1,4 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useMemo } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { Controller, useForm } from 'react-hook-form'
+import { z } from 'zod'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -9,7 +12,6 @@ import { Switch } from '@/components/ui/switch'
 import { CheckInSchedule, CheckInFrequency, User } from '@/lib/types'
 import { CalendarCheck } from '@phosphor-icons/react'
 import { addDays, format } from 'date-fns'
-import { toast } from 'sonner'
 
 /**
  * Props for the {@link CheckInScheduleDialog} component.
@@ -32,6 +34,94 @@ interface CheckInScheduleDialogProps {
   existingSchedule?: CheckInSchedule
 }
 
+const checkInFrequencies = ['daily', 'weekly', 'biweekly', 'monthly', 'custom'] as const
+
+/**
+ * Validates check-in schedule form input prior to submission.
+ *
+ * Enforces required trainer/frequency/date fields, constrains `customDays`
+ * to an integer in the 1-365 range, ensures valid date strings, and
+ * requires `endDate` to be later than `startDate` when an end date is enabled.
+ */
+const checkInScheduleSchema = z.object({
+  trainerId: z.string().min(1, 'Trainer is required'),
+  frequency: z.enum(checkInFrequencies),
+  customDays: z.coerce.number().int().min(1, 'Custom days must be at least 1').max(365, 'Custom days must be 365 or fewer'),
+  startDate: z.string().min(1, 'Start date is required'),
+  hasEndDate: z.boolean(),
+  endDate: z.string().optional(),
+  notificationEnabled: z.boolean(),
+  autoReminders: z.boolean(),
+  reminderHoursBefore: z.coerce.number().min(0, 'Reminder hours cannot be negative'),
+  notes: z.string(),
+}).superRefine((values, ctx) => {
+  const startDate = new Date(values.startDate)
+  if (Number.isNaN(startDate.getTime())) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Start date is invalid.',
+      path: ['startDate'],
+    })
+  }
+
+  if (values.hasEndDate) {
+    if (!values.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'End date is required.',
+        path: ['endDate'],
+      })
+      return
+    }
+
+    const endDate = new Date(values.endDate)
+
+    if (Number.isNaN(endDate.getTime())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'End date is invalid.',
+        path: ['endDate'],
+      })
+      return
+    }
+
+    if (!Number.isNaN(startDate.getTime()) && endDate <= startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'End date must be after start date.',
+        path: ['endDate'],
+      })
+    }
+  }
+})
+
+type CheckInScheduleFormValues = z.infer<typeof checkInScheduleSchema>
+
+/**
+ * Builds default form values for create and edit schedule flows.
+ *
+ * @param existingSchedule - Optional schedule used to prefill edit values.
+ * @returns Initial values consumed by the check-in schedule form.
+ */
+function getDefaultFormValues(existingSchedule?: CheckInSchedule): CheckInScheduleFormValues {
+  return {
+    trainerId: existingSchedule?.trainerId || '',
+    frequency: existingSchedule?.frequency || 'weekly',
+    customDays: existingSchedule?.customDays ?? 7,
+    startDate: existingSchedule?.startDate
+      ? existingSchedule.startDate.split('T')[0]
+      : format(new Date(), 'yyyy-MM-dd'),
+    hasEndDate: Boolean(existingSchedule?.endDate),
+    endDate: existingSchedule?.endDate
+      ? existingSchedule.endDate.split('T')[0]
+      : format(addDays(new Date(), 90), 'yyyy-MM-dd'),
+    notificationEnabled: existingSchedule?.notificationEnabled ?? true,
+    autoReminders: existingSchedule?.autoReminders ?? true,
+    reminderHoursBefore: existingSchedule?.reminderHoursBefore ?? 24,
+    notes: existingSchedule?.notes || '',
+  }
+}
+
 /**
  * Dialog for creating or editing an automated wellness check-in schedule for a trainer.
  *
@@ -49,78 +139,46 @@ export function CheckInScheduleDialog({
   currentUserId,
   existingSchedule
 }: CheckInScheduleDialogProps) {
-  const [trainerId, setTrainerId] = useState(existingSchedule?.trainerId || '')
-  const [frequency, setFrequency] = useState<CheckInFrequency>(existingSchedule?.frequency || 'weekly')
-  const [customDays, setCustomDays] = useState(existingSchedule?.customDays?.toString() || '7')
-  const [startDate, setStartDate] = useState(
-    existingSchedule?.startDate
-      ? existingSchedule.startDate.split('T')[0]
-      : format(new Date(), 'yyyy-MM-dd')
-  )
-  const [hasEndDate, setHasEndDate] = useState(!!existingSchedule?.endDate)
-  const [endDate, setEndDate] = useState(
-    existingSchedule?.endDate
-      ? existingSchedule.endDate.split('T')[0]
-      : format(addDays(new Date(), 90), 'yyyy-MM-dd')
-  )
-  const [notificationEnabled, setNotificationEnabled] = useState(existingSchedule?.notificationEnabled ?? true)
-  const [autoReminders, setAutoReminders] = useState(existingSchedule?.autoReminders ?? true)
-  const [reminderHoursBefore, setReminderHoursBefore] = useState(
-    existingSchedule?.reminderHoursBefore?.toString() || '24'
-  )
-  const [notes, setNotes] = useState(existingSchedule?.notes || '')
+  const defaultValues = useMemo(() => getDefaultFormValues(existingSchedule), [existingSchedule])
+  const form = useForm<CheckInScheduleFormValues>({
+    resolver: zodResolver(checkInScheduleSchema),
+    defaultValues,
+    mode: 'onSubmit',
+  })
 
-  /** Validates trainerId and builds the schedule data object, then invokes `onSubmit`. */
-  const handleSubmit = () => {
-    if (!trainerId) {
-      toast.error('Trainer required', {
-        description: 'Please select a trainer before saving.',
-      })
-      return
+  const {
+    register,
+    control,
+    watch,
+    reset,
+    formState: { errors },
+  } = form
+
+  useEffect(() => {
+    if (open) {
+      reset(getDefaultFormValues(existingSchedule))
     }
+  }, [open, existingSchedule, reset])
 
-    const scheduleData: Omit<CheckInSchedule, 'id' | 'createdAt' | 'completedCheckIns' | 'missedCheckIns'> = {
-      trainerId,
-      frequency,
-      customDays: frequency === 'custom' ? parseInt(customDays) : undefined,
-      startDate: new Date(startDate).toISOString(),
-      endDate: hasEndDate ? new Date(endDate).toISOString() : undefined,
-      nextScheduledDate: new Date(startDate).toISOString(),
-      lastCheckInDate: existingSchedule?.lastCheckInDate,
-      status: existingSchedule?.status || 'active',
-      notificationEnabled,
-      autoReminders,
-      reminderHoursBefore: parseInt(reminderHoursBefore),
-      createdBy: currentUserId,
-      notes: notes.trim() || undefined
-    }
+  const trainerId = watch('trainerId')
+  const frequency = watch('frequency')
+  const hasEndDate = watch('hasEndDate')
+  const notificationEnabled = watch('notificationEnabled')
+  const autoReminders = watch('autoReminders')
+  const startDate = watch('startDate')
 
-    onSubmit(scheduleData)
-    handleClose()
-  }
-
-  /** Resets all form fields to their default values. */
   const handleClose = () => {
     if (!existingSchedule) {
-      setTrainerId('')
-      setFrequency('weekly')
-      setCustomDays('7')
-      setStartDate(format(new Date(), 'yyyy-MM-dd'))
-      setHasEndDate(false)
-      setEndDate(format(addDays(new Date(), 90), 'yyyy-MM-dd'))
-      setNotificationEnabled(true)
-      setAutoReminders(true)
-      setReminderHoursBefore('24')
-      setNotes('')
+      reset(getDefaultFormValues(undefined))
     }
     onClose()
   }
 
   /**
-   * Returns a human-readable label for a {@link CheckInFrequency} value.
+   * Converts a stored frequency value into the human-readable label shown in the UI.
    *
-   * @param freq - The frequency value to convert.
-   * @returns A short descriptive string such as "Every Week" or "Custom Interval".
+   * @param freq - The schedule frequency key.
+   * @returns User-facing frequency label.
    */
   const getFrequencyLabel = (freq: CheckInFrequency) => {
     switch (freq) {
@@ -131,6 +189,36 @@ export function CheckInScheduleDialog({
       case 'custom': return 'Custom Interval'
       default: return freq
     }
+  }
+
+  /**
+   * Transforms validated form values into a schedule payload and submits it.
+   *
+   * Converts date strings to ISO timestamps, conditionally includes custom
+   * interval and optional end-date fields, and forwards the resulting
+   * `CheckInSchedule` input shape to `onSubmit` before closing the dialog.
+   *
+   * @param values - Validated check-in schedule form values.
+   */
+  const submitForm = (values: CheckInScheduleFormValues) => {
+    const scheduleData: Omit<CheckInSchedule, 'id' | 'createdAt' | 'completedCheckIns' | 'missedCheckIns'> = {
+      trainerId: values.trainerId,
+      frequency: values.frequency,
+      customDays: values.frequency === 'custom' ? values.customDays : undefined,
+      startDate: new Date(values.startDate).toISOString(),
+      endDate: values.hasEndDate && values.endDate ? new Date(values.endDate).toISOString() : undefined,
+      nextScheduledDate: new Date(values.startDate).toISOString(),
+      lastCheckInDate: existingSchedule?.lastCheckInDate,
+      status: existingSchedule?.status || 'active',
+      notificationEnabled: values.notificationEnabled,
+      autoReminders: values.autoReminders,
+      reminderHoursBefore: values.reminderHoursBefore,
+      createdBy: currentUserId,
+      notes: values.notes.trim() || undefined,
+    }
+
+    onSubmit(scheduleData)
+    handleClose()
   }
 
   return (
@@ -146,38 +234,51 @@ export function CheckInScheduleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <form className="space-y-6 py-4" noValidate onSubmit={form.handleSubmit(submitForm)}>
           <div className="space-y-2">
             <Label htmlFor="trainer">Trainer *</Label>
-            <Select value={trainerId} onValueChange={setTrainerId} disabled={!!existingSchedule}>
-              <SelectTrigger id="trainer">
-                <SelectValue placeholder="Select a trainer..." />
-              </SelectTrigger>
-              <SelectContent>
-                {trainers.map(trainer => (
-                  <SelectItem key={trainer.id} value={trainer.id}>
-                    {trainer.name} - {trainer.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Controller
+              control={control}
+              name="trainerId"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange} disabled={Boolean(existingSchedule)}>
+                  <SelectTrigger id="trainer">
+                    <SelectValue placeholder="Select a trainer..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {trainers.map(trainer => (
+                      <SelectItem key={trainer.id} value={trainer.id}>
+                        {trainer.name} - {trainer.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.trainerId && <p className="text-sm text-destructive">{errors.trainerId.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="frequency">Check-In Frequency *</Label>
-              <Select value={frequency} onValueChange={(v) => setFrequency(v as CheckInFrequency)}>
-                <SelectTrigger id="frequency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">{getFrequencyLabel('daily')}</SelectItem>
-                  <SelectItem value="weekly">{getFrequencyLabel('weekly')}</SelectItem>
-                  <SelectItem value="biweekly">{getFrequencyLabel('biweekly')}</SelectItem>
-                  <SelectItem value="monthly">{getFrequencyLabel('monthly')}</SelectItem>
-                  <SelectItem value="custom">{getFrequencyLabel('custom')}</SelectItem>
-                </SelectContent>
-              </Select>
+              <Controller
+                control={control}
+                name="frequency"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={(v) => field.onChange(v as CheckInFrequency)}>
+                    <SelectTrigger id="frequency">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">{getFrequencyLabel('daily')}</SelectItem>
+                      <SelectItem value="weekly">{getFrequencyLabel('weekly')}</SelectItem>
+                      <SelectItem value="biweekly">{getFrequencyLabel('biweekly')}</SelectItem>
+                      <SelectItem value="monthly">{getFrequencyLabel('monthly')}</SelectItem>
+                      <SelectItem value="custom">{getFrequencyLabel('custom')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
             </div>
 
             {frequency === 'custom' && (
@@ -188,10 +289,10 @@ export function CheckInScheduleDialog({
                   type="number"
                   min="1"
                   max="365"
-                  value={customDays}
-                  onChange={(e) => setCustomDays(e.target.value)}
                   placeholder="Enter number of days"
+                  {...register('customDays', { valueAsNumber: true })}
                 />
+                {errors.customDays && <p className="text-sm text-destructive">{errors.customDays.message}</p>}
               </div>
             )}
           </div>
@@ -202,28 +303,34 @@ export function CheckInScheduleDialog({
               <Input
                 id="startDate"
                 type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                {...register('startDate')}
               />
+              {errors.startDate && <p className="text-sm text-destructive">{errors.startDate.message}</p>}
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="endDate">End Date (Optional)</Label>
-                <Switch
-                  data-testid="end-date-switch"
-                  checked={hasEndDate}
-                  onCheckedChange={setHasEndDate}
+                <Controller
+                  control={control}
+                  name="hasEndDate"
+                  render={({ field }) => (
+                    <Switch
+                      data-testid="end-date-switch"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
                 />
               </div>
               <Input
                 id="endDate"
                 type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
                 disabled={!hasEndDate}
                 min={startDate}
+                {...register('endDate')}
               />
+              {errors.endDate && <p className="text-sm text-destructive">{errors.endDate.message}</p>}
             </div>
           </div>
 
@@ -237,10 +344,16 @@ export function CheckInScheduleDialog({
                   Send notifications when check-ins are due
                 </p>
               </div>
-              <Switch
-                id="notificationEnabled"
-                checked={notificationEnabled}
-                onCheckedChange={setNotificationEnabled}
+              <Controller
+                control={control}
+                name="notificationEnabled"
+                render={({ field }) => (
+                  <Switch
+                    id="notificationEnabled"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                )}
               />
             </div>
 
@@ -251,30 +364,43 @@ export function CheckInScheduleDialog({
                   Send reminder before check-in is due
                 </p>
               </div>
-              <Switch
-                id="autoReminders"
-                checked={autoReminders}
-                onCheckedChange={setAutoReminders}
-                disabled={!notificationEnabled}
+              <Controller
+                control={control}
+                name="autoReminders"
+                render={({ field }) => (
+                  <Switch
+                    id="autoReminders"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={!notificationEnabled}
+                  />
+                )}
               />
             </div>
 
             {autoReminders && notificationEnabled && (
               <div className="space-y-2">
                 <Label htmlFor="reminderHours">Reminder Time (Hours Before)</Label>
-                <Select value={reminderHoursBefore} onValueChange={setReminderHoursBefore}>
-                  <SelectTrigger id="reminderHours">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 hour before</SelectItem>
-                    <SelectItem value="4">4 hours before</SelectItem>
-                    <SelectItem value="12">12 hours before</SelectItem>
-                    <SelectItem value="24">24 hours before</SelectItem>
-                    <SelectItem value="48">48 hours before</SelectItem>
-                    <SelectItem value="72">72 hours before</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Controller
+                  control={control}
+                  name="reminderHoursBefore"
+                  render={({ field }) => (
+                    <Select value={String(field.value)} onValueChange={(value) => field.onChange(Number(value))}>
+                      <SelectTrigger id="reminderHours">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">1 hour before</SelectItem>
+                        <SelectItem value="4">4 hours before</SelectItem>
+                        <SelectItem value="12">12 hours before</SelectItem>
+                        <SelectItem value="24">24 hours before</SelectItem>
+                        <SelectItem value="48">48 hours before</SelectItem>
+                        <SelectItem value="72">72 hours before</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.reminderHoursBefore && <p className="text-sm text-destructive">{errors.reminderHoursBefore.message}</p>}
               </div>
             )}
           </div>
@@ -283,22 +409,21 @@ export function CheckInScheduleDialog({
             <Label htmlFor="notes">Notes (Optional)</Label>
             <Textarea
               id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
               placeholder="Add any additional notes or special instructions..."
               rows={3}
+              {...register('notes')}
             />
           </div>
-        </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={!trainerId}>
-            {existingSchedule ? 'Update Schedule' : 'Create Schedule'}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!trainerId}>
+              {existingSchedule ? 'Update Schedule' : 'Create Schedule'}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

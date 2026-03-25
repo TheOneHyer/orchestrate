@@ -49,7 +49,10 @@ export function NotificationPermissionBanner() {
     setIsVisible(true)
   }, [isSupported, settings?.permission, dismissed])
 
-  /** Requests browser notification permission and dismisses the banner on success or denial. */
+  /**
+   * Requests browser notification permission and dismisses the banner on success,
+   * denial, or when an error occurs (if the component is still mounted).
+   */
   const handleEnableNotifications = async () => {
     if (isRequesting) {
       return

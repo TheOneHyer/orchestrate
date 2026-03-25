@@ -204,7 +204,7 @@ export function RecoveryPlanDialog({
     const updated = [...actions]
     if (field === 'description' || field === 'targetDate' || field === 'notes' || field === 'completedDate' || field === 'completedBy' || field === 'impact') {
       if (typeof value !== 'string') {
-        throw new Error(`Invalid value for action field \"${field}\": expected string.`)
+        throw new Error(`Invalid value for action field "${field}": expected string.`)
       }
       updated[index] = { ...updated[index], [field]: value }
     } else if (field === 'completed') {

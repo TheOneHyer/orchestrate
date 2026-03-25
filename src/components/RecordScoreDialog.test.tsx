@@ -378,7 +378,6 @@ describe('RecordScoreDialog', () => {
 
         it('resets the input to the enrollment score when the dialog is reopened', async () => {
             const enrollment = createEnrollment({ score: 72 })
-            const user = userEvent.setup()
             const { rerender } = render(
                 <RecordScoreDialog
                     open

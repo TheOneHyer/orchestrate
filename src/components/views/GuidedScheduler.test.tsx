@@ -409,8 +409,24 @@ describe('GuidedScheduler', () => {
                     availability: 'available',
                 },
             ])
-            .mockReturnValueOnce([])
-            .mockReturnValueOnce([])
+            .mockReturnValueOnce([
+                {
+                    trainer: users[0],
+                    score: 88,
+                    matchReasons: ['Unavailable on second occurrence'],
+                    conflicts: ['Already assigned'],
+                    availability: 'unavailable',
+                },
+            ])
+            .mockReturnValueOnce([
+                {
+                    trainer: users[0],
+                    score: 91,
+                    matchReasons: ['Available on third occurrence'],
+                    conflicts: [],
+                    availability: 'available',
+                },
+            ])
 
         renderGuidedScheduler()
 
@@ -552,7 +568,7 @@ describe('GuidedScheduler', () => {
         expect(rankedNames[1]).toMatch(/2\. Uma Trainer/i)
     })
 
-    it('renders good recommendations with low utilization, unavailable status, and fallback kv arrays', async () => {
+    it('excludes unavailable trainers from recommendations with fallback kv arrays', async () => {
         const user = userEvent.setup()
 
         useKVMock.mockImplementation((key: string) => {
@@ -580,16 +596,10 @@ describe('GuidedScheduler', () => {
         await fillParameters(user)
         await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
 
-        expect(screen.getByText(/good choice/i)).toBeInTheDocument()
-        expect(screen.getByText(/^unavailable$/i)).toBeInTheDocument()
-        expect(screen.getByText(/^45%$/i)).toHaveClass('text-blue-600')
-        expect(calculateTrainerWorkloadMock).toHaveBeenCalledWith(
-            expect.objectContaining({ id: 't1' }),
-            [],
-            expect.any(Date),
-            expect.any(Date)
-        )
-        expect(calculateBurnoutRiskMock).toHaveBeenCalledWith('t1', [], [], users, courses)
+        expect(screen.getByText(/no available trainers/i)).toBeInTheDocument()
+        expect(toastError).toHaveBeenCalledWith('No qualified trainers available')
+        expect(calculateTrainerWorkloadMock).not.toHaveBeenCalled()
+        expect(calculateBurnoutRiskMock).not.toHaveBeenCalled()
     })
 
     it('uses recent wellness check-ins to compute trainer insights', async () => {

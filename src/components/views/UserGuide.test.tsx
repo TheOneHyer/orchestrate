@@ -1,11 +1,40 @@
 import userEvent from '@testing-library/user-event'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { render, screen } from '@testing-library/react'
 
-import { UserGuide } from './UserGuide'
+import { getSectionOrFallback, UserGuide } from './UserGuide'
 
-import { UserGuide } from './UserGuide'
+describe('getSectionOrFallback', () => {
+  type SectionList = Parameters<typeof getSectionOrFallback>[0]
+  const sections = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'notifications', label: 'Notifications' },
+  ] as unknown as SectionList
+
+  it('finds an existing section by key', () => {
+    const result = getSectionOrFallback([...sections], 'notifications')
+
+    expect(result).toEqual(expect.objectContaining({ id: 'notifications' }))
+  })
+
+  it('returns the first section when key is undefined', () => {
+    const result = getSectionOrFallback([...sections])
+
+    expect(result).toEqual(expect.objectContaining({ id: 'overview' }))
+  })
+
+  it('returns the first section when key does not match any section', () => {
+    const result = getSectionOrFallback([...sections], 'missing')
+
+    expect(result).toEqual(expect.objectContaining({ id: 'overview' }))
+  })
+
+  it('returns a safe fallback section for an empty section array', () => {
+    const result = getSectionOrFallback([], 'overview')
+
+    expect(result).toBeDefined()
+    expect(result).toEqual(expect.objectContaining({ id: '', label: 'No Sections Available' }))
+  })
+})
 
 describe('UserGuide', () => {
   it('renders overview section by default', () => {
@@ -127,33 +156,9 @@ describe('UserGuide', () => {
     expect(await screen.findByTestId('role-badge-employee')).toBeInTheDocument()
   })
 
-  it('falls back to the overview section when the active section state is invalid', async () => {
-    vi.resetModules()
+  it('falls back to the overview section when the initial section is invalid', () => {
+    render(<UserGuide initialSection="missing-section" />)
 
-    try {
-      vi.doMock('react', async () => {
-        const actual = await vi.importActual<typeof import('react')>('react')
-
-        return {
-          ...actual,
-          useState: ((initialState: unknown) => {
-            if (initialState === 'overview') {
-              return actual.useState('missing-section')
-            }
-
-            return actual.useState(initialState)
-          }) as typeof actual.useState,
-        }
-      })
-
-      const { UserGuide: IsolatedUserGuide } = await import('./UserGuide')
-
-      render(<IsolatedUserGuide />)
-
-      expect(screen.getByText(/what is orchestrate/i)).toBeInTheDocument()
-    } finally {
-      vi.doUnmock('react')
-      vi.resetModules()
-    }
+    expect(screen.getByText(/what is orchestrate/i)).toBeInTheDocument()
   })
 })
