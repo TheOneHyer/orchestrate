@@ -437,4 +437,28 @@ describe('EnrollStudentsDialog', () => {
         await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
         expect(onOpenChange).toHaveBeenCalledWith(false)
     })
+
+    it('matches students by identifier even when search query filters them out of the visible list', async () => {
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={session}
+                allSessions={[session]}
+                availableStudents={students}
+                onEnrollStudents={vi.fn()}
+            />
+        )
+
+        // Type a search that hides Alice from the list
+        await userEvent.type(screen.getByPlaceholderText(/search by name, email, or department/i), 'Ben')
+        expect(screen.queryByText('Alice Adams')).not.toBeInTheDocument()
+
+        // Now bulk-import Alice by ID — should still match despite search filter
+        await userEvent.type(screen.getByPlaceholderText(/stu-1/i), 'stu-1')
+        await userEvent.click(screen.getByRole('button', { name: /import list/i }))
+
+        expect(screen.getByText(/added 1 student from bulk upload/i)).toBeInTheDocument()
+        expect(screen.getByText(/1 selected/i)).toBeInTheDocument()
+    })
 })

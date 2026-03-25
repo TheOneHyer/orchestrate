@@ -350,13 +350,25 @@ export function Courses({
 
     try {
       if (editingCourse) {
-        await Promise.resolve(onUpdateCourse?.(editingCourse.id, coursePayload))
+        if (!onUpdateCourse) {
+          toast.error('Course update unavailable', {
+            description: 'Update callback is not configured.',
+          })
+          return
+        }
+        await Promise.resolve(onUpdateCourse(editingCourse.id, coursePayload))
         setSelectedCourse((current) => current?.id === editingCourse.id ? { ...editingCourse, ...coursePayload } : current)
         toast.success('Course updated', {
           description: `${coursePayload.title} has been saved.`,
         })
       } else {
-        await Promise.resolve(onCreateCourse?.(coursePayload as Omit<Course, 'id'>))
+        if (!onCreateCourse) {
+          toast.error('Course creation unavailable', {
+            description: 'Create callback is not configured.',
+          })
+          return
+        }
+        await Promise.resolve(onCreateCourse(coursePayload as Omit<Course, 'id'>))
         toast.success('Course created', {
           description: `${coursePayload.title} has been added to the catalog.`,
         })

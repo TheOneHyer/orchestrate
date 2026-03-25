@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -128,41 +128,46 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
     sessionsRef.current = sessions
   }, [sessions])
 
-  const filteredSessions = sessions.filter((session) => {
-    const trainer = users.find((user) => user.id === session.trainerId)
-    const course = courses.find((courseItem) => courseItem.id === session.courseId)
+  const filteredSessions = useMemo(() => {
+    const userById = new Map(users.map((user) => [user.id, user]))
+    const courseById = new Map(courses.map((courseItem) => [courseItem.id, courseItem]))
+    const now = new Date()
     const query = searchQuery.trim().toLowerCase()
 
-    const matchesQuery = !query || [
-      session.title,
-      session.location,
-      trainer?.name || '',
-      course?.title || '',
-    ].some((value) => value.toLowerCase().includes(query))
+    return sessions.filter((session) => {
+      const trainer = userById.get(session.trainerId)
+      const course = courseById.get(session.courseId)
 
-    const matchesTrainer = trainerFilter === 'all' || session.trainerId === trainerFilter
-    const matchesCourse = courseFilter === 'all' || session.courseId === courseFilter
-    const matchesDepartment = departmentFilter === 'all' || trainer?.department === departmentFilter
-    const matchesStatus = statusFilter === 'all' || session.status === statusFilter
+      const matchesQuery = !query || [
+        session.title,
+        session.location,
+        trainer?.name || '',
+        course?.title || '',
+      ].some((value) => value.toLowerCase().includes(query))
 
-    const sessionStart = new Date(session.startTime)
-    const now = new Date()
-    const diffDays = (sessionStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-    const matchesDate = (() => {
-      switch (dateFilter) {
-        case 'next-7':
-          return diffDays >= 0 && diffDays <= 7
-        case 'next-30':
-          return diffDays >= 0 && diffDays <= 30
-        case 'past':
-          return diffDays < 0
-        default:
-          return true
-      }
-    })()
+      const matchesTrainer = trainerFilter === 'all' || session.trainerId === trainerFilter
+      const matchesCourse = courseFilter === 'all' || session.courseId === courseFilter
+      const matchesDepartment = departmentFilter === 'all' || trainer?.department === departmentFilter
+      const matchesStatus = statusFilter === 'all' || session.status === statusFilter
 
-    return matchesQuery && matchesTrainer && matchesCourse && matchesDepartment && matchesStatus && matchesDate
-  })
+      const sessionStart = new Date(session.startTime)
+      const diffDays = (sessionStart.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      const matchesDate = (() => {
+        switch (dateFilter) {
+          case 'next-7':
+            return diffDays >= 0 && diffDays <= 7
+          case 'next-30':
+            return diffDays >= 0 && diffDays <= 30
+          case 'past':
+            return diffDays < 0
+          default:
+            return true
+        }
+      })()
+
+      return matchesQuery && matchesTrainer && matchesCourse && matchesDepartment && matchesStatus && matchesDate
+    })
+  }, [sessions, users, courses, searchQuery, trainerFilter, courseFilter, departmentFilter, statusFilter, dateFilter])
 
   const trainerOptions = users.filter((user) => user.role === 'trainer')
   const departmentOptions = Array.from(new Set(trainerOptions.map((user) => user.department))).sort()

@@ -74,9 +74,9 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
     const allowedCourseIds = new Set(filteredCourses.map((course) => course.id))
 
     return sessions.filter((session) => {
-      const matchesDepartment = departmentFilter === 'all' || filteredUsers.some((user) => user.id === session.trainerId || user.department === departmentFilter)
+      const matchesDepartment = departmentFilter === 'all' || filteredUsers.some((user) => user.id === session.trainerId)
       const matchesCourse = courseFilter === 'all' || allowedCourseIds.has(session.courseId)
-      const matchesStatus = statusFilter === 'all' || session.status === statusFilter
+      const matchesStatus = statusFilter === 'all' || statusFilter === 'failed' || session.status === statusFilter
 
       return matchesDepartment && matchesCourse && matchesStatus
     })
