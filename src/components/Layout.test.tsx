@@ -1,8 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Layout } from './Layout'
+import type { User } from '@/lib/types'
 
 const mockToggleTheme = vi.fn()
 const mockUseTheme = vi.fn()
@@ -23,6 +24,26 @@ vi.mock('@/components/NotificationSettingsDialog', () => ({
         </div>
     ),
 }))
+
+const adminUser: User = {
+    id: 'admin-1',
+    name: 'Admin User',
+    email: 'admin@example.com',
+    role: 'admin',
+    department: 'Administration',
+    certifications: [],
+    hireDate: '2025-01-01',
+}
+
+const trainerUser: User = {
+    id: 'trainer-1',
+    name: 'Trainer One',
+    email: 'trainer@example.com',
+    role: 'trainer',
+    department: 'Training',
+    certifications: [],
+    hireDate: '2025-01-01',
+}
 
 describe('Layout', () => {
     beforeEach(() => {
@@ -172,5 +193,79 @@ describe('Layout', () => {
         )
 
         expect(screen.getByTestId('theme-icon-moon')).toBeInTheDocument()
+    })
+
+    it('opens the active session menu and switches users or resets the session', async () => {
+        const onSwitchUser = vi.fn()
+        const onLogout = vi.fn()
+
+        render(
+            <Layout
+                activeView="dashboard"
+                onNavigate={vi.fn()}
+                userRole="admin"
+                currentUser={adminUser}
+                users={[adminUser, trainerUser]}
+                onSwitchUser={onSwitchUser}
+                onLogout={onLogout}
+            >
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /open active user menu/i }))
+
+        expect(screen.getByText(/active session/i)).toBeInTheDocument()
+        expect(screen.getByText(/switch roles locally/i)).toBeInTheDocument()
+        expect(screen.getByText(/trainer one/i)).toBeInTheDocument()
+
+        await userEvent.click(screen.getByText('Trainer One'))
+        expect(onSwitchUser).toHaveBeenCalledWith('trainer-1')
+
+        await userEvent.click(screen.getByRole('button', { name: /open active user menu/i }))
+        const menu = screen.getByRole('menu')
+        await userEvent.click(within(menu).getByRole('menuitem', { name: /reset session/i }))
+        expect(onLogout).toHaveBeenCalledOnce()
+    })
+
+    it('falls back to the current employee as the only switchable user and uses outline role badges', async () => {
+        render(
+            <Layout
+                activeView="dashboard"
+                onNavigate={vi.fn()}
+                userRole="employee"
+                currentUser={{ ...trainerUser, id: 'employee-1', name: 'Employee One', role: 'employee', email: 'employee@example.com' }}
+                users={[]}
+                onSwitchUser={vi.fn()}
+            >
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /open active user menu/i }))
+
+        expect(screen.getAllByText(/employee one/i)).toHaveLength(2)
+        expect(screen.getAllByText(/employee/i).length).toBeGreaterThan(0)
+        expect(screen.getByText(/^active$/i)).toBeInTheDocument()
+    })
+
+    it('renders the trainer session badge variant when the current user is a trainer', async () => {
+        render(
+            <Layout
+                activeView="dashboard"
+                onNavigate={vi.fn()}
+                userRole="trainer"
+                currentUser={trainerUser}
+                users={[]}
+                onSwitchUser={vi.fn()}
+            >
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        await userEvent.click(screen.getByRole('button', { name: /open active user menu/i }))
+
+        expect(screen.getAllByText(/trainer/i).length).toBeGreaterThan(0)
+        expect(screen.getAllByText(/trainer one/i)).toHaveLength(2)
     })
 })

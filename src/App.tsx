@@ -38,6 +38,24 @@ import { createPreviewSeedData, PREVIEW_SEED_VERSION } from '@/lib/preview-seed-
 import { getPreviewSeedMode, isPreviewSeedEnabled, PreviewSeedMode } from '@/lib/preview-mode'
 import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 import { normalizeNavigationValue } from '@/lib/navigation-utils'
+import { canAccessSession } from '@/lib/helpers'
+
+const VIEW_ACCESS: Record<string, Array<User['role']>> = {
+  dashboard: ['admin', 'trainer', 'employee'],
+  schedule: ['admin', 'trainer', 'employee'],
+  'schedule-templates': ['admin', 'trainer'],
+  courses: ['admin', 'trainer', 'employee'],
+  people: ['admin', 'trainer'],
+  analytics: ['admin', 'trainer'],
+  'trainer-availability': ['admin', 'trainer'],
+  'burnout-dashboard': ['admin'],
+  'trainer-wellness': ['admin'],
+  certifications: ['admin'],
+  'certification-dashboard': ['admin'],
+  notifications: ['admin', 'trainer', 'employee'],
+  'user-guide': ['admin', 'trainer', 'employee'],
+  settings: ['admin'],
+}
 
 const KNOWN_NOTIFICATION_VIEWS = new Set<string>([
   'dashboard',
@@ -89,6 +107,7 @@ function App() {
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
 
   const [users, setUsers] = useKV<User[]>('users', [])
+  const [activeUserId, setActiveUserId] = useKV<string>('active-user-id', '')
   const [sessions, setSessions] = useKV<Session[]>('sessions', [])
   const [courses, setCourses] = useKV<Course[]>('courses', [])
   const [enrollments, setEnrollments] = useKV<Enrollment[]>('enrollments', [])
@@ -134,6 +153,7 @@ function App() {
     setRiskHistorySnapshots(seedData.riskHistorySnapshots)
     setTargetTrainerCoverage(seedData.targetTrainerCoverage)
     setPreviewSeedVersion(seedMarker)
+    setActiveUserId(seedData.users[0]?.id || '')
 
     toast.success('Preview test data loaded', {
       description: `Seeded ${seedData.users.length} users, ${seedData.sessions.length} sessions, and related edge-case data.`
@@ -150,7 +170,8 @@ function App() {
     setScheduleTemplates,
     setRiskHistorySnapshots,
     setTargetTrainerCoverage,
-    setPreviewSeedVersion
+    setPreviewSeedVersion,
+    setActiveUserId
   ])
 
   /**
@@ -213,6 +234,7 @@ function App() {
     setRiskHistorySnapshots([])
     setTargetTrainerCoverage(4)
     setPreviewSeedVersion('')
+    setActiveUserId('')
 
     if (typeof window !== 'undefined') {
       Object.keys(localStorage).forEach((key) => {
@@ -237,7 +259,8 @@ function App() {
     setScheduleTemplates,
     setRiskHistorySnapshots,
     setTargetTrainerCoverage,
-    setPreviewSeedVersion
+    setPreviewSeedVersion,
+    setActiveUserId
   ])
 
   useEffect(() => {
@@ -303,6 +326,32 @@ function App() {
   const safeEnrollments = enrollments || []
   const safeNotifications = notifications || []
 
+  const fallbackUser = useMemo<User>(() => ({
+    id: '1',
+    name: 'Admin User',
+    email: 'admin@company.com',
+    role: 'admin',
+    department: 'Administration',
+    certifications: [],
+    hireDate: new Date().toISOString()
+  }), [])
+
+  useEffect(() => {
+    if (safeUsers.length === 0) {
+      return
+    }
+
+    const hasActiveUser = safeUsers.some((user) => user.id === activeUserId)
+    if (!activeUserId || !hasActiveUser) {
+      const nextUser = safeUsers[0]
+      setActiveUserId(nextUser.id)
+      if (!VIEW_ACCESS[activeView]?.includes(nextUser.role)) {
+        setActiveView('dashboard')
+        setNavigationPayload(null)
+      }
+    }
+  }, [activeUserId, activeView, safeUsers, setActiveUserId])
+
   /**
    * Creates a new {@link Notification} record with a generated ID and
    * timestamp, prepends it to the notifications KV store, fires a push
@@ -352,6 +401,11 @@ function App() {
           return
         }
 
+        const activeRole = safeUsers.find((user) => user.id === activeUserId)?.role ?? safeUsers[0]?.role ?? fallbackUser.role
+        if (!VIEW_ACCESS[target.view]?.includes(activeRole)) {
+          return
+        }
+
         setActiveView(target.view)
         setNavigationPayload(target.data ?? null)
       } : undefined
@@ -364,28 +418,83 @@ function App() {
         duration: 8000
       })
     }
-  }, [setNotifications, sendNotification])
+  }, [activeUserId, safeUsers, sendNotification, setNotifications])
 
   useUtilizationNotifications(safeUsers, safeSessions, handleCreateNotification)
 
   useCertificationNotifications(safeUsers, handleCreateNotification, setUsers)
 
-  const currentUser: User = safeUsers[0] || {
-    id: '1',
-    name: 'Admin User',
-    email: 'admin@company.com',
-    role: 'admin',
-    department: 'Administration',
-    certifications: [],
-    hireDate: new Date().toISOString()
-  }
+  const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 
-  const upcomingSessions = safeSessions
+  const visibleCourses = useMemo(() => {
+    if (currentUser.role === 'admin') {
+      return safeCourses
+    }
+
+    if (currentUser.role === 'trainer') {
+      return safeCourses.filter((course) => course.published || course.createdBy === currentUser.id)
+    }
+
+    const enrolledCourseIds = new Set(
+      safeEnrollments
+        .filter((enrollment) => enrollment.userId === currentUser.id)
+        .map((enrollment) => enrollment.courseId)
+    )
+
+    return safeCourses.filter((course) => course.published || enrolledCourseIds.has(course.id))
+  }, [currentUser, safeCourses, safeEnrollments])
+
+  const visibleSessions = useMemo(() => {
+    if (currentUser.role === 'admin') {
+      return safeSessions
+    }
+
+    return safeSessions.filter((session) => canAccessSession(currentUser, session))
+  }, [currentUser, safeSessions])
+
+  const visibleNotifications = useMemo(() => {
+    if (currentUser.role === 'admin') {
+      return safeNotifications
+    }
+
+    return safeNotifications.filter((notification) => notification.userId === currentUser.id)
+  }, [currentUser, safeNotifications])
+
+  const visibleEnrollments = useMemo(() => {
+    if (currentUser.role === 'admin') {
+      return safeEnrollments
+    }
+
+    if (currentUser.role === 'employee') {
+      return safeEnrollments.filter((enrollment) => enrollment.userId === currentUser.id)
+    }
+
+    const visibleCourseIds = new Set(visibleCourses.map((course) => course.id))
+    const visibleSessionIds = new Set(visibleSessions.map((session) => session.id))
+
+    return safeEnrollments.filter((enrollment) => {
+      return visibleCourseIds.has(enrollment.courseId) || (enrollment.sessionId ? visibleSessionIds.has(enrollment.sessionId) : false)
+    })
+  }, [currentUser, safeEnrollments, visibleCourses, visibleSessions])
+
+  const upcomingSessions = visibleSessions
     .filter(s => new Date(s.startTime) > new Date())
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
     .slice(0, 10)
 
-  const unreadNotifications = safeNotifications.filter(n => !n.read)
+  const unreadNotifications = visibleNotifications.filter(n => !n.read)
+
+  const handleSwitchUser = useCallback((userId: string) => {
+    setActiveUserId(userId)
+    setActiveView('dashboard')
+    setNavigationPayload(null)
+  }, [setActiveUserId])
+
+  const handleLogout = useCallback(() => {
+    setActiveUserId(safeUsers[0]?.id || '')
+    setActiveView('dashboard')
+    setNavigationPayload(null)
+  }, [safeUsers, setActiveUserId])
 
   /**
    * Handles navigation events raised by child views by updating the active
@@ -409,6 +518,13 @@ function App() {
       if (!import.meta.env.PROD) {
         console.warn('[handleNavigate] Ignoring navigation because normalizeNavigationValue returned null', { view })
       }
+      return
+    }
+
+    if (!VIEW_ACCESS[target.view]?.includes(currentUser.role)) {
+      toast.error('Access restricted', {
+        description: 'That section is not available for the active role.',
+      })
       return
     }
 
@@ -491,6 +607,16 @@ function App() {
   }
 
   /**
+   * Deletes a single session and any enrollment rows bound to its `sessionId`.
+   *
+   * @param id - The ID of the session to remove.
+   */
+  const handleDeleteSession = useCallback((id: string) => {
+    setSessions((currentSessions) => (currentSessions || []).filter((session) => session.id !== id))
+    setEnrollments((currentEnrollments) => (currentEnrollments || []).filter((enrollment) => enrollment.sessionId !== id))
+  }, [setEnrollments, setSessions])
+
+  /**
    * Replaces an existing user record in the KV store with the fully updated
    * {@link User} object, matched by `id`.
    *
@@ -528,6 +654,7 @@ function App() {
       duration: course.duration ?? 60,
       passScore: course.passScore ?? 80,
       modules: course.modules || [],
+      moduleDetails: course.moduleDetails || [],
       certifications: course.certifications || [],
       createdBy: course.createdBy || currentUser.id,
       createdAt: course.createdAt || new Date().toISOString(),
@@ -536,6 +663,32 @@ function App() {
 
     setCourses((currentCourses) => [...(currentCourses || []), fullCourse])
   }, [currentUser.id, setCourses])
+
+  /**
+   * Applies a partial update to an existing course.
+   *
+   * @param id - The ID of the course to update.
+   * @param updates - The partial course fields to apply.
+   */
+  const handleUpdateCourse = useCallback((id: string, updates: Partial<Course>) => {
+    setCourses((currentCourses) =>
+      (currentCourses || []).map((course) => (course.id === id ? { ...course, ...updates } : course))
+    )
+  }, [setCourses])
+
+  /**
+   * Deletes a course and any sessions or enrollments associated with it.
+   *
+   * @param id - The ID of the course to delete.
+   */
+  const handleDeleteCourse = useCallback((id: string) => {
+    const relatedSessionIds = new Set(safeSessions.filter((session) => session.courseId === id).map((session) => session.id))
+    setCourses((currentCourses) => (currentCourses || []).filter((course) => course.id !== id))
+    setSessions((currentSessions) => (currentSessions || []).filter((session) => session.courseId !== id))
+    setEnrollments((currentEnrollments) =>
+      (currentEnrollments || []).filter((enrollment) => enrollment.courseId !== id && !(enrollment.sessionId && relatedSessionIds.has(enrollment.sessionId)))
+    )
+  }, [safeSessions, setCourses, setEnrollments, setSessions])
 
   /**
    * Removes a user from the users KV store and cleans up related session
@@ -556,6 +709,10 @@ function App() {
       }
       return session
     }))
+
+    if (activeUserId === userId) {
+      setActiveUserId('')
+    }
   }
 
   /**
@@ -676,9 +833,9 @@ function App() {
           <Dashboard
             currentUser={currentUser}
             upcomingSessions={upcomingSessions}
-            notifications={safeNotifications}
-            enrollments={safeEnrollments}
-            courses={safeCourses}
+            notifications={visibleNotifications}
+            enrollments={visibleEnrollments}
+            courses={visibleCourses}
             onNavigate={handleNavigate}
             onMarkNotificationAsRead={handleMarkNotificationAsRead}
             onDismissNotification={handleDismissNotification}
@@ -687,12 +844,13 @@ function App() {
       case 'schedule':
         return (
           <Schedule
-            sessions={safeSessions}
-            courses={safeCourses}
+            sessions={visibleSessions}
+            courses={visibleCourses}
             users={safeUsers}
             currentUser={currentUser}
             onCreateSession={handleCreateSession}
             onUpdateSession={handleUpdateSession}
+            onDeleteSession={handleDeleteSession}
             onNavigate={handleNavigate}
             navigationPayload={navigationPayload}
             onNavigationPayloadConsumed={clearNavigationPayload}
@@ -701,7 +859,7 @@ function App() {
       case 'schedule-templates':
         return (
           <ScheduleTemplates
-            courses={safeCourses}
+            courses={visibleCourses}
             onNavigate={handleNavigate}
             onCreateSessions={handleCreateMultipleSessions}
           />
@@ -709,11 +867,13 @@ function App() {
       case 'courses':
         return (
           <Courses
-            courses={safeCourses}
-            enrollments={safeEnrollments}
+            courses={visibleCourses}
+            enrollments={visibleEnrollments}
             currentUser={currentUser}
             onNavigate={handleNavigate}
             onCreateCourse={handleCreateCourse}
+            onUpdateCourse={handleUpdateCourse}
+            onDeleteCourse={handleDeleteCourse}
             navigationPayload={navigationPayload}
             onNavigationPayloadConsumed={clearNavigationPayload}
           />
@@ -722,9 +882,9 @@ function App() {
         return (
           <People
             users={safeUsers}
-            enrollments={safeEnrollments}
-            courses={safeCourses}
-            sessions={safeSessions}
+            enrollments={visibleEnrollments}
+            courses={visibleCourses}
+            sessions={visibleSessions}
             currentUser={currentUser}
             onNavigate={handleNavigate}
             onUpdateUser={handleUpdateUser}
@@ -738,17 +898,17 @@ function App() {
         return (
           <Analytics
             users={safeUsers}
-            enrollments={safeEnrollments}
-            sessions={safeSessions}
-            courses={safeCourses}
+            enrollments={visibleEnrollments}
+            sessions={visibleSessions}
+            courses={visibleCourses}
           />
         )
       case 'trainer-availability':
         return (
           <TrainerAvailability
             users={safeUsers}
-            sessions={safeSessions}
-            courses={safeCourses}
+            sessions={visibleSessions}
+            courses={visibleCourses}
             onNavigate={handleNavigate}
           />
         )
@@ -756,8 +916,8 @@ function App() {
         return (
           <BurnoutDashboard
             users={safeUsers}
-            sessions={safeSessions}
-            courses={safeCourses}
+            sessions={visibleSessions}
+            courses={visibleCourses}
             onNavigate={handleNavigate}
           />
         )
@@ -781,7 +941,7 @@ function App() {
         return (
           <TrainerWellness
             users={safeUsers}
-            sessions={safeSessions}
+            sessions={visibleSessions}
             currentUser={currentUser}
             onNavigate={handleNavigate}
           />
@@ -789,7 +949,7 @@ function App() {
       case 'notifications':
         return (
           <Notifications
-            notifications={safeNotifications}
+            notifications={visibleNotifications}
             onMarkAsRead={handleMarkNotificationAsRead}
             onMarkAsUnread={handleMarkNotificationAsUnread}
             onMarkAllAsRead={handleMarkAllNotificationsAsRead}
@@ -808,6 +968,29 @@ function App() {
               <p className="text-muted-foreground mt-1">Configure system settings</p>
             </div>
             <div className="max-w-4xl space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Local Session</CardTitle>
+                  <CardDescription>
+                    This preview build uses a local active-user session instead of backend authentication.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-lg border p-4">
+                    <div className="text-sm text-muted-foreground">Active user</div>
+                    <div className="mt-1 font-medium">{currentUser.name} ({currentUser.role})</div>
+                    <div className="text-sm text-muted-foreground">{currentUser.email}</div>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {safeUsers.map((user) => (
+                      <Button key={user.id} variant={user.id === currentUser.id ? 'default' : 'outline'} onClick={() => handleSwitchUser(user.id)}>
+                        Switch to {user.name}
+                      </Button>
+                    ))}
+                    <Button variant="secondary" onClick={handleLogout}>Reset Session</Button>
+                  </div>
+                </CardContent>
+              </Card>
               <Card>
                 <CardHeader>
                   <CardTitle>Preview Test Data</CardTitle>
@@ -836,9 +1019,9 @@ function App() {
           <Dashboard
             currentUser={currentUser}
             upcomingSessions={upcomingSessions}
-            notifications={safeNotifications}
-            enrollments={safeEnrollments}
-            courses={safeCourses}
+            notifications={visibleNotifications}
+            enrollments={visibleEnrollments}
+            courses={visibleCourses}
             onNavigate={handleNavigate}
           />
         )
@@ -852,6 +1035,10 @@ function App() {
         onNavigate={handleNavigate}
         notificationCount={unreadNotifications.length}
         userRole={currentUser.role}
+        currentUser={currentUser}
+        users={safeUsers}
+        onSwitchUser={handleSwitchUser}
+        onLogout={handleLogout}
       >
         {renderView()}
       </Layout>

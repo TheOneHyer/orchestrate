@@ -380,6 +380,100 @@ describe('Dashboard', () => {
     expect(onDismissNotification).toHaveBeenCalledWith('n1')
   })
 
+  it('does not navigate or render notification action buttons when link and callbacks are absent', async () => {
+    const onNavigate = vi.fn()
+    const user = userEvent.setup()
+
+    const notifications: Notification[] = [
+      { id: 'n1', userId: baseUser.id, type: 'system', title: 'Passive Notice', message: 'Read this update', read: false, createdAt: '2026-03-16T09:00:00.000Z' },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={notifications}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={onNavigate}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /passive notice/i }))
+
+    expect(onNavigate).not.toHaveBeenCalled()
+    expect(screen.queryByRole('button', { name: /mark passive notice as read/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /dismiss passive notice/i })).not.toBeInTheDocument()
+  })
+
+  it('navigates linked notifications and hides mark-as-read for already read items', async () => {
+    const onNavigate = vi.fn()
+    const onDismissNotification = vi.fn()
+    const onMarkNotificationAsRead = vi.fn()
+    const user = userEvent.setup()
+
+    const notifications: Notification[] = [
+      {
+        id: 'n-linked',
+        userId: baseUser.id,
+        type: 'completion',
+        title: 'Linked Notice',
+        message: 'Open the detailed view',
+        read: true,
+        createdAt: '2026-03-16T09:00:00.000Z',
+        link: 'schedule',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={notifications}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={onNavigate}
+        onMarkNotificationAsRead={onMarkNotificationAsRead}
+        onDismissNotification={onDismissNotification}
+      />
+    )
+
+    await user.click(screen.getAllByRole('button', { name: /linked notice/i })[0])
+
+    expect(onNavigate).toHaveBeenCalledWith('schedule')
+    expect(screen.queryByRole('button', { name: /mark linked notice as read/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /dismiss linked notice/i })).toBeInTheDocument()
+  })
+
+  it('renders upcoming sessions without duration metadata when the course cannot be resolved', () => {
+    const session: Session = {
+      id: 's-missing-course',
+      courseId: 'missing-course',
+      trainerId: 'u-trainer',
+      title: 'Unmapped Session',
+      startTime: '2026-03-17T09:00:00.000Z',
+      endTime: '2026-03-17T10:30:00.000Z',
+      location: 'Room Z',
+      capacity: 12,
+      enrolledStudents: ['u-1'],
+      status: 'scheduled',
+    }
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[session]}
+        notifications={[]}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: /unmapped session/i })).toBeInTheDocument()
+    expect(screen.queryByText(/1h 30m/i)).not.toBeInTheDocument()
+  })
+
   it('limits displayed sessions to five when many sessions exist', () => {
     const sessions: Session[] = Array.from({ length: 20 }, (_, idx) => ({
       id: `s-${idx}`,

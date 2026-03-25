@@ -41,6 +41,26 @@ const DEFAULT_SETTINGS: NotificationSoundSettings = {
   }
 }
 
+function mergeNotificationSoundSettings(
+  settings?: Partial<NotificationSoundSettings>,
+  overrides?: Partial<NotificationSoundSettings>
+): NotificationSoundSettings {
+  const mergedSettings = {
+    ...DEFAULT_SETTINGS,
+    ...settings,
+    ...overrides,
+  }
+
+  return {
+    ...mergedSettings,
+    quietHours: {
+      ...DEFAULT_SETTINGS.quietHours,
+      ...settings?.quietHours,
+      ...overrides?.quietHours,
+    },
+  }
+}
+
 /**
  * Hook that provides Web Audio API–based notification sounds with configurable
  * tone palettes, volume, and quiet-hours scheduling.
@@ -62,7 +82,7 @@ export function useNotificationSound() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const gainNodeRef = useRef<GainNode | null>(null)
 
-  const safeSettings = settings || DEFAULT_SETTINGS
+  const safeSettings = mergeNotificationSoundSettings(settings)
 
   const initAudioContext = useCallback(() => {
     if (audioContextRef.current) return
@@ -81,10 +101,10 @@ export function useNotificationSound() {
 
     const now = new Date()
     const currentTime = now.getHours() * 60 + now.getMinutes()
-    
+
     const [startHour, startMin] = safeSettings.quietHours.startTime.split(':').map(Number)
     const [endHour, endMin] = safeSettings.quietHours.endTime.split(':').map(Number)
-    
+
     const startMinutes = startHour * 60 + startMin
     const endMinutes = endHour * 60 + endMin
 
@@ -128,13 +148,13 @@ export function useNotificationSound() {
 
       oscillator.type = tone.waveType
       oscillator.frequency.setValueAtTime(tone.startFreq, startTime)
-      
+
       if (tone.endFreq && tone.endFreq !== tone.startFreq) {
         oscillator.frequency.exponentialRampToValueAtTime(tone.endFreq, startTime + tone.duration * 0.8)
       }
 
       filter.type = 'lowpass'
-      filter.frequency.setValueAtTime(tone.filterFreq || 3000, startTime)
+      filter.frequency.setValueAtTime(tone.filterFreq, startTime)
       filter.Q.setValueAtTime(1, startTime)
 
       envelope.gain.setValueAtTime(0, startTime)
@@ -147,10 +167,7 @@ export function useNotificationSound() {
   }, [safeSettings, initAudioContext, isWithinQuietHours])
 
   const updateSettings = useCallback((updates: Partial<NotificationSoundSettings>) => {
-    setSettings((current) => ({
-      ...(current || DEFAULT_SETTINGS),
-      ...updates
-    }))
+    setSettings((current) => mergeNotificationSoundSettings(current, updates))
   }, [setSettings])
 
   const testSound = useCallback((priority: 'low' | 'medium' | 'high' | 'critical' = 'medium') => {
@@ -184,7 +201,7 @@ interface SoundTone {
   /** Delay in milliseconds before the tone starts (used to sequence chords/arpeggios). */
   delay?: number
   /** Low-pass filter cut-off frequency in Hz applied to the tone. */
-  filterFreq?: number
+  filterFreq: number
 }
 
 /**

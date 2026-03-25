@@ -121,8 +121,10 @@ export interface Course {
   title: string
   /** Brief description of the course content and goals. */
   description: string
-  /** Ordered list of module IDs that make up this course. */
+  /** Ordered list of legacy module titles maintained for backward compatibility and lightweight displays. */
   modules: string[]
+  /** Optional structured course modules used by the visual course builder. */
+  moduleDetails?: Module[]
   /** Total estimated duration of the course in minutes. */
   duration: number
   /** Certifications awarded upon successful completion of this course. */

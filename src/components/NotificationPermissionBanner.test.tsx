@@ -160,6 +160,31 @@ describe('NotificationPermissionBanner', () => {
         })
     })
 
+    it('keeps the banner visible when permission remains default after requesting', async () => {
+        const user = userEvent.setup()
+        const setDismissed = vi.fn()
+        const requestPermission = vi.fn().mockResolvedValue('default')
+
+        mockUsePushNotifications.mockReturnValue({
+            isSupported: true,
+            settings: { permission: 'default' },
+            requestPermission,
+        })
+        mockUseKV.mockReturnValue([false, setDismissed])
+
+        render(<NotificationPermissionBanner />)
+
+        await user.click(await screen.findByRole('button', { name: /enable/i }))
+
+        await waitFor(() => {
+            expect(requestPermission).toHaveBeenCalledOnce()
+            expect(screen.getByRole('button', { name: /enable/i })).toBeInTheDocument()
+        })
+
+        expect(setDismissed).not.toHaveBeenCalled()
+        expect(screen.getByText(/enable desktop notifications/i)).toBeInTheDocument()
+    })
+
     it('does not trigger a duplicate permission request while one is in flight', async () => {
         const user = userEvent.setup()
         const setDismissed = vi.fn()

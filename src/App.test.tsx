@@ -121,10 +121,30 @@ vi.mock('@/components/NotificationPermissionBanner', () => ({
 }))
 
 vi.mock('@/components/Layout', () => ({
-    Layout: ({ children, onNavigate, activeView, notificationCount }: { children: ReactNode; onNavigate: (view: string) => void; activeView: string; notificationCount: number }) => (
+    Layout: ({
+        children,
+        onNavigate,
+        activeView,
+        notificationCount,
+        currentUser,
+        users,
+        onSwitchUser,
+        onLogout,
+    }: {
+        children: ReactNode
+        onNavigate: (view: string) => void
+        activeView: string
+        notificationCount: number
+        currentUser?: { id: string; name: string; role: string }
+        users?: Array<{ id: string; name: string }>
+        onSwitchUser?: (userId: string) => void
+        onLogout?: () => void
+    }) => (
         <div>
             <div>Active View: {activeView}</div>
             <div>Notification Count: {notificationCount}</div>
+            <div>Current User: {currentUser?.name ?? 'none'}</div>
+            <div>User Options: {users?.length ?? 0}</div>
             <button onClick={() => onNavigate('dashboard')}>Go Dashboard</button>
             <button onClick={() => onNavigate('schedule')}>Go Schedule</button>
             <button onClick={() => onNavigate('schedule-templates')}>Go Schedule Templates</button>
@@ -143,15 +163,27 @@ vi.mock('@/components/Layout', () => ({
             <button onClick={() => onNavigate('unknown-view')}>Go Unknown</button>
             <button onClick={() => onNavigate('/')}>Go Root Path</button>
             <button onClick={() => onNavigate('/people/%ZZ')}>Go Malformed Path</button>
+            <button onClick={() => onSwitchUser?.('trainer-1')}>Switch To Trainer</button>
+            <button onClick={() => onLogout?.()}>Reset Session</button>
             {children}
         </div>
     ),
 }))
 
 vi.mock('@/components/views/Dashboard', () => ({
-    Dashboard: ({ onNavigate }: { onNavigate: (view: string) => void }) => (
+    Dashboard: ({
+        onNavigate,
+        enrollments,
+    }: {
+        onNavigate: (view: string) => void
+        enrollments?: Array<{ id: string }>
+    }) => (
         <div>
             <div>Dashboard View</div>
+            <div>Dashboard Enrollments: {enrollments?.length ?? 0}</div>
+            {enrollments?.map((enrollment) => (
+                <div key={enrollment.id}>Enrollment: {enrollment.id}</div>
+            ))}
             <button onClick={() => onNavigate('schedule')}>Dashboard to Schedule</button>
         </div>
     ),
@@ -162,10 +194,12 @@ vi.mock('@/components/views/Schedule', () => ({
         sessions,
         onCreateSession,
         onUpdateSession,
+        onDeleteSession,
     }: {
         sessions: Array<{ id: string; title: string; status: string }>
         onCreateSession: (session: unknown) => void
         onUpdateSession: (id: string, session: unknown) => void
+        onDeleteSession?: (id: string) => void
     }) => (
         <div>
             <div>Schedule View</div>
@@ -191,6 +225,7 @@ vi.mock('@/components/views/Schedule', () => ({
                 const payload = { id: 'custom-session-id', title: 'Session With Custom Id' }
                 onCreateSession(payload)
             }}>Create Session With Id</button>
+            <button onClick={() => onDeleteSession?.('session-1')}>Delete Session</button>
         </div>
     ),
 }))
@@ -218,6 +253,8 @@ vi.mock('@/components/views/Courses', () => ({
     Courses: ({
         courses,
         onCreateCourse,
+        onUpdateCourse,
+        onDeleteCourse,
     }: {
         courses: Array<{
             id: string
@@ -229,6 +266,8 @@ vi.mock('@/components/views/Courses', () => ({
             createdAt: string
         }>
         onCreateCourse?: (course: unknown) => void
+        onUpdateCourse?: (id: string, course: unknown) => void
+        onDeleteCourse?: (id: string) => void
     }) => (
         <div>
             <div>Courses View</div>
@@ -266,6 +305,8 @@ vi.mock('@/components/views/Courses', () => ({
                 callbackSpies.onCreateCourse(payload)
                 onCreateCourse?.(payload)
             }}>Create Course With Id</button>
+            <button onClick={() => onUpdateCourse?.(courses[0]?.id ?? 'course-1', { published: true })}>Update Course</button>
+            <button onClick={() => onDeleteCourse?.(courses[0]?.id ?? 'course-1')}>Delete Course</button>
         </div>
     ),
 }))
@@ -276,12 +317,14 @@ vi.mock('@/components/views/People', () => ({
         onUpdateUser,
         onDeleteUser,
         navigationPayload,
+        onNavigationPayloadConsumed,
     }: {
         users: Array<{ id: string; name: string }>
         onAddUser: (user: unknown) => void
         onUpdateUser: (user: unknown) => void
         onDeleteUser: (userId: string) => void
         navigationPayload?: unknown
+        onNavigationPayloadConsumed?: () => void
     }) => (
         <div>
             <div>People View</div>
@@ -306,6 +349,7 @@ vi.mock('@/components/views/People', () => ({
                 callbackSpies.onDeleteUser('trainer-1')
                 onDeleteUser('trainer-1')
             }}>Delete User</button>
+            <button onClick={() => onNavigationPayloadConsumed?.()}>Consume Navigation Payload</button>
         </div>
     ),
 }))
@@ -559,7 +603,7 @@ describe('App', () => {
         expect(screen.getByText(/preview test data/i)).toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /^go unknown$/i }))
-        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+        expect(screen.getByText(/preview test data/i)).toBeInTheDocument()
     })
 
     it('warns and ignores navigation when normalizeNavigationValue returns null', async () => {
@@ -719,6 +763,23 @@ describe('App', () => {
         expect(screen.getByText(/courses count:\s*3/i)).toBeInTheDocument()
         expect(screen.getByText(/custom-course-id\|course with id\|admin-1\|60\|80\|draft/i)).toBeInTheDocument()
 
+        await user.click(screen.getByRole('button', { name: /update course/i }))
+        expect(screen.getAllByTestId('course-row')[0]).toHaveTextContent(/published/i)
+
+        await user.click(screen.getByRole('button', { name: /delete course/i }))
+        expect(screen.getByText(/courses count:\s*2/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        await user.click(screen.getByRole('button', { name: /delete session/i }))
+        expect(screen.getByText(/session count:\s*5/i)).toBeInTheDocument()
+        expect(screen.queryByText(/upcoming session a \(completed\)/i)).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /switch to trainer/i }))
+        expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /reset session/i }))
+        expect(screen.getByText(/current user:\s*admin user/i)).toBeInTheDocument()
+
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*2/i)).toBeInTheDocument()
 
@@ -783,6 +844,255 @@ describe('App', () => {
 
         expect(screen.getByText(/notificationpermissionbanner mock/i)).toBeInTheDocument()
         expect(screen.getByText(/toaster mock/i)).toBeInTheDocument()
+    })
+
+    it('switches roles from settings and blocks restricted navigation for trainers', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        expect(screen.getByText(/local session/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /switch to trainer one/i }))
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+        expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        expect(toastError).toHaveBeenCalledWith(
+            'Access restricted',
+            expect.objectContaining({ description: expect.stringMatching(/not available for the active role/i) })
+        )
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /reset session/i }))
+        expect(screen.getByText(/current user:\s*admin user/i)).toBeInTheDocument()
+    })
+
+    it('falls back to the first remaining user when the active user is deleted', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /switch to trainer/i }))
+        expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /delete user/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText(/current user:\s*admin user/i)).toBeInTheDocument()
+        })
+    })
+
+    it('clears one-time people deep-link payload after consumption callback', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people deep link$/i }))
+        expect(screen.getByTestId('people-nav-payload')).toHaveTextContent(JSON.stringify({ userId: 'trainer-1' }))
+
+        await user.click(screen.getByRole('button', { name: /consume navigation payload/i }))
+        expect(screen.getByTestId('people-nav-payload')).toHaveTextContent('null')
+    })
+
+    it('filters visible data for employee sessions, courses, and notifications', async () => {
+        const user = userEvent.setup()
+
+        kvSeed['users'] = [
+            ...(kvSeed['users'] as Array<Record<string, unknown>>),
+            {
+                id: 'employee-1',
+                name: 'Employee One',
+                email: 'employee1@example.com',
+                role: 'employee',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+        kvSeed['courses'] = [
+            {
+                id: 'course-published',
+                title: 'Published Course',
+                description: 'Visible to employees',
+                duration: 60,
+                passScore: 80,
+                modules: [],
+                certifications: [],
+                createdBy: 'admin-1',
+                createdAt: '2024-01-01T00:00:00.000Z',
+                published: true,
+            },
+            {
+                id: 'course-draft-enrolled',
+                title: 'Draft Enrolled Course',
+                description: 'Visible because of enrollment',
+                duration: 75,
+                passScore: 85,
+                modules: [],
+                certifications: [],
+                createdBy: 'trainer-1',
+                createdAt: '2024-01-02T00:00:00.000Z',
+                published: false,
+            },
+            {
+                id: 'course-hidden',
+                title: 'Hidden Draft Course',
+                description: 'Should stay hidden',
+                duration: 90,
+                passScore: 90,
+                modules: [],
+                certifications: [],
+                createdBy: 'trainer-1',
+                createdAt: '2024-01-03T00:00:00.000Z',
+                published: false,
+            },
+        ]
+        kvSeed['sessions'] = [
+            {
+                id: 'session-employee-visible',
+                courseId: 'course-draft-enrolled',
+                trainerId: 'trainer-1',
+                title: 'Employee Visible Session',
+                startTime: '2099-01-01T09:00:00.000Z',
+                endTime: '2099-01-01T10:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: ['employee-1'],
+                status: 'scheduled',
+            },
+            {
+                id: 'session-hidden',
+                courseId: 'course-hidden',
+                trainerId: 'trainer-1',
+                title: 'Hidden Session',
+                startTime: '2099-01-01T11:00:00.000Z',
+                endTime: '2099-01-01T12:00:00.000Z',
+                location: 'Room B',
+                capacity: 10,
+                enrolledStudents: [],
+                status: 'scheduled',
+            },
+        ]
+        kvSeed['enrollments'] = [
+            {
+                id: 'enrollment-1',
+                userId: 'employee-1',
+                courseId: 'course-draft-enrolled',
+                sessionId: 'session-employee-visible',
+                progress: 40,
+                status: 'in-progress',
+                enrolledAt: '2024-01-04T00:00:00.000Z',
+            },
+        ]
+        kvSeed['notifications'] = [
+            {
+                id: 'notification-employee',
+                userId: 'employee-1',
+                type: 'training',
+                title: 'Employee Notification',
+                message: 'Visible to employee',
+                read: false,
+                priority: 'medium',
+                createdAt: '2024-01-05T00:00:00.000Z',
+            },
+            {
+                id: 'notification-admin',
+                userId: 'admin-1',
+                type: 'system',
+                title: 'Admin Notification',
+                message: 'Should stay hidden',
+                read: false,
+                priority: 'high',
+                createdAt: '2024-01-06T00:00:00.000Z',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /switch to employee one/i }))
+        expect(screen.getByText(/current user:\s*employee one/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        expect(screen.getByText(/courses count:\s*2/i)).toBeInTheDocument()
+        expect(screen.getByText(/course-published\|published course/i)).toBeInTheDocument()
+        expect(screen.getByText(/course-draft-enrolled\|draft enrolled course/i)).toBeInTheDocument()
+        expect(screen.queryByText(/course-hidden\|hidden draft course/i)).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/session count:\s*1/i)).toBeInTheDocument()
+        expect(screen.getByText(/session-employee-visible\|employee visible session/i)).toBeInTheDocument()
+        expect(screen.queryByText(/session-hidden\|hidden session/i)).not.toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
+        expect(screen.getByText(/notifications total:\s*1/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        expect(toastError).toHaveBeenCalledWith(
+            'Access restricted',
+            expect.objectContaining({ description: expect.stringMatching(/not available for the active role/i) })
+        )
+        expect(screen.getByText(/notifications view/i)).toBeInTheDocument()
+    })
+
+    it('excludes trainer enrollments when both course and session visibility checks fail', async () => {
+        const user = userEvent.setup()
+
+        kvSeed['courses'] = [
+            {
+                id: 'course-trainer-visible',
+                title: 'Trainer Visible Course',
+                description: 'Created by trainer',
+                duration: 60,
+                passScore: 80,
+                modules: [],
+                certifications: [],
+                createdBy: 'trainer-1',
+                createdAt: '2024-01-01T00:00:00.000Z',
+                published: false,
+            },
+            {
+                id: 'course-hidden',
+                title: 'Hidden Course',
+                description: 'Not visible to trainer',
+                duration: 60,
+                passScore: 80,
+                modules: [],
+                certifications: [],
+                createdBy: 'admin-1',
+                createdAt: '2024-01-01T00:00:00.000Z',
+                published: false,
+            },
+        ]
+        kvSeed['enrollments'] = [
+            {
+                id: 'enrollment-visible-by-course',
+                userId: 'employee-1',
+                courseId: 'course-trainer-visible',
+                progress: 25,
+                status: 'in-progress',
+                enrolledAt: '2024-01-02T00:00:00.000Z',
+            },
+            {
+                id: 'enrollment-hidden-no-session',
+                userId: 'employee-2',
+                courseId: 'course-hidden',
+                progress: 10,
+                status: 'in-progress',
+                enrolledAt: '2024-01-03T00:00:00.000Z',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /switch to trainer/i }))
+        expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
+        expect(screen.getByText(/dashboard enrollments:\s*1/i)).toBeInTheDocument()
+        expect(screen.getByText(/enrollment:\s*enrollment-visible-by-course/i)).toBeInTheDocument()
+        expect(screen.queryByText(/enrollment:\s*enrollment-hidden-no-session/i)).not.toBeInTheDocument()
     })
 
     it('does not load preview seed data when overwrite is cancelled', async () => {
@@ -1124,7 +1434,6 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: /update user/i }))
-        await user.click(screen.getByRole('button', { name: /add user/i }))
         await user.click(screen.getByRole('button', { name: /delete user/i }))
 
         await user.click(screen.getByRole('button', { name: /^go certifications$/i }))
@@ -1138,8 +1447,14 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /dismiss one/i }))
         await user.click(screen.getByRole('button', { name: /dismiss read/i }))
         await user.click(screen.getByRole('button', { name: /dismiss all/i }))
-
         expect(screen.getByText(/notifications total:\s*0/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: /add user/i }))
+
+        expect(callbackSpies.onAddUser).toHaveBeenCalled()
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
     })
 
     it('creates a notification when notification state is initially undefined', async () => {
@@ -1218,8 +1533,8 @@ describe('App', () => {
 
         await user.click(screen.getByRole('button', { name: /add user/i }))
 
-        expect(screen.getByText(/users count:\s*1/i)).toBeInTheDocument()
-        expect(screen.getByText('Added User')).toBeInTheDocument()
+        expect(callbackSpies.onAddUser).toHaveBeenCalledWith(expect.objectContaining({ name: 'Added User' }))
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
     })
 
     it('uses the fallback empty users array when adding certifications from undefined state', async () => {
