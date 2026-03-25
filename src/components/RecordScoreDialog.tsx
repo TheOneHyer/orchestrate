@@ -83,10 +83,11 @@ export function RecordScoreDialog({
         },
         mode: 'onChange',
     })
+    const { reset } = form
 
     useEffect(() => {
-        form.reset({ score: enrollment.score ?? undefined })
-    }, [open, enrollment.id, enrollment.score, form.reset])
+        reset({ score: enrollment.score ?? undefined })
+    }, [open, enrollment.id, enrollment.score, reset])
 
     const score = form.watch('score')
     const hasScore = typeof score === 'number'
@@ -147,7 +148,8 @@ export function RecordScoreDialog({
                                             value={field.value ?? ''}
                                             onChange={(event) => {
                                                 const nextValue = event.target.value
-                                                field.onChange(nextValue === '' ? undefined : event.target.valueAsNumber)
+                                                const parsedScore = Number(nextValue)
+                                                field.onChange(nextValue === '' || Number.isNaN(parsedScore) ? undefined : parsedScore)
                                             }}
                                         />
                                     </FormControl>

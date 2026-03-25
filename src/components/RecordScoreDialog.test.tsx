@@ -182,7 +182,8 @@ describe('RecordScoreDialog', () => {
             expect(screen.getByTestId('score-preview')).toHaveTextContent(/pass/i)
         })
 
-        it('shows a validation error for an out-of-range value', () => {
+        it('shows a validation error for an out-of-range value', async () => {
+            const user = userEvent.setup()
             render(
                 <RecordScoreDialog
                     open
@@ -194,9 +195,9 @@ describe('RecordScoreDialog', () => {
                 />,
             )
 
-            // Directly fire change to set out-of-range value (150) that bypasses browser filtering
-            fireEvent.change(screen.getByRole('spinbutton'), { target: { value: '150' } })
-            expect(screen.getByTestId('score-error')).toBeInTheDocument()
+            await user.clear(screen.getByRole('spinbutton'))
+            await user.type(screen.getByRole('spinbutton'), '150')
+            expect(screen.getByText('Please enter a whole number between 0 and 100.')).toBeInTheDocument()
         })
 
         it('disables Save Score when the input is empty', () => {

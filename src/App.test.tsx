@@ -1929,12 +1929,11 @@ describe('App', () => {
         kvSeed['active-user-id'] = ''
 
         render(<App />)
+        toastError.mockClear()
 
         await user.click(screen.getByRole('button', { name: /^sign in$/i }))
-        expect(toastError).toHaveBeenCalledWith(
-            'Sign-in failed',
-            expect.objectContaining({ description: 'Enter an email and password to continue.' }),
-        )
+        expect(screen.getByText('Email is required')).toBeInTheDocument()
+        expect(screen.getByText('Password is required')).toBeInTheDocument()
 
         await user.type(screen.getByLabelText(/email/i), 'nobody@example.com')
         await user.type(screen.getByLabelText(/password/i), 'password123')
@@ -1983,13 +1982,12 @@ describe('App', () => {
         kvSeed['active-user-id'] = ''
 
         render(<App />)
+        toastError.mockClear()
 
         await user.click(screen.getByRole('button', { name: /^create first admin$/i }))
-
-        expect(toastError).toHaveBeenCalledWith(
-            'Setup incomplete',
-            expect.objectContaining({ description: expect.stringMatching(/enter name/i) }),
-        )
+        expect(screen.getByText('Name is required')).toBeInTheDocument()
+        expect(screen.getByText('Email is required')).toBeInTheDocument()
+        expect(screen.getByText('Password is required')).toBeInTheDocument()
     })
 
     it('assigns a new role from the settings role assignment card', async () => {
