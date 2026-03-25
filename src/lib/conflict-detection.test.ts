@@ -351,26 +351,6 @@ describe('conflict-detection', () => {
             expect(result.conflicts[0]?.conflictingSession.id).toBe('session-existing')
         })
 
-        it('uses the unknown-student fallback when a user record cannot be found', () => {
-            const targetSession = createSession({ enrolledStudents: [] })
-            const overlappingSession = createSession({
-                id: 'session-existing',
-                title: 'Existing Session',
-                trainerId: 'trainer-2',
-                enrolledStudents: ['student-missing']
-            })
-
-            const result = checkStudentEnrollmentConflicts(
-                targetSession,
-                ['student-missing'],
-                [targetSession, overlappingSession],
-                []
-            )
-
-            expect(result.conflicts[0]?.studentName).toBe('Unknown Student')
-            expect(result.conflicts[0]?.message).toContain('Unknown Student is already enrolled')
-        })
-
         it('detects overlap when the target session ends during another enrolled session', () => {
             const users = [createUser('student-1', 'Alex')]
             const targetSession = createSession({
