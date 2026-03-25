@@ -436,4 +436,50 @@ describe('Analytics', () => {
     // Sessions should not be filtered to zero by an enrollment-only status
     expect(screen.getByTestId('sessions-completed')).toHaveTextContent('1/2')
   })
+
+  it('filters by scheduled session status for both sessions and linked enrollments', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const users: User[] = [createUser({ id: 'u1', role: 'employee' })]
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+    const sessions: Session[] = [
+      { id: 's1', courseId: 'c1', trainerId: 't1', title: 'Scheduled Session', startTime: '2026-03-01T09:00:00.000Z', endTime: '2026-03-01T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: ['u1'], status: 'scheduled' },
+      { id: 's2', courseId: 'c1', trainerId: 't1', title: 'Cancelled Session', startTime: '2026-03-02T09:00:00.000Z', endTime: '2026-03-02T10:00:00.000Z', location: 'Room B', capacity: 10, enrolledStudents: ['u1'], status: 'cancelled' },
+    ]
+    const enrollments: Enrollment[] = [
+      { id: 'e1', userId: 'u1', courseId: 'c1', sessionId: 's1', status: 'in-progress', progress: 20, score: 10, enrolledAt: '2026-02-01' },
+      { id: 'e2', userId: 'u1', courseId: 'c1', status: 'in-progress', progress: 50, score: 50, enrolledAt: '2026-02-02' },
+    ]
+
+    render(<Analytics users={users} courses={courses} sessions={sessions} enrollments={enrollments} />)
+
+    await user.click(screen.getByRole('combobox', { name: /filter by status/i }))
+    await user.click(screen.getByRole('option', { name: /^scheduled$/i }))
+
+    expect(screen.getByTestId('sessions-completed')).toHaveTextContent('0/1')
+    expect(screen.getByText(/filtered enrollments/i).nextElementSibling).toHaveTextContent('1')
+  })
+
+  it('computes attendance rate from present and late attendance records', () => {
+    const sessions: Session[] = [
+      { id: 's1', courseId: 'c1', trainerId: 't1', title: 'Session 1', startTime: '2026-03-01T09:00:00.000Z', endTime: '2026-03-01T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: [], status: 'completed' },
+    ]
+
+    render(
+      <Analytics
+        users={[]}
+        courses={[]}
+        sessions={sessions}
+        enrollments={[]}
+        attendanceRecords={[
+          { id: 'a1', sessionId: 's1', userId: 'u1', status: 'present', markedAt: '2026-03-01T09:00:00.000Z', markedBy: 't1' },
+          { id: 'a2', sessionId: 's1', userId: 'u2', status: 'late', markedAt: '2026-03-01T09:10:00.000Z', markedBy: 't1' },
+          { id: 'a3', sessionId: 's1', userId: 'u3', status: 'absent', markedAt: '2026-03-01T09:05:00.000Z', markedBy: 't1' },
+        ]}
+      />,
+    )
+
+    expect(screen.getByTestId('attendance-rate')).toHaveTextContent('67%')
+  })
 })

@@ -235,6 +235,7 @@ vi.mock('@/components/views/Schedule', () => ({
                 callbackSpies.onUpdateSession('session-1', payload)
                 onUpdateSession('session-1', payload)
             }}>Update Session</button>
+            <button onClick={() => onUpdateSession('session-1', { status: 'completed', updatedAt: 'stale-updated-at' })}>Apply Stale Session Update</button>
             <button onClick={() => {
                 const payload = { id: 'custom-session-id', title: 'Session With Custom Id' }
                 onCreateSession(payload)
@@ -325,6 +326,7 @@ vi.mock('@/components/views/Courses', () => ({
                 callbackSpies.onCreateCourse(payload)
                 onCreateCourse?.(payload)
             }}>Create Course With Id</button>
+            <button onClick={() => onCreateCourse?.({})}>Create Empty Course</button>
             <button onClick={() => onUpdateCourse?.(courses[0]?.id ?? 'course-1', { published: true, updatedAt: 'stale-updated-at' })}>Update Course</button>
             <button onClick={() => onDeleteCourse?.(courses[0]?.id ?? 'course-1')}>Delete Course</button>
         </div>
@@ -365,10 +367,12 @@ vi.mock('@/components/views/People', () => ({
                 callbackSpies.onUpdateUser(payload)
                 onUpdateUser(payload)
             }}>Update User</button>
+            <button onClick={() => onUpdateUser({ id: 'trainer-1', role: 'trainer', name: 'Updated Trainer', email: 'trainer1@example.com', department: 'Ops', certifications: [], hireDate: '2024-01-01T00:00:00.000Z', updatedAt: 'stale-updated-at', trainerProfile: { authorizedRoles: [], shiftSchedules: [], tenure: { hireDate: '2024-01-01T00:00:00.000Z', yearsOfService: 1, monthsOfService: 12 }, specializations: [] } })}>Apply Stale User Update</button>
             <button onClick={() => {
                 callbackSpies.onDeleteUser('trainer-1')
                 onDeleteUser('trainer-1')
             }}>Delete User</button>
+            <button onClick={() => onDeleteUser('admin-1')}>Delete Active User</button>
             <button onClick={() => onNavigationPayloadConsumed?.()}>Consume Navigation Payload</button>
         </div>
     ),
@@ -1490,6 +1494,7 @@ describe('App', () => {
         kvSeed['sessions'] = undefined
         kvSeed['courses'] = undefined
         kvSeed['enrollments'] = undefined
+        kvSeed['attendance-records'] = undefined
         kvSeed['notifications'] = undefined
 
         render(<App />)
@@ -1500,8 +1505,15 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: /update session/i }))
+        await user.click(screen.getByRole('button', { name: /^delete session$/i }))
+        await user.click(screen.getByRole('button', { name: /^mark present$/i }))
         await user.click(screen.getByRole('button', { name: /^go schedule templates$/i }))
         await user.click(screen.getByRole('button', { name: /create template sessions/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        await user.click(screen.getByRole('button', { name: /create minimal course/i }))
+        await user.click(screen.getByRole('button', { name: /^update course$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete course$/i }))
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
@@ -1523,10 +1535,196 @@ describe('App', () => {
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
-        await user.click(screen.getByRole('button', { name: /add user/i }))
+        await user.click(screen.getByRole('button', { name: /^reset session$/i }))
 
-        expect(callbackSpies.onAddUser).toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+    })
+
+    it('sets an empty active user id when deleting the currently active last user', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+        kvSeed['active-user-id'] = 'admin-1'
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete active user$/i }))
+
+        expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+    })
+
+    it('blocks notification deep-link navigation when the active role lacks access', async () => {
+        const user = userEvent.setup()
+        utilizationNotificationPayload = createUtilizationNotificationPayload({
+            title: 'Restricted Destination',
+            link: '/certifications',
+            priority: 'high',
+        })
+
+        render(<App />)
+        await user.click(screen.getByRole('button', { name: /^switch to trainer$/i }))
+
+        const sendCall = sendNotificationMock.mock.calls[0]
+        const options = sendCall?.[1]
+        act(() => {
+            options.onClick()
+        })
+
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+    })
+
+    it('includes enrollments visible via session visibility even when course visibility is restricted', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = [
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+        kvSeed['active-user-id'] = 'trainer-1'
+        kvSeed['courses'] = [
+            {
+                id: 'course-hidden',
+                title: 'Hidden Course',
+                description: 'not published and not creator-owned',
+                duration: 45,
+                passScore: 80,
+                modules: [],
+                certifications: [],
+                createdBy: 'admin-1',
+                createdAt: '2024-01-01T00:00:00.000Z',
+                published: false,
+            },
+        ]
+        kvSeed['sessions'] = [
+            {
+                id: 'session-visible',
+                courseId: 'course-hidden',
+                trainerId: 'trainer-1',
+                title: 'Trainer-Owned Session',
+                startTime: '2099-01-01T09:00:00.000Z',
+                endTime: '2099-01-01T10:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: ['trainer-1'],
+                status: 'scheduled',
+            },
+        ]
+        kvSeed['enrollments'] = [
+            {
+                id: 'enroll-visible-via-session',
+                userId: 'trainer-1',
+                courseId: 'course-hidden',
+                sessionId: 'session-visible',
+                status: 'in-progress',
+                progress: 20,
+                enrolledAt: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+        expect(screen.getByText(/dashboard enrollments:\s*1/i)).toBeInTheDocument()
+    })
+
+    it('updates only the matched attendance record when multiple records exist', async () => {
+        const user = userEvent.setup()
+        kvSeed['attendance-records'] = [
+            {
+                id: 'attendance-1',
+                sessionId: 'session-2',
+                userId: 'trainer-1',
+                status: 'absent',
+                markedAt: '2024-01-01T00:00:00.000Z',
+                markedBy: 'admin-1',
+            },
+            {
+                id: 'attendance-2',
+                sessionId: 'session-2',
+                userId: 'someone-else',
+                status: 'present',
+                markedAt: '2024-01-01T00:00:00.000Z',
+                markedBy: 'admin-1',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        await user.click(screen.getByRole('button', { name: /^mark present$/i }))
+
+        expect(screen.getByText(/attendance count:\s*2/i)).toBeInTheDocument()
+    })
+
+    it('handles course update and delete when course/session/enrollment stores are undefined', async () => {
+        const user = userEvent.setup()
+        kvSeed['courses'] = undefined
+        kvSeed['sessions'] = undefined
+        kvSeed['enrollments'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        await user.click(screen.getByRole('button', { name: /^update course$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete course$/i }))
+
+        expect(screen.getByText(/courses count:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('handles deleting a session when sessions store is undefined', async () => {
+        const user = userEvent.setup()
+        kvSeed['sessions'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete session$/i }))
+
+        expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('assigns default preview passwords when preview mode is enabled and auth map is empty', async () => {
+        const user = userEvent.setup()
+        getPreviewSeedModeMock.mockReturnValue('empty')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        kvSeed['auth-passwords'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /^sign out$/i }))
+
+        await user.type(screen.getByLabelText(/email/i), 'trainer1@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
     })
 
     it('creates a notification when notification state is initially undefined', async () => {
@@ -1675,6 +1873,194 @@ describe('App', () => {
         expect(localStorage.getItem('unrelated-key')).toBe('keep')
     })
 
+    it('shows sign-in errors for missing credentials, unknown users, and wrong passwords', async () => {
+        const user = userEvent.setup()
+        kvSeed['active-user-id'] = ''
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+        expect(toastError).toHaveBeenCalledWith(
+            'Sign-in failed',
+            expect.objectContaining({ description: 'Enter an email and password to continue.' }),
+        )
+
+        await user.type(screen.getByLabelText(/email/i), 'nobody@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+        expect(toastError).toHaveBeenCalledWith(
+            'Sign-in failed',
+            expect.objectContaining({ description: 'No account matches that email address.' }),
+        )
+
+        await user.clear(screen.getByLabelText(/email/i))
+        await user.clear(screen.getByLabelText(/password/i))
+        await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'wrong-password')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+        expect(toastError).toHaveBeenCalledWith(
+            'Sign-in failed',
+            expect.objectContaining({ description: 'Incorrect password.' }),
+        )
+    })
+
+    it('warns when stale session and stale user updates are submitted', async () => {
+        const user = userEvent.setup()
+        kvSeed['sessions'] = [
+            {
+                id: 'session-1',
+                courseId: 'course-1',
+                trainerId: 'trainer-1',
+                title: 'Stale Session',
+                startTime: '2099-01-01T09:00:00.000Z',
+                endTime: '2099-01-01T10:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: [],
+                status: 'scheduled',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+        ]
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        await user.click(screen.getByRole('button', { name: /apply stale session update/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /apply stale user update/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Concurrent edit warning',
+            expect.objectContaining({ description: expect.stringMatching(/session changed/i) }),
+        )
+        expect(toastError).toHaveBeenCalledWith(
+            'Concurrent edit warning',
+            expect.objectContaining({ description: expect.stringMatching(/profile changed/i) }),
+        )
+    })
+
+    it('deletes session-linked enrollments when a session is deleted', async () => {
+        const user = userEvent.setup()
+        kvSeed['enrollments'] = [
+            {
+                id: 'enroll-delete-session',
+                userId: 'trainer-1',
+                courseId: 'course-1',
+                sessionId: 'session-1',
+                status: 'in-progress',
+                progress: 40,
+                enrolledAt: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+        expect(screen.getByText(/dashboard enrollments:\s*1/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete session$/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+        expect(screen.getByText(/dashboard enrollments:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('deletes course-linked sessions and enrollments when a course is deleted', async () => {
+        const user = userEvent.setup()
+        kvSeed['courses'] = [
+            {
+                id: 'course-1',
+                title: 'Delete Me Course',
+                description: 'For delete-path testing',
+                duration: 60,
+                passScore: 80,
+                modules: [],
+                certifications: [],
+                createdBy: 'admin-1',
+                createdAt: '2024-01-01T00:00:00.000Z',
+                published: true,
+            },
+        ]
+        kvSeed['sessions'] = [
+            {
+                id: 'session-1',
+                courseId: 'course-1',
+                trainerId: 'trainer-1',
+                title: 'Delete Session With Course',
+                startTime: '2099-01-01T09:00:00.000Z',
+                endTime: '2099-01-01T10:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: [],
+                status: 'scheduled',
+            },
+        ]
+        kvSeed['enrollments'] = [
+            {
+                id: 'enroll-delete-course',
+                userId: 'trainer-1',
+                courseId: 'course-1',
+                sessionId: 'session-1',
+                status: 'in-progress',
+                progress: 40,
+                enrolledAt: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete course$/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+        expect(screen.getByText(/dashboard enrollments:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('uses untitled course fallback when creating an empty course payload', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        await user.click(screen.getByRole('button', { name: /^create empty course$/i }))
+
+        expect(screen.getByText(/untitled course/i)).toBeInTheDocument()
+    })
+
     describe('handleRecordScore', () => {
         beforeEach(() => {
             kvSeed['courses'] = [
@@ -1778,6 +2164,64 @@ describe('App', () => {
             // Score 90 >= default passScore 80, so notify=true, but course is undefined → no notification
             await user.click(screen.getByRole('button', { name: /record score pass/i }))
             expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
+
+        it('uses fallback student label in completion message when the student record is missing', async () => {
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-rs-1',
+                    userId: 'missing-user',
+                    courseId: 'course-rs',
+                    sessionId: 'session-1',
+                    status: 'in-progress',
+                    progress: 50,
+                    enrolledAt: '2024-01-01T00:00:00.000Z',
+                },
+            ]
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score pass/i }))
+
+            expect(sendNotificationMock).toHaveBeenCalledWith(
+                'Course Completed — Record Score Course',
+                expect.objectContaining({ body: expect.stringContaining('A student completed') }),
+            )
+        })
+
+        it('updates only the targeted enrollment when recording a score', async () => {
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-rs-1',
+                    userId: 'admin-1',
+                    courseId: 'course-rs',
+                    sessionId: 'session-1',
+                    status: 'in-progress',
+                    progress: 50,
+                    enrolledAt: '2024-01-01T00:00:00.000Z',
+                },
+                {
+                    id: 'enrollment-rs-2',
+                    userId: 'admin-1',
+                    courseId: 'course-rs',
+                    sessionId: 'session-2',
+                    status: 'in-progress',
+                    progress: 10,
+                    enrolledAt: '2024-01-02T00:00:00.000Z',
+                },
+            ]
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score pass/i }))
+            await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+
+            expect(screen.getByText(/dashboard enrollments:\s*2/i)).toBeInTheDocument()
+            expect(screen.getByText(/enrollment: enrollment-rs-2/i)).toBeInTheDocument()
         })
     })
 })
