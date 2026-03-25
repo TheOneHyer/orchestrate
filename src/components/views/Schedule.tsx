@@ -1556,19 +1556,61 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
         />
       )}
 
-      {recordScoreContext && onRecordScore && (
-        <RecordScoreDialog
-          key={recordScoreContext.enrollment.id}
-          open={recordScoreEnrollmentId !== null}
-          onOpenChange={(open) => {
-            if (!open) setRecordScoreEnrollmentId(null)
-          }}
-          enrollment={recordScoreContext.enrollment}
-          course={recordScoreContext.course}
-          student={recordScoreContext.student}
-          onSubmit={onRecordScore}
-        />
-      )}
+      <RecordScoreDialogWrapper
+        context={recordScoreContext}
+        recordScoreEnrollmentId={recordScoreEnrollmentId}
+        setRecordScoreEnrollmentId={setRecordScoreEnrollmentId}
+        onRecordScore={onRecordScore}
+      />
+
+
+
+
+
+
+
     </div>
+  )
+}
+
+interface RecordScoreDialogWrapperProps {
+  context: {
+    enrollment: Enrollment
+    course: Course
+    student: User
+  } | null
+  recordScoreEnrollmentId: string | null
+  setRecordScoreEnrollmentId: (id: string | null) => void
+  onRecordScore?: ScheduleProps['onRecordScore']
+}
+
+function RecordScoreDialogWrapper({
+  context,
+  recordScoreEnrollmentId,
+  setRecordScoreEnrollmentId,
+  onRecordScore,
+}: RecordScoreDialogWrapperProps) {
+  useEffect(() => {
+    if (!context) {
+      setRecordScoreEnrollmentId(null)
+    }
+  }, [context, setRecordScoreEnrollmentId])
+
+  if (!context || !onRecordScore) {
+    return null
+  }
+
+  return (
+    <RecordScoreDialog
+      key={context.enrollment.id}
+      open={recordScoreEnrollmentId !== null}
+      onOpenChange={(open) => {
+        if (!open) setRecordScoreEnrollmentId(null)
+      }}
+      enrollment={context.enrollment}
+      course={context.course}
+      student={context.student}
+      onSubmit={onRecordScore}
+    />
   )
 }
