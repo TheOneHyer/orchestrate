@@ -416,5 +416,25 @@ describe('RecordScoreDialog', () => {
 
             expect(screen.getByTestId('score-preview')).toHaveTextContent(/pass/i)
         })
+
+        it('does not call onSubmit when the form is submitted programmatically with no score value', () => {
+            const onSubmit = vi.fn()
+
+            render(
+                <RecordScoreDialog
+                    open
+                    onOpenChange={vi.fn()}
+                    enrollment={createEnrollment({ score: undefined })}
+                    course={createCourse()}
+                    student={createStudent()}
+                    onSubmit={onSubmit}
+                />,
+            )
+
+            const form = document.querySelector('form')!
+            fireEvent.submit(form)
+
+            expect(onSubmit).not.toHaveBeenCalled()
+        })
     })
 })

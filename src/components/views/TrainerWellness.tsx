@@ -1046,7 +1046,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
           <RecoveryPlanDialog
             open={recoveryPlanDialogOpen}
             onClose={() => {
-              setRecoveryPlanDialogOpen(true)
+              setRecoveryPlanDialogOpen(false)
               setSelectedTrainer(null)
             }}
             trainerId={selectedTrainer || ''}

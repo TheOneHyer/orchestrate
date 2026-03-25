@@ -528,7 +528,8 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     onUpdateSession(draggedSession.id, { status, updatedAt: draggedSession.updatedAt })
 
     if (selectedSession?.id === draggedSession.id) {
-      setSelectedSession({ ...draggedSession, status })
+      const { updatedAt: _staleUpdatedAt, ...rest } = draggedSession
+      setSelectedSession({ ...rest, status })
     }
 
     toast.success('Session status updated', {
