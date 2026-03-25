@@ -106,6 +106,26 @@ describe('useNotificationSound', () => {
         expect(merged.soundType).toBe('pleasant')
     })
 
+    it('merges defaults into partially persisted settings', () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: false
+            },
+            setter
+        ] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+
+        // persisted value should be preserved
+        expect(result.current.settings.enabled).toBe(false)
+        // missing values should fall back to defaults
+        expect(result.current.settings.volume).toBe(0.4)
+        expect(result.current.settings.soundType).toBe('pleasant')
+        expect(result.current.settings.quietHours.enabled).toBe(false)
+        expect(result.current.settings.quietHours.allowCritical).toBe(true)
+    })
+
     it('updateSettings merges partial changes without losing other settings', () => {
         const setter = vi.fn()
         vi.mocked(useKV).mockReturnValue([
