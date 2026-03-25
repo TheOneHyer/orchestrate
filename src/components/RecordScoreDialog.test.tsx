@@ -332,8 +332,7 @@ describe('RecordScoreDialog', () => {
             expect(input.value).toBe('72')
         })
 
-        it('resets the input to the enrollment score when the dialog is reopened', async () => {
-            const user = userEvent.setup()
+        it('resets the input to the enrollment score when the dialog is reopened', () => {
             const enrollment = createEnrollment({ score: 72 })
             const { rerender } = render(
                 <RecordScoreDialog
@@ -347,8 +346,7 @@ describe('RecordScoreDialog', () => {
             )
 
             const input = screen.getByRole('spinbutton') as HTMLInputElement
-            await user.clear(input)
-            await user.type(input, '88')
+            fireEvent.change(input, { target: { value: '88', valueAsNumber: 88 } })
             expect(input.value).toBe('88')
 
             rerender(

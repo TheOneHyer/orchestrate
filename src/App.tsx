@@ -109,7 +109,6 @@ function App() {
   const [firstAdminName, setFirstAdminName] = useState('')
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
-  // ... rest of state declarations
 
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
@@ -686,7 +685,6 @@ function App() {
     setActiveUserId(firstAdmin.id)
     setActiveView('dashboard')
     setNavigationPayload(null)
-    setShowSetup(false)
     setFirstAdminName('')
     setLoginEmail('')
     setLoginPassword('')
@@ -1459,7 +1457,7 @@ function App() {
   }
 
   if (!activeUserId) {
-    if (!hasPersistedUsers || showSetup) {
+    if (!hasPersistedUsers) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
