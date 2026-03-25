@@ -114,8 +114,8 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
     .filter(e => e.score !== undefined)
     .reduce((sum, e) => sum + (e.score || 0), 0) / filteredEnrollments.filter(e => e.score !== undefined).length || 0
 
-  const employeeCount = filteredUsers.filter(u => u.role === 'employee').length
-  const trainerCount = filteredUsers.filter(u => u.role === 'trainer').length
+  const employeeCount = users.filter(u => u.role === 'employee').length
+  const trainerCount = users.filter(u => u.role === 'trainer').length
 
   const topCourses = filteredCourses
     .map(course => {
