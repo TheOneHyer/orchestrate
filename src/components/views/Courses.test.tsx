@@ -923,6 +923,7 @@ describe('Courses', () => {
                                 contentType: 'text',
                                 duration: 15,
                                 content: { body: 'Original body' },
+                                order: 0,
                             },
                         ],
                     }),
@@ -962,6 +963,70 @@ describe('Courses', () => {
                 ],
             })
         )
+    })
+
+    it('shows an error toast and does not call onUpdateCourse when editing without the callback', async () => {
+        const user = userEvent.setup()
+
+        render(
+            <Courses
+                courses={[
+                    createCourse({
+                        id: 'c1',
+                        title: 'Safety Foundations',
+                        moduleDetails: [
+                            {
+                                id: 'module-1',
+                                title: 'Intro Module',
+                                description: '',
+                                contentType: 'text',
+                                duration: 15,
+                                content: { body: 'Body text' },
+                                order: 0,
+                            },
+                        ],
+                    }),
+                ]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={vi.fn()}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /edit course/i }))
+        await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Course update unavailable',
+            expect.objectContaining({ description: expect.stringMatching(/not configured/i) })
+        )
+        expect(toastSuccess).not.toHaveBeenCalled()
+    })
+
+    it('shows an error toast and does not call onCreateCourse when creating without the callback', async () => {
+        const user = userEvent.setup()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onUpdateCourse={vi.fn()}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await fillValidCourseForm(user)
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Course creation unavailable',
+            expect.objectContaining({ description: expect.stringMatching(/not configured/i) })
+        )
+        expect(toastSuccess).not.toHaveBeenCalled()
     })
 
     it('publishes and deletes a selected course from the detail dialog', async () => {

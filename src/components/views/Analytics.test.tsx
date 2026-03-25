@@ -398,4 +398,45 @@ describe('Analytics', () => {
     expect(screen.getByText(/open sessions/i)).toBeInTheDocument()
     expect(screen.queryByText(/open safety session/i)).toBeNull()
   })
+
+  it('excludes sessions whose trainer is not in the selected department', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const users: User[] = [
+      createUser({ id: 't1', name: 'Ops Trainer', email: 'ops@example.com', role: 'trainer', department: 'Ops' }),
+      createUser({ id: 't2', name: 'HR Trainer', email: 'hr@example.com', role: 'trainer', department: 'HR' }),
+    ]
+    const sessions: Session[] = [
+      { id: 's1', courseId: 'c1', trainerId: 't1', title: 'Ops Session', startTime: '2026-03-01T09:00:00.000Z', endTime: '2026-03-01T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: [], status: 'completed' },
+      { id: 's2', courseId: 'c1', trainerId: 't2', title: 'HR Session', startTime: '2026-03-02T09:00:00.000Z', endTime: '2026-03-02T10:00:00.000Z', location: 'Room B', capacity: 10, enrolledStudents: [], status: 'scheduled' },
+    ]
+
+    render(<Analytics users={users} courses={[]} sessions={sessions} enrollments={[]} />)
+
+    const filters = screen.getAllByRole('combobox')
+    await user.click(filters[0])
+    await user.click(screen.getByRole('option', { name: 'HR' }))
+
+    // Only the HR trainer's session should remain: 0 completed out of 1
+    expect(screen.getByTestId('sessions-completed')).toHaveTextContent('0/1')
+  })
+
+  it('does not empty sessions KPI when failed enrollment-only status filter is selected', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const sessions: Session[] = [
+      { id: 's1', courseId: 'c1', trainerId: 't1', title: 'Session A', startTime: '2026-03-01T09:00:00.000Z', endTime: '2026-03-01T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: [], status: 'completed' },
+      { id: 's2', courseId: 'c1', trainerId: 't1', title: 'Session B', startTime: '2026-03-02T09:00:00.000Z', endTime: '2026-03-02T10:00:00.000Z', location: 'Room B', capacity: 10, enrolledStudents: [], status: 'scheduled' },
+    ]
+    const enrollments: Enrollment[] = [
+      { id: 'e1', userId: 'u1', courseId: 'c1', status: 'failed', progress: 100, score: 40, enrolledAt: '2026-02-01' },
+    ]
+
+    render(<Analytics users={[]} courses={[]} sessions={sessions} enrollments={enrollments} />)
+
+    const filters = screen.getAllByRole('combobox')
+    await user.click(filters[2])
+    await user.click(screen.getByRole('option', { name: /failed/i }))
+
+    // Sessions should not be filtered to zero by an enrollment-only status
+    expect(screen.getByTestId('sessions-completed')).toHaveTextContent('1/2')
+  })
 })

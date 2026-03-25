@@ -103,7 +103,7 @@ export function EnrollStudentsDialog({
 
   const handleImportIdentifiers = () => {
     const identifiers = parseEnrollmentIdentifiers(bulkIdentifiers)
-    const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, filteredStudents)
+    const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, availableStudents)
 
     addMatchedStudents(matchedIds)
 
@@ -123,7 +123,7 @@ export function EnrollStudentsDialog({
 
   const handleBadgeScan = () => {
     const identifiers = parseEnrollmentIdentifiers(badgeScanValue)
-    const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, filteredStudents)
+    const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, availableStudents)
 
     addMatchedStudents(matchedIds)
 
