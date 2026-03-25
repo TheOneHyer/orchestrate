@@ -282,7 +282,7 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Filtered enrollments</div>
-            <div className="mt-1 text-2xl font-semibold">{totalEnrollments}</div>
+            <div data-testid="filtered-enrollments-value" className="mt-1 text-2xl font-semibold">{totalEnrollments}</div>
           </div>
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Courses needing attention</div>

@@ -106,11 +106,14 @@ function createEntityId(prefix: string) {
 function App() {
   const [activeView, setActiveView] = useState('dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
+  const [showSetup, setShowSetup] = useState(false)
+  const [firstAdminName, setFirstAdminName] = useState('')
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
 
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
+  const previewMode = !import.meta.env.PROD
 
   const [users, setUsers] = useKV<User[]>('users', [])
   const [activeUserId, setActiveUserId] = useKV<string>('active-user-id', '')
@@ -321,6 +324,10 @@ function App() {
   ])
 
   useEffect(() => {
+    if (!previewMode) {
+      return
+    }
+
     if (!users || users.length === 0) {
       return
     }
@@ -339,7 +346,7 @@ function App() {
 
       return changed ? next : existing
     })
-  }, [users, setAuthPasswords])
+  }, [previewMode, users, setAuthPasswords])
 
   useEffect(() => {
     if (users && users.length > 0) {
@@ -358,6 +365,11 @@ function App() {
   const safeCourses = courses || []
   const safeEnrollments = enrollments || []
   const safeNotifications = notifications || []
+  const hasPersistedUsers = safeUsers.length > 0
+
+  useEffect(() => {
+    setShowSetup(!hasPersistedUsers)
+  }, [hasPersistedUsers])
 
   const fallbackUser = useMemo<User>(() => ({
     id: '1',
@@ -551,7 +563,7 @@ function App() {
   // SECURITY NOTE: `authPasswords` stores plaintext demo credentials for preview-only flows.
   // This is not production-safe; replace with server-side auth (hashed passwords over TLS,
   // and token-based sessions or OAuth) before shipping.
-  const handleSignIn = useCallback((event?: FormEvent<HTMLFormElement>) => {
+  const handleSignIn = useCallback(async (event?: FormEvent<HTMLFormElement>) => {
     event?.preventDefault()
 
     const email = loginEmail.trim().toLowerCase()
@@ -561,6 +573,51 @@ function App() {
       toast.error('Sign-in failed', {
         description: 'Enter an email and password to continue.',
       })
+      return
+    }
+
+    if (!previewMode) {
+      try {
+        const response = await fetch('/api/auth/sign-in', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        })
+
+        if (!response.ok) {
+          toast.error('Sign-in failed', {
+            description: 'Authentication failed. Verify your credentials and try again.',
+          })
+          return
+        }
+
+        const data = await response.json().catch(() => null) as { userId?: string } | null
+        const matchedUser = safeUsers.find((user) => user.email.trim().toLowerCase() === email)
+        const authenticatedUserId = data?.userId ?? matchedUser?.id
+
+        if (!authenticatedUserId) {
+          toast.error('Sign-in failed', {
+            description: 'Authentication succeeded but no user account is available in this workspace.',
+          })
+          return
+        }
+
+        const authenticatedUser = safeUsers.find((user) => user.id === authenticatedUserId)
+
+        setActiveUserId(authenticatedUserId)
+        setActiveView('dashboard')
+        setNavigationPayload(null)
+        setLoginPassword('')
+        toast.success('Signed in', {
+          description: `Welcome back, ${authenticatedUser?.name ?? email}.`,
+        })
+      } catch {
+        toast.error('Sign-in failed', {
+          description: 'Unable to reach the authentication service.',
+        })
+      }
       return
     }
 
@@ -587,7 +644,7 @@ function App() {
     toast.success('Signed in', {
       description: `Welcome back, ${matchedUser.name}.`,
     })
-  }, [authPasswords, loginEmail, loginPassword, safeUsers, setActiveUserId])
+  }, [authPasswords, loginEmail, loginPassword, previewMode, safeUsers, setActiveUserId])
 
   const handleSignOut = useCallback(() => {
     setActiveUserId('')
@@ -595,6 +652,53 @@ function App() {
     setNavigationPayload(null)
     setLoginPassword('')
   }, [setActiveUserId])
+
+  const createFirstAdmin = useCallback(() => {
+    if (hasPersistedUsers) {
+      return
+    }
+
+    const name = firstAdminName.trim()
+    const email = loginEmail.trim().toLowerCase()
+    const password = loginPassword
+
+    if (!name || !email || !password) {
+      toast.error('Setup incomplete', {
+        description: 'Enter name, email, and password to create the first admin.',
+      })
+      return
+    }
+
+    const now = new Date().toISOString()
+    const firstAdmin: User = {
+      id: createEntityId('user'),
+      name,
+      email,
+      role: 'admin',
+      department: 'Administration',
+      certifications: [],
+      hireDate: now,
+      updatedAt: now,
+    }
+
+    setUsers([firstAdmin])
+
+    if (previewMode) {
+      setAuthPasswords({ [firstAdmin.id]: password })
+    }
+
+    setActiveUserId(firstAdmin.id)
+    setActiveView('dashboard')
+    setNavigationPayload(null)
+    setShowSetup(false)
+    setFirstAdminName('')
+    setLoginEmail('')
+    setLoginPassword('')
+
+    toast.success('First admin created', {
+      description: `${name} can now manage the workspace.`,
+    })
+  }, [firstAdminName, hasPersistedUsers, loginEmail, loginPassword, previewMode, setActiveUserId, setAuthPasswords, setUsers])
 
   const handleAssignRole = useCallback((userId: string, role: User['role']) => {
     const targetUser = safeUsers.find((entry) => entry.id === userId)
@@ -847,7 +951,8 @@ function App() {
   const handleDeleteSession = useCallback((id: string) => {
     setSessions((currentSessions) => (currentSessions || []).filter((session) => session.id !== id))
     setEnrollments((currentEnrollments) => (currentEnrollments || []).filter((enrollment) => enrollment.sessionId !== id))
-  }, [setEnrollments, setSessions])
+    setAttendanceRecords((currentAttendanceRecords) => (currentAttendanceRecords || []).filter((record) => record.sessionId !== id))
+  }, [setAttendanceRecords, setEnrollments, setSessions])
 
   /**
    * Applies partial updates to an existing user record matched by `id`.
@@ -874,10 +979,13 @@ function App() {
   const handleAddUser = (newUser: User) => {
     const updatedAt = new Date().toISOString()
     setUsers((currentUsers) => [...(currentUsers || []), { ...newUser, updatedAt }])
-    setAuthPasswords((current) => ({
-      ...(current || {}),
-      [newUser.id]: current?.[newUser.id] ?? 'password123',
-    }))
+
+    if (previewMode) {
+      setAuthPasswords((current) => ({
+        ...(current || {}),
+        [newUser.id]: current?.[newUser.id] ?? 'password123',
+      }))
+    }
   }
 
   /**
@@ -930,7 +1038,10 @@ function App() {
     setEnrollments((currentEnrollments) =>
       (currentEnrollments || []).filter((enrollment) => enrollment.courseId !== id && !(enrollment.sessionId && relatedSessionIds.has(enrollment.sessionId)))
     )
-  }, [safeSessions, setCourses, setEnrollments, setSessions])
+    setAttendanceRecords((currentAttendanceRecords) =>
+      (currentAttendanceRecords || []).filter((record) => !relatedSessionIds.has(record.sessionId))
+    )
+  }, [safeSessions, setAttendanceRecords, setCourses, setEnrollments, setSessions])
 
   /**
    * Removes a user from the users KV store and cleans up related session
@@ -1259,30 +1370,32 @@ function App() {
               <p className="text-muted-foreground mt-1">Configure system settings</p>
             </div>
             <div className="max-w-4xl space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Local Session</CardTitle>
-                  <CardDescription>
-                    Sign in with a user email and password, then manage role-based access for the active session.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-lg border p-4">
-                    <div className="text-sm text-muted-foreground">Active user</div>
-                    <div className="mt-1 font-medium">{currentUser.name} ({currentUser.role})</div>
-                    <div className="text-sm text-muted-foreground">{currentUser.email}</div>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    {safeUsers.map((user) => (
-                      <Button key={user.id} variant={user.id === currentUser.id ? 'default' : 'outline'} onClick={() => handleSwitchUser(user.id)}>
-                        Switch to {user.name}
-                      </Button>
-                    ))}
-                    <Button variant="secondary" onClick={handleLogout}>Reset Session</Button>
-                    <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
-                  </div>
-                </CardContent>
-              </Card>
+              {previewMode && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Local Session</CardTitle>
+                    <CardDescription>
+                      Sign in with a user email and password, then manage role-based access for the active session.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Active user</div>
+                      <div className="mt-1 font-medium">{currentUser.name} ({currentUser.role})</div>
+                      <div className="text-sm text-muted-foreground">{currentUser.email}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {safeUsers.map((user) => (
+                        <Button key={user.id} variant={user.id === currentUser.id ? 'default' : 'outline'} onClick={() => handleSwitchUser(user.id)}>
+                          Switch to {user.name}
+                        </Button>
+                      ))}
+                      <Button variant="secondary" onClick={handleLogout}>Reset Session</Button>
+                      <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               <Card>
                 <CardHeader>
                   <CardTitle>Role Assignment</CardTitle>
@@ -1350,6 +1463,59 @@ function App() {
   }
 
   if (!activeUserId) {
+    if (!hasPersistedUsers || showSetup) {
+      return (
+        <div className="min-h-screen bg-muted/20 p-6">
+          <div className="mx-auto w-full max-w-md pt-16">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create First Admin</CardTitle>
+                <CardDescription>
+                  Set up the initial administrator account to bootstrap this workspace.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="setup-name">Name</Label>
+                    <Input
+                      id="setup-name"
+                      placeholder="Administrator"
+                      value={firstAdminName}
+                      onChange={(event) => setFirstAdminName(event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="setup-email">Email</Label>
+                    <Input
+                      id="setup-email"
+                      type="email"
+                      placeholder="admin@company.com"
+                      value={loginEmail}
+                      onChange={(event) => setLoginEmail(event.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="setup-password">Password</Label>
+                    <Input
+                      id="setup-password"
+                      type="password"
+                      value={loginPassword}
+                      onChange={(event) => setLoginPassword(event.target.value)}
+                    />
+                  </div>
+                  <Button type="button" className="w-full" onClick={createFirstAdmin}>
+                    Create First Admin
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <Toaster />
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-screen bg-muted/20 p-6">
         <div className="mx-auto w-full max-w-md pt-16">
@@ -1384,9 +1550,11 @@ function App() {
                 <Button type="submit" className="w-full">
                   Sign In
                 </Button>
-                <p className="text-xs text-muted-foreground">
-                  Default password for seeded users is <strong>password123</strong>.
-                </p>
+                {previewMode && (
+                  <p className="text-xs text-muted-foreground">
+                    Default password for seeded users is <strong>password123</strong>.
+                  </p>
+                )}
               </form>
             </CardContent>
           </Card>
@@ -1404,9 +1572,9 @@ function App() {
         notificationCount={unreadNotifications.length}
         userRole={currentUser.role}
         currentUser={currentUser}
-        users={safeUsers}
-        onSwitchUser={handleSwitchUser}
-        onLogout={handleLogout}
+        users={previewMode ? safeUsers : [currentUser]}
+        onSwitchUser={previewMode ? handleSwitchUser : undefined}
+        onLogout={previewMode ? handleLogout : undefined}
       >
         {renderView()}
       </Layout>

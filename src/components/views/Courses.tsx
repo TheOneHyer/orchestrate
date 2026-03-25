@@ -312,6 +312,10 @@ export function Courses({
       return
     }
 
+    if (courses.length === 0) {
+      return
+    }
+
     const latestCourse = courses.find((course) => course.id === selectedCourse.id)
     if (!latestCourse) {
       setSelectedCourse(null)

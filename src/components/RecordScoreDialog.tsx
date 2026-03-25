@@ -1,4 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import {
     Dialog,
@@ -8,11 +11,29 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
+import {
+    Form,
+    FormControl,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle, XCircle } from '@phosphor-icons/react'
 import type { Course, Enrollment, User } from '@/lib/types'
+
+const scoreSchema = z.object({
+    score: z
+        .number({ invalid_type_error: 'Please enter a whole number between 0 and 100.' })
+        .int('Please enter a whole number between 0 and 100.')
+        .min(0, 'Please enter a whole number between 0 and 100.')
+        .max(100, 'Please enter a whole number between 0 and 100.')
+        .optional(),
+})
+
+type ScoreFormValues = z.infer<typeof scoreSchema>
 
 /** Props for the RecordScoreDialog component. */
 export interface RecordScoreDialogProps {
@@ -54,33 +75,30 @@ export function RecordScoreDialog({
     student,
     onSubmit,
 }: RecordScoreDialogProps) {
-    const [rawValue, setRawValue] = useState(
-        enrollment.score !== undefined ? String(enrollment.score) : '',
-    )
+    const form = useForm<ScoreFormValues>({
+        resolver: zodResolver(scoreSchema),
+        defaultValues: {
+            score: enrollment.score ?? undefined,
+        },
+        mode: 'onChange',
+    })
 
     useEffect(() => {
-        if (!open) {
-            return
-        }
-
-        setRawValue(enrollment.score !== undefined ? String(enrollment.score) : '')
+        form.reset({ score: enrollment.score ?? undefined })
     }, [open, enrollment.id, enrollment.score])
 
-    const parsedScore = rawValue === '' ? null : Number(rawValue)
-    const isValid =
-        parsedScore !== null &&
-        Number.isFinite(parsedScore) &&
-        Number.isInteger(parsedScore) &&
-        parsedScore >= 0 &&
-        parsedScore <= 100
-    const wouldPass = isValid && parsedScore !== null && parsedScore >= course.passScore
-    const wouldFail = isValid && !wouldPass
+    const score = form.watch('score')
+    const hasScore = typeof score === 'number'
+    const isScoreValid = hasScore && Number.isInteger(score) && score >= 0 && score <= 100
+    const canSubmit = isScoreValid
+    const wouldPass = canSubmit && score >= course.passScore
+    const wouldFail = canSubmit && !wouldPass
 
-    function handleSubmit() {
-        if (!isValid || parsedScore === null) {
+    function handleSubmit(values: ScoreFormValues) {
+        if (values.score === undefined) {
             return
         }
-        onSubmit(enrollment.id, parsedScore)
+        onSubmit(enrollment.id, values.score)
         onOpenChange(false)
     }
 
@@ -94,37 +112,55 @@ export function RecordScoreDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 py-2">
-                    <div className="space-y-1">
-                        <div className="text-sm font-medium">{student.name}</div>
-                        <div className="text-sm text-muted-foreground">{course.title}</div>
-                    </div>
+                <Form {...form}>
+                    <form className="space-y-4 py-2" onSubmit={form.handleSubmit(handleSubmit)}>
+                        <div className="space-y-1">
+                            <div className="text-sm font-medium">{student.name}</div>
+                            <div className="text-sm text-muted-foreground">{course.title}</div>
+                        </div>
 
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>Pass score:</span>
-                        <Badge variant="outline">{course.passScore}%</Badge>
-                        {enrollment.score !== undefined && (
-                            <>
-                                <span className="ml-2">Current:</span>
-                                <Badge variant="secondary">{enrollment.score}%</Badge>
-                            </>
-                        )}
-                    </div>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>Pass score:</span>
+                            <Badge variant="outline">{course.passScore}%</Badge>
+                            {enrollment.score !== undefined && (
+                                <>
+                                    <span className="ml-2">Current:</span>
+                                    <Badge variant="secondary">{enrollment.score}%</Badge>
+                                </>
+                            )}
+                        </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="score-input">Score (0 – 100)</Label>
-                        <Input
-                            id="score-input"
-                            type="number"
-                            min={0}
-                            max={100}
-                            step={1}
-                            placeholder="e.g. 85"
-                            value={rawValue}
-                            onChange={(e) => setRawValue(e.target.value)}
+                        <FormField
+                            control={form.control}
+                            name="score"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Score (0 - 100)</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            min={0}
+                                            max={100}
+                                            step={1}
+                                            placeholder="e.g. 85"
+                                            value={field.value ?? ''}
+                                            onChange={(event) => {
+                                                const nextValue = event.target.value
+                                                field.onChange(nextValue === '' ? undefined : event.target.valueAsNumber)
+                                            }}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                    {hasScore && !isScoreValid && (
+                                        <p className="text-sm text-red-600" data-testid="score-error">
+                                            Please enter a whole number between 0 and 100.
+                                        </p>
+                                    )}
+                                </FormItem>
+                            )}
                         />
 
-                        {isValid && (
+                        {canSubmit && (
                             <div
                                 className={`flex items-center gap-1.5 text-sm font-medium ${wouldPass ? 'text-green-600' : 'text-red-600'}`}
                                 data-testid="score-preview"
@@ -143,19 +179,14 @@ export function RecordScoreDialog({
                             </div>
                         )}
 
-                        {rawValue !== '' && !isValid && (
-                            <p className="text-sm text-red-600" data-testid="score-error">
-                                Please enter a whole number between 0 and 100.
-                            </p>
-                        )}
-                    </div>
-                </div>
+                    </form>
+                </Form>
 
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>
-                    <Button onClick={handleSubmit} disabled={!isValid}>
+                    <Button type="submit" onClick={form.handleSubmit(handleSubmit)} disabled={!canSubmit}>
                         Save Score
                     </Button>
                 </DialogFooter>

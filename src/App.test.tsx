@@ -1558,7 +1558,7 @@ describe('App', () => {
         expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: /^reset session$/i }))
 
-        expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /^create first admin$/i })).toBeInTheDocument()
     })
 
     it('sets an empty active user id when deleting the currently active last user', async () => {
@@ -1581,7 +1581,7 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         await user.click(screen.getByRole('button', { name: /^delete active user$/i }))
 
-        expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: /^create first admin$/i })).toBeInTheDocument()
     })
 
     it('blocks notification deep-link navigation when the active role lacks access', async () => {

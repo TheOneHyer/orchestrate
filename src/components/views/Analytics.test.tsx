@@ -458,7 +458,7 @@ describe('Analytics', () => {
     await user.click(screen.getByRole('option', { name: /^scheduled$/i }))
 
     expect(screen.getByTestId('sessions-completed')).toHaveTextContent('0/1')
-    expect(screen.getByText(/filtered enrollments/i).nextElementSibling).toHaveTextContent('1')
+    expect(screen.getByTestId('filtered-enrollments-value')).toHaveTextContent('1')
   })
 
   it('computes attendance rate from present and late attendance records', async () => {

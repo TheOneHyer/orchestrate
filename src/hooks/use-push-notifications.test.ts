@@ -95,7 +95,9 @@ describe('usePushNotifications', () => {
     })
 
     it('requestPermission returns denied when Notification API is unavailable', async () => {
-        vi.unstubAllGlobals()
+        const hadNotification = Object.prototype.hasOwnProperty.call(globalThis, 'Notification')
+        const originalNotification = globalThis.Notification
+        delete (globalThis as { Notification?: typeof Notification }).Notification
 
         const { result } = renderHook(() => usePushNotifications())
         let permission: NotificationPermission | undefined
@@ -105,6 +107,10 @@ describe('usePushNotifications', () => {
         })
 
         expect(permission).toBe('denied')
+
+        if (hadNotification) {
+            vi.stubGlobal('Notification', originalNotification)
+        }
     })
 
     it('requestPermission returns "granted" and updates settings to enabled', async () => {

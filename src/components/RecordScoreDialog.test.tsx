@@ -347,8 +347,7 @@ describe('RecordScoreDialog', () => {
             )
 
             const input = screen.getByRole('spinbutton') as HTMLInputElement
-            await user.clear(input)
-            await user.type(input, '88')
+            fireEvent.change(input, { target: { value: '88' } })
             expect(input.value).toBe('88')
 
             rerender(

@@ -234,6 +234,19 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
         : new Map<string, AttendanceRecord>(),
     [selectedSession, attendanceBySessionId],
   )
+  const visibleSelectedSessionStudentIds = useMemo(() => {
+    const userCanManageSchedule = allowedScheduleManagers.includes(currentUser.role)
+
+    if (!selectedSession) {
+      return [] as string[]
+    }
+
+    if (userCanManageSchedule) {
+      return selectedSession.enrolledStudents
+    }
+
+    return selectedSession.enrolledStudents.filter((studentId) => studentId === currentUser.id)
+  }, [currentUser.id, currentUser.role, selectedSession])
   const recordScoreContext = useMemo(() => {
     if (!recordScoreEnrollmentId || !onRecordScore) {
       return null
@@ -1312,11 +1325,11 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
                     )}
                   </div>
                 )}
-                {selectedSession.enrolledStudents.length > 0 && (
+                {visibleSelectedSessionStudentIds.length > 0 && (
                   <div className="pt-2">
                     <Label className="mb-2 block">Enrolled Students</Label>
                     <div className="space-y-2">
-                      {selectedSession.enrolledStudents.map((studentId) => {
+                      {visibleSelectedSessionStudentIds.map((studentId) => {
                         const student = usersById.get(studentId)
                         const sessionEnrollment = selectedSessionEnrollments.get(studentId)
                         const attendanceRecord = selectedSessionAttendance.get(studentId)

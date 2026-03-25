@@ -227,10 +227,18 @@ describe('useNotificationSound', () => {
 
         act(() => {
             result.current.playSound('medium')
+        })
+
+        const afterFirstPlayOscillators = mockAudioContextInstance.createOscillator.mock.calls.length
+        const afterFirstPlayStarts = mockOscillator.start.mock.calls.length
+
+        act(() => {
             result.current.playSound('medium')
         })
 
         expect(MockAudioContext).toHaveBeenCalledTimes(1)
+        expect(mockAudioContextInstance.createOscillator.mock.calls.length).toBeGreaterThan(afterFirstPlayOscillators)
+        expect(mockOscillator.start.mock.calls.length).toBeGreaterThan(afterFirstPlayStarts)
     })
 
     it('blocks critical alerts during quiet hours when allowCritical is false', () => {
