@@ -462,7 +462,7 @@ export function Courses({
 
     try {
       if (editingCourse) {
-        await Promise.resolve(onUpdateCourse(editingCourse.id, coursePayload))
+        await Promise.resolve(onUpdateCourse(editingCourse.id, { ...coursePayload, updatedAt: editingCourse.updatedAt }))
         setSelectedCourse((current) => current?.id === editingCourse.id ? { ...editingCourse, ...coursePayload } : current)
         toast.success('Course updated', {
           description: `${coursePayload.title} has been saved.`,
@@ -560,12 +560,13 @@ export function Courses({
     }
 
     const nextPublished = !selectedCourse.published
+    const nextUpdatedAt = new Date().toISOString()
 
     setIsPublishing(true)
 
     try {
-      await Promise.resolve(onUpdateCourse(selectedCourse.id, { published: nextPublished }))
-      setSelectedCourse({ ...selectedCourse, published: nextPublished })
+      await Promise.resolve(onUpdateCourse(selectedCourse.id, { published: nextPublished, updatedAt: selectedCourse.updatedAt }))
+      setSelectedCourse({ ...selectedCourse, published: nextPublished, updatedAt: nextUpdatedAt })
       toast.success(nextPublished ? 'Course published' : 'Course moved to draft', {
         description: `${selectedCourse.title} is now ${nextPublished ? 'available' : 'hidden from employees'} for scheduling.`,
       })

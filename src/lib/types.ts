@@ -108,6 +108,8 @@ export interface User {
   trainerProfile?: TrainerProfile
   /** Shift periods (day / evening / night) this user is scheduled for; typically populated for trainer roles, absent for other roles. */
   shifts?: ShiftType[]
+  /** ISO 8601 timestamp of the last persisted update to this user record. */
+  updatedAt?: string
 }
 
 /**
@@ -137,6 +139,8 @@ export interface Course {
   published: boolean
   /** Minimum score (0–100) required to pass the course. */
   passScore: number
+  /** ISO 8601 timestamp of the last persisted update to this course record. */
+  updatedAt?: string
 }
 
 /**
@@ -241,6 +245,8 @@ export interface Session {
     /** ISO 8601 date string after which the recurrence stops. */
     endDate: string
   }
+  /** ISO 8601 timestamp of the last persisted update to this session record. */
+  updatedAt?: string
 }
 
 /**
@@ -266,6 +272,29 @@ export interface Enrollment {
   enrolledAt: string
   /** ISO 8601 timestamp of when the user completed the course, if applicable. */
   completedAt?: string
+}
+
+/** Attendance status captured for a student in a specific session. */
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused'
+
+/**
+ * A first-class attendance record for one student in one session.
+ */
+export interface AttendanceRecord {
+  /** Unique identifier for the attendance record. */
+  id: string
+  /** ID of the session this attendance record belongs to. */
+  sessionId: string
+  /** ID of the student whose attendance was marked. */
+  userId: string
+  /** Attendance state recorded for this student. */
+  status: AttendanceStatus
+  /** User ID of the admin or trainer who marked attendance. */
+  markedBy: string
+  /** ISO 8601 timestamp of when attendance was marked. */
+  markedAt: string
+  /** Optional free-form notes about the attendance mark. */
+  notes?: string
 }
 
 /**

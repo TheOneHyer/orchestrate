@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useMemo, type FormEvent } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
@@ -18,7 +18,10 @@ import { UserGuide } from '@/components/views/UserGuide'
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
+  AttendanceRecord,
   User,
   Session,
   Course,
@@ -103,15 +106,19 @@ function createEntityId(prefix: string) {
 function App() {
   const [activeView, setActiveView] = useState('dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
 
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
 
   const [users, setUsers] = useKV<User[]>('users', [])
   const [activeUserId, setActiveUserId] = useKV<string>('active-user-id', '')
+  const [authPasswords, setAuthPasswords] = useKV<Record<string, string>>('auth-passwords', {})
   const [sessions, setSessions] = useKV<Session[]>('sessions', [])
   const [courses, setCourses] = useKV<Course[]>('courses', [])
   const [enrollments, setEnrollments] = useKV<Enrollment[]>('enrollments', [])
+  const [attendanceRecords, setAttendanceRecords] = useKV<AttendanceRecord[]>('attendance-records', [])
   const [notifications, setNotifications] = useKV<Notification[]>('notifications', [])
   const [, setWellnessCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const [, setRecoveryPlans] = useKV<RecoveryPlan[]>('recovery-plans', [])
@@ -146,6 +153,7 @@ function App() {
     setSessions(seedData.sessions)
     setCourses(seedData.courses)
     setEnrollments(seedData.enrollments)
+    setAttendanceRecords(seedData.attendanceRecords ?? [])
     setNotifications(seedData.notifications)
     setWellnessCheckIns(seedData.wellnessCheckIns)
     setRecoveryPlans(seedData.recoveryPlans)
@@ -227,6 +235,7 @@ function App() {
     setSessions([])
     setCourses([])
     setEnrollments([])
+    setAttendanceRecords([])
     setNotifications([])
     setWellnessCheckIns([])
     setRecoveryPlans([])
@@ -253,6 +262,7 @@ function App() {
     setSessions,
     setCourses,
     setEnrollments,
+    setAttendanceRecords,
     setNotifications,
     setWellnessCheckIns,
     setRecoveryPlans,
@@ -298,6 +308,7 @@ function App() {
     setSessions,
     setCourses,
     setEnrollments,
+    setAttendanceRecords,
     setNotifications,
     setWellnessCheckIns,
     setRecoveryPlans,
@@ -308,6 +319,31 @@ function App() {
     setPreviewSeedVersion,
     applyPreviewSeedData
   ])
+
+  useEffect(() => {
+    if (!previewSeedEnabled) {
+      return
+    }
+
+    if (!users || users.length === 0) {
+      return
+    }
+
+    setAuthPasswords((current) => {
+      const existing = current || {}
+      let changed = false
+      const next = { ...existing }
+
+      users.forEach((user) => {
+        if (!next[user.id]) {
+          next[user.id] = 'password123'
+          changed = true
+        }
+      })
+
+      return changed ? next : existing
+    })
+  }, [previewSeedEnabled, users, setAuthPasswords])
 
   useEffect(() => {
     if (users && users.length > 0) {
@@ -342,8 +378,12 @@ function App() {
       return
     }
 
+    if (!activeUserId) {
+      return
+    }
+
     const hasActiveUser = safeUsers.some((user) => user.id === activeUserId)
-    if (!activeUserId || !hasActiveUser) {
+    if (!hasActiveUser) {
       const nextUser = safeUsers[0]
       setActiveUserId(nextUser.id)
       if (!VIEW_ACCESS[activeView]?.includes(nextUser.role)) {
@@ -427,6 +467,8 @@ function App() {
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 
+  const safeAttendanceRecords = attendanceRecords || []
+
   const visibleCourses = useMemo(() => {
     if (currentUser.role === 'admin') {
       return safeCourses
@@ -478,6 +520,19 @@ function App() {
     })
   }, [currentUser, safeEnrollments, visibleCourses, visibleSessions])
 
+  const visibleAttendanceRecords = useMemo(() => {
+    if (currentUser.role === 'admin') {
+      return safeAttendanceRecords
+    }
+
+    if (currentUser.role === 'employee') {
+      return safeAttendanceRecords.filter((record) => record.userId === currentUser.id)
+    }
+
+    const visibleSessionIds = new Set(visibleSessions.map((session) => session.id))
+    return safeAttendanceRecords.filter((record) => visibleSessionIds.has(record.sessionId))
+  }, [currentUser, safeAttendanceRecords, visibleSessions])
+
   const upcomingSessions = visibleSessions
     .filter(s => new Date(s.startTime) > new Date())
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
@@ -496,6 +551,184 @@ function App() {
     setActiveView('dashboard')
     setNavigationPayload(null)
   }, [safeUsers, setActiveUserId])
+
+  // SECURITY NOTE: `authPasswords` stores plaintext demo credentials for preview-only flows.
+  // This is not production-safe; replace with server-side auth (hashed passwords over TLS,
+  // and token-based sessions or OAuth) before shipping.
+  const handleSignIn = useCallback((event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault()
+
+    const email = loginEmail.trim().toLowerCase()
+    const password = loginPassword
+
+    if (!email || !password) {
+      toast.error('Sign-in failed', {
+        description: 'Enter an email and password to continue.',
+      })
+      return
+    }
+
+    const matchedUser = safeUsers.find((user) => user.email.trim().toLowerCase() === email)
+    if (!matchedUser) {
+      toast.error('Sign-in failed', {
+        description: 'No account matches that email address.',
+      })
+      return
+    }
+
+    const expectedPassword = authPasswords?.[matchedUser.id]
+    if (!expectedPassword || expectedPassword !== password) {
+      toast.error('Sign-in failed', {
+        description: 'Incorrect password.',
+      })
+      return
+    }
+
+    setActiveUserId(matchedUser.id)
+    setActiveView('dashboard')
+    setNavigationPayload(null)
+    setLoginPassword('')
+    toast.success('Signed in', {
+      description: `Welcome back, ${matchedUser.name}.`,
+    })
+  }, [authPasswords, loginEmail, loginPassword, safeUsers, setActiveUserId])
+
+  const handleSignOut = useCallback(() => {
+    setActiveUserId('')
+    setActiveView('dashboard')
+    setNavigationPayload(null)
+    setLoginPassword('')
+  }, [setActiveUserId])
+
+  const handleAssignRole = useCallback((userId: string, role: User['role']) => {
+    const targetUser = safeUsers.find((entry) => entry.id === userId)
+    if (!targetUser) {
+      return
+    }
+
+    const adminCount = safeUsers.filter((entry) => entry.role === 'admin').length
+    if (targetUser.role === 'admin' && role !== 'admin' && adminCount === 1) {
+      toast.error('Cannot remove the last admin', {
+        description: 'Assign another user as admin before changing this role.',
+      })
+      return
+    }
+
+    setUsers((currentUsers) => {
+      const existingUsers = currentUsers || []
+      const user = existingUsers.find((entry) => entry.id === userId)
+      if (!user) {
+        return existingUsers
+      }
+
+      if (user.role === role) {
+        return existingUsers
+      }
+
+      return existingUsers.map((entry) => (
+        entry.id === userId
+          ? { ...entry, role, updatedAt: new Date().toISOString() }
+          : entry
+      ))
+    })
+
+    if (activeUserId === userId && !VIEW_ACCESS[activeView]?.includes(role)) {
+      setActiveView('dashboard')
+      setNavigationPayload(null)
+    }
+
+    toast.success('Role updated', {
+      description: `User role changed to ${role}.`,
+    })
+  }, [activeUserId, activeView, safeUsers, setUsers])
+
+  const applySessionUpdates = (session: Session, id: string, updates: Partial<Session>): Session => {
+    if (session.id !== id) {
+      return session
+    }
+
+    const expectedUpdatedAt = updates.updatedAt
+    const { updatedAt: _ignoredUpdatedAt, ...sessionUpdates } = updates
+
+    if (expectedUpdatedAt && session.updatedAt && expectedUpdatedAt !== session.updatedAt) {
+      toast.error('Concurrent edit warning', {
+        description: 'This session changed since you opened it. Your latest update was saved with last-write-wins.',
+      })
+    }
+
+    return { ...session, ...sessionUpdates, updatedAt: new Date().toISOString() }
+  }
+
+  const applyUserUpdates = (user: User, id: string, updates: Partial<User>): User => {
+    if (user.id !== id) {
+      return user
+    }
+
+    const expectedUpdatedAt = updates.updatedAt
+    if (expectedUpdatedAt && user.updatedAt && expectedUpdatedAt !== user.updatedAt) {
+      toast.error('Concurrent edit warning', {
+        description: 'This profile changed since you opened it. Your latest update was saved with last-write-wins.',
+      })
+    }
+
+    return {
+      ...user,
+      ...updates,
+      updatedAt: updates.updatedAt ?? new Date().toISOString(),
+    }
+  }
+
+  const applyCourseUpdates = (course: Course, id: string, updates: Partial<Course>): Course => {
+    if (course.id !== id) {
+      return course
+    }
+
+    const expectedUpdatedAt = updates.updatedAt
+    const { updatedAt: _ignoredUpdatedAt, ...courseUpdates } = updates
+
+    if (expectedUpdatedAt && course.updatedAt && expectedUpdatedAt !== course.updatedAt) {
+      toast.error('Concurrent edit warning', {
+        description: 'This course changed since you opened it. Your latest update was saved with last-write-wins.',
+      })
+    }
+
+    return { ...course, ...courseUpdates, updatedAt: new Date().toISOString() }
+  }
+
+  const handleMarkAttendance = useCallback((sessionId: string, userId: string, status: AttendanceRecord['status'], notes?: string) => {
+    const now = new Date().toISOString()
+
+    setAttendanceRecords((current) => {
+      const existing = current || []
+      const existingRecord = existing.find((record) => record.sessionId === sessionId && record.userId === userId)
+
+      if (existingRecord) {
+        return existing.map((record) => (
+          record.id === existingRecord.id
+            ? {
+              ...record,
+              status,
+              notes,
+              markedAt: now,
+              markedBy: currentUser.id,
+            }
+            : record
+        ))
+      }
+
+      const newRecord: AttendanceRecord = {
+        id: createEntityId('attendance'),
+        sessionId,
+        userId,
+        status,
+        notes,
+        markedAt: now,
+        markedBy: currentUser.id,
+      }
+
+      return [newRecord, ...existing]
+    })
+  }, [currentUser.id, setAttendanceRecords])
 
   /**
    * Handles navigation events raised by child views by updating the active
@@ -548,6 +781,7 @@ function App() {
    *   current timestamp, a capacity of 20).
    */
   const handleCreateSession = (session: Partial<Session>) => {
+    const now = new Date().toISOString()
     const newSession: Session = {
       id: session.id || createEntityId('session'),
       courseId: session.courseId || '',
@@ -559,6 +793,7 @@ function App() {
       capacity: session.capacity || 20,
       enrolledStudents: session.enrolledStudents || [],
       status: session.status || 'scheduled',
+      updatedAt: now,
       ...(session.recurrence && { recurrence: session.recurrence })
     }
 
@@ -574,6 +809,7 @@ function App() {
    * @param sessions - An array of partial session data objects.
    */
   const handleCreateMultipleSessions = (sessions: Partial<Session>[]) => {
+    const now = new Date().toISOString()
     const newSessions: Session[] = sessions.map(session => ({
       id: session.id || createEntityId('session'),
       courseId: session.courseId || '',
@@ -585,6 +821,7 @@ function App() {
       capacity: session.capacity || 20,
       enrolledStudents: session.enrolledStudents || [],
       status: session.status || 'scheduled',
+      updatedAt: now,
       ...(session.recurrence && { recurrence: session.recurrence })
     }))
 
@@ -601,9 +838,7 @@ function App() {
    */
   const handleUpdateSession = (id: string, updates: Partial<Session>) => {
     setSessions((currentSessions) =>
-      (currentSessions || []).map(session =>
-        session.id === id ? { ...session, ...updates } : session
-      )
+      (currentSessions || []).map((session) => applySessionUpdates(session, id, updates))
     )
   }
 
@@ -618,19 +853,21 @@ function App() {
   }, [setEnrollments, setSessions])
 
   /**
-   * Replaces an existing user record in the KV store with the fully updated
-   * {@link User} object, matched by `id`.
+   * Applies partial updates to an existing user record matched by `id`.
    *
-   * @param updatedUser - The complete updated user object. Must have the same
-   *   `id` as the record it replaces.
+   * @param id - The unique identifier of the user to update.
+   * @param updates - The partial user fields to merge into the existing record.
    */
-  const handleUpdateUser = (updatedUser: User) => {
+  const handleUpdateUser = useCallback((id: string, updates: Partial<User>) => {
     setUsers((currentUsers) =>
-      (currentUsers || []).map(user =>
-        user.id === updatedUser.id ? updatedUser : user
-      )
+      (currentUsers || []).map((user) => applyUserUpdates(user, id, updates))
     )
-  }
+  }, [setUsers])
+
+  const handleUpdateUserFromProfile = useCallback((updatedUser: User) => {
+    const { id, ...updates } = updatedUser
+    handleUpdateUser(id, updates)
+  }, [handleUpdateUser])
 
   /**
    * Appends a new {@link User} to the users KV store.
@@ -638,7 +875,7 @@ function App() {
    * @param newUser - The fully constructed user record to add.
    */
   const handleAddUser = (newUser: User) => {
-    setUsers((currentUsers) => [...(currentUsers || []), newUser])
+    setUsers((currentUsers) => [...(currentUsers || []), { ...newUser, updatedAt: new Date().toISOString() }])
   }
 
   /**
@@ -648,6 +885,7 @@ function App() {
    * @param course - Partial course data; missing fields are defaulted.
    */
   const handleCreateCourse = useCallback((course: Partial<Course>) => {
+    const now = new Date().toISOString()
     const fullCourse: Course = {
       id: course.id || createEntityId('course'),
       title: course.title || 'Untitled Course',
@@ -658,8 +896,9 @@ function App() {
       moduleDetails: course.moduleDetails || [],
       certifications: course.certifications || [],
       createdBy: course.createdBy || currentUser.id,
-      createdAt: course.createdAt || new Date().toISOString(),
+      createdAt: course.createdAt || now,
       published: course.published ?? false,
+      updatedAt: now,
     }
 
     setCourses((currentCourses) => [...(currentCourses || []), fullCourse])
@@ -673,7 +912,7 @@ function App() {
    */
   const handleUpdateCourse = useCallback((id: string, updates: Partial<Course>) => {
     setCourses((currentCourses) =>
-      (currentCourses || []).map((course) => (course.id === id ? { ...course, ...updates } : course))
+      (currentCourses || []).map((course) => applyCourseUpdates(course, id, updates))
     )
   }, [setCourses])
 
@@ -700,6 +939,11 @@ function App() {
    * @param userId - The unique identifier of the user to delete.
    */
   const handleDeleteUser = (userId: string) => {
+    if (activeUserId === userId) {
+      const nextUser = safeUsers.find((user) => user.id !== userId)
+      setActiveUserId(nextUser?.id || '')
+    }
+
     setUsers((currentUsers) => (currentUsers || []).filter(user => user.id !== userId))
     setSessions((currentSessions) => (currentSessions || []).map(session => {
       if (session.trainerId === userId) {
@@ -710,10 +954,6 @@ function App() {
       }
       return session
     }))
-
-    if (activeUserId === userId) {
-      setActiveUserId('')
-    }
   }
 
   /**
@@ -893,6 +1133,7 @@ function App() {
             users={safeUsers}
             currentUser={currentUser}
             enrollments={visibleEnrollments}
+            attendanceRecords={visibleAttendanceRecords}
             onCreateSession={handleCreateSession}
             onUpdateSession={handleUpdateSession}
             onDeleteSession={handleDeleteSession}
@@ -900,6 +1141,7 @@ function App() {
             navigationPayload={navigationPayload}
             onNavigationPayloadConsumed={clearNavigationPayload}
             onRecordScore={handleRecordScore}
+            onMarkAttendance={handleMarkAttendance}
           />
         )
       case 'schedule-templates':
@@ -933,7 +1175,7 @@ function App() {
             sessions={visibleSessions}
             currentUser={currentUser}
             onNavigate={handleNavigate}
-            onUpdateUser={handleUpdateUser}
+            onUpdateUser={handleUpdateUserFromProfile}
             onAddUser={handleAddUser}
             onDeleteUser={handleDeleteUser}
             navigationPayload={navigationPayload}
@@ -947,6 +1189,7 @@ function App() {
             enrollments={visibleEnrollments}
             sessions={visibleSessions}
             courses={visibleCourses}
+            attendanceRecords={visibleAttendanceRecords}
           />
         )
       case 'trainer-availability':
@@ -1018,7 +1261,7 @@ function App() {
                 <CardHeader>
                   <CardTitle>Local Session</CardTitle>
                   <CardDescription>
-                    This preview build uses a local active-user session instead of backend authentication.
+                    Sign in with a user email and password, then manage role-based access for the active session.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1034,7 +1277,37 @@ function App() {
                       </Button>
                     ))}
                     <Button variant="secondary" onClick={handleLogout}>Reset Session</Button>
+                    <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
                   </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Role Assignment</CardTitle>
+                  <CardDescription>
+                    Assign user roles with immediate access-control updates.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {safeUsers.map((user) => (
+                    <div key={user.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+                      <div>
+                        <div className="font-medium">{user.name}</div>
+                        <div className="text-sm text-muted-foreground">{user.email} • {user.role}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant={user.role === 'admin' ? 'default' : 'outline'} onClick={() => handleAssignRole(user.id, 'admin')}>
+                          Admin
+                        </Button>
+                        <Button size="sm" variant={user.role === 'trainer' ? 'default' : 'outline'} onClick={() => handleAssignRole(user.id, 'trainer')}>
+                          Trainer
+                        </Button>
+                        <Button size="sm" variant={user.role === 'employee' ? 'default' : 'outline'} onClick={() => handleAssignRole(user.id, 'employee')}>
+                          Employee
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
               <Card>
@@ -1072,6 +1345,53 @@ function App() {
           />
         )
     }
+  }
+
+  if (!activeUserId) {
+    return (
+      <div className="min-h-screen bg-muted/20 p-6">
+        <div className="mx-auto w-full max-w-md pt-16">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sign In</CardTitle>
+              <CardDescription>
+                Authenticate with your account to access role-based views.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" onSubmit={handleSignIn}>
+                <div className="space-y-2">
+                  <Label htmlFor="login-email">Email</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    placeholder="name@company.com"
+                    value={loginEmail}
+                    onChange={(event) => setLoginEmail(event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Password</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    value={loginPassword}
+                    onChange={(event) => setLoginPassword(event.target.value)}
+                  />
+                </div>
+                <Button type="submit" className="w-full">
+                  Sign In
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Default password for seeded users is <strong>password123</strong>.
+                </p>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+        <Toaster />
+      </div>
+    )
   }
 
   return (

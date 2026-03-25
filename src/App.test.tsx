@@ -199,20 +199,25 @@ vi.mock('@/components/views/Dashboard', () => ({
 vi.mock('@/components/views/Schedule', () => ({
     Schedule: ({
         sessions,
+        attendanceRecords,
         onCreateSession,
         onUpdateSession,
         onDeleteSession,
         onRecordScore,
+        onMarkAttendance,
     }: {
         sessions: Array<{ id: string; title: string; status: string }>
+        attendanceRecords?: Array<{ id: string }>
         onCreateSession: (session: unknown) => void
         onUpdateSession: (id: string, session: unknown) => void
         onDeleteSession?: (id: string) => void
         onRecordScore?: (enrollmentId: string, score: number) => void
+        onMarkAttendance?: (sessionId: string, userId: string, status: 'present' | 'absent') => void
     }) => (
         <div>
             <div>Schedule View</div>
             <div>Session Count: {sessions.length}</div>
+            <div>Attendance Count: {attendanceRecords?.length ?? 0}</div>
             {sessions.map((session) => (
                 <div key={session.id}>{session.id}|{session.title} ({session.status})</div>
             ))}
@@ -235,6 +240,8 @@ vi.mock('@/components/views/Schedule', () => ({
                 onCreateSession(payload)
             }}>Create Session With Id</button>
             <button onClick={() => onDeleteSession?.('session-1')}>Delete Session</button>
+            <button onClick={() => onMarkAttendance?.('session-2', 'trainer-1', 'present')}>Mark Present</button>
+            <button onClick={() => onMarkAttendance?.('session-2', 'trainer-1', 'absent')}>Mark Absent</button>
             <button onClick={() => onRecordScore?.('enrollment-rs-1', RECORD_SCORE_ABOVE_PASS)}>Record Score Pass</button>
             <button onClick={() => onRecordScore?.('enrollment-rs-1', RECORD_SCORE_BELOW_PASS)}>Record Score Fail</button>
             <button onClick={() => onRecordScore?.('enrollment-rs-1', RECORD_SCORE_PASS_THRESHOLD)}>Record Score Notify</button>
@@ -318,7 +325,7 @@ vi.mock('@/components/views/Courses', () => ({
                 callbackSpies.onCreateCourse(payload)
                 onCreateCourse?.(payload)
             }}>Create Course With Id</button>
-            <button onClick={() => onUpdateCourse?.(courses[0]?.id ?? 'course-1', { published: true })}>Update Course</button>
+            <button onClick={() => onUpdateCourse?.(courses[0]?.id ?? 'course-1', { published: true, updatedAt: 'stale-updated-at' })}>Update Course</button>
             <button onClick={() => onDeleteCourse?.(courses[0]?.id ?? 'course-1')}>Delete Course</button>
         </div>
     ),
@@ -557,6 +564,11 @@ describe('App', () => {
                 status: 'scheduled',
             },
         ]
+        kvSeed['active-user-id'] = 'admin-1'
+        kvSeed['auth-passwords'] = {
+            'admin-1': 'password123',
+            'trainer-1': 'password123',
+        }
         vi.stubGlobal('confirm', vi.fn(() => true))
     })
 
@@ -658,7 +670,7 @@ describe('App', () => {
     })
 
     it('handles notification creation and routes on notification click action', async () => {
-        const { unmount } = render(<App />)
+        render(<App />)
 
         await waitFor(() => {
             expect(sendNotificationMock).toHaveBeenCalledWith(
@@ -692,7 +704,7 @@ describe('App', () => {
             },
         ]
 
-        const { unmount } = render(<App />)
+        render(<App />)
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
 
@@ -708,6 +720,53 @@ describe('App', () => {
         expect(toastSuccess).toHaveBeenCalledWith(
             'Preview data reset complete',
             expect.objectContaining({ description: expect.stringMatching(/cleared/i) })
+        )
+    })
+
+    it('requires sign in when there is no active session and allows valid login', async () => {
+        const user = userEvent.setup()
+        kvSeed['active-user-id'] = ''
+
+        render(<App />)
+
+        expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+
+        await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+    })
+
+    it('tracks attendance as first-class session data', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/attendance count:\s*0/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^mark present$/i }))
+        expect(screen.getByText(/attendance count:\s*1/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^mark absent$/i }))
+        expect(screen.getByText(/attendance count:\s*1/i)).toBeInTheDocument()
+    })
+
+    it('shows a warning toast when a stale course update is applied', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        await user.click(screen.getByRole('button', { name: /create minimal course/i }))
+
+        toastError.mockClear()
+        await user.click(screen.getByRole('button', { name: /update course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Concurrent edit warning',
+            expect.objectContaining({ description: expect.stringMatching(/last-write-wins/i) })
         )
     })
 
@@ -1112,7 +1171,7 @@ describe('App', () => {
         const user = userEvent.setup()
         vi.stubGlobal('confirm', vi.fn(() => false))
 
-        const { unmount } = render(<App />)
+        render(<App />)
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         await user.click(screen.getByRole('button', { name: /load seed data/i }))

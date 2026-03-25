@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock, Robot, UserCircleGear, UserPlus } from '@phosphor-icons/react'
-import { Session, Course, User, Enrollment } from '@/lib/types'
+import { AttendanceRecord, Session, Course, User, Enrollment } from '@/lib/types'
 import { RecordScoreDialog } from '@/components/RecordScoreDialog'
 import { format, startOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, isSameDay, isSameMonth, eachDayOfInterval, startOfDay, differenceInMinutes, setHours, setMinutes } from 'date-fns'
 import { formatDuration } from '@/lib/helpers'
@@ -31,6 +31,8 @@ interface ScheduleProps {
   currentUser: User
   /** All enrollments visible to the current user, used to display per-student status in session details. */
   enrollments?: Enrollment[]
+  /** Attendance records visible to the current user. */
+  attendanceRecords?: AttendanceRecord[]
   /** Callback invoked when a new session is to be created. @param session - Partial session data. */
   onCreateSession: (session: Partial<Session>) => void
   /**
@@ -57,6 +59,8 @@ interface ScheduleProps {
    * @param score - The assessment score (0–100).
    */
   onRecordScore?: (enrollmentId: string, score: number) => void
+  /** Callback invoked when attendance is marked for an enrolled student in a session. */
+  onMarkAttendance?: (sessionId: string, userId: string, status: AttendanceRecord['status']) => void
 }
 
 /**
@@ -101,7 +105,7 @@ function isViewType(v: string): v is ViewType {
  * Navigation payload deep-links are processed once per payload so later session list refreshes do not reopen the same sheet unexpectedly.
  * @returns The Schedule component's React element.
  */
-export function Schedule({ sessions, courses, users, currentUser, enrollments, onCreateSession, onUpdateSession, onDeleteSession, onNavigate, navigationPayload, onNavigationPayloadConsumed, onRecordScore }: ScheduleProps) {
+export function Schedule({ sessions, courses, users, currentUser, enrollments, attendanceRecords, onCreateSession, onUpdateSession, onDeleteSession, onNavigate, navigationPayload, onNavigationPayloadConsumed, onRecordScore, onMarkAttendance }: ScheduleProps) {
   const [viewType, setViewType] = useState<ViewType>('calendar')
   const [calendarPeriod, setCalendarPeriod] = useState<'day' | 'week' | 'month'>('month')
   const [searchQuery, setSearchQuery] = useState('')
@@ -341,6 +345,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, o
       endTime: parsedEndTime.toISOString(),
       capacity: parsedCapacity,
       status: editForm.status,
+      updatedAt: editingSession.updatedAt,
     }
 
     const tentativeSession: Session = {
@@ -432,7 +437,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, o
       return
     }
 
-    onUpdateSession(draggedSession.id, { status })
+    onUpdateSession(draggedSession.id, { status, updatedAt: draggedSession.updatedAt })
 
     if (selectedSession?.id === draggedSession.id) {
       setSelectedSession({ ...draggedSession, status })
@@ -551,6 +556,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, o
     onUpdateSession(draggedSession.id, {
       startTime: newStart.toISOString(),
       endTime: newEnd.toISOString(),
+      updatedAt: draggedSession.updatedAt,
     })
 
     toast.success('Session rescheduled', {
@@ -1240,6 +1246,9 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, o
                         const sessionEnrollment = (enrollments ?? []).find(
                           (e) => e.userId === studentId && e.sessionId === selectedSession.id,
                         )
+                        const attendanceRecord = (attendanceRecords ?? []).find(
+                          (record) => record.sessionId === selectedSession.id && record.userId === studentId,
+                        )
                         if (!student) return null
                         return (
                           <div
@@ -1257,18 +1266,48 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, o
                                     : ''}
                                 </span>
                               )}
+                              <span className="text-xs text-muted-foreground capitalize">
+                                Attendance: {attendanceRecord?.status ?? 'unmarked'}
+                              </span>
                             </div>
-                            {canManageSchedule && onRecordScore && sessionEnrollment && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="ml-2 shrink-0"
-                                onClick={() => setRecordScoreEnrollmentId(sessionEnrollment.id)}
-                                data-testid={`record-score-btn-${studentId}`}
-                              >
-                                Record Score
-                              </Button>
-                            )}
+                            <div className="ml-2 flex shrink-0 gap-1">
+                              {canManageSchedule && onMarkAttendance && (
+                                <>
+                                  <Button
+                                    variant={attendanceRecord?.status === 'present' ? 'default' : 'ghost'}
+                                    size="sm"
+                                    onClick={() => onMarkAttendance(selectedSession.id, studentId, 'present')}
+                                    disabled={attendanceRecord?.status === 'present'}
+                                    aria-pressed={attendanceRecord?.status === 'present'}
+                                    className={attendanceRecord?.status === 'present' ? 'opacity-100' : undefined}
+                                    data-testid={`mark-present-btn-${studentId}`}
+                                  >
+                                    Present
+                                  </Button>
+                                  <Button
+                                    variant={attendanceRecord?.status === 'absent' ? 'default' : 'ghost'}
+                                    size="sm"
+                                    onClick={() => onMarkAttendance(selectedSession.id, studentId, 'absent')}
+                                    disabled={attendanceRecord?.status === 'absent'}
+                                    aria-pressed={attendanceRecord?.status === 'absent'}
+                                    className={attendanceRecord?.status === 'absent' ? 'opacity-100' : undefined}
+                                    data-testid={`mark-absent-btn-${studentId}`}
+                                  >
+                                    Absent
+                                  </Button>
+                                </>
+                              )}
+                              {canManageSchedule && onRecordScore && sessionEnrollment && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setRecordScoreEnrollmentId(sessionEnrollment.id)}
+                                  data-testid={`record-score-btn-${studentId}`}
+                                >
+                                  Record Score
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         )
                       })}
