@@ -6,6 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
 
+/** Pass score threshold used for the record-score test course. */
+const RECORD_SCORE_PASS_THRESHOLD = 80
+/** A score strictly above the pass threshold — produces a passing enrollment and completion notification. */
+const RECORD_SCORE_ABOVE_PASS = 90
+/** A score strictly below the pass threshold — produces a failing enrollment and no notification. */
+const RECORD_SCORE_BELOW_PASS = 50
+
 const sendNotificationMock = vi.fn()
 let utilizationNotified = false
 function createUtilizationNotificationPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -228,10 +235,10 @@ vi.mock('@/components/views/Schedule', () => ({
                 onCreateSession(payload)
             }}>Create Session With Id</button>
             <button onClick={() => onDeleteSession?.('session-1')}>Delete Session</button>
-            <button onClick={() => onRecordScore?.('enrollment-rs-1', 90)}>Record Score Pass</button>
-            <button onClick={() => onRecordScore?.('enrollment-rs-1', 50)}>Record Score Fail</button>
-            <button onClick={() => onRecordScore?.('enrollment-rs-1', 80)}>Record Score Notify</button>
-            <button onClick={() => onRecordScore?.('unknown-enrollment', 90)}>Record Score Unknown</button>
+            <button onClick={() => onRecordScore?.('enrollment-rs-1', RECORD_SCORE_ABOVE_PASS)}>Record Score Pass</button>
+            <button onClick={() => onRecordScore?.('enrollment-rs-1', RECORD_SCORE_BELOW_PASS)}>Record Score Fail</button>
+            <button onClick={() => onRecordScore?.('enrollment-rs-1', RECORD_SCORE_PASS_THRESHOLD)}>Record Score Notify</button>
+            <button onClick={() => onRecordScore?.('unknown-enrollment', RECORD_SCORE_ABOVE_PASS)}>Record Score Unknown</button>
         </div>
     ),
 }))
@@ -1617,7 +1624,7 @@ describe('App', () => {
                     title: 'Record Score Course',
                     description: 'For testing',
                     duration: 60,
-                    passScore: 80,
+                    passScore: RECORD_SCORE_PASS_THRESHOLD,
                     modules: [],
                     certifications: [],
                     createdBy: 'admin-1',

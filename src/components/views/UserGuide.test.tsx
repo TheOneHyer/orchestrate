@@ -33,4 +33,94 @@ describe('UserGuide', () => {
     await user.click(screen.getByRole('button', { name: /certifications/i }))
     expect(await screen.findByTestId('role-badge-admin')).toBeInTheDocument()
   })
+
+  it('lists all section navigation buttons in the sidebar', () => {
+    render(<UserGuide />)
+
+    const expectedLabels = [
+      'Overview',
+      'Dashboard',
+      'Schedule',
+      'Schedule Templates',
+      'Courses',
+      'People',
+      'Analytics',
+      'Trainer Availability',
+      'Burnout Risk',
+      'Wellness & Recovery',
+      'Certifications',
+      'Notifications',
+      'Settings',
+    ]
+
+    for (const label of expectedLabels) {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
+    }
+  })
+
+  it('renders Dashboard section content with all subsections', async () => {
+    const user = userEvent.setup()
+    render(<UserGuide />)
+
+    await user.click(screen.getByRole('button', { name: /^dashboard$/i }))
+
+    expect(await screen.findByRole('heading', { name: /metric cards/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /upcoming sessions panel/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /recent notifications panel/i })).toBeInTheDocument()
+  })
+
+  it('renders Schedule section content including list items from GuideList', async () => {
+    const user = userEvent.setup()
+    render(<UserGuide />)
+
+    await user.click(screen.getByRole('button', { name: /^schedule$/i }))
+
+    expect(await screen.findByRole('heading', { name: /view modes/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /creating a session/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /session details panel/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /conflict detection/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /filtering/i })).toBeInTheDocument()
+  })
+
+  it('renders Courses section content', async () => {
+    const user = userEvent.setup()
+    render(<UserGuide />)
+
+    await user.click(screen.getByRole('button', { name: /^courses$/i }))
+
+    expect(await screen.findByRole('heading', { name: /course list/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /creating or editing a course/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /viewing course details/i })).toBeInTheDocument()
+  })
+
+  it('renders Schedule Templates section content', async () => {
+    const user = userEvent.setup()
+    render(<UserGuide />)
+
+    await user.click(screen.getByRole('button', { name: /schedule templates/i }))
+
+    expect(await screen.findByRole('heading', { name: /creating a template/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /applying a template/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /managing templates/i })).toBeInTheDocument()
+  })
+
+  it('renders Settings section content', async () => {
+    const user = userEvent.setup()
+    render(<UserGuide />)
+
+    await user.click(screen.getByRole('button', { name: /settings/i }))
+
+    expect(await screen.findByRole('heading', { name: /settings/i })).toBeInTheDocument()
+  })
+
+  it('shows role badges for multiple roles when a section is visible to all roles', async () => {
+    const user = userEvent.setup()
+    render(<UserGuide />)
+
+    await user.click(screen.getByRole('button', { name: /^courses$/i }))
+
+    expect(await screen.findByTestId('role-badge-admin')).toBeInTheDocument()
+    expect(await screen.findByTestId('role-badge-trainer')).toBeInTheDocument()
+    expect(await screen.findByTestId('role-badge-employee')).toBeInTheDocument()
+  })
 })
