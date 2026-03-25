@@ -832,8 +832,16 @@ export function Courses({
                                 type="number"
                                 min="0"
                                 step="1"
-                                value={videoContent.durationSeconds || ''}
-                                onChange={(event) => handleModuleChange(index, { content: { ...videoContent, durationSeconds: Number(event.target.value) || undefined } })}
+                                value={videoContent.durationSeconds ?? ''}
+                                onChange={(event) => {
+                                  const { value } = event.target
+                                  handleModuleChange(index, {
+                                    content: {
+                                      ...videoContent,
+                                      durationSeconds: value === '' ? undefined : Number(value),
+                                    },
+                                  })
+                                }}
                               />
                             </div>
                           </>
