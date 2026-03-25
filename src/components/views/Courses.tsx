@@ -274,7 +274,7 @@ export function Courses({
     setDetailDialogOpen(true)
     processedPayloadRef.current = navigationPayload
     onNavigationPayloadConsumed?.()
-  }, [courses, navigationPayload, onNavigationPayloadConsumed])
+  }, [courses, navigationPayload, onNavigationPayloadConsumed, reset])
 
   const getEnrollmentForCourse = (courseId: string) => {
     return enrollments.find((enrollment) => enrollment.courseId === courseId && enrollment.userId === currentUser.id)
