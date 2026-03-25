@@ -106,24 +106,24 @@ describe('useNotificationSound', () => {
         expect(merged.soundType).toBe('pleasant')
     })
 
-    it('falls back to default settings when persisted settings are undefined and merges updates from defaults', () => {
+    it('merges defaults into partially persisted settings', () => {
         const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([undefined, setter] as any)
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: false
+            },
+            setter
+        ] as any)
 
         const { result } = renderHook(() => useNotificationSound())
 
-        expect(result.current.settings.enabled).toBe(true)
+        // persisted value should be preserved
+        expect(result.current.settings.enabled).toBe(false)
+        // missing values should fall back to defaults
+        expect(result.current.settings.volume).toBe(0.4)
         expect(result.current.settings.soundType).toBe('pleasant')
-
-        act(() => {
-            result.current.updateSettings({ enabled: false })
-        })
-
-        const updaterFn = vi.mocked(setter).mock.calls[0][0] as (prev: unknown) => Record<string, unknown>
-        const merged = updaterFn(undefined)
-        expect(merged.enabled).toBe(false)
-        expect(merged.volume).toBe(0.4)
-        expect(merged.soundType).toBe('pleasant')
+        expect(result.current.settings.quietHours.enabled).toBe(false)
+        expect(result.current.settings.quietHours.allowCritical).toBe(true)
     })
 
     it('updateSettings merges partial changes without losing other settings', () => {
