@@ -85,7 +85,7 @@ export function RecordScoreDialog({
 
     useEffect(() => {
         form.reset({ score: enrollment.score ?? undefined })
-    }, [open, enrollment.id, enrollment.score])
+    }, [open, enrollment.id, enrollment.score, form])
 
     const score = form.watch('score')
     const hasScore = typeof score === 'number'
