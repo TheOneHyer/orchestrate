@@ -351,19 +351,19 @@ describe('conflict-detection', () => {
             expect(result.conflicts[0]?.conflictingSession.id).toBe('session-existing')
         })
 
-        it('detects overlap when the target session fully contains another enrolled session', () => {
+        it('detects overlap when the target session starts during another enrolled session', () => {
             const users = [createUser('student-1', 'Alex')]
             const targetSession = createSession({
                 enrolledStudents: [],
-                startTime: '2026-03-16T09:00:00.000Z',
-                endTime: '2026-03-16T12:00:00.000Z'
+                startTime: '2026-03-16T10:00:00.000Z',
+                endTime: '2026-03-16T13:00:00.000Z'
             })
             const otherSession = createSession({
                 id: 'session-existing',
                 title: 'Existing Session',
                 trainerId: 'trainer-2',
-                startTime: '2026-03-16T10:00:00.000Z',
-                endTime: '2026-03-16T11:00:00.000Z',
+                startTime: '2026-03-16T09:00:00.000Z',
+                endTime: '2026-03-16T12:00:00.000Z',
                 enrolledStudents: ['student-1']
             })
 
