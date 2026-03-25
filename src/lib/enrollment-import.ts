@@ -39,43 +39,76 @@ export function matchStudentsByIdentifiers(identifiers: string[], students: User
   const unmatched: string[] = []
   const matchedSet = new Set<string>()
 
+  // Precompute lookup maps to avoid repeatedly scanning and normalizing students.
+  const idMap = new Map<string, string>()
+  const emailMap = new Map<string, string>()
+  const localPartMap = new Map<string, string[]>()
+  const nameMap = new Map<string, string[]>()
+
+  students.forEach((student) => {
+    const normalizedId = student.id.trim().toLowerCase()
+    const normalizedEmail = student.email.trim().toLowerCase()
+    const emailLocalPart = normalizedEmail.split('@')[0]
+    const normalizedName = student.name.trim().toLowerCase()
+
+    // Preserve "first match wins" semantics by only setting if the key is new.
+    if (!idMap.has(normalizedId)) {
+      idMap.set(normalizedId, student.id)
+    }
+
+    if (!emailMap.has(normalizedEmail)) {
+      emailMap.set(normalizedEmail, student.id)
+    }
+
+    const existingLocalPartIds = localPartMap.get(emailLocalPart)
+    if (existingLocalPartIds) {
+      existingLocalPartIds.push(student.id)
+    } else {
+      localPartMap.set(emailLocalPart, [student.id])
+    }
+
+    const existingNameIds = nameMap.get(normalizedName)
+    if (existingNameIds) {
+      existingNameIds.push(student.id)
+    } else {
+      nameMap.set(normalizedName, [student.id])
+    }
+  })
+
   identifiers.forEach((identifier) => {
     const normalizedIdentifier = identifier.trim().toLowerCase()
-    const strictMatch = students.find((candidate) => {
-      const normalizedEmail = candidate.email.trim().toLowerCase()
-      const normalizedId = candidate.id.trim().toLowerCase()
 
-      return normalizedIdentifier === normalizedId ||
-        normalizedIdentifier === normalizedEmail
-    })
+    // First, try strict id/email match.
+    const strictIdMatch = idMap.get(normalizedIdentifier)
+    const strictEmailMatch = emailMap.get(normalizedIdentifier)
+    const strictMatchId = strictIdMatch ?? strictEmailMatch
 
-    if (strictMatch) {
-      if (!matchedSet.has(strictMatch.id)) {
-        matchedSet.add(strictMatch.id)
-        matchedIds.push(strictMatch.id)
+    if (strictMatchId) {
+      if (!matchedSet.has(strictMatchId)) {
+        matchedSet.add(strictMatchId)
+        matchedIds.push(strictMatchId)
       }
       return
     }
 
-    const candidateMatches = students.filter((candidate) => {
-      const normalizedName = candidate.name.trim().toLowerCase()
-      const normalizedEmail = candidate.email.trim().toLowerCase()
-      const emailLocalPart = normalizedEmail.split('@')[0]
+    // Fallback: match by email local-part or full name.
+    const localPartIds = localPartMap.get(normalizedIdentifier) ?? []
+    const nameIds = nameMap.get(normalizedIdentifier) ?? []
 
-      return normalizedIdentifier === emailLocalPart ||
-        normalizedIdentifier === normalizedName
-    })
+    const combinedIds = new Set<string>()
+    localPartIds.forEach((id) => combinedIds.add(id))
+    nameIds.forEach((id) => combinedIds.add(id))
 
-    if (candidateMatches.length !== 1) {
+    if (combinedIds.size !== 1) {
       unmatched.push(identifier)
       return
     }
 
-    const [student] = candidateMatches
+    const [studentId] = Array.from(combinedIds)
 
-    if (!matchedSet.has(student.id)) {
-      matchedSet.add(student.id)
-      matchedIds.push(student.id)
+    if (!matchedSet.has(studentId)) {
+      matchedSet.add(studentId)
+      matchedIds.push(studentId)
     }
   })
 
