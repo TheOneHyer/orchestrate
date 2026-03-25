@@ -176,6 +176,7 @@ jobs:
               return;
             }
 
+            const initialHeadSha = initialPullRequest.head.sha;
             const startedAt = Date.now();
 
             while (Date.now() - startedAt < waitTimeoutMs) {
@@ -213,6 +214,18 @@ jobs:
                   `${mentionTarget} please resolve the conflicts manually.`,
                 ].join('\n'));
                 core.setFailed('Dependabot PR has merge conflicts.');
+                return;
+              }
+
+              if (pullRequest.head.sha !== initialHeadSha) {
+                await upsertComment([
+                  '## Dependabot auto-merge blocked',
+                  '',
+                  'The PR head commit changed while waiting for CI checks. This typically happens when the Build workflow commits an updated `pnpm-lock.yaml` via `GITHUB_TOKEN`. Because `GITHUB_TOKEN`-triggered pushes do not start new CI runs, the required checks cannot complete on the new commit.',
+                  '',
+                  `${mentionTarget} please manually trigger CI on this PR (for example, by re-running the failed CI workflows from the Actions tab) so the required checks run on the updated head commit.`,
+                ].join('\n'));
+                core.setFailed('PR head SHA changed during polling. CI must be manually triggered on the new commit.');
                 return;
               }
 
