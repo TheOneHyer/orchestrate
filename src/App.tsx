@@ -705,7 +705,7 @@ function App() {
             ? {
               ...record,
               status,
-              notes,
+              notes: notes === undefined ? record.notes : notes,
               markedAt: now,
               markedBy: currentUser.id,
             }

@@ -207,7 +207,7 @@ vi.mock('@/components/views/Schedule', () => ({
         onMarkAttendance,
     }: {
         sessions: Array<{ id: string; title: string; status: string }>
-        attendanceRecords?: Array<{ id: string }>
+        attendanceRecords?: Array<{ id: string; notes?: string }>
         onCreateSession: (session: unknown) => void
         onUpdateSession: (id: string, session: unknown) => void
         onDeleteSession?: (id: string) => void
@@ -218,6 +218,7 @@ vi.mock('@/components/views/Schedule', () => ({
             <div>Schedule View</div>
             <div>Session Count: {sessions.length}</div>
             <div>Attendance Count: {attendanceRecords?.length ?? 0}</div>
+            <div>Attendance Notes: {attendanceRecords?.[0]?.notes ?? ''}</div>
             {sessions.map((session) => (
                 <div key={session.id}>{session.id}|{session.title} ({session.status})</div>
             ))}
@@ -1700,6 +1701,29 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^mark present$/i }))
 
         expect(screen.getByText(/attendance count:\s*2/i)).toBeInTheDocument()
+    })
+
+    it('preserves existing attendance notes when status is updated without notes', async () => {
+        const user = userEvent.setup()
+        kvSeed['attendance-records'] = [
+            {
+                id: 'attendance-1',
+                sessionId: 'session-2',
+                userId: 'trainer-1',
+                status: 'absent',
+                notes: 'Arrived late due to traffic',
+                markedAt: '2024-01-01T00:00:00.000Z',
+                markedBy: 'admin-1',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/attendance notes:\s*arrived late due to traffic/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^mark present$/i }))
+        expect(screen.getByText(/attendance notes:\s*arrived late due to traffic/i)).toBeInTheDocument()
     })
 
     it('handles course update and delete when course/session/enrollment stores are undefined', async () => {
