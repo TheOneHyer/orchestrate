@@ -85,7 +85,7 @@ pnpm kill:win    # Free port 5173 on Windows (PowerShell)
 ### GitHub Automation
 
 - Dependabot pull requests are evaluated by a dedicated auto-merge workflow.
-- The workflow updates stale Dependabot branches, waits for the required CI checks to pass, squash-merges successful PRs, and leaves a comment when it auto-merges.
+- The workflow detects stale Dependabot branches and requests a manual update, waits for the required CI checks to pass, squash-merges successful PRs, and leaves a comment when it auto-merges.
 - If a required check fails or the workflow cannot complete the merge, it leaves a manual-resolution comment that mentions the repository owner.
 
 ---
