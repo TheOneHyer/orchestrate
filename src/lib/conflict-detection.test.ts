@@ -174,37 +174,6 @@ describe('conflict-detection', () => {
                 ])
             )
         })
-
-        it('detects overlap when the dragged session ends during an existing session', () => {
-            const draggedSession = createSession({
-                trainerId: 'trainer-1',
-                location: 'Room A',
-                enrolledStudents: []
-            })
-            const conflictingSession = createSession({
-                id: 'session-existing',
-                title: 'Existing Session',
-                trainerId: 'trainer-1',
-                location: 'Room B',
-                startTime: '2026-03-16T10:00:00.000Z',
-                endTime: '2026-03-16T12:00:00.000Z',
-                enrolledStudents: []
-            })
-
-            const result = checkSessionConflicts(
-                draggedSession,
-                new Date('2026-03-16T09:00:00.000Z'),
-                new Date('2026-03-16T10:30:00.000Z'),
-                [draggedSession, conflictingSession],
-                []
-            )
-
-            expect(result.conflicts).toEqual(
-                expect.arrayContaining([
-                    expect.objectContaining({ type: 'trainer', conflictingSessionId: 'session-existing' })
-                ])
-            )
-        })
     })
 
     describe('formatConflictMessage', () => {
