@@ -159,14 +159,43 @@ function createEditorStateFromCourse(course: Course): CourseEditorState {
 }
 
 /**
- * Returns true when a module's content differs from the untouched default
- * scaffold for its content type.
+ * Validates whether a module has meaningful content for its type.
  *
- * @param moduleItem - Module entry to evaluate.
- * @returns Whether the module content appears intentionally filled.
+ * @param moduleItem - Module entry to validate.
+ * @returns True when content is sufficiently populated.
  */
-function hasMeaningfulModuleContent(moduleItem: Module): boolean {
-  return JSON.stringify(moduleItem.content) !== JSON.stringify(createDefaultModuleContent(moduleItem.contentType))
+function validateModuleContentByType(moduleItem: Module): boolean {
+  if (moduleItem.contentType === 'text') {
+    return true
+  }
+
+  if (moduleItem.contentType === 'video') {
+    const content = moduleItem.content as Extract<Module['content'], { url: string }>
+    return content.url.trim().length > 0
+  }
+
+  if (moduleItem.contentType === 'slideshow') {
+    const content = moduleItem.content as Extract<Module['content'], { slides: string[] }>
+    return content.slides.some((slide) => slide.trim().length > 0)
+  }
+
+  const content = moduleItem.content as Extract<Module['content'], { questions: Array<{ prompt: string; choices: string[]; correctIndex: number }> }>
+  if (content.questions.length === 0) {
+    return false
+  }
+
+  return content.questions.every((question) => {
+    if (question.prompt.trim().length === 0) {
+      return false
+    }
+
+    const normalizedChoices = question.choices.map((choice) => choice.trim())
+    const hasEnoughChoices = normalizedChoices.length >= 2
+    const hasOnlyNonEmptyChoices = normalizedChoices.every((choice) => choice.length > 0)
+    const hasValidCorrectIndex = Number.isInteger(question.correctIndex) && question.correctIndex >= 0 && question.correctIndex < normalizedChoices.length
+
+    return hasEnoughChoices && hasOnlyNonEmptyChoices && hasValidCorrectIndex
+  })
 }
 
 /**
@@ -201,6 +230,8 @@ export function Courses({
   const [editorDialogOpen, setEditorDialogOpen] = useState(false)
   const [editingCourse, setEditingCourse] = useState<Course | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
   const processedPayloadRef = useRef<unknown>(null)
   const {
     control,
@@ -361,89 +392,11 @@ export function Courses({
       order,
     }))
 
-    const placeholderModule = moduleDetails.find((moduleItem) => {
-      if (moduleItem.contentType === 'text') {
-        return false
-      }
-
-      return !hasMeaningfulModuleContent(moduleItem)
-    })
+    const placeholderModule = moduleDetails.find((moduleItem) => !validateModuleContentByType(moduleItem))
     if (placeholderModule) {
       throw new Error(`Module content must be filled for module type ${placeholderModule.contentType}.`)
     }
 
-    const videoModuleSchema = z.object({
-      contentType: z.literal('video'),
-      content: z.object({
-        url: z
-          .string()
-          .transform((value) => value.trim())
-          .min(1),
-      }),
-    })
-
-    const slideshowModuleSchema = z.object({
-      contentType: z.literal('slideshow'),
-      content: z.object({
-        slides: z
-          .array(
-            z
-              .string()
-              .transform((value) => value.trim())
-          )
-          .min(1)
-          .refine((slides) => slides.some((slide) => slide.length > 0)),
-      }),
-    })
-
-    const quizModuleSchema = z.object({
-      contentType: z.literal('quiz'),
-      content: z.object({
-        question: z
-          .string()
-          .transform((value) => value.trim())
-          .min(1),
-        choices: z
-          .array(
-            z.object({
-              label: z
-                .string()
-                .transform((value) => value.trim())
-                .min(1),
-              correct: z.boolean().optional(),
-            })
-          )
-          .min(1)
-          .refine((choices) => choices.some((choice) => choice.correct === true)),
-      }),
-    })
-
-    const nonTextModuleContentSchema = z.discriminatedUnion('contentType', [
-      videoModuleSchema,
-      slideshowModuleSchema,
-      quizModuleSchema,
-    ])
-
-    moduleDetails.forEach((moduleItem) => {
-      if (moduleItem.contentType === 'text') {
-        return
-      }
-
-      if (
-        moduleItem.contentType !== 'video' &&
-        moduleItem.contentType !== 'slideshow' &&
-        moduleItem.contentType !== 'quiz'
-      ) {
-        return
-      }
-
-      const parsed = nonTextModuleContentSchema.safeParse(moduleItem)
-      if (!parsed.success) {
-        throw new Error(`Module content must be filled for module type ${moduleItem.contentType}.`)
-      }
-
-      Object.assign(moduleItem, parsed.data)
-    })
     return {
       title,
       description,
@@ -461,11 +414,34 @@ export function Courses({
       return
     }
 
-    if (!canCreateCourse || (!onCreateCourse && !onUpdateCourse)) {
-      toast.error('Course management unavailable', {
-        description: 'You do not have permission to manage courses.',
-      })
-      return
+    if (editingCourse) {
+      if (!canManageCourse(editingCourse)) {
+        toast.error('Course management unavailable', {
+          description: 'You do not have permission to manage courses.',
+        })
+        return
+      }
+
+      if (!onUpdateCourse) {
+        toast.error('Course update unavailable', {
+          description: 'Update callback is not configured.',
+        })
+        return
+      }
+    } else {
+      if (!canCreateCourse) {
+        toast.error('Course management unavailable', {
+          description: 'You do not have permission to manage courses.',
+        })
+        return
+      }
+
+      if (!onCreateCourse) {
+        toast.error('Course creation unavailable', {
+          description: 'Create callback is not configured.',
+        })
+        return
+      }
     }
 
     let coursePayload: Omit<Course, 'id'> | Partial<Course>
@@ -486,24 +462,12 @@ export function Courses({
 
     try {
       if (editingCourse) {
-        if (!onUpdateCourse) {
-          toast.error('Course update unavailable', {
-            description: 'Update callback is not configured.',
-          })
-          return
-        }
         await Promise.resolve(onUpdateCourse(editingCourse.id, coursePayload))
         setSelectedCourse((current) => current?.id === editingCourse.id ? { ...editingCourse, ...coursePayload } : current)
         toast.success('Course updated', {
           description: `${coursePayload.title} has been saved.`,
         })
       } else {
-        if (!onCreateCourse) {
-          toast.error('Course creation unavailable', {
-            description: 'Create callback is not configured.',
-          })
-          return
-        }
         await Promise.resolve(onCreateCourse(coursePayload as Omit<Course, 'id'>))
         toast.success('Course created', {
           description: `${coursePayload.title} has been added to the catalog.`,
@@ -527,18 +491,41 @@ export function Courses({
   })
 
   const handleSaveButtonClick = () => {
-    if (!canCreateCourse || (!onCreateCourse && !onUpdateCourse)) {
-      toast.error('Course management unavailable', {
-        description: 'You do not have permission to manage courses.',
-      })
-      return
+    if (editingCourse) {
+      if (!canManageCourse(editingCourse)) {
+        toast.error('Course management unavailable', {
+          description: 'You do not have permission to manage courses.',
+        })
+        return
+      }
+
+      if (!onUpdateCourse) {
+        toast.error('Course update unavailable', {
+          description: 'Update callback is not configured.',
+        })
+        return
+      }
+    } else {
+      if (!canCreateCourse) {
+        toast.error('Course management unavailable', {
+          description: 'You do not have permission to manage courses.',
+        })
+        return
+      }
+
+      if (!onCreateCourse) {
+        toast.error('Course creation unavailable', {
+          description: 'Create callback is not configured.',
+        })
+        return
+      }
     }
 
     void handleSaveCourse()
   }
 
   const handleDeleteSelectedCourse = async () => {
-    if (!selectedCourse || !onDeleteCourse || !canManageCourse(selectedCourse)) {
+    if (!selectedCourse || !onDeleteCourse || !canManageCourse(selectedCourse) || isDeleting) {
       return
     }
 
@@ -546,6 +533,8 @@ export function Courses({
     if (!confirmed) {
       return
     }
+
+    setIsDeleting(true)
 
     try {
       await Promise.resolve(onDeleteCourse(selectedCourse.id))
@@ -560,15 +549,19 @@ export function Courses({
           ? error.message
           : 'Please try again after resolving the issue.',
       })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
   const handlePublishToggle = async () => {
-    if (!selectedCourse || !onUpdateCourse || !canManageCourse(selectedCourse)) {
+    if (!selectedCourse || !onUpdateCourse || !canManageCourse(selectedCourse) || isPublishing) {
       return
     }
 
     const nextPublished = !selectedCourse.published
+
+    setIsPublishing(true)
 
     try {
       await Promise.resolve(onUpdateCourse(selectedCourse.id, { published: nextPublished }))
@@ -582,6 +575,8 @@ export function Courses({
           ? error.message
           : 'Please try again after resolving the issue.',
       })
+    } finally {
+      setIsPublishing(false)
     }
   }
 
@@ -780,14 +775,14 @@ export function Courses({
                       <PencilSimple size={16} className="mr-2" />
                       Edit Course
                     </Button>
-                    <Button variant={selectedCourse.published ? 'outline' : 'default'} onClick={handlePublishToggle}>
-                      {selectedCourse.published ? 'Move to Draft' : 'Publish Course'}
+                    <Button variant={selectedCourse.published ? 'outline' : 'default'} onClick={handlePublishToggle} disabled={isPublishing}>
+                      {isPublishing ? 'Updating...' : selectedCourse.published ? 'Move to Draft' : 'Publish Course'}
                     </Button>
                   </div>
                   {onDeleteCourse && (
-                    <Button variant="destructive" onClick={handleDeleteSelectedCourse}>
+                    <Button variant="destructive" onClick={handleDeleteSelectedCourse} disabled={isDeleting}>
                       <Trash size={16} className="mr-2" />
-                      Delete Course
+                      {isDeleting ? 'Deleting...' : 'Delete Course'}
                     </Button>
                   )}
                 </DialogFooter>
@@ -894,6 +889,18 @@ export function Courses({
 
               {moduleFields.map((moduleField, index) => {
                 const moduleItem = watchedModules[index] ?? moduleField
+                const moduleTitleId = `module-${moduleField.id}-title`
+                const moduleDurationId = `module-${moduleField.id}-duration`
+                const moduleDescriptionId = `module-${moduleField.id}-description`
+                const moduleContentTypeId = `module-${moduleField.id}-content-type`
+                const moduleTextBodyId = `module-${moduleField.id}-text-body`
+                const moduleVideoUrlId = `module-${moduleField.id}-video-url`
+                const moduleVideoDurationId = `module-${moduleField.id}-video-duration`
+                const moduleSlidesId = `module-${moduleField.id}-slides`
+                const moduleQuestionPromptId = `module-${moduleField.id}-question-prompt`
+                const moduleChoiceAId = `module-${moduleField.id}-choice-a`
+                const moduleChoiceBId = `module-${moduleField.id}-choice-b`
+                const moduleCorrectAnswerId = `module-${moduleField.id}-correct-answer`
 
                 return (
                   <div key={moduleField.id} className="space-y-3 rounded-lg border p-4">
@@ -908,15 +915,17 @@ export function Courses({
 
                     <div className="grid gap-3 md:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>Module Title</Label>
+                        <Label htmlFor={moduleTitleId}>Module Name</Label>
                         <Input
+                          id={moduleTitleId}
                           {...register(`moduleDetails.${index}.title` as const)}
                           placeholder="e.g., Incident Response Overview"
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>Duration (minutes)</Label>
+                        <Label htmlFor={moduleDurationId}>Duration (minutes)</Label>
                         <Input
+                          id={moduleDurationId}
                           type="number"
                           min="1"
                           step="1"
@@ -924,16 +933,17 @@ export function Courses({
                         />
                       </div>
                       <div className="space-y-2 md:col-span-2">
-                        <Label>Description</Label>
+                        <Label htmlFor={moduleDescriptionId}>Module Details</Label>
                         <Textarea
+                          id={moduleDescriptionId}
                           {...register(`moduleDetails.${index}.description` as const)}
                           placeholder="Describe the goal of this module"
                         />
                       </div>
                       <div className="space-y-2 md:col-span-2">
-                        <Label>Content Type</Label>
+                        <Label htmlFor={moduleContentTypeId}>Content Type</Label>
                         <Select value={moduleItem.contentType} onValueChange={(value) => handleModuleContentTypeChange(index, value as Module['contentType'])}>
-                          <SelectTrigger>
+                          <SelectTrigger id={moduleContentTypeId} aria-label="Content Type">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -950,8 +960,9 @@ export function Courses({
 
                           return (
                             <div className="space-y-2 md:col-span-2">
-                              <Label>Body</Label>
+                              <Label htmlFor={moduleTextBodyId}>Body</Label>
                               <Textarea
+                                id={moduleTextBodyId}
                                 value={textContent.body}
                                 onChange={(event) => handleModuleChange(index, { content: { body: event.target.value } })}
                                 placeholder="Add text-based learning content"
@@ -967,16 +978,18 @@ export function Courses({
                           return (
                             <>
                               <div className="space-y-2 md:col-span-2">
-                                <Label>Video URL</Label>
+                                <Label htmlFor={moduleVideoUrlId}>Video URL</Label>
                                 <Input
+                                  id={moduleVideoUrlId}
                                   value={videoContent.url}
                                   onChange={(event) => handleModuleChange(index, { content: { ...videoContent, url: event.target.value } })}
                                   placeholder="https://example.com/video"
                                 />
                               </div>
                               <div className="space-y-2">
-                                <Label>Duration (seconds)</Label>
+                                <Label htmlFor={moduleVideoDurationId}>Duration (seconds)</Label>
                                 <Input
+                                  id={moduleVideoDurationId}
                                   type="number"
                                   min="0"
                                   step="1"
@@ -1002,8 +1015,9 @@ export function Courses({
 
                           return (
                             <div className="space-y-2 md:col-span-2">
-                              <Label>Slides (one per line)</Label>
+                              <Label htmlFor={moduleSlidesId}>Slides (one per line)</Label>
                               <Textarea
+                                id={moduleSlidesId}
                                 value={slideshowContent.slides.join('\n')}
                                 onChange={(event) => handleModuleChange(index, { content: { slides: event.target.value.split('\n').map((value) => value.trim()).filter(Boolean) } })}
                                 placeholder="Slide 1\nSlide 2"
@@ -1020,8 +1034,9 @@ export function Courses({
                           return (
                             <>
                               <div className="space-y-2 md:col-span-2">
-                                <Label>Question Prompt</Label>
+                                <Label htmlFor={moduleQuestionPromptId}>Question Prompt</Label>
                                 <Input
+                                  id={moduleQuestionPromptId}
                                   value={firstQuestion.prompt}
                                   onChange={(event) => handleModuleChange(index, {
                                     content: {
@@ -1036,8 +1051,9 @@ export function Courses({
                                 />
                               </div>
                               <div className="space-y-2">
-                                <Label>Choice A</Label>
+                                <Label htmlFor={moduleChoiceAId}>Choice A</Label>
                                 <Input
+                                  id={moduleChoiceAId}
                                   value={firstQuestion.choices[0] || ''}
                                   onChange={(event) => handleModuleChange(index, {
                                     content: {
@@ -1051,8 +1067,9 @@ export function Courses({
                                 />
                               </div>
                               <div className="space-y-2">
-                                <Label>Choice B</Label>
+                                <Label htmlFor={moduleChoiceBId}>Choice B</Label>
                                 <Input
+                                  id={moduleChoiceBId}
                                   value={firstQuestion.choices[1] || ''}
                                   onChange={(event) => handleModuleChange(index, {
                                     content: {
@@ -1066,7 +1083,7 @@ export function Courses({
                                 />
                               </div>
                               <div className="space-y-2 md:col-span-2">
-                                <Label>Correct Answer</Label>
+                                <Label htmlFor={moduleCorrectAnswerId}>Correct Answer</Label>
                                 <Select
                                   value={String(firstQuestion.correctIndex)}
                                   onValueChange={(value) => handleModuleChange(index, {
@@ -1079,7 +1096,7 @@ export function Courses({
                                     },
                                   })}
                                 >
-                                  <SelectTrigger>
+                                  <SelectTrigger id={moduleCorrectAnswerId} aria-label="Correct Answer">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>

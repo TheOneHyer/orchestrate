@@ -381,16 +381,14 @@ describe('Analytics', () => {
 
     render(<Analytics users={users} courses={courses} sessions={sessions} enrollments={enrollments} />)
 
-    const filters = screen.getAllByRole('combobox')
-
-    await user.click(filters[0])
+    await user.click(screen.getByRole('combobox', { name: /filter by department/i }))
     await user.click(screen.getByRole('option', { name: 'HR' }))
     expect(screen.getByTestId('employee-count')).toHaveTextContent('1')
 
-    await user.click(filters[1])
+    await user.click(screen.getByRole('combobox', { name: /filter by course/i }))
     await user.click(screen.getByRole('option', { name: /hr compliance/i }))
 
-    await user.click(filters[2])
+    await user.click(screen.getByRole('combobox', { name: /filter by status/i }))
     await user.click(screen.getByRole('option', { name: /^completed$/i }))
 
     expect(screen.getByText(/operational highlights/i)).toBeInTheDocument()
@@ -413,8 +411,7 @@ describe('Analytics', () => {
 
     render(<Analytics users={users} courses={[]} sessions={sessions} enrollments={[]} />)
 
-    const filters = screen.getAllByRole('combobox')
-    await user.click(filters[0])
+    await user.click(screen.getByRole('combobox', { name: /filter by department/i }))
     await user.click(screen.getByRole('option', { name: 'HR' }))
 
     // Only the HR trainer's session should remain: 0 completed out of 1
@@ -433,8 +430,7 @@ describe('Analytics', () => {
 
     render(<Analytics users={[]} courses={[]} sessions={sessions} enrollments={enrollments} />)
 
-    const filters = screen.getAllByRole('combobox')
-    await user.click(filters[2])
+    await user.click(screen.getByRole('combobox', { name: /filter by status/i }))
     await user.click(screen.getByRole('option', { name: /failed/i }))
 
     // Sessions should not be filtered to zero by an enrollment-only status

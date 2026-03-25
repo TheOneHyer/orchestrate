@@ -73,11 +73,12 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
   const filteredSessions = useMemo(() => {
     const allowedCourseIds = new Set(filteredCourses.map((course) => course.id))
     const allowedTrainerIds = new Set(filteredUsers.map((user) => user.id))
+    const enrollmentStatusFilters = new Set(['enrolled', 'in-progress', 'completed', 'failed'])
 
     return sessions.filter((session) => {
       const matchesDepartment = departmentFilter === 'all' || allowedTrainerIds.has(session.trainerId)
       const matchesCourse = courseFilter === 'all' || allowedCourseIds.has(session.courseId)
-      const matchesStatus = statusFilter === 'all' || statusFilter === 'failed' || session.status === statusFilter
+      const matchesStatus = statusFilter === 'all' || enrollmentStatusFilters.has(statusFilter) || session.status === statusFilter
 
       return matchesDepartment && matchesCourse && matchesStatus
     })
@@ -86,23 +87,23 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
   const filteredEnrollments = useMemo(() => {
     const allowedCourseIds = new Set(filteredCourses.map((course) => course.id))
     const allowedUserIds = new Set(filteredUsers.map((user) => user.id))
+    const sessionStatusById = new Map(sessions.map((session) => [session.id, session.status]))
+    const enrollmentStatusFilters = new Set(['enrolled', 'in-progress', 'completed', 'failed'])
+    const sessionStatusFilters = new Set(['scheduled', 'cancelled'])
 
     return enrollments.filter((enrollment) => {
       const matchesDepartment = departmentFilter === 'all' || allowedUserIds.has(enrollment.userId)
       const matchesCourse = courseFilter === 'all' || allowedCourseIds.has(enrollment.courseId)
-      const isEnrollmentStatus =
-        statusFilter === 'enrolled' ||
-        statusFilter === 'in-progress' ||
-        statusFilter === 'completed' ||
-        statusFilter === 'failed'
+      const isEnrollmentStatus = enrollmentStatusFilters.has(statusFilter)
+      const isSessionStatus = sessionStatusFilters.has(statusFilter)
       const matchesStatus =
         statusFilter === 'all' ||
-        !isEnrollmentStatus ||
-        enrollment.status === statusFilter
+        (isEnrollmentStatus && enrollment.status === statusFilter) ||
+        (isSessionStatus && !!enrollment.sessionId && sessionStatusById.get(enrollment.sessionId) === statusFilter)
 
       return matchesDepartment && matchesCourse && matchesStatus
     })
-  }, [courseFilter, departmentFilter, enrollments, filteredCourses, filteredUsers, statusFilter])
+  }, [courseFilter, departmentFilter, enrollments, filteredCourses, filteredUsers, sessions, statusFilter])
 
   const totalEnrollments = filteredEnrollments.length
   const completedEnrollments = filteredEnrollments.filter(e => e.status === 'completed').length
@@ -149,7 +150,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
 
       <div className="grid gap-3 md:grid-cols-3">
         <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-          <SelectTrigger>
+          <SelectTrigger aria-label="Filter by department">
             <SelectValue placeholder="Filter by department" />
           </SelectTrigger>
           <SelectContent>
@@ -161,7 +162,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
         </Select>
 
         <Select value={courseFilter} onValueChange={setCourseFilter}>
-          <SelectTrigger>
+          <SelectTrigger aria-label="Filter by course">
             <SelectValue placeholder="Filter by course" />
           </SelectTrigger>
           <SelectContent>
@@ -173,7 +174,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
         </Select>
 
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger>
+          <SelectTrigger aria-label="Filter by status">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>

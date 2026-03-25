@@ -343,9 +343,14 @@ function App() {
 
     const hasActiveUser = safeUsers.some((user) => user.id === activeUserId)
     if (!activeUserId || !hasActiveUser) {
-      setActiveUserId(safeUsers[0].id)
+      const nextUser = safeUsers[0]
+      setActiveUserId(nextUser.id)
+      if (!VIEW_ACCESS[activeView]?.includes(nextUser.role)) {
+        setActiveView('dashboard')
+        setNavigationPayload(null)
+      }
     }
-  }, [activeUserId, safeUsers, setActiveUserId])
+  }, [activeUserId, activeView, safeUsers, setActiveUserId])
 
   /**
    * Creates a new {@link Notification} record with a generated ID and
@@ -396,6 +401,11 @@ function App() {
           return
         }
 
+        const activeRole = safeUsers.find((user) => user.id === activeUserId)?.role ?? safeUsers[0]?.role ?? fallbackUser.role
+        if (!VIEW_ACCESS[target.view]?.includes(activeRole)) {
+          return
+        }
+
         setActiveView(target.view)
         setNavigationPayload(target.data ?? null)
       } : undefined
@@ -408,7 +418,7 @@ function App() {
         duration: 8000
       })
     }
-  }, [setNotifications, sendNotification])
+  }, [activeUserId, safeUsers, sendNotification, setNotifications])
 
   useUtilizationNotifications(safeUsers, safeSessions, handleCreateNotification)
 
@@ -473,13 +483,6 @@ function App() {
     .slice(0, 10)
 
   const unreadNotifications = visibleNotifications.filter(n => !n.read)
-
-  useEffect(() => {
-    if (!VIEW_ACCESS[activeView]?.includes(currentUser.role)) {
-      setActiveView('dashboard')
-      setNavigationPayload(null)
-    }
-  }, [currentUser.role, activeView])
 
   const handleSwitchUser = useCallback((userId: string) => {
     setActiveUserId(userId)

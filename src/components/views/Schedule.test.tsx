@@ -1474,22 +1474,20 @@ describe('Schedule', () => {
       courses: [baseCourse, secondCourse],
     })
 
-    const filters = screen.getAllByRole('combobox')
-
-    await user.click(filters[0])
+    await user.click(screen.getByRole('combobox', { name: /filter by trainer/i }))
     await user.click(screen.getByRole('option', { name: /jordan trainer/i }))
     expect(screen.getByText(/past cancelled session/i)).toBeInTheDocument()
     expect(screen.queryByText(/morning safety session/i)).not.toBeInTheDocument()
 
-    await user.click(filters[1])
+    await user.click(screen.getByRole('combobox', { name: /filter by course/i }))
     await user.click(screen.getByRole('option', { name: /equipment basics/i }))
     expect(screen.getByText(/past cancelled session/i)).toBeInTheDocument()
 
-    await user.click(filters[3])
+    await user.click(screen.getByRole('combobox', { name: /status/i }))
     await user.click(screen.getByRole('option', { name: /^cancelled$/i }))
     expect(screen.getByText(/past cancelled session/i)).toBeInTheDocument()
 
-    await user.click(filters[4])
+    await user.click(screen.getByRole('combobox', { name: /date window|past sessions/i }))
     await user.click(screen.getByRole('option', { name: /past sessions/i }))
     expect(screen.getByText(/past cancelled session/i)).toBeInTheDocument()
   })
@@ -1552,8 +1550,7 @@ describe('Schedule', () => {
       users: [baseTrainer, operationsTrainer, baseEmployee],
     })
 
-    const filters = screen.getAllByRole('combobox')
-    await user.click(filters[2])
+    await user.click(screen.getByRole('combobox', { name: /filter by department/i }))
     await user.click(screen.getByRole('option', { name: /operations/i }))
     expect(screen.getByText(/cancelled board session/i)).toBeInTheDocument()
     expect(screen.queryByText(/morning safety session/i)).toBeNull()

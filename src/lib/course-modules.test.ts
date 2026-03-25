@@ -112,7 +112,7 @@ describe('course-modules', () => {
       },
     ]
 
-    expect(summarizeModuleTitles(modules)).toEqual(['Intro', 'Summary'])
+    expect(summarizeModuleTitles(modules)).toEqual(['Intro', 'Summary', ''])
   })
 
   it('writes synchronized modules back to a course', () => {

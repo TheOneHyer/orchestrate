@@ -258,7 +258,8 @@ const sections: Section[] = [
 
         <GuideSection title="Filtering">
           <p>
-            Use the filter bar to narrow sessions by search term, department, trainer, day, course, or
+            Use the filter bar to narrow sessions by search term, department, trainer, date window,
+            course, or
             status. Filters apply across calendar, list, and board views.
           </p>
         </GuideSection>
@@ -336,7 +337,7 @@ const sections: Section[] = [
             'Course name and description.',
             'A preview of the first structured module type.',
             'Current learner progress for the active user when enrolled.',
-            'Required certifications for trainers.',
+            'Awarded certifications for trainers.',
             'Status badge (Published / Draft).',
           ]} />
         </GuideSection>

@@ -1045,7 +1045,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             />
           </div>
           <Select value={trainerFilter} onValueChange={setTrainerFilter}>
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by trainer">
               <SelectValue placeholder="Filter by trainer" />
             </SelectTrigger>
             <SelectContent>
@@ -1056,7 +1056,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             </SelectContent>
           </Select>
           <Select value={courseFilter} onValueChange={setCourseFilter}>
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by course">
               <SelectValue placeholder="Filter by course" />
             </SelectTrigger>
             <SelectContent>
@@ -1067,7 +1067,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
             </SelectContent>
           </Select>
           <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger>
+            <SelectTrigger aria-label="Filter by department">
               <SelectValue placeholder="Filter by department" />
             </SelectTrigger>
             <SelectContent>
@@ -1079,7 +1079,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
           </Select>
           <div className="grid grid-cols-2 gap-3">
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Status">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -1091,7 +1091,7 @@ export function Schedule({ sessions, courses, users, currentUser, onCreateSessio
               </SelectContent>
             </Select>
             <Select value={dateFilter} onValueChange={(value) => setDateFilter(value as typeof dateFilter)}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Date window">
                 <SelectValue placeholder="Date window" />
               </SelectTrigger>
               <SelectContent>

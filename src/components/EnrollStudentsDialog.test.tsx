@@ -464,4 +464,56 @@ describe('EnrollStudentsDialog', () => {
         expect(screen.getByText(/added 1 student from bulk upload/i)).toBeInTheDocument()
         expect(screen.getByText(/1 selected/i)).toBeInTheDocument()
     })
+
+    it('shows already-enrolled summary when importing identifiers for enrolled students', async () => {
+        const onEnrollStudents = vi.fn()
+        const preEnrolledSession: Session = {
+            ...session,
+            enrolledStudents: ['stu-1'],
+        }
+
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={preEnrolledSession}
+                allSessions={[preEnrolledSession]}
+                availableStudents={students}
+                onEnrollStudents={onEnrollStudents}
+            />
+        )
+
+        await userEvent.type(screen.getByLabelText(/bulk upload/i), 'stu-1')
+        await userEvent.click(screen.getByRole('button', { name: /import list/i }))
+
+        expect(screen.getByText(/all matching students are already enrolled in this session/i)).toBeInTheDocument()
+        expect(screen.queryByText(/1 selected/i)).not.toBeInTheDocument()
+        expect(onEnrollStudents).not.toHaveBeenCalled()
+    })
+
+    it('shows already-enrolled summary when scanning a badge for an enrolled student', async () => {
+        const onEnrollStudents = vi.fn()
+        const preEnrolledSession: Session = {
+            ...session,
+            enrolledStudents: ['stu-1'],
+        }
+
+        render(
+            <EnrollStudentsDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                session={preEnrolledSession}
+                allSessions={[preEnrolledSession]}
+                availableStudents={students}
+                onEnrollStudents={onEnrollStudents}
+            />
+        )
+
+        await userEvent.type(screen.getByLabelText(/badge scan/i), 'stu-1')
+        await userEvent.click(screen.getByRole('button', { name: /scan badge/i }))
+
+        expect(screen.getByText(/scanned student is already enrolled in this session/i)).toBeInTheDocument()
+        expect(screen.queryByText(/1 selected/i)).not.toBeInTheDocument()
+        expect(onEnrollStudents).not.toHaveBeenCalled()
+    })
 })

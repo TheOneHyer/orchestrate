@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -114,12 +115,6 @@ export function EnrollStudentsDialog({
     setImportSummary(null)
   }, [])
 
-  useEffect(() => {
-    if (!open) {
-      resetTransientState()
-    }
-  }, [open, resetTransientState])
-
   const addMatchedStudents = (studentIds: string[]) => {
     if (studentIds.length === 0) {
       return
@@ -149,7 +144,8 @@ export function EnrollStudentsDialog({
     }
 
     if (matchedIds.length > 0 && filteredMatchedIds.length === 0) {
-      setImportSummary('All matching students are already enrolled in this session.')
+      const unmatchedMessage = unmatched.length > 0 ? ` Unmatched: ${unmatched.join(', ')}.` : ''
+      setImportSummary(`All matching students are already enrolled in this session.${unmatchedMessage}`)
       return
     }
 
@@ -197,6 +193,13 @@ export function EnrollStudentsDialog({
     onOpenChange(false)
   }
 
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      resetTransientState()
+    }
+    onOpenChange(nextOpen)
+  }
+
   /**
    * Looks up a student by ID from the `availableStudents` prop array.
    *
@@ -214,7 +217,7 @@ export function EnrollStudentsDialog({
   const remainingCapacity = session.capacity - session.enrolledStudents.length
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -261,10 +264,12 @@ export function EnrollStudentsDialog({
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="space-y-2 rounded-lg border p-3">
               <div>
-                <div className="font-medium">Bulk Upload</div>
-                <div className="text-sm text-muted-foreground">Paste student IDs, emails, or full names separated by commas or new lines.</div>
+                <Label htmlFor="bulk-identifiers" className="font-medium">Bulk Upload</Label>
+                <div id="bulk-identifiers-help" className="text-sm text-muted-foreground">Paste student IDs, emails, or full names separated by commas or new lines.</div>
               </div>
               <Textarea
+                id="bulk-identifiers"
+                aria-describedby="bulk-identifiers-help"
                 value={bulkIdentifiers}
                 onChange={(event) => setBulkIdentifiers(event.target.value)}
                 placeholder="stu-1\nstu-2\nalice@example.com"
@@ -276,10 +281,12 @@ export function EnrollStudentsDialog({
 
             <div className="space-y-2 rounded-lg border p-3">
               <div>
-                <div className="font-medium">Badge Scan</div>
-                <div className="text-sm text-muted-foreground">Simulate a badge scan with a student ID, email, or email username.</div>
+                <Label htmlFor="badge-scan-value" className="font-medium">Badge Scan</Label>
+                <div id="badge-scan-help" className="text-sm text-muted-foreground">Simulate a badge scan with a student ID, email, or email username.</div>
               </div>
               <Input
+                id="badge-scan-value"
+                aria-describedby="badge-scan-help"
                 value={badgeScanValue}
                 onChange={(event) => setBadgeScanValue(event.target.value)}
                 placeholder="Scan or enter badge value"

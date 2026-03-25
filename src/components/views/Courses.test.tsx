@@ -845,7 +845,7 @@ describe('Courses', () => {
         expect(onCreateCourse).not.toHaveBeenCalled()
     })
 
-    it('shows permission error when create callback is unavailable', async () => {
+    it('shows callback error when create callback is unavailable', async () => {
         const user = userEvent.setup()
 
         render(
@@ -861,8 +861,8 @@ describe('Courses', () => {
         await user.click(screen.getByRole('button', { name: /save course/i }))
 
         expect(toastError).toHaveBeenCalledWith(
-            'Course management unavailable',
-            expect.objectContaining({ description: expect.stringMatching(/permission/i) })
+            'Course creation unavailable',
+            expect.objectContaining({ description: expect.stringMatching(/create callback is not configured/i) })
         )
     })
 

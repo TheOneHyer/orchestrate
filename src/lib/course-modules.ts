@@ -66,7 +66,6 @@ export function summarizeModuleTitles(modules: Module[]): string[] {
   return [...modules]
     .sort((left, right) => left.order - right.order)
     .map((moduleItem) => moduleItem.title.trim())
-    .filter(Boolean)
 }
 
 /**
