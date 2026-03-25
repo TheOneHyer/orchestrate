@@ -32,8 +32,8 @@
 - **pnpm** 10.32.1 via Corepack
 
 > **pnpm is the only supported package manager for this project.**
-> Do **not** use `npm install` or `yarn install` — they will create a `package-lock.json` or `yarn.lock` and produce a different dependency graph than the committed `pnpm-lock.yaml`.
-> Both files are listed in `.gitignore`; only `pnpm-lock.yaml` is committed.
+> Using any other package manager will create an alternate lockfile and a different dependency graph than the committed `pnpm-lock.yaml`.
+> Only `pnpm-lock.yaml` is committed; alternate lockfiles are listed in `.gitignore`.
 
 ### Installation
 
@@ -85,7 +85,8 @@ pnpm kill:win    # Free port 5173 on Windows (PowerShell)
 ### GitHub Automation
 
 - Dependabot pull requests are evaluated by a dedicated auto-merge workflow.
-- The workflow updates stale Dependabot branches, waits for the required CI checks to pass, squash-merges successful PRs, and leaves a comment when it auto-merges.
+- The workflow detects stale Dependabot branches and requests a manual update, waits for the required CI checks to pass, squash-merges successful PRs, and leaves a comment when it auto-merges.
+- If the PR head commit changes while waiting for checks (for example, when the Build workflow commits an updated `pnpm-lock.yaml` via `GITHUB_TOKEN`, which does not trigger new CI runs), the workflow exits early and requests manual CI triggering.
 - If a required check fails or the workflow cannot complete the merge, it leaves a manual-resolution comment that mentions the repository owner.
 
 ---

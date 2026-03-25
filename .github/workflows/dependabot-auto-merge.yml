@@ -34,7 +34,7 @@ jobs:
       WAIT_TIMEOUT_MS: "1800000"
     steps:
       - name: Evaluate and merge Dependabot PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -152,30 +152,16 @@ jobs:
             }
 
             if (initialPullRequest.mergeable_state === 'behind') {
-              core.notice('Dependabot PR is behind main. Requesting a branch update before evaluating checks.');
-              try {
-                await github.rest.pulls.updateBranch({
-                  owner,
-                  repo,
-                  pull_number: pullNumber,
-                  expected_head_sha: initialPullRequest.head.sha,
-                });
-                return;
-              } catch (error) {
-                const message = error instanceof Error ? error.message : String(error);
-                core.warning(`Failed to update Dependabot PR branch from base: ${message}`);
-                await upsertComment([
-                  '## Dependabot auto-merge blocked',
-                  '',
-                  'This pull request is behind the base branch and an automatic branch update from Dependabot failed.',
-                  '',
-                  `Error from GitHub API: \`${message}\``,
-                  '',
-                  `${mentionTarget} please update this branch manually (or resolve the reported issue) and re-run the checks.`,
-                ].join('\n'));
-                core.setFailed('Dependabot PR could not be updated with the latest base branch. See the PR comment for details.');
-                return;
-              }
+              core.notice('Dependabot PR is behind main. Branch updates via GITHUB_TOKEN do not trigger new CI runs, so manual intervention is required.');
+              await upsertComment([
+                '## Dependabot auto-merge blocked',
+                '',
+                'This pull request is behind the base branch. Automatic branch updates via the workflow token cannot trigger new CI runs, so the branch must be updated manually.',
+                '',
+                `${mentionTarget} please update this branch manually (or wait for Dependabot to rebase it) and re-run the checks.`,
+              ].join('\n'));
+              core.setFailed('Dependabot PR is behind main and requires a manual branch update.');
+              return;
             }
 
             if (initialPullRequest.mergeable === false && initialPullRequest.mergeable_state === 'dirty') {
@@ -190,6 +176,7 @@ jobs:
               return;
             }
 
+            const initialHeadSha = initialPullRequest.head.sha;
             const startedAt = Date.now();
 
             while (Date.now() - startedAt < waitTimeoutMs) {
@@ -200,29 +187,22 @@ jobs:
                 return;
               }
 
+              if (pullRequest.draft) {
+                core.notice('Pull request is draft. Skipping auto-merge.');
+                return;
+              }
+
               if (pullRequest.mergeable_state === 'behind') {
-                core.notice('A new commit left the PR behind main. Requesting another branch update.');
-                try {
-                  await github.rest.pulls.updateBranch({
-                    owner,
-                    repo,
-                    pull_number: pullNumber,
-                    expected_head_sha: pullRequest.head.sha,
-                  });
-                  return;
-                } catch (error) {
-                  await upsertComment([
-                    '## Dependabot auto-merge skipped',
-                    '',
-                    'GitHub rejected the request to update this branch from `main`.',
-                    '',
-                    `${mentionTarget} please review this PR and resolve it manually.`,
-                    '',
-                    `Branch update error: ${error.message}`,
-                  ].join('\n'));
-                  core.setFailed('Failed to update Dependabot PR branch from main.');
-                  return;
-                }
+                core.notice('A new commit left the PR behind main. Branch updates via GITHUB_TOKEN do not trigger new CI runs, so manual intervention is required.');
+                await upsertComment([
+                  '## Dependabot auto-merge skipped',
+                  '',
+                  'This pull request fell behind the base branch. Automatic branch updates via the workflow token cannot trigger new CI runs, so the branch must be updated manually.',
+                  '',
+                  `${mentionTarget} please update this branch manually (or wait for Dependabot to rebase it) and re-run the checks.`,
+                ].join('\n'));
+                core.setFailed('Dependabot PR is behind main and requires a manual branch update.');
+                return;
               }
 
               if (pullRequest.mergeable === false && pullRequest.mergeable_state === 'dirty') {
@@ -234,6 +214,18 @@ jobs:
                   `${mentionTarget} please resolve the conflicts manually.`,
                 ].join('\n'));
                 core.setFailed('Dependabot PR has merge conflicts.');
+                return;
+              }
+
+              if (pullRequest.head.sha !== initialHeadSha) {
+                await upsertComment([
+                  '## Dependabot auto-merge blocked',
+                  '',
+                  'The PR head commit changed while waiting for CI checks. This typically happens when the Build workflow commits an updated `pnpm-lock.yaml` via `GITHUB_TOKEN`. Because `GITHUB_TOKEN`-triggered pushes do not start new CI runs, the required checks cannot complete on the new commit.',
+                  '',
+                  `${mentionTarget} please manually trigger CI on this PR (for example, by re-running the failed CI workflows from the Actions tab) so the required checks run on the updated head commit.`,
+                ].join('\n'));
+                core.setFailed('PR head SHA changed during polling. CI must be manually triggered on the new commit.');
                 return;
               }
 
@@ -275,6 +267,7 @@ jobs:
                   ].join('\n'));
                   return;
                 } catch (error) {
+                  const mergeErrorMessage = error instanceof Error ? error.message : String(error);
                   await upsertComment([
                     '## Dependabot auto-merge skipped',
                     '',
