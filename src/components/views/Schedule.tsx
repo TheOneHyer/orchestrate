@@ -1562,13 +1562,6 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
         setRecordScoreEnrollmentId={setRecordScoreEnrollmentId}
         onRecordScore={onRecordScore}
       />
-
-
-
-
-
-
-
     </div>
   )
 }
