@@ -202,13 +202,27 @@ jobs:
 
               if (pullRequest.mergeable_state === 'behind') {
                 core.notice('A new commit left the PR behind main. Requesting another branch update.');
-                await github.rest.pulls.updateBranch({
-                  owner,
-                  repo,
-                  pull_number: pullNumber,
-                  expected_head_sha: pullRequest.head.sha,
-                });
-                return;
+                try {
+                  await github.rest.pulls.updateBranch({
+                    owner,
+                    repo,
+                    pull_number: pullNumber,
+                    expected_head_sha: pullRequest.head.sha,
+                  });
+                  return;
+                } catch (error) {
+                  await upsertComment([
+                    '## Dependabot auto-merge skipped',
+                    '',
+                    'GitHub rejected the request to update this branch from `main`.',
+                    '',
+                    `${mentionTarget} please review this PR and resolve it manually.`,
+                    '',
+                    `Branch update error: ${error.message}`,
+                  ].join('\n'));
+                  core.setFailed('Failed to update Dependabot PR branch from main.');
+                  return;
+                }
               }
 
               if (pullRequest.mergeable === false && pullRequest.mergeable_state === 'dirty') {
