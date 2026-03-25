@@ -1948,6 +1948,77 @@ describe('App', () => {
         )
     })
 
+    it('shows the first-admin setup form when there are no users and creates an admin account', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+
+        render(<App />)
+
+        expect(screen.getByRole('button', { name: /^create first admin$/i })).toBeInTheDocument()
+
+        await user.type(screen.getByLabelText(/^name$/i), 'First Admin')
+        await user.type(screen.getByLabelText(/^email$/i), 'first@example.com')
+        await user.type(screen.getByLabelText(/^password$/i), 'securepass123')
+
+        await user.click(screen.getByRole('button', { name: /^create first admin$/i }))
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'First admin created',
+            expect.objectContaining({ description: expect.stringContaining('First Admin') }),
+        )
+    })
+
+    it('shows a setup-incomplete error when creating the first admin with empty fields', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^create first admin$/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Setup incomplete',
+            expect.objectContaining({ description: expect.stringMatching(/enter name/i) }),
+        )
+    })
+
+    it('assigns a new role from the settings role assignment card', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+
+        // trainer-1 (second user) is promoted to admin
+        const adminButtons = screen.getAllByRole('button', { name: /^admin$/i })
+        await user.click(adminButtons[1])
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Role updated',
+            expect.objectContaining({ description: expect.stringMatching(/admin/i) }),
+        )
+    })
+
+    it('prevents removing the last admin via the settings role assignment card', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+
+        // admin-1 (first user) is the only admin; changing to Employee should be blocked
+        const employeeButtons = screen.getAllByRole('button', { name: /^employee$/i })
+        await user.click(employeeButtons[0])
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Cannot remove the last admin',
+            expect.objectContaining({ description: expect.stringMatching(/another user as admin/i) }),
+        )
+    })
+
     it('warns when stale session and stale user updates are submitted', async () => {
         const user = userEvent.setup()
         kvSeed['sessions'] = [
