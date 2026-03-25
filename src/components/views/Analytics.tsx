@@ -72,9 +72,10 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
 
   const filteredSessions = useMemo(() => {
     const allowedCourseIds = new Set(filteredCourses.map((course) => course.id))
+    const allowedTrainerIds = new Set(filteredUsers.map((user) => user.id))
 
     return sessions.filter((session) => {
-      const matchesDepartment = departmentFilter === 'all' || filteredUsers.some((user) => user.id === session.trainerId)
+      const matchesDepartment = departmentFilter === 'all' || allowedTrainerIds.has(session.trainerId)
       const matchesCourse = courseFilter === 'all' || allowedCourseIds.has(session.courseId)
       const matchesStatus = statusFilter === 'all' || statusFilter === 'failed' || session.status === statusFilter
 
@@ -114,8 +115,8 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
     .filter(e => e.score !== undefined)
     .reduce((sum, e) => sum + (e.score || 0), 0) / filteredEnrollments.filter(e => e.score !== undefined).length || 0
 
-  const employeeCount = users.filter(u => u.role === 'employee').length
-  const trainerCount = users.filter(u => u.role === 'trainer').length
+  const employeeCount = filteredUsers.filter(u => u.role === 'employee').length
+  const trainerCount = filteredUsers.filter(u => u.role === 'trainer').length
 
   const topCourses = filteredCourses
     .map(course => {
