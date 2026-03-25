@@ -133,34 +133,50 @@ export function EnrollStudentsDialog({
     const identifiers = parseEnrollmentIdentifiers(bulkIdentifiers)
     const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, availableStudents)
 
-    addMatchedStudents(matchedIds)
+    const enrolledStudentIds = new Set(session.enrolledStudents ?? [])
+    const filteredMatchedIds = matchedIds.filter((id) => !enrolledStudentIds.has(id))
 
-    if (matchedIds.length === 0 && unmatched.length === 0) {
+    addMatchedStudents(filteredMatchedIds)
+
+    if (filteredMatchedIds.length === 0 && unmatched.length === 0 && matchedIds.length === 0) {
       setImportSummary('Enter at least one student ID, email, or full name to import.')
       return
     }
 
-    if (matchedIds.length === 0) {
+    if (filteredMatchedIds.length === 0 && matchedIds.length === 0) {
       setImportSummary(`No matching students found. Unmatched: ${unmatched.join(', ')}`)
       return
     }
 
+    if (matchedIds.length > 0 && filteredMatchedIds.length === 0) {
+      setImportSummary('All matching students are already enrolled in this session.')
+      return
+    }
+
     const unmatchedMessage = unmatched.length > 0 ? ` Unmatched: ${unmatched.join(', ')}.` : ''
-    setImportSummary(`Added ${matchedIds.length} student${matchedIds.length === 1 ? '' : 's'} from bulk upload.${unmatchedMessage}`)
+    setImportSummary(`Added ${filteredMatchedIds.length} student${filteredMatchedIds.length === 1 ? '' : 's'} from bulk upload.${unmatchedMessage}`)
   }
 
   const handleBadgeScan = () => {
     const identifiers = parseEnrollmentIdentifiers(badgeScanValue)
     const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, availableStudents)
 
-    addMatchedStudents(matchedIds)
+    const enrolledStudentIds = new Set(session.enrolledStudents ?? [])
+    const filteredMatchedIds = matchedIds.filter((id) => !enrolledStudentIds.has(id))
 
-    if (matchedIds.length > 0) {
-      setImportSummary(`Badge scan matched ${matchedIds.length} student${matchedIds.length === 1 ? '' : 's'}.`)
+    addMatchedStudents(filteredMatchedIds)
+
+    if (filteredMatchedIds.length > 0) {
+      setImportSummary(`Badge scan matched ${filteredMatchedIds.length} student${filteredMatchedIds.length === 1 ? '' : 's'}.`)
       setBadgeScanValue('')
       return
     }
 
+    if (matchedIds.length > 0 && filteredMatchedIds.length === 0) {
+      setImportSummary('Scanned student is already enrolled in this session.')
+      setBadgeScanValue('')
+      return
+    }
     setImportSummary(unmatched.length > 0
       ? `No student matched badge value: ${unmatched.join(', ')}`
       : 'Scan a student badge ID, email, or email username to add them.')
