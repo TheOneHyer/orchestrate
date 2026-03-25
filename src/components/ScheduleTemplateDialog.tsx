@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, Trash } from '@phosphor-icons/react'
 import { ScheduleTemplate, ScheduleTemplateSession, ShiftType, TemplateRecurrenceType } from '@/lib/types'
 import { Card } from '@/components/ui/card'
+import { z } from 'zod'
 
 /**
  * Props for the {@link ScheduleTemplateDialog} component.
@@ -33,6 +34,29 @@ interface ScheduleTemplateDialogProps {
 /** Ordered list of day names used to populate the "Day of Week" selector for template sessions. */
 const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
+const createDefaultSession = (): ScheduleTemplateSession => ({
+  dayOfWeek: 1,
+  time: '09:00',
+  duration: 120,
+  shift: 'day',
+  capacity: 20,
+  requiresCertifications: []
+})
+
+const positiveIntegerFieldSchema = z
+  .unknown()
+  .refine((value) => {
+    const parsedValue = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value)
+    return Number.isInteger(parsedValue) && parsedValue > 0
+  }, 'Must be a positive integer.')
+  .transform((value) => (typeof value === 'string' ? Number.parseInt(value, 10) : Number(value)))
+
+const scheduleTemplateSessionValidationSchema = z.object({
+  time: z.string().trim().min(1, 'Time is required.'),
+  duration: positiveIntegerFieldSchema,
+  capacity: positiveIntegerFieldSchema,
+})
+
 /**
  * Dialog for creating or editing a reusable {@link ScheduleTemplate}.
  *
@@ -53,35 +77,34 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
   const [tags, setTags] = useState<string[]>(template?.tags || [])
   const [tagInput, setTagInput] = useState('')
   const [sessions, setSessions] = useState<ScheduleTemplateSession[]>(
-    template?.sessions || [
-      {
-        dayOfWeek: 1,
-        time: '09:00',
-        duration: 120,
-        shift: 'day',
-        capacity: 20,
-        requiresCertifications: []
-      }
-    ]
+    template?.sessions || [createDefaultSession()]
   )
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    setName(template?.name || '')
+    setDescription(template?.description || '')
+    setCourseId(template?.courseId || '')
+    setCategory(template?.category || 'general')
+    setRecurrenceType(template?.recurrenceType || 'weekly')
+    setCycleDays(template?.cycleDays?.toString() || '7')
+    setAutoAssignTrainers(template?.autoAssignTrainers ?? true)
+    setNotifyParticipants(template?.notifyParticipants ?? true)
+    setTags(template?.tags || [])
+    setTagInput('')
+    setSessions(template?.sessions || [createDefaultSession()])
     setError(null)
-  }, [open])
+  }, [open, template])
 
   /** Appends a new default session to the template's session list. */
   const handleAddSession = () => {
     setSessions([
       ...sessions,
-      {
-        dayOfWeek: 1,
-        time: '09:00',
-        duration: 120,
-        shift: 'day',
-        capacity: 20,
-        requiresCertifications: []
-      }
+      createDefaultSession()
     ])
   }
 
@@ -144,6 +167,40 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
       }
     }
 
+    const validatedSessions: ScheduleTemplateSession[] = []
+
+    for (const [index, session] of sessions.entries()) {
+      const validationResult = scheduleTemplateSessionValidationSchema.safeParse(session)
+
+      if (!validationResult.success) {
+        const issue = validationResult.error.issues[0]
+        if (issue.path[0] === 'time') {
+          setError(`Session ${index + 1}: time is required.`)
+          return
+        }
+
+        if (issue.path[0] === 'duration') {
+          setError(`Session ${index + 1}: duration must be a positive integer.`)
+          return
+        }
+
+        if (issue.path[0] === 'capacity') {
+          setError(`Session ${index + 1}: capacity must be a positive integer.`)
+          return
+        }
+
+        setError(`Session ${index + 1}: contains invalid values.`)
+        return
+      }
+
+      validatedSessions.push({
+        ...session,
+        time: validationResult.data.time,
+        duration: validationResult.data.duration,
+        capacity: validationResult.data.capacity,
+      })
+    }
+
     onSave({
       name: trimmedName,
       description: description.trim(),
@@ -151,7 +208,7 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
       category,
       recurrenceType,
       cycleDays: recurrenceType === 'custom' ? parsedCycleDays : undefined,
-      sessions,
+      sessions: validatedSessions,
       autoAssignTrainers,
       notifyParticipants,
       tags,

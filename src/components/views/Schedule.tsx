@@ -376,7 +376,8 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
 
     const updatedEnrolledStudents = [...selectedSession.enrolledStudents, ...studentIds]
     onUpdateSession(selectedSession.id, {
-      enrolledStudents: updatedEnrolledStudents
+      enrolledStudents: updatedEnrolledStudents,
+      updatedAt: selectedSession.updatedAt,
     })
 
     setSelectedSession({

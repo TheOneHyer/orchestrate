@@ -161,7 +161,10 @@ export function Notifications({
    * @returns A Phosphor icon element.
    */
   const getNotificationIcon = (notification: Notification) => {
-    const className = notificationIconClassNames[notification.type]
+    const className =
+      notificationIconClassNames[notification.type] ??
+      notificationIconClassNames.system ??
+      'text-muted-foreground'
 
     switch (notification.type) {
       case 'session':

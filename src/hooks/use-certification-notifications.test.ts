@@ -7,12 +7,6 @@ import { useCertificationNotifications } from './use-certification-notifications
 
 const SYSTEM_TIME = new Date('2026-03-16T10:00:00.000Z')
 
-function expiresIn(days: number): string {
-    const d = new Date(SYSTEM_TIME)
-    d.setDate(d.getDate() + days)
-    return d.toISOString().split('T')[0]
-}
-
 function daysAgoIso(days: number): string {
     return new Date(SYSTEM_TIME.getTime() - days * 24 * 60 * 60 * 1000).toISOString()
 }
@@ -537,76 +531,71 @@ describe('use-certification-notifications', () => {
 
         expiringSpy.mockRestore()
     })
-})
+    it('emits no notifications when users array is empty', () => {
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
 
-it('emits no notifications when users array is empty', () => {
-    const onCreateNotification = vi.fn()
-    const onUpdateUsers = vi.fn()
+        renderHook(() => useCertificationNotifications([], onCreateNotification, onUpdateUsers))
 
-    renderHook(() => useCertificationNotifications([], onCreateNotification, onUpdateUsers))
-
-    expect(onCreateNotification).not.toHaveBeenCalled()
-    expect(onUpdateUsers).not.toHaveBeenCalled()
-})
-
-it('ignores users without a trainerProfile without crashing', () => {
-    const userWithoutProfile: User = {
-        id: 'no-profile',
-        name: 'No Profile User',
-        email: 'no-profile@example.com',
-        role: 'trainer',
-        department: 'Operations',
-        certifications: [],
-        hireDate: '2020-01-01T00:00:00.000Z',
-    }
-    const onCreateNotification = vi.fn()
-    const onUpdateUsers = vi.fn()
-
-    renderHook(() => useCertificationNotifications([userWithoutProfile], onCreateNotification, onUpdateUsers))
-
-    expect(onCreateNotification).not.toHaveBeenCalled()
-    expect(onUpdateUsers).not.toHaveBeenCalled()
-})
-
-it('updates notifications when users array is updated via rerender', () => {
-    const eligibleUser = createTrainer('trainer-eligible', createCertRecord(45, 0))
-    const onCreateNotification = vi.fn()
-    const onUpdateUsers = vi.fn()
-
-    const { rerender } = renderHook(
-        ({ users }: { users: User[] }) => useCertificationNotifications(users, onCreateNotification, onUpdateUsers),
-        { initialProps: { users: [] as User[] } }
-    )
-
-    expect(onCreateNotification).not.toHaveBeenCalled()
-
-    rerender({ users: [eligibleUser] })
-
-    expect(onCreateNotification).toHaveBeenCalledTimes(2)
-    expect(onUpdateUsers).toHaveBeenCalledOnce()
-})
-
-it('re-runs checkAndNotify when the 24-hour interval fires', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(SYSTEM_TIME)
-    const cert = createCertRecord(45, 0)
-    const trainer = createTrainer('trainer-interval', cert)
-    const onCreateNotification = vi.fn()
-    const onUpdateUsers = vi.fn()
-
-    renderHook(() => useCertificationNotifications([trainer], onCreateNotification, onUpdateUsers))
-
-    // Initial mount fires checkAndNotify
-    expect(onCreateNotification).toHaveBeenCalledTimes(2)
-    onCreateNotification.mockClear()
-
-    // Advance the clock by 24 hours to trigger the interval
-    act(() => {
-        vi.advanceTimersByTime(24 * 60 * 60 * 1000)
+        expect(onCreateNotification).not.toHaveBeenCalled()
+        expect(onUpdateUsers).not.toHaveBeenCalled()
     })
 
-    // The interval callback fires checkAndNotify with usersRef.current (original users)
-    expect(onCreateNotification).toHaveBeenCalledTimes(2)
+    it('ignores users without a trainerProfile without crashing', () => {
+        const userWithoutProfile: User = {
+            id: 'no-profile',
+            name: 'No Profile User',
+            email: 'no-profile@example.com',
+            role: 'trainer',
+            department: 'Operations',
+            certifications: [],
+            hireDate: '2020-01-01T00:00:00.000Z',
+        }
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
 
-    vi.useRealTimers()
+        renderHook(() => useCertificationNotifications([userWithoutProfile], onCreateNotification, onUpdateUsers))
+
+        expect(onCreateNotification).not.toHaveBeenCalled()
+        expect(onUpdateUsers).not.toHaveBeenCalled()
+    })
+
+    it('updates notifications when users array is updated via rerender', () => {
+        const eligibleUser = createTrainer('trainer-eligible', createCertRecord(45, 0))
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        const { rerender } = renderHook(
+            ({ users }: { users: User[] }) => useCertificationNotifications(users, onCreateNotification, onUpdateUsers),
+            { initialProps: { users: [] as User[] } }
+        )
+
+        expect(onCreateNotification).not.toHaveBeenCalled()
+
+        rerender({ users: [eligibleUser] })
+
+        expect(onCreateNotification).toHaveBeenCalledTimes(2)
+        expect(onUpdateUsers).toHaveBeenCalledOnce()
+    })
+
+    it('re-runs checkAndNotify when the 24-hour interval fires', () => {
+        const cert = createCertRecord(45, 0)
+        const trainer = createTrainer('trainer-interval', cert)
+        const onCreateNotification = vi.fn()
+        const onUpdateUsers = vi.fn()
+
+        renderHook(() => useCertificationNotifications([trainer], onCreateNotification, onUpdateUsers))
+
+        // Initial mount fires checkAndNotify
+        expect(onCreateNotification).toHaveBeenCalledTimes(2)
+        onCreateNotification.mockClear()
+
+        // Advance the clock by 24 hours to trigger the interval
+        act(() => {
+            vi.advanceTimersByTime(24 * 60 * 60 * 1000)
+        })
+
+        // The interval callback fires checkAndNotify with usersRef.current (original users)
+        expect(onCreateNotification).toHaveBeenCalledTimes(2)
+    })
 })
