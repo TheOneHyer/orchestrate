@@ -1,13 +1,16 @@
-import { useState, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Textarea } from '@/components/ui/textarea'
 import { User, Session } from '@/lib/types'
 import { checkStudentEnrollmentConflicts } from '@/lib/conflict-detection'
+import { matchStudentsByIdentifiers, parseEnrollmentIdentifiers } from '@/lib/enrollment-import'
 import { MagnifyingGlass, Warning, UserPlus, Clock } from '@phosphor-icons/react'
 import { format } from 'date-fns'
 
@@ -52,15 +55,24 @@ export function EnrollStudentsDialog({
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [showConflicts, setShowConflicts] = useState(false)
+  const [bulkIdentifiers, setBulkIdentifiers] = useState('')
+  const [badgeScanValue, setBadgeScanValue] = useState('')
+  const [importSummary, setImportSummary] = useState<string | null>(null)
 
   const filteredStudents = useMemo(() => {
     return availableStudents.filter(student =>
       !session.enrolledStudents.includes(student.id) &&
       (student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       student.department.toLowerCase().includes(searchQuery.toLowerCase()))
+        student.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        student.department.toLowerCase().includes(searchQuery.toLowerCase()))
     )
   }, [availableStudents, session.enrolledStudents, searchQuery])
+
+  const visibleStudentIds = useMemo(() => {
+    return filteredStudents.map((student) => student.id)
+  }, [filteredStudents])
+
+  const allVisibleSelected = visibleStudentIds.length > 0 && visibleStudentIds.every((id) => selectedStudents.includes(id))
 
   const conflictCheck = useMemo(() => {
     if (selectedStudents.length === 0) {
@@ -79,12 +91,91 @@ export function EnrollStudentsDialog({
   }
 
   const handleSelectAll = () => {
-    if (selectedStudents.length === filteredStudents.length) {
-      setSelectedStudents([])
-    } else {
-      setSelectedStudents(filteredStudents.map(s => s.id))
-      setShowConflicts(true)
+    if (visibleStudentIds.length === 0) {
+      return
     }
+
+    setSelectedStudents((previous) => {
+      const everyVisibleSelected = visibleStudentIds.every((id) => previous.includes(id))
+      if (everyVisibleSelected) {
+        return previous.filter((id) => !visibleStudentIds.includes(id))
+      }
+
+      setShowConflicts(true)
+      return Array.from(new Set([...previous, ...visibleStudentIds]))
+    })
+  }
+
+  const resetTransientState = useCallback(() => {
+    setSelectedStudents([])
+    setSearchQuery('')
+    setShowConflicts(false)
+    setBulkIdentifiers('')
+    setBadgeScanValue('')
+    setImportSummary(null)
+  }, [])
+
+  const addMatchedStudents = (studentIds: string[]) => {
+    if (studentIds.length === 0) {
+      return
+    }
+
+    setSelectedStudents((previous) => Array.from(new Set([...previous, ...studentIds])))
+    setShowConflicts(true)
+  }
+
+  const handleImportIdentifiers = () => {
+    const identifiers = parseEnrollmentIdentifiers(bulkIdentifiers)
+    const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, availableStudents)
+
+    const enrolledStudentIds = new Set(session.enrolledStudents ?? [])
+    const filteredMatchedIds = matchedIds.filter((id) => !enrolledStudentIds.has(id))
+
+    addMatchedStudents(filteredMatchedIds)
+
+    if (filteredMatchedIds.length === 0 && unmatched.length === 0 && matchedIds.length === 0) {
+      setImportSummary('Enter at least one student ID, email, or full name to import.')
+      return
+    }
+
+    if (filteredMatchedIds.length === 0 && matchedIds.length === 0) {
+      setImportSummary(`No matching students found. Unmatched: ${unmatched.join(', ')}`)
+      return
+    }
+
+    if (matchedIds.length > 0 && filteredMatchedIds.length === 0) {
+      const unmatchedMessage = unmatched.length > 0 ? ` Unmatched: ${unmatched.join(', ')}.` : ''
+      setImportSummary(`All matching students are already enrolled in this session.${unmatchedMessage}`)
+      return
+    }
+
+    const unmatchedMessage = unmatched.length > 0 ? ` Unmatched: ${unmatched.join(', ')}.` : ''
+    setImportSummary(`Added ${filteredMatchedIds.length} student${filteredMatchedIds.length === 1 ? '' : 's'} from bulk upload.${unmatchedMessage}`)
+  }
+
+  const handleBadgeScan = () => {
+    const identifiers = parseEnrollmentIdentifiers(badgeScanValue)
+    const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, availableStudents)
+
+    const enrolledStudentIds = new Set(session.enrolledStudents ?? [])
+    const filteredMatchedIds = matchedIds.filter((id) => !enrolledStudentIds.has(id))
+
+    addMatchedStudents(filteredMatchedIds)
+
+    if (filteredMatchedIds.length > 0) {
+      setImportSummary(`Badge scan matched ${filteredMatchedIds.length} student${filteredMatchedIds.length === 1 ? '' : 's'}.`)
+      setBadgeScanValue('')
+      return
+    }
+
+    if (matchedIds.length > 0 && filteredMatchedIds.length === 0) {
+      setImportSummary('Scanned student is already enrolled in this session.')
+      setBadgeScanValue('')
+      return
+    }
+    setImportSummary(unmatched.length > 0
+      ? `No student matched badge value: ${unmatched.join(', ')}`
+      : 'Scan a student badge ID, email, or email username to add them.')
   }
 
   const handleEnroll = () => {
@@ -93,17 +184,20 @@ export function EnrollStudentsDialog({
     } else {
       onEnrollStudents(selectedStudents)
     }
-    setSelectedStudents([])
-    setSearchQuery('')
-    setShowConflicts(false)
+    resetTransientState()
     onOpenChange(false)
   }
 
   const handleCancel = () => {
-    setSelectedStudents([])
-    setSearchQuery('')
-    setShowConflicts(false)
+    resetTransientState()
     onOpenChange(false)
+  }
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      resetTransientState()
+    }
+    onOpenChange(nextOpen)
   }
 
   /**
@@ -116,14 +210,14 @@ export function EnrollStudentsDialog({
     return availableStudents.find(s => s.id === id)
   }
 
-  const enrollableCount = conflictCheck.hasConflicts 
-    ? conflictCheck.allowedStudents.length 
+  const enrollableCount = conflictCheck.hasConflicts
+    ? conflictCheck.allowedStudents.length
     : selectedStudents.length
 
   const remainingCapacity = session.capacity - session.enrolledStudents.length
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -151,7 +245,7 @@ export function EnrollStudentsDialog({
               size="sm"
               onClick={handleSelectAll}
             >
-              {selectedStudents.length === filteredStudents.length ? 'Deselect All' : 'Select All'}
+              {allVisibleSelected ? 'Deselect All' : 'Select All'}
             </Button>
           </div>
 
@@ -166,6 +260,48 @@ export function EnrollStudentsDialog({
               </span>
             </div>
           </div>
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            <div className="space-y-2 rounded-lg border p-3">
+              <div>
+                <Label htmlFor="bulk-identifiers" className="font-medium">Bulk Upload</Label>
+                <div id="bulk-identifiers-help" className="text-sm text-muted-foreground">Paste student IDs, emails, or full names separated by commas or new lines.</div>
+              </div>
+              <Textarea
+                id="bulk-identifiers"
+                aria-describedby="bulk-identifiers-help"
+                value={bulkIdentifiers}
+                onChange={(event) => setBulkIdentifiers(event.target.value)}
+                placeholder="stu-1\nstu-2\nalice@example.com"
+              />
+              <Button type="button" variant="outline" onClick={handleImportIdentifiers}>
+                Import List
+              </Button>
+            </div>
+
+            <div className="space-y-2 rounded-lg border p-3">
+              <div>
+                <Label htmlFor="badge-scan-value" className="font-medium">Badge Scan</Label>
+                <div id="badge-scan-help" className="text-sm text-muted-foreground">Simulate a badge scan with a student ID, email, or email username.</div>
+              </div>
+              <Input
+                id="badge-scan-value"
+                aria-describedby="badge-scan-help"
+                value={badgeScanValue}
+                onChange={(event) => setBadgeScanValue(event.target.value)}
+                placeholder="Scan or enter badge value"
+              />
+              <Button type="button" variant="outline" onClick={handleBadgeScan}>
+                Scan Badge
+              </Button>
+            </div>
+          </div>
+
+          {importSummary && (
+            <Alert>
+              <AlertDescription>{importSummary}</AlertDescription>
+            </Alert>
+          )}
 
           {remainingCapacity < enrollableCount && (
             <Alert variant="destructive">
@@ -221,13 +357,12 @@ export function EnrollStudentsDialog({
                   return (
                     <div
                       key={student.id}
-                      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-                        isSelected 
-                          ? hasConflict 
-                            ? 'bg-destructive/5 border-destructive' 
-                            : 'bg-primary/5 border-primary' 
-                          : 'hover:bg-muted/50'
-                      }`}
+                      className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${isSelected
+                        ? hasConflict
+                          ? 'bg-destructive/5 border-destructive'
+                          : 'bg-primary/5 border-primary'
+                        : 'hover:bg-muted/50'
+                        }`}
                     >
                       <Checkbox
                         id={student.id}

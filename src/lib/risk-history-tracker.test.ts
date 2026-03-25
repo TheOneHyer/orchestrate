@@ -8,6 +8,7 @@ import { calculateTrainerUtilization } from './burnout-analytics'
 import {
     aggregateSnapshotsByDay,
     analyzeRiskTrend,
+    calculateRiskLevel,
     createRiskSnapshot,
     generateRiskReport,
     shouldTakeSnapshot,
@@ -95,6 +96,15 @@ describe('risk-history-tracker', () => {
         })
     })
 
+    it('maps risk-score boundaries to the expected risk levels', () => {
+        expect(calculateRiskLevel(24)).toBe('low')
+        expect(calculateRiskLevel(25)).toBe('medium')
+        expect(calculateRiskLevel(44)).toBe('medium')
+        expect(calculateRiskLevel(45)).toBe('high')
+        expect(calculateRiskLevel(69)).toBe('high')
+        expect(calculateRiskLevel(70)).toBe('critical')
+    })
+
     it('returns null when no snapshots are in the selected time range', () => {
         const trend = analyzeRiskTrend(createTrainer(), [
             createSnapshot({ timestamp: '2025-01-01T00:00:00.000Z' }),
@@ -173,6 +183,22 @@ describe('risk-history-tracker', () => {
         expect(trend?.changeRate).toBe(0)
     })
 
+    it('keeps trend stable when enough history exists but the average change stays within thresholds', () => {
+        const trend = analyzeRiskTrend(createTrainer(), [
+            createSnapshot({ id: 's1', timestamp: '2026-02-20T12:00:00.000Z', riskScore: 40, riskLevel: 'medium' }),
+            createSnapshot({ id: 's2', timestamp: '2026-02-24T12:00:00.000Z', riskScore: 42, riskLevel: 'medium' }),
+            createSnapshot({ id: 's3', timestamp: '2026-02-28T12:00:00.000Z', riskScore: 44, riskLevel: 'medium' }),
+            createSnapshot({ id: 's4', timestamp: '2026-03-06T12:00:00.000Z', riskScore: 45, riskLevel: 'high' }),
+            createSnapshot({ id: 's5', timestamp: '2026-03-10T12:00:00.000Z', riskScore: 46, riskLevel: 'high' }),
+            createSnapshot({ id: 's6', timestamp: '2026-03-15T12:00:00.000Z', riskScore: 47, riskLevel: 'high' }),
+        ], 'month')
+
+        expect(trend?.trendDirection).toBe('stable')
+        expect(trend?.changeRate).toBe(4)
+        expect(trend?.daysInHighRisk).toBe(3)
+        expect(trend?.daysInCriticalRisk).toBe(0)
+    })
+
     it('generates portfolio risk report across trainers', () => {
         const trainers = [
             createTrainer({ id: 'trainer-1', name: 'Trainer One' }),
@@ -241,6 +267,14 @@ describe('risk-history-tracker', () => {
         expect(shouldTakeSnapshot('trainer-1', oldSnapshot, 24)).toBe(true)
     })
 
+    it('takes a snapshot when the elapsed time exactly matches the configured cadence', () => {
+        const exactThresholdSnapshot = createSnapshot({
+            timestamp: '2026-03-15T12:00:00.000Z',
+        })
+
+        expect(shouldTakeSnapshot('trainer-1', exactThresholdSnapshot, 24)).toBe(true)
+    })
+
     it('aggregates snapshots by day using the latest snapshot of each day', () => {
         const aggregated = aggregateSnapshotsByDay([
             createSnapshot({ id: 'd1-a', timestamp: '2026-03-10T08:00:00.000Z', riskScore: 40 }),
@@ -251,6 +285,10 @@ describe('risk-history-tracker', () => {
         ])
 
         expect(aggregated.map(snapshot => snapshot.id)).toEqual(['d1-b', 'd2-b', 'd3'])
+    })
+
+    it('returns an empty array when there are no snapshots to aggregate', () => {
+        expect(aggregateSnapshotsByDay([])).toEqual([])
     })
 
     it('keeps the current latest snapshot when reduce compares against an older timestamp', () => {

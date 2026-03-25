@@ -62,6 +62,7 @@ describe('normalizeNavigationValue', () => {
             view: 'schedule',
             data: { sessionId: 'session-7' },
         })
+        expect(normalizeNavigationValue('/schedule/')).toEqual({ view: 'schedule' })
     })
 
     it('strips query string from schedule session path', () => {
