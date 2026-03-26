@@ -205,7 +205,7 @@ describe('ScheduleTemplateDialog', () => {
                 name: 'Two Session Template',
                 sessions: expect.arrayContaining([
                     expect.objectContaining({
-                        dayOfWeek: 2,
+                        dayOfWeek: 3,
                         time: '13:30',
                         duration: 90,
                         shift: 'night',

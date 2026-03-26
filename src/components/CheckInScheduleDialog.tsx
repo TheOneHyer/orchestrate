@@ -54,7 +54,7 @@ const frequencyLabels: Record<CheckInFrequency, string> = {
 const checkInScheduleSchema = z.object({
   trainerId: z.string().min(1, 'Trainer is required'),
   frequency: z.enum(checkInFrequencies),
-  customDays: z.coerce.number().int().min(1, 'Custom days must be at least 1').max(365, 'Custom days must be 365 or fewer'),
+  customDays: z.coerce.number().int().optional(),
   startDate: z.string().min(1, 'Start date is required'),
   hasEndDate: z.boolean(),
   endDate: z.string().optional(),
@@ -70,6 +70,22 @@ const checkInScheduleSchema = z.object({
       message: 'Start date is invalid.',
       path: ['startDate'],
     })
+  }
+
+  if (values.frequency === 'custom') {
+    if (values.customDays === undefined || values.customDays === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Custom days must be at least 1',
+        path: ['customDays'],
+      })
+    } else if (!Number.isInteger(values.customDays) || values.customDays < 1 || values.customDays > 365) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: values.customDays < 1 ? 'Custom days must be at least 1' : 'Custom days must be 365 or fewer',
+        path: ['customDays'],
+      })
+    }
   }
 
   if (values.hasEndDate) {
@@ -206,13 +222,13 @@ export function CheckInScheduleDialog({
       customDays: values.frequency === 'custom' ? values.customDays : undefined,
       startDate: new Date(values.startDate).toISOString(),
       endDate: values.hasEndDate && values.endDate ? new Date(values.endDate).toISOString() : undefined,
-      nextScheduledDate: new Date(values.startDate).toISOString(),
+      nextScheduledDate: existingSchedule?.nextScheduledDate ?? new Date(values.startDate).toISOString(),
       lastCheckInDate: existingSchedule?.lastCheckInDate,
       status: existingSchedule?.status || 'active',
       notificationEnabled: values.notificationEnabled,
       autoReminders: values.autoReminders,
       reminderHoursBefore: values.reminderHoursBefore,
-      createdBy: currentUserId,
+      createdBy: existingSchedule?.createdBy ?? currentUserId,
       notes: values.notes.trim() || undefined,
     }
 

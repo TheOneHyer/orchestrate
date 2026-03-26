@@ -31,8 +31,16 @@ interface ScheduleTemplateDialogProps {
   courses: Array<{ id: string; title: string }>
 }
 
-/** Ordered list of day names used to populate the "Day of Week" selector for template sessions. */
-const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+/** Ordered list of day names used to populate the "Day of Week" selector for template sessions, mapped to canonical 0=Sunday through 6=Saturday values. */
+const DAYS_OF_WEEK = [
+  { label: 'Sunday', value: 0 },
+  { label: 'Monday', value: 1 },
+  { label: 'Tuesday', value: 2 },
+  { label: 'Wednesday', value: 3 },
+  { label: 'Thursday', value: 4 },
+  { label: 'Friday', value: 5 },
+  { label: 'Saturday', value: 6 },
+]
 
 const createDefaultSession = (): ScheduleTemplateSession => ({
   dayOfWeek: 1,
@@ -300,11 +308,12 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
           <div className="flex gap-4">
             <div className="flex flex-col gap-2 flex-1">
               <Label htmlFor="template-course">Course (Optional)</Label>
-              <Select value={courseId} onValueChange={setCourseId}>
+              <Select value={courseId || ''} onValueChange={(value) => setCourseId(value === '' ? '' : value)}>
                 <SelectTrigger id="template-course">
                   <SelectValue placeholder="Select course or leave unassigned" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="">Unassigned</SelectItem>
                   {courses.map(course => (
                     <SelectItem key={course.id} value={course.id}>
                       {course.title}
@@ -444,18 +453,18 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
                   <div className="flex gap-3">
                     {recurrenceType !== 'daily' && (
                       <div className="flex flex-col gap-2 flex-1">
-                        <Label>Day of Week</Label>
+                        <Label htmlFor={`session-${index}-dayOfWeek`}>Day of Week</Label>
                         <Select
                           value={session.dayOfWeek?.toString()}
                           onValueChange={v => handleUpdateSession(index, { dayOfWeek: parseInt(v, 10) })}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger id={`session-${index}-dayOfWeek`}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {DAYS_OF_WEEK.map((day, i) => (
-                              <SelectItem key={i} value={i.toString()}>
-                                {day}
+                            {DAYS_OF_WEEK.map((day) => (
+                              <SelectItem key={day.value} value={day.value.toString()}>
+                                {day.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -464,8 +473,9 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
                     )}
 
                     <div className="flex flex-col gap-2 flex-1">
-                      <Label>Time</Label>
+                      <Label htmlFor={`session-${index}-time`}>Time</Label>
                       <Input
+                        id={`session-${index}-time`}
                         type="time"
                         value={session.time}
                         onChange={e => handleUpdateSession(index, { time: e.target.value })}
@@ -473,8 +483,9 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
                     </div>
 
                     <div className="flex flex-col gap-2 flex-1">
-                      <Label>Duration (min)</Label>
+                      <Label htmlFor={`session-${index}-duration`}>Duration (min)</Label>
                       <Input
+                        id={`session-${index}-duration`}
                         type="number"
                         min="15"
                         step="15"
@@ -487,12 +498,12 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
 
                   <div className="flex gap-3">
                     <div className="flex flex-col gap-2 flex-1">
-                      <Label>Shift</Label>
+                      <Label htmlFor={`session-${index}-shift`}>Shift</Label>
                       <Select
                         value={session.shift}
                         onValueChange={v => handleUpdateSession(index, { shift: v as ShiftType })}
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id={`session-${index}-shift`}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -504,8 +515,9 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
                     </div>
 
                     <div className="flex flex-col gap-2 flex-1">
-                      <Label>Capacity</Label>
+                      <Label htmlFor={`session-${index}-capacity`}>Capacity</Label>
                       <Input
+                        id={`session-${index}-capacity`}
                         type="number"
                         min="1"
                         value={session.capacity}
@@ -515,8 +527,9 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
                     </div>
 
                     <div className="flex flex-col gap-2 flex-1">
-                      <Label>Location (Optional)</Label>
+                      <Label htmlFor={`session-${index}-location`}>Location (Optional)</Label>
                       <Input
+                        id={`session-${index}-location`}
                         value={session.location || ''}
                         onChange={e => handleUpdateSession(index, { location: e.target.value })}
                         placeholder="Room/Location"
@@ -555,6 +568,14 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
  * recurrence type, tags, and one or more session slots (each with a day-of-week, time,
  * duration, shift, capacity, and optional location). Handles both create and edit modes;
  * in edit mode the form is pre-populated from the `template` prop.
+ *
+ * @param open - Whether the dialog is open.
+ * @param onOpenChange - Callback to update the open state of the dialog.
+ * @param template - When provided, the dialog operates in edit mode and pre-populates its fields from this template.
+ * @param onSave - Callback invoked with the template data when the user saves.
+ * @param courses - Available courses to optionally associate with the template.
+ * @returns JSX.Element representing the schedule template dialog.
+ * @throws Validation errors when required fields are missing or session values are invalid.
  */
 export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, courses }: ScheduleTemplateDialogProps) {
   return (

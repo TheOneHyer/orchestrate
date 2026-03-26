@@ -187,8 +187,10 @@ describe('RecoveryPlanDialog', () => {
         render(<RecoveryPlanDialog {...baseProps} currentUtilization={88} />)
 
         await user.type(screen.getByLabelText(/trigger reason/i), 'Need a short-term recovery plan')
-        fireEvent.change(screen.getByLabelText(/target utilization/i), { target: { value: '65' } })
-        fireEvent.change(screen.getByLabelText(/duration \(weeks\)/i), { target: { value: '6' } })
+        await user.clear(screen.getByLabelText(/target utilization/i))
+        await user.type(screen.getByLabelText(/target utilization/i), '65')
+        await user.clear(screen.getByLabelText(/duration \(weeks\)/i))
+        await user.type(screen.getByLabelText(/duration \(weeks\)/i), '6')
 
         await user.click(screen.getByRole('combobox'))
         await user.click(await screen.findByRole('option', { name: /schedule adjustment/i }))
@@ -361,8 +363,10 @@ describe('RecoveryPlanDialog', () => {
         render(<RecoveryPlanDialog {...baseProps} currentUtilization={85} />)
 
         await user.type(screen.getByLabelText(/trigger reason/i), 'Long-term sustainability plan needed')
-        fireEvent.change(screen.getByLabelText(/target utilization/i), { target: { value: '60' } })
-        fireEvent.change(screen.getByLabelText(/duration \(weeks\)/i), { target: { value: '8' } })
+        await user.clear(screen.getByLabelText(/target utilization/i))
+        await user.type(screen.getByLabelText(/target utilization/i), '60')
+        await user.clear(screen.getByLabelText(/duration \(weeks\)/i))
+        await user.type(screen.getByLabelText(/duration \(weeks\)/i), '8')
 
         await user.click(screen.getByRole('combobox'))
         await user.click(await screen.findByRole('option', { name: /workload reduction/i }))

@@ -509,7 +509,7 @@ describe('use-certification-notifications', () => {
 
     it('safely skips alerts when the certification name does not match any record', () => {
         const trainer = createTrainer('trainer-no-cert-match', createCertRecord(10, 0))
-        const expiringSpy = vi.spyOn(certificationTracker, 'getExpiringCertifications').mockReturnValue([
+        vi.spyOn(certificationTracker, 'getExpiringCertifications').mockReturnValue([
             {
                 userId: trainer.id,
                 userName: trainer.name,
