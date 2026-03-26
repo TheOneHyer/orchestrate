@@ -56,11 +56,9 @@ interface TrainerWellnessProps {
 }
 
 /**
- * Renders the Trainer Wellness dashboard.
+ * Renders the Trainer Wellness dashboard, showing trainers' wellbeing metrics, check-in history, automated schedules, and recovery plans while exposing admin controls to record check-ins, manage schedules, and create recovery plans.
  *
- * Aggregates wellness check-in data, burnout risk scores, and recovery plans for each
- * trainer. Admins can trigger ad-hoc check-ins, create or edit recovery plans, and
- * configure automated check-in schedules. Data is persisted via the Spark KV store.
+ * @returns The JSX element for the Trainer Wellness dashboard.
  */
 export function TrainerWellness({ users, sessions, currentUser, onNavigate }: TrainerWellnessProps) {
   const [checkIns, setCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])

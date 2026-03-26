@@ -82,10 +82,10 @@ const KNOWN_NOTIFICATION_VIEWS = new Set<string>([
 ])
 
 /**
- * Generates a timestamp/random-based entity ID using a stable prefix.
+ * Creates a namespaced unique identifier using the provided prefix.
  *
- * @param prefix - Domain prefix for the ID (e.g. `session`, `course`).
- * @returns A unique prefixed identifier.
+ * @param prefix - Domain prefix for the identifier (e.g. `session`, `course`)
+ * @returns A string identifier prefixed with `prefix`
  */
 function createEntityId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
@@ -106,19 +106,13 @@ type SignInFormValues = z.infer<typeof signInSchema>
 type FirstAdminFormValues = z.infer<typeof firstAdminSchema>
 
 /**
- * Root application component for the Orchestrate training management platform.
+ * Root application component that manages KV-backed application state and renders the active view inside the shared layout.
  *
- * Manages all persistent application state (users, sessions, courses,
- * enrollments, notifications, wellness records, and more) via KV-backed hooks,
- * and orchestrates navigation between the various views rendered inside the
- * shared {@link Layout}.
+ * Manages users, sessions, courses, enrollments, notifications, wellness/recovery records, attendance, and related derived views;
+ * wires preview/demo seeding and preview-mode auth flows; and exposes handlers for navigation, CRUD operations, notifications, scoring,
+ * attendance, role assignment, and user/session lifecycle management.
  *
- * Also handles automatic seeding of preview/demo data when the application is
- * launched in a preview environment, and wires up utilization and
- * certification notification hooks that generate in-app alerts.
- *
- * @returns The full application shell including the active view, a
- *   notification permission banner, and the toast container.
+ * @returns The full application shell containing the active view, the notification permission banner, and the toast container.
  */
 function App() {
   const [activeView, setActiveView] = useState('dashboard')

@@ -55,10 +55,10 @@ const courseEditorSchema = z.object({
 })
 
 /**
- * Returns the human-readable message of the first validation error found in the form errors map.
+ * Get the first human-readable validation message from the form errors.
  *
- * @param errors - The React Hook Form `FieldErrors` object for `CourseEditorState`.
- * @returns The first error message string, or a generic fallback.
+ * @param errors - React Hook Form `FieldErrors` for the course editor form
+ * @returns The first found validation message string, or `Please review the course details and try again.` as a fallback
  */
 function getFirstValidationErrorMessage(errors: FieldErrors<CourseEditorState>): string {
   if (typeof errors.title?.message === 'string') {

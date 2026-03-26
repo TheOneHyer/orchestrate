@@ -37,12 +37,12 @@ interface EnrollStudentsDialogProps {
 }
 
 /**
- * Dialog for searching and enrolling students into a training session.
+ * Dialog UI for searching, selecting, and enrolling students into a training session.
  *
- * Displays a searchable, scrollable list of available students (excluding those already
- * enrolled). As students are selected, scheduling conflicts are detected in real time via
- * `checkStudentEnrollmentConflicts`. Conflicting students are highlighted and excluded from
- * the final enrollment call. The dialog also enforces the session's remaining capacity.
+ * Renders a searchable, scrollable list of available students (excluding those already enrolled),
+ * supports bulk import and badge-scan entry, highlights scheduling conflicts in real time, and
+ * enforces the session's remaining capacity. When enrollment is confirmed, the component invokes
+ * `onEnrollStudents` with only the student IDs that can be enrolled (conflict-free and within capacity).
  */
 export function EnrollStudentsDialog({
   open,

@@ -58,18 +58,13 @@ export function applyScore(score: number, passScore: number): EnrollmentScoreUpd
 }
 
 /**
- * Returns `true` when recording a new score on the given enrollment would
- * trigger a completion notification — i.e. the enrollment's current status is
- * not already `'completed'` and the supplied score meets the pass threshold.
- *
- * Use this to guard against emitting duplicate completion notifications when
- * a score is updated on an already-completed enrollment.
+ * Determines whether applying a score should emit a completion notification.
  *
  * @param currentStatus - The enrollment's status before the score is applied.
- * @param score - The score that is about to be applied.
- * @param passScore - The minimum passing score for the course.
- * @returns `true` if a completion notification should be emitted.
- * @throws {RangeError} When `score` or `passScore` is outside the 0–100 range.
+ * @param score - The score to apply (0–100).
+ * @param passScore - The minimum passing score for the course (0–100).
+ * @returns `true` if the enrollment is not already `'completed'` and `score` is greater than or equal to `passScore`, `false` otherwise.
+ * @throws {RangeError} When `score` or `passScore` is not a finite number or is outside the inclusive 0–100 range.
  */
 export function shouldNotifyCompletion(
     currentStatus: Enrollment['status'],

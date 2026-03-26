@@ -95,7 +95,11 @@ export function RecordScoreDialog({
     const canSubmit = isScoreValid
     const wouldPass = canSubmit && score >= course.passScore
 
-    /** Submits the validated score and closes the dialog. */
+    /**
+     * Submit the validated score for the current enrollment and close the dialog.
+     *
+     * @param values - Form values containing `score`; if `values.score` is `undefined` the function does nothing.
+     */
     function handleSubmit(values: ScoreFormValues) {
         if (values.score === undefined) {
             return

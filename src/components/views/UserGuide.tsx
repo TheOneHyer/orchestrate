@@ -70,8 +70,9 @@ function GuideSection({ title, children }: { title: string; children: ReactNode 
 }
 
 /**
- * Renders an unordered list of guide bullet points.
- * @param items - Array of strings to display as list items.
+ * Render a vertical bulleted list from the provided strings.
+ *
+ * @param items - Strings to display as list items in document order
  */
 function GuideList({ items }: { items: string[] }) {
   return (
@@ -819,7 +820,7 @@ const sections: Section[] = [
 ]
 
 /**
- * Returns the matching section for the provided key, or the first section when no match exists.
+ * Selects a section by id from an ordered list or provides a fallback when none is found.
  *
  * @param availableSections - The ordered section list to search.
  * @param key - The optional section ID to resolve.
