@@ -1678,8 +1678,13 @@ interface RecordScoreDialogWrapperProps {
 }
 
 /**
- * Thin wrapper that syncs the score dialog's open state with the enrollment context and renders
- * a `RecordScoreDialog` when context and a matching enrollment ID are both present.
+ * Synchronizes the selected enrollment context with the score dialog open state and renders the dialog when actionable.
+ *
+ * @param context - Resolved `{ enrollment, course, student }` context used by the dialog; when `null`, the selected enrollment is cleared.
+ * @param recordScoreEnrollmentId - Currently selected enrollment ID for scoring, or `null`.
+ * @param setRecordScoreEnrollmentId - Setter to update the selected enrollment ID; will be set to `null` when the context becomes `null` or the dialog is closed.
+ * @param onRecordScore - Callback invoked when a score is submitted; when absent, the dialog is not rendered.
+ * @returns The `RecordScoreDialog` element when `context` and `onRecordScore` are present, otherwise `null`.
  */
 function RecordScoreDialogWrapper({
   context,

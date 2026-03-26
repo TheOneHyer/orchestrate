@@ -70,8 +70,9 @@ function GuideSection({ title, children }: { title: string; children: ReactNode 
 }
 
 /**
- * Renders an unordered list of guide bullet points.
- * @param items - Array of strings to display as list items.
+ * Render a vertical bulleted list from the provided strings.
+ *
+ * @param items - Strings to display as list items in document order
  */
 function GuideList({ items }: { items: string[] }) {
   return (
@@ -819,11 +820,11 @@ const sections: Section[] = [
 ]
 
 /**
- * Returns the matching section for the provided key, or the first section when no match exists.
+ * Selects a section by id from an ordered list or provides a fallback when none is found.
  *
  * @param availableSections - Ordered section list to search.
- * @param key - Optional section ID to resolve.
- * @returns The matching section or the first available fallback section.
+ * @param key - Optional section id to resolve.
+ * @returns The section whose `id` equals `key`, or the first section in `availableSections` if no match exists; if `availableSections` is empty, a placeholder section with an empty `id` and label "No Sections Available".
  */
 export function getSectionOrFallback(availableSections: Section[], key?: string): Section {
   if (availableSections.length === 0) {
