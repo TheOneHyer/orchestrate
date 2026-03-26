@@ -133,19 +133,13 @@ function buildOccurrenceDates(
 }
 
 /**
- * Renders a step-by-step Guided Trainer Scheduler panel.
+ * Guides the user through a three-step wizard to configure session parameters, compare and select trainers, and confirm scheduling.
  *
- * Walks the user through three steps: (1) session parameters (course, dates, time, location,
- * capacity, recurrence), (2) trainer selection ranked by certification match, availability,
- * workload, and wellness, and (3) a confirmation summary before committing. Calls
- * `onSessionsCreated` with the resulting sessions on confirmation.
+ * Presents tools to define course, dates/times (including recurrence), location, and capacity; ranks trainers by certification match, availability, workload, and wellness; and creates session objects when confirmed.
  *
- * @param users - All users; trainers are scored and ranked for selection.
- * @param courses - Available courses to schedule.
- * @param onSessionsCreated - Called with new session objects on successful scheduling.
- * @param onClose - Optional handler to dismiss the panel.
- * @param prefilledDate - Optional date to pre-populate the start date field.
- * @returns The rendered GuidedScheduler JSX element.
+ * @param onSessionsCreated - Callback invoked with an array of created Partial<Session> objects after confirmation.
+ * @param prefilledDate - Optional date used to pre-populate the start date field in yyyy-MM-dd local format.
+ * @returns The rendered GuidedScheduler React JSX element.
  */
 export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, prefilledDate }: GuidedSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])

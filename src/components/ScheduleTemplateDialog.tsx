@@ -58,12 +58,15 @@ const scheduleTemplateSessionValidationSchema = z.object({
 })
 
 /**
- * Dialog for creating or editing a reusable {@link ScheduleTemplate}.
+ * Renders a dialog for creating or editing a ScheduleTemplate.
  *
- * Lets the user define a template name, description, optional course association, category,
- * recurrence type, tags, and one or more session slots (each with a day-of-week, time,
- * duration, shift, capacity, and optional location). Handles both create and edit modes;
- * in edit mode the form is pre-populated from the `template` prop.
+ * The dialog manages form state for template metadata (name, description, optional course,
+ * category, recurrence settings, tags, and toggles) and a list of one or more session slots.
+ * When opened with a `template` prop the form is initialized from that template. On save the
+ * dialog validates required fields and sessions, calls `onSave` with the assembled template
+ * payload (excluding server-managed fields), and closes the dialog.
+ *
+ * @returns The dialog UI for creating or editing a schedule template.
  */
 export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, courses }: ScheduleTemplateDialogProps) {
   const [name, setName] = useState(template?.name || '')
