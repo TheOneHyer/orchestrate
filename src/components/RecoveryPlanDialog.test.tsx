@@ -187,10 +187,13 @@ describe('RecoveryPlanDialog', () => {
         render(<RecoveryPlanDialog {...baseProps} currentUtilization={88} />)
 
         await user.type(screen.getByLabelText(/trigger reason/i), 'Need a short-term recovery plan')
-        await user.clear(screen.getByLabelText(/target utilization/i))
-        await user.type(screen.getByLabelText(/target utilization/i), '65')
-        await user.clear(screen.getByLabelText(/duration \(weeks\)/i))
-        await user.type(screen.getByLabelText(/duration \(weeks\)/i), '6')
+        const targetUtilizationInput = screen.getByLabelText(/target utilization/i)
+        const durationWeeksInput = screen.getByLabelText(/duration \(weeks\)/i)
+
+        await user.clear(targetUtilizationInput)
+        await user.type(targetUtilizationInput, '65')
+        await user.clear(durationWeeksInput)
+        await user.type(durationWeeksInput, '6')
 
         await user.click(screen.getByRole('combobox'))
         await user.click(await screen.findByRole('option', { name: /schedule adjustment/i }))
@@ -227,12 +230,16 @@ describe('RecoveryPlanDialog', () => {
     it('falls back to default numeric values when target utilization or duration are cleared', async () => {
         render(<RecoveryPlanDialog {...baseProps} currentUtilization={82} />)
 
-        await user.type(screen.getByLabelText(/trigger reason/i), 'Numeric fallback coverage')
-        await user.clear(screen.getByLabelText(/target utilization/i))
-        await user.clear(screen.getByLabelText(/duration \(weeks\)/i))
+        const targetUtilizationInput = screen.getByLabelText(/target utilization/i)
+        const durationWeeksInput = screen.getByLabelText(/duration \(weeks\)/i)
 
-        expect(screen.getByLabelText(/target utilization/i)).toHaveValue(70)
-        expect(screen.getByLabelText(/duration \(weeks\)/i)).toHaveValue(4)
+        await user.type(screen.getByLabelText(/trigger reason/i), 'Numeric fallback coverage')
+        await user.clear(targetUtilizationInput)
+        await user.clear(durationWeeksInput)
+        await user.tab()
+
+        expect(targetUtilizationInput).toHaveValue(70)
+        expect(durationWeeksInput).toHaveValue(4)
     })
 
     it('disables submit and shows validation text when trigger reason is empty', async () => {
@@ -363,10 +370,13 @@ describe('RecoveryPlanDialog', () => {
         render(<RecoveryPlanDialog {...baseProps} currentUtilization={85} />)
 
         await user.type(screen.getByLabelText(/trigger reason/i), 'Long-term sustainability plan needed')
-        await user.clear(screen.getByLabelText(/target utilization/i))
-        await user.type(screen.getByLabelText(/target utilization/i), '60')
-        await user.clear(screen.getByLabelText(/duration \(weeks\)/i))
-        await user.type(screen.getByLabelText(/duration \(weeks\)/i), '8')
+        const targetUtilizationInput = screen.getByLabelText(/target utilization/i)
+        const durationWeeksInput = screen.getByLabelText(/duration \(weeks\)/i)
+
+        await user.clear(targetUtilizationInput)
+        await user.type(targetUtilizationInput, '60')
+        await user.clear(durationWeeksInput)
+        await user.type(durationWeeksInput, '8')
 
         await user.click(screen.getByRole('combobox'))
         await user.click(await screen.findByRole('option', { name: /workload reduction/i }))

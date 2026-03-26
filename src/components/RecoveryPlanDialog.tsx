@@ -52,6 +52,14 @@ const RECOVERY_ACTION_TEMPLATES: Record<RecoveryAction, string> = {
   'custom': 'Custom action'
 }
 
+const DEFAULT_TARGET_UTILIZATION = 70
+const DEFAULT_DURATION_WEEKS = 4
+
+const parseNumericInput = (value: string, fallbackValue: number) => {
+  const parsedValue = parseInt(value, 10)
+  return Number.isNaN(parsedValue) ? fallbackValue : parsedValue
+}
+
 type EditableRecoveryPlanActionField = 'description' | 'targetDate' | 'notes'
 
 /**
@@ -72,8 +80,8 @@ export function RecoveryPlanDialog({
   latestCheckIn,
   currentUtilization = 75
 }: RecoveryPlanDialogProps) {
-  const [targetUtilization, setTargetUtilization] = useState(70)
-  const [durationWeeks, setDurationWeeks] = useState(4)
+  const [targetUtilizationInput, setTargetUtilizationInput] = useState(String(DEFAULT_TARGET_UTILIZATION))
+  const [durationWeeksInput, setDurationWeeksInput] = useState(String(DEFAULT_DURATION_WEEKS))
   const [triggerReason, setTriggerReason] = useState('')
   const [triggerReasonTouched, setTriggerReasonTouched] = useState(false)
   const [submitAttempted, setSubmitAttempted] = useState(false)
@@ -147,6 +155,9 @@ export function RecoveryPlanDialog({
       return
     }
 
+    const targetUtilization = parseNumericInput(targetUtilizationInput, DEFAULT_TARGET_UTILIZATION)
+    const durationWeeks = parseNumericInput(durationWeeksInput, DEFAULT_DURATION_WEEKS)
+
     const plan: Omit<RecoveryPlan, 'id' | 'createdAt'> = {
       trainerId,
       createdBy: currentUser.id,
@@ -170,8 +181,8 @@ export function RecoveryPlanDialog({
 
   /** Resets all dialog fields to their initial state and calls `onClose`. */
   const handleClose = () => {
-    setTargetUtilization(70)
-    setDurationWeeks(4)
+    setTargetUtilizationInput(String(DEFAULT_TARGET_UTILIZATION))
+    setDurationWeeksInput(String(DEFAULT_DURATION_WEEKS))
     setTriggerReason('')
     setTriggerReasonTouched(false)
     setSubmitAttempted(false)
@@ -272,8 +283,9 @@ export function RecoveryPlanDialog({
                 type="number"
                 min={40}
                 max={80}
-                value={targetUtilization}
-                onChange={(e) => setTargetUtilization(parseInt(e.target.value) || 70)}
+                value={targetUtilizationInput}
+                onChange={(e) => setTargetUtilizationInput(e.target.value)}
+                onBlur={() => setTargetUtilizationInput(String(parseNumericInput(targetUtilizationInput, DEFAULT_TARGET_UTILIZATION)))}
               />
             </div>
 
@@ -284,8 +296,9 @@ export function RecoveryPlanDialog({
                 type="number"
                 min={1}
                 max={12}
-                value={durationWeeks}
-                onChange={(e) => setDurationWeeks(parseInt(e.target.value) || 4)}
+                value={durationWeeksInput}
+                onChange={(e) => setDurationWeeksInput(e.target.value)}
+                onBlur={() => setDurationWeeksInput(String(parseNumericInput(durationWeeksInput, DEFAULT_DURATION_WEEKS)))}
               />
             </div>
           </div>

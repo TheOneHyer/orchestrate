@@ -42,6 +42,8 @@ const DAYS_OF_WEEK = [
   { label: 'Saturday', value: 6 },
 ]
 
+const UNASSIGNED_COURSE_VALUE = '__unassigned__'
+
 const createDefaultSession = (): ScheduleTemplateSession => ({
   dayOfWeek: 1,
   time: '09:00',
@@ -90,18 +92,14 @@ const createInitialFormState = (template?: ScheduleTemplate | null): ScheduleTem
 })
 
 const positiveIntegerFieldSchema = z
-  .unknown()
+  .union([z.number(), z.string()])
   .refine((value) => {
     if (typeof value === 'number') {
       return Number.isInteger(value) && value > 0
     }
 
-    if (typeof value === 'string') {
-      const trimmedValue = value.trim()
-      return /^\d+$/.test(trimmedValue) && Number(trimmedValue) > 0
-    }
-
-    return false
+    const trimmedValue = value.trim()
+    return /^\d+$/.test(trimmedValue) && Number(trimmedValue) > 0
   }, 'Must be a positive integer.')
   .transform((value) => (typeof value === 'string' ? Number(value.trim()) : value))
 
@@ -308,12 +306,15 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
           <div className="flex gap-4">
             <div className="flex flex-col gap-2 flex-1">
               <Label htmlFor="template-course">Course (Optional)</Label>
-              <Select value={courseId || ''} onValueChange={(value) => setCourseId(value === '' ? '' : value)}>
+              <Select
+                value={courseId || UNASSIGNED_COURSE_VALUE}
+                onValueChange={(value) => setCourseId(value === UNASSIGNED_COURSE_VALUE ? '' : value)}
+              >
                 <SelectTrigger id="template-course">
                   <SelectValue placeholder="Select course or leave unassigned" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value={UNASSIGNED_COURSE_VALUE}>Unassigned</SelectItem>
                   {courses.map(course => (
                     <SelectItem key={course.id} value={course.id}>
                       {course.title}

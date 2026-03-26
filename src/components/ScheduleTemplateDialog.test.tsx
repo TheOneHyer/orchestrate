@@ -98,6 +98,38 @@ describe('ScheduleTemplateDialog', () => {
         expect(onOpenChange).toHaveBeenCalledWith(false)
     })
 
+    it('allows selecting and clearing the optional course before save', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/template name/i), 'Course Toggle Template')
+
+        const courseSelect = screen.getByRole('combobox', { name: /course \(optional\)/i })
+        await user.click(courseSelect)
+        await user.click(await screen.findByRole('option', { name: /safety 101/i }))
+
+        await user.click(courseSelect)
+        await user.click(await screen.findByRole('option', { name: /unassigned/i }))
+
+        await user.click(screen.getByRole('button', { name: /create template/i }))
+
+        expect(onSave).toHaveBeenCalledOnce()
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                courseId: undefined,
+            })
+        )
+    })
+
     it('closes when cancel is clicked', async () => {
         const user = userEvent.setup()
         const onOpenChange = vi.fn()
