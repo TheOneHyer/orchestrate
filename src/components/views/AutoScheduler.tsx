@@ -12,8 +12,6 @@ import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
 import {
   Robot,
-  Calendar as CalendarIcon,
-  Clock,
   Users,
   CheckCircle,
   WarningCircle,

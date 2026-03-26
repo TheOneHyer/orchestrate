@@ -77,7 +77,7 @@ describe('ScheduleTemplateDialog', () => {
 
         const cycleInput = await screen.findByLabelText(/cycle duration/i)
         await user.clear(cycleInput)
-        await user.type(cycleInput, '14')
+        await user.type(cycleInput, '15')
 
         await user.type(screen.getByPlaceholderText(/add a tag/i), 'rotation{enter}')
 
@@ -89,7 +89,7 @@ describe('ScheduleTemplateDialog', () => {
                 name: 'Safety Rotation',
                 description: 'Rotating weekly schedule',
                 recurrenceType: 'custom',
-                cycleDays: 14,
+                cycleDays: 15,
                 tags: ['rotation'],
                 isActive: true,
             })
@@ -334,6 +334,32 @@ describe('ScheduleTemplateDialog', () => {
         expect(screen.getByText(/cycle days must be a positive integer/i)).toBeInTheDocument()
     })
 
+    it('shows a validation error when custom cycle days contain decimals', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/template name/i), 'Decimal Rotation')
+        await user.click(screen.getByRole('combobox', { name: /recurrence type/i }))
+        await user.click(await screen.findByRole('option', { name: /custom/i }))
+
+        const cycleInput = await screen.findByLabelText(/cycle duration/i)
+        await user.clear(cycleInput)
+        await user.type(cycleInput, '1.5')
+        await user.click(screen.getByRole('button', { name: /create template/i }))
+
+        expect(onSave).not.toHaveBeenCalled()
+        expect(screen.getByText(/cycle days must be a positive integer/i)).toBeInTheDocument()
+    })
+
     it('shows a validation error when a session time is blank', async () => {
         const user = userEvent.setup()
         const onSave = vi.fn()
@@ -415,7 +441,7 @@ describe('ScheduleTemplateDialog', () => {
         expect(screen.getByText(/session 1: capacity must be a positive integer/i)).toBeInTheDocument()
     })
 
-    it('parses string session numbers when editing existing template data', async () => {
+    it('parses pure digit string values when editing existing template data', async () => {
         const user = userEvent.setup()
         const onSave = vi.fn()
         const importedTemplate = {
@@ -423,13 +449,14 @@ describe('ScheduleTemplateDialog', () => {
             name: 'Imported Template',
             description: 'Imported from persisted data',
             category: 'general',
-            recurrenceType: 'weekly',
+            recurrenceType: 'custom',
+            cycleDays: '15',
             sessions: [
                 {
                     dayOfWeek: 1,
                     time: '09:00',
-                    duration: '45',
-                    capacity: '12',
+                    duration: '15',
+                    capacity: '15',
                     requiresCertifications: [],
                 },
             ],
@@ -457,14 +484,58 @@ describe('ScheduleTemplateDialog', () => {
         expect(onSave).toHaveBeenCalledOnce()
         expect(onSave).toHaveBeenCalledWith(
             expect.objectContaining({
+                cycleDays: 15,
                 sessions: [
                     expect.objectContaining({
-                        duration: 45,
-                        capacity: 12,
+                        duration: 15,
+                        capacity: 15,
                     }),
                 ],
             })
         )
+    })
+
+    it('rejects non-digit imported session values', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+        const importedTemplate = {
+            id: 'template-invalid-strings',
+            name: 'Imported Invalid Template',
+            description: 'Imported from persisted data',
+            category: 'general',
+            recurrenceType: 'weekly',
+            sessions: [
+                {
+                    dayOfWeek: 1,
+                    time: '09:00',
+                    duration: '45min',
+                    capacity: 12,
+                    requiresCertifications: [],
+                },
+            ],
+            autoAssignTrainers: true,
+            notifyParticipants: true,
+            createdBy: 'admin-1',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            usageCount: 0,
+            tags: [],
+            isActive: true,
+        } as unknown as ScheduleTemplate
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+                template={importedTemplate}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /update template/i }))
+
+        expect(onSave).not.toHaveBeenCalled()
+        expect(screen.getByText(/session 1: duration must be a positive integer/i)).toBeInTheDocument()
     })
 
     it('persists auto-assign and notify toggles when switched off', async () => {

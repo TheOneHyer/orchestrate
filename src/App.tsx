@@ -673,7 +673,7 @@ function App() {
 
         const authenticatedUser = safeUsers.find((user) => user.id === authenticatedUserId)
 
-        if (!authenticatedUserId || !authenticatedUser) {
+        if (!authenticatedUser) {
           toast.error('Sign-in failed', {
             description: 'Authentication succeeded but no user account is available in this workspace.',
           })

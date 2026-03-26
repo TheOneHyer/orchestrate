@@ -329,7 +329,7 @@ describe('RecoveryPlanDialog', () => {
         expect(screen.getByText(/no actions added yet/i)).toBeInTheDocument()
     })
 
-    it('validates that all required fields are present before submission', async () => {
+    it('submits when auto-filled data exists', async () => {
         render(
             <RecoveryPlanDialog
                 {...baseProps}
@@ -350,7 +350,7 @@ describe('RecoveryPlanDialog', () => {
         await user.click(await screen.findByRole('option', { name: /workload reduction/i }))
 
         expect(screen.getByRole('button', { name: /create recovery plan/i })).not.toBeDisabled()
-        
+
         await user.click(screen.getByRole('button', { name: /remove action workload reduction/i }))
 
         expect(screen.getByRole('button', { name: /create recovery plan/i })).toBeDisabled()
@@ -365,8 +365,7 @@ describe('RecoveryPlanDialog', () => {
         fireEvent.change(screen.getByLabelText(/duration \(weeks\)/i), { target: { value: '8' } })
 
         await user.click(screen.getByRole('combobox'))
-        const options = await screen.findAllByRole('option')
-        await user.click(options[0])
+        await user.click(await screen.findByRole('option', { name: /workload reduction/i }))
 
         await user.clear(screen.getByLabelText(/description/i))
         await user.type(screen.getByLabelText(/description/i), 'Custom action description')

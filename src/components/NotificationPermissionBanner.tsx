@@ -82,7 +82,6 @@ export function NotificationPermissionBanner() {
     }
   }
 
-  /** Dismisses the notification permission banner without requesting permission. */
   const handleDismiss = () => {
     setDismissed(true)
   }

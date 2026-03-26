@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,13 +43,59 @@ const createDefaultSession = (): ScheduleTemplateSession => ({
   requiresCertifications: []
 })
 
+type ScheduleTemplateSessionDraft = Omit<ScheduleTemplateSession, 'duration' | 'capacity'> & {
+  duration: number | string
+  capacity: number | string
+}
+
+type ScheduleTemplateFormState = {
+  name: string
+  description: string
+  courseId: string
+  category: string
+  recurrenceType: TemplateRecurrenceType
+  cycleDays: string
+  autoAssignTrainers: boolean
+  notifyParticipants: boolean
+  tags: string[]
+  tagInput: string
+  sessions: ScheduleTemplateSessionDraft[]
+}
+
+const createInitialFormState = (template?: ScheduleTemplate | null): ScheduleTemplateFormState => ({
+  name: template?.name || '',
+  description: template?.description || '',
+  courseId: template?.courseId || '',
+  category: template?.category || 'general',
+  recurrenceType: template?.recurrenceType || 'weekly',
+  cycleDays: template?.cycleDays?.toString() || '7',
+  autoAssignTrainers: template?.autoAssignTrainers ?? true,
+  notifyParticipants: template?.notifyParticipants ?? true,
+  tags: template?.tags || [],
+  tagInput: '',
+  sessions: template?.sessions?.map((session) => ({
+    ...session,
+    duration: session.duration,
+    capacity: session.capacity,
+    requiresCertifications: session.requiresCertifications || [],
+  })) || [createDefaultSession()],
+})
+
 const positiveIntegerFieldSchema = z
   .unknown()
   .refine((value) => {
-    const parsedValue = typeof value === 'string' ? Number.parseInt(value, 10) : Number(value)
-    return Number.isInteger(parsedValue) && parsedValue > 0
+    if (typeof value === 'number') {
+      return Number.isInteger(value) && value > 0
+    }
+
+    if (typeof value === 'string') {
+      const trimmedValue = value.trim()
+      return /^\d+$/.test(trimmedValue) && Number(trimmedValue) > 0
+    }
+
+    return false
   }, 'Must be a positive integer.')
-  .transform((value) => (typeof value === 'string' ? Number.parseInt(value, 10) : Number(value)))
+  .transform((value) => (typeof value === 'string' ? Number(value.trim()) : value))
 
 const scheduleTemplateSessionValidationSchema = z.object({
   time: z.string().trim().min(1, 'Time is required.'),
@@ -57,47 +103,40 @@ const scheduleTemplateSessionValidationSchema = z.object({
   capacity: positiveIntegerFieldSchema,
 })
 
-/**
- * Dialog for creating or editing a reusable {@link ScheduleTemplate}.
- *
- * Lets the user define a template name, description, optional course association, category,
- * recurrence type, tags, and one or more session slots (each with a day-of-week, time,
- * duration, shift, capacity, and optional location). Handles both create and edit modes;
- * in edit mode the form is pre-populated from the `template` prop.
- */
-export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, courses }: ScheduleTemplateDialogProps) {
-  const [name, setName] = useState(template?.name || '')
-  const [description, setDescription] = useState(template?.description || '')
-  const [courseId, setCourseId] = useState(template?.courseId || '')
-  const [category, setCategory] = useState(template?.category || 'general')
-  const [recurrenceType, setRecurrenceType] = useState<TemplateRecurrenceType>(template?.recurrenceType || 'weekly')
-  const [cycleDays, setCycleDays] = useState(template?.cycleDays?.toString() || '7')
-  const [autoAssignTrainers, setAutoAssignTrainers] = useState(template?.autoAssignTrainers ?? true)
-  const [notifyParticipants, setNotifyParticipants] = useState(template?.notifyParticipants ?? true)
-  const [tags, setTags] = useState<string[]>(template?.tags || [])
-  const [tagInput, setTagInput] = useState('')
-  const [sessions, setSessions] = useState<ScheduleTemplateSession[]>(
-    template?.sessions || [createDefaultSession()]
-  )
+type ScheduleTemplateDialogBodyProps = Omit<ScheduleTemplateDialogProps, 'open'>
+
+function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }: ScheduleTemplateDialogBodyProps) {
+  const initialFormState = createInitialFormState(template)
+
+  const [name, setName] = useState(initialFormState.name)
+  const [description, setDescription] = useState(initialFormState.description)
+  const [courseId, setCourseId] = useState(initialFormState.courseId)
+  const [category, setCategory] = useState(initialFormState.category)
+  const [recurrenceType, setRecurrenceType] = useState<TemplateRecurrenceType>(initialFormState.recurrenceType)
+  const [cycleDays, setCycleDays] = useState(initialFormState.cycleDays)
+  const [autoAssignTrainers, setAutoAssignTrainers] = useState(initialFormState.autoAssignTrainers)
+  const [notifyParticipants, setNotifyParticipants] = useState(initialFormState.notifyParticipants)
+  const [tags, setTags] = useState<string[]>(initialFormState.tags)
+  const [tagInput, setTagInput] = useState(initialFormState.tagInput)
+  const [sessions, setSessions] = useState<ScheduleTemplateSessionDraft[]>(initialFormState.sessions)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!open) {
-      return
-    }
+  const resetForm = () => {
+    const nextFormState = createInitialFormState(template)
 
-    setName(template?.name || '')
-    setDescription(template?.description || '')
-    setCourseId(template?.courseId || '')
-    setCategory(template?.category || 'general')
-    setRecurrenceType(template?.recurrenceType || 'weekly')
-    setCycleDays(template?.cycleDays?.toString() || '7')
-    setAutoAssignTrainers(template?.autoAssignTrainers ?? true)
-    setNotifyParticipants(template?.notifyParticipants ?? true)
-    setTags(template?.tags || [])
-    setTagInput('')
-    setSessions(template?.sessions || [createDefaultSession()])
-  }, [open, template])
+    setName(nextFormState.name)
+    setDescription(nextFormState.description)
+    setCourseId(nextFormState.courseId)
+    setCategory(nextFormState.category)
+    setRecurrenceType(nextFormState.recurrenceType)
+    setCycleDays(nextFormState.cycleDays)
+    setAutoAssignTrainers(nextFormState.autoAssignTrainers)
+    setNotifyParticipants(nextFormState.notifyParticipants)
+    setTags(nextFormState.tags)
+    setTagInput(nextFormState.tagInput)
+    setSessions(nextFormState.sessions)
+    setError(null)
+  }
 
   /** Appends a new default session to the template's session list. */
   const handleAddSession = () => {
@@ -122,7 +161,7 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
    * @param index - Index of the session to update.
    * @param updates - Partial session fields to apply.
    */
-  const handleUpdateSession = (index: number, updates: Partial<ScheduleTemplateSession>) => {
+  const handleUpdateSession = (index: number, updates: Partial<ScheduleTemplateSessionDraft>) => {
     setSessions(sessions.map((session, i) => (i === index ? { ...session, ...updates } : session)))
   }
 
@@ -143,10 +182,15 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
     setTags(tags.filter(t => t !== tag))
   }
 
+  const handleClose = () => {
+    resetForm()
+    onOpenChange(false)
+  }
+
   /** Validates required fields and invokes `onSave` with the assembled template data. */
   const handleSave = () => {
     setError(null)
-    const parsedCycleDays = parseInt(cycleDays, 10)
+    let parsedCycleDays: number | undefined
 
     const trimmedName = name.trim()
     if (!trimmedName) {
@@ -160,10 +204,14 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
     }
 
     if (recurrenceType === 'custom') {
-      if (isNaN(parsedCycleDays) || parsedCycleDays <= 0) {
+      const cycleDaysResult = positiveIntegerFieldSchema.safeParse(cycleDays)
+
+      if (!cycleDaysResult.success) {
         setError('Cycle days must be a positive integer.')
         return
       }
+
+      parsedCycleDays = cycleDaysResult.data
     }
 
     const validatedSessions: ScheduleTemplateSession[] = []
@@ -214,290 +262,312 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
       isActive: true
     })
 
-    onOpenChange(false)
+    handleClose()
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{template ? 'Edit Schedule Template' : 'Create Schedule Template'}</DialogTitle>
-          <DialogDescription>
-            Create a reusable template for recurring training schedules. Define sessions that will repeat on a regular basis.
-          </DialogDescription>
-        </DialogHeader>
+    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>{template ? 'Edit Schedule Template' : 'Create Schedule Template'}</DialogTitle>
+        <DialogDescription>
+          Create a reusable template for recurring training schedules. Define sessions that will repeat on a regular basis.
+        </DialogDescription>
+      </DialogHeader>
 
-        <div className="flex flex-col gap-6 py-4">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="template-name">Template Name *</Label>
-              <Input
-                id="template-name"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="e.g., Weekly Safety Training"
-              />
-            </div>
+      <div className="flex flex-col gap-6 py-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="template-name">Template Name *</Label>
+            <Input
+              id="template-name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g., Weekly Safety Training"
+            />
+          </div>
 
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="template-description">Description</Label>
-              <Textarea
-                id="template-description"
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Describe when and how this template should be used..."
-                rows={3}
-              />
-            </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="template-description">Description</Label>
+            <Textarea
+              id="template-description"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Describe when and how this template should be used..."
+              rows={3}
+            />
+          </div>
 
-            <div className="flex gap-4">
-              <div className="flex flex-col gap-2 flex-1">
-                <Label htmlFor="template-course">Course (Optional)</Label>
-                <Select value={courseId} onValueChange={setCourseId}>
-                  <SelectTrigger id="template-course">
-                    <SelectValue placeholder="Select course or leave unassigned" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {courses.map(course => (
-                      <SelectItem key={course.id} value={course.id}>
-                        {course.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex flex-col gap-2 flex-1">
-                <Label htmlFor="template-category">Category</Label>
-                <Select value={category} onValueChange={setCategory}>
-                  <SelectTrigger id="template-category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="general">General</SelectItem>
-                    <SelectItem value="safety">Safety</SelectItem>
-                    <SelectItem value="compliance">Compliance</SelectItem>
-                    <SelectItem value="technical">Technical Skills</SelectItem>
-                    <SelectItem value="leadership">Leadership</SelectItem>
-                    <SelectItem value="onboarding">Onboarding</SelectItem>
-                    <SelectItem value="certification">Certification</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="flex flex-col gap-2 flex-1">
-                <Label htmlFor="template-recurrence">Recurrence Type</Label>
-                <Select value={recurrenceType} onValueChange={(v) => setRecurrenceType(v as TemplateRecurrenceType)}>
-                  <SelectTrigger id="template-recurrence">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="biweekly">Biweekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="custom">Custom</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {recurrenceType === 'custom' && (
-                <div className="flex flex-col gap-2 flex-1">
-                  <Label htmlFor="template-cycle-days">Cycle Duration (Days)</Label>
-                  <Input
-                    id="template-cycle-days"
-                    type="number"
-                    min="1"
-                    value={cycleDays}
-                    onChange={e => setCycleDays(e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label>Tags</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={tagInput}
-                  onChange={e => setTagInput(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                  placeholder="Add a tag..."
-                />
-                <Button type="button" onClick={handleAddTag} size="sm">
-                  <Plus size={16} />
-                </Button>
-              </div>
-              {tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {tags.map(tag => (
-                    <Badge key={tag} variant="secondary" className="gap-1">
-                      {tag}
-                      <button onClick={() => handleRemoveTag(tag)} className="ml-1 hover:text-destructive">
-                        ×
-                      </button>
-                    </Badge>
+          <div className="flex gap-4">
+            <div className="flex flex-col gap-2 flex-1">
+              <Label htmlFor="template-course">Course (Optional)</Label>
+              <Select value={courseId} onValueChange={setCourseId}>
+                <SelectTrigger id="template-course">
+                  <SelectValue placeholder="Select course or leave unassigned" />
+                </SelectTrigger>
+                <SelectContent>
+                  {courses.map(course => (
+                    <SelectItem key={course.id} value={course.id}>
+                      {course.title}
+                    </SelectItem>
                   ))}
-                </div>
-              )}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="auto-assign">Auto-assign Trainers</Label>
-                  <span className="text-xs text-muted-foreground">
-                    Automatically match trainers based on certifications and availability
-                  </span>
-                </div>
-                <Switch id="auto-assign" checked={autoAssignTrainers} onCheckedChange={setAutoAssignTrainers} />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="notify-participants">Notify Participants</Label>
-                  <span className="text-xs text-muted-foreground">Send notifications when sessions are created</span>
-                </div>
-                <Switch id="notify-participants" checked={notifyParticipants} onCheckedChange={setNotifyParticipants} />
-              </div>
+            <div className="flex flex-col gap-2 flex-1">
+              <Label htmlFor="template-category">Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger id="template-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="safety">Safety</SelectItem>
+                  <SelectItem value="compliance">Compliance</SelectItem>
+                  <SelectItem value="technical">Technical Skills</SelectItem>
+                  <SelectItem value="leadership">Leadership</SelectItem>
+                  <SelectItem value="onboarding">Onboarding</SelectItem>
+                  <SelectItem value="certification">Certification</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </div>
+
+          <div className="flex gap-4">
+            <div className="flex flex-col gap-2 flex-1">
+              <Label htmlFor="template-recurrence">Recurrence Type</Label>
+              <Select value={recurrenceType} onValueChange={(v) => setRecurrenceType(v as TemplateRecurrenceType)}>
+                <SelectTrigger id="template-recurrence">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="biweekly">Biweekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {recurrenceType === 'custom' && (
+              <div className="flex flex-col gap-2 flex-1">
+                <Label htmlFor="template-cycle-days">Cycle Duration (Days)</Label>
+                <Input
+                  id="template-cycle-days"
+                  type="number"
+                  min="1"
+                  value={cycleDays}
+                  onChange={e => setCycleDays(e.target.value)}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label>Tags</Label>
+            <div className="flex gap-2">
+              <Input
+                value={tagInput}
+                onChange={e => setTagInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
+                placeholder="Add a tag..."
+              />
+              <Button type="button" onClick={handleAddTag} size="sm">
+                <Plus size={16} />
+              </Button>
+            </div>
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {tags.map(tag => (
+                  <Badge key={tag} variant="secondary" className="gap-1">
+                    {tag}
+                    <button onClick={() => handleRemoveTag(tag)} className="ml-1 hover:text-destructive">
+                      ×
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <Label>Template Sessions *</Label>
-              <Button type="button" onClick={handleAddSession} size="sm" variant="outline">
-                <Plus size={16} className="mr-2" />
-                Add Session
-              </Button>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="auto-assign">Auto-assign Trainers</Label>
+                <span className="text-xs text-muted-foreground">
+                  Automatically match trainers based on certifications and availability
+                </span>
+              </div>
+              <Switch id="auto-assign" checked={autoAssignTrainers} onCheckedChange={setAutoAssignTrainers} />
             </div>
 
-            <div className="flex flex-col gap-3">
-              {sessions.map((session, index) => (
-                <Card key={index} className="p-4">
-                  <div className="flex flex-col gap-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-medium">Session {index + 1}</h4>
-                      {sessions.length > 1 && (
-                        <Button
-                          type="button"
-                          onClick={() => handleRemoveSession(index)}
-                          size="sm"
-                          variant="ghost"
-                          className="text-destructive"
-                          aria-label={`Remove session ${index + 1}`}
-                        >
-                          <Trash size={16} />
-                        </Button>
-                      )}
-                    </div>
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="notify-participants">Notify Participants</Label>
+                <span className="text-xs text-muted-foreground">Send notifications when sessions are created</span>
+              </div>
+              <Switch id="notify-participants" checked={notifyParticipants} onCheckedChange={setNotifyParticipants} />
+            </div>
+          </div>
+        </div>
 
-                    <div className="flex gap-3">
-                      {recurrenceType !== 'daily' && (
-                        <div className="flex flex-col gap-2 flex-1">
-                          <Label>Day of Week</Label>
-                          <Select
-                            value={session.dayOfWeek?.toString()}
-                            onValueChange={v => handleUpdateSession(index, { dayOfWeek: parseInt(v) })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {DAYS_OF_WEEK.map((day, i) => (
-                                <SelectItem key={i} value={i.toString()}>
-                                  {day}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <Label>Template Sessions *</Label>
+            <Button type="button" onClick={handleAddSession} size="sm" variant="outline">
+              <Plus size={16} className="mr-2" />
+              Add Session
+            </Button>
+          </div>
 
+          <div className="flex flex-col gap-3">
+            {sessions.map((session, index) => (
+              <Card key={index} className="p-4">
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium">Session {index + 1}</h4>
+                    {sessions.length > 1 && (
+                      <Button
+                        type="button"
+                        onClick={() => handleRemoveSession(index)}
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive"
+                        aria-label={`Remove session ${index + 1}`}
+                      >
+                        <Trash size={16} />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="flex gap-3">
+                    {recurrenceType !== 'daily' && (
                       <div className="flex flex-col gap-2 flex-1">
-                        <Label>Time</Label>
-                        <Input
-                          type="time"
-                          value={session.time}
-                          onChange={e => handleUpdateSession(index, { time: e.target.value })}
-                        />
-                      </div>
-
-                      <div className="flex flex-col gap-2 flex-1">
-                        <Label>Duration (min)</Label>
-                        <Input
-                          type="number"
-                          min="15"
-                          step="15"
-                          value={session.duration}
-                          aria-label={`Duration for session ${index + 1}`}
-                          onChange={e => handleUpdateSession(index, { duration: parseInt(e.target.value) })}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <div className="flex flex-col gap-2 flex-1">
-                        <Label>Shift</Label>
+                        <Label>Day of Week</Label>
                         <Select
-                          value={session.shift}
-                          onValueChange={v => handleUpdateSession(index, { shift: v as ShiftType })}
+                          value={session.dayOfWeek?.toString()}
+                          onValueChange={v => handleUpdateSession(index, { dayOfWeek: parseInt(v, 10) })}
                         >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="day">Day</SelectItem>
-                            <SelectItem value="evening">Evening</SelectItem>
-                            <SelectItem value="night">Night</SelectItem>
+                            {DAYS_OF_WEEK.map((day, i) => (
+                              <SelectItem key={i} value={i.toString()}>
+                                {day}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
+                    )}
 
-                      <div className="flex flex-col gap-2 flex-1">
-                        <Label>Capacity</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={session.capacity}
-                          aria-label={`Capacity for session ${index + 1}`}
-                          onChange={e => handleUpdateSession(index, { capacity: parseInt(e.target.value) })}
-                        />
-                      </div>
+                    <div className="flex flex-col gap-2 flex-1">
+                      <Label>Time</Label>
+                      <Input
+                        type="time"
+                        value={session.time}
+                        onChange={e => handleUpdateSession(index, { time: e.target.value })}
+                      />
+                    </div>
 
-                      <div className="flex flex-col gap-2 flex-1">
-                        <Label>Location (Optional)</Label>
-                        <Input
-                          value={session.location || ''}
-                          onChange={e => handleUpdateSession(index, { location: e.target.value })}
-                          placeholder="Room/Location"
-                        />
-                      </div>
+                    <div className="flex flex-col gap-2 flex-1">
+                      <Label>Duration (min)</Label>
+                      <Input
+                        type="number"
+                        min="15"
+                        step="15"
+                        value={session.duration}
+                        aria-label={`Duration for session ${index + 1}`}
+                        onChange={e => handleUpdateSession(index, { duration: e.target.value })}
+                      />
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex flex-col gap-2 flex-1">
+                      <Label>Shift</Label>
+                      <Select
+                        value={session.shift}
+                        onValueChange={v => handleUpdateSession(index, { shift: v as ShiftType })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="day">Day</SelectItem>
+                          <SelectItem value="evening">Evening</SelectItem>
+                          <SelectItem value="night">Night</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex flex-col gap-2 flex-1">
+                      <Label>Capacity</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={session.capacity}
+                        aria-label={`Capacity for session ${index + 1}`}
+                        onChange={e => handleUpdateSession(index, { capacity: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-2 flex-1">
+                      <Label>Location (Optional)</Label>
+                      <Input
+                        value={session.location || ''}
+                        onChange={e => handleUpdateSession(index, { location: e.target.value })}
+                        placeholder="Room/Location"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
         </div>
+      </div>
 
-        {error && (
-          <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+      {error && (
+        <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={!name.trim() || sessions.length === 0}>
-            {template ? 'Update Template' : 'Create Template'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+      <DialogFooter>
+        <Button variant="outline" onClick={handleClose}>
+          Cancel
+        </Button>
+        <Button onClick={handleSave} disabled={!name.trim() || sessions.length === 0}>
+          {template ? 'Update Template' : 'Create Template'}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  )
+}
+
+/**
+ * Dialog for creating or editing a reusable {@link ScheduleTemplate}.
+ *
+ * Lets the user define a template name, description, optional course association, category,
+ * recurrence type, tags, and one or more session slots (each with a day-of-week, time,
+ * duration, shift, capacity, and optional location). Handles both create and edit modes;
+ * in edit mode the form is pre-populated from the `template` prop.
+ */
+export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, courses }: ScheduleTemplateDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open ? (
+        <ScheduleTemplateDialogBody
+          key={`${open}-${template?.id ?? 'new'}`}
+          onOpenChange={onOpenChange}
+          template={template}
+          onSave={onSave}
+          courses={courses}
+        />
+      ) : null}
     </Dialog>
   )
 }

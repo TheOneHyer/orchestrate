@@ -821,9 +821,10 @@ const sections: Section[] = [
 /**
  * Returns the matching section for the provided key, or the first section when no match exists.
  *
- * @param availableSections - Ordered section list to search.
- * @param key - Optional section ID to resolve.
+ * @param availableSections - The ordered section list to search.
+ * @param key - The optional section ID to resolve.
  * @returns The matching section or the first available fallback section.
+ * @throws Does not throw.
  */
 export function getSectionOrFallback(availableSections: Section[], key?: string): Section {
   if (availableSections.length === 0) {
@@ -849,9 +850,13 @@ interface UserGuideProps {
  * Provides a sidebar-navigated reference covering every major feature of the application,
  * organised into role-tagged sections (Overview, Schedule, Templates, People, Reports,
  * Trainer Availability, Wellness, Courses, Notifications, Settings, and Glossary).
+ *
+ * @param initialSection - The optional section ID used to seed local navigation state.
+ * @returns The rendered user guide page.
+ * @throws Does not throw.
  */
 export function UserGuide({ initialSection = 'overview' }: UserGuideProps) {
-  const [activeSection, setActiveSection] = useState(initialSection)
+  const [activeSection, setActiveSection] = useState(() => getSectionOrFallback(sections, initialSection).id)
 
   const current = getSectionOrFallback(sections, activeSection)
 

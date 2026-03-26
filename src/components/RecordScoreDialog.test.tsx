@@ -200,6 +200,27 @@ describe('RecordScoreDialog', () => {
             expect(screen.getByText('Please enter a whole number between 0 and 100.')).toBeInTheDocument()
         })
 
+        it('shows a validation error for a decimal value', async () => {
+            const user = userEvent.setup()
+            render(
+                <RecordScoreDialog
+                    open
+                    onOpenChange={vi.fn()}
+                    enrollment={createEnrollment()}
+                    course={createCourse()}
+                    student={createStudent()}
+                    onSubmit={vi.fn()}
+                />,
+            )
+
+            const input = screen.getByRole('spinbutton')
+
+            await user.clear(input)
+            await user.type(input, '89.5')
+
+            expect(screen.getByText('Please enter a whole number between 0 and 100.')).toBeInTheDocument()
+        })
+
         it('disables Save Score when the input is empty', () => {
             render(
                 <RecordScoreDialog
@@ -377,6 +398,7 @@ describe('RecordScoreDialog', () => {
         })
 
         it('resets the input to the enrollment score when the dialog is reopened', async () => {
+            const user = userEvent.setup()
             const enrollment = createEnrollment({ score: 72 })
             const { rerender } = render(
                 <RecordScoreDialog
@@ -390,9 +412,9 @@ describe('RecordScoreDialog', () => {
             )
 
             const input = screen.getByRole('spinbutton') as HTMLInputElement
-            // Use fireEvent for number inputs since userEvent has issues with spinbuttons
-            fireEvent.change(input, { target: { value: '88' } })
-            expect(input.value).toBe('88')
+            await user.click(input)
+            await user.type(input, '88')
+            expect(input.value).not.toBe('72')
 
             rerender(
                 <RecordScoreDialog

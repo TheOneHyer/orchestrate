@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -103,7 +103,8 @@ const checkInScheduleSchema = z.object({
   }
 })
 
-type CheckInScheduleFormValues = z.infer<typeof checkInScheduleSchema>
+type CheckInScheduleFormValues = z.input<typeof checkInScheduleSchema>
+type CheckInScheduleSubmissionValues = z.output<typeof checkInScheduleSchema>
 
 /**
  * Builds default form values for create and edit schedule flows.
@@ -148,7 +149,7 @@ export function CheckInScheduleDialog({
   existingSchedule
 }: CheckInScheduleDialogProps) {
   const defaultValues = useMemo(() => getDefaultFormValues(existingSchedule), [existingSchedule])
-  const form = useForm<CheckInScheduleFormValues>({
+  const form = useForm<CheckInScheduleFormValues, undefined, CheckInScheduleSubmissionValues>({
     resolver: zodResolver(checkInScheduleSchema),
     defaultValues,
     mode: 'onSubmit',
@@ -157,7 +158,6 @@ export function CheckInScheduleDialog({
   const {
     register,
     control,
-    watch,
     reset,
     formState: { errors },
   } = form
@@ -168,12 +168,12 @@ export function CheckInScheduleDialog({
     }
   }, [open, existingSchedule, reset])
 
-  const trainerId = watch('trainerId')
-  const frequency = watch('frequency')
-  const hasEndDate = watch('hasEndDate')
-  const notificationEnabled = watch('notificationEnabled')
-  const autoReminders = watch('autoReminders')
-  const startDate = watch('startDate')
+  const trainerId = useWatch({ control, name: 'trainerId' })
+  const frequency = useWatch({ control, name: 'frequency' })
+  const hasEndDate = useWatch({ control, name: 'hasEndDate' })
+  const notificationEnabled = useWatch({ control, name: 'notificationEnabled' })
+  const autoReminders = useWatch({ control, name: 'autoReminders' })
+  const startDate = useWatch({ control, name: 'startDate' })
 
   const handleClose = () => {
     if (!existingSchedule) {
@@ -199,7 +199,7 @@ export function CheckInScheduleDialog({
    *
    * @param values - Validated check-in schedule form values.
    */
-  const submitForm = (values: CheckInScheduleFormValues) => {
+  const submitForm = (values: CheckInScheduleSubmissionValues) => {
     const scheduleData: Omit<CheckInSchedule, 'id' | 'createdAt' | 'completedCheckIns' | 'missedCheckIns'> = {
       trainerId: values.trainerId,
       frequency: values.frequency,
@@ -289,7 +289,7 @@ export function CheckInScheduleDialog({
                   min="1"
                   max="365"
                   placeholder="Enter number of days"
-                  {...register('customDays', { valueAsNumber: true })}
+                  {...register('customDays')}
                 />
                 {errors.customDays && <p className="text-sm text-destructive">{errors.customDays.message}</p>}
               </div>

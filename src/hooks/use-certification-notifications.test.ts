@@ -488,7 +488,7 @@ describe('use-certification-notifications', () => {
 
     it('safely skips alerts for a userId not present in the users array', () => {
         const trainer = createTrainer('trainer-real', createCertRecord(10, 0))
-        const expiringSpy = vi.spyOn(certificationTracker, 'getExpiringCertifications').mockReturnValue([
+        vi.spyOn(certificationTracker, 'getExpiringCertifications').mockReturnValue([
             {
                 userId: 'ghost-user-not-in-array',
                 userName: 'Ghost User',
@@ -505,8 +505,6 @@ describe('use-certification-notifications', () => {
 
         expect(onCreateNotification).not.toHaveBeenCalled()
         expect(onUpdateUsers).not.toHaveBeenCalled()
-
-        expiringSpy.mockRestore()
     })
 
     it('safely skips alerts when the certification name does not match any record', () => {

@@ -2349,6 +2349,13 @@ describe('App', () => {
             'Role updated',
             expect.objectContaining({ description: expect.stringMatching(/admin/i) }),
         )
+
+        const persistedUsers = kvState['users'] as Array<{ id: string; role: string }>
+        expect(persistedUsers).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'trainer-1', role: 'admin' }),
+            ])
+        )
     })
 
     it('prevents removing the last admin via the settings role assignment card', async () => {
@@ -2365,6 +2372,13 @@ describe('App', () => {
         expect(toastError).toHaveBeenCalledWith(
             'Cannot remove the last admin',
             expect.objectContaining({ description: expect.stringMatching(/another user as admin/i) }),
+        )
+
+        const persistedUsers = kvState['users'] as Array<{ id: string; role: string }>
+        expect(persistedUsers).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'admin-1', role: 'admin' }),
+            ])
         )
     })
 
