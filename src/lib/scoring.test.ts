@@ -1,11 +1,25 @@
 import { describe, expect, it } from 'vitest'
 
 import { applyScore, shouldNotifyCompletion } from './scoring'
+import type { Enrollment } from './types'
+
+function createMockEnrollment(overrides?: Partial<Enrollment>): Enrollment {
+    return {
+        id: 'enrollment-1',
+        userId: 'user-1',
+        courseId: 'course-1',
+        status: 'in-progress',
+        progress: 50,
+        enrolledAt: '2024-01-01T00:00:00.000Z',
+        ...overrides,
+    }
+}
 
 describe('applyScore', () => {
     describe('passing scores', () => {
         it('marks enrollment completed when score equals pass score', () => {
-            const result = applyScore(80, 80)
+            const enrollment = createMockEnrollment()
+            const result = applyScore(80, 80, enrollment)
             expect(result.status).toBe('completed')
             expect(result.score).toBe(80)
             expect(result.progress).toBe(100)
@@ -13,105 +27,145 @@ describe('applyScore', () => {
         })
 
         it('marks enrollment completed when score exceeds pass score', () => {
-            const result = applyScore(95, 80)
+            const enrollment = createMockEnrollment()
+            const result = applyScore(95, 80, enrollment)
             expect(result.status).toBe('completed')
             expect(result.score).toBe(95)
         })
 
         it('marks enrollment completed with a perfect score', () => {
-            const result = applyScore(100, 80)
+            const enrollment = createMockEnrollment()
+            const result = applyScore(100, 80, enrollment)
             expect(result.status).toBe('completed')
         })
 
         it('marks completed when passScore is 0 and score is 0', () => {
-            const result = applyScore(0, 0)
+            const enrollment = createMockEnrollment()
+            const result = applyScore(0, 0, enrollment)
             expect(result.status).toBe('completed')
         })
     })
 
     describe('failing scores', () => {
-        it('marks enrollment failed when score is below pass score', () => {
-            const result = applyScore(79, 80)
+        it('marks enrollment failed when score is below pass score and clears completedAt', () => {
+            const enrollment = createMockEnrollment()
+            const result = applyScore(79, 80, enrollment)
             expect(result.status).toBe('failed')
             expect(result.score).toBe(79)
             expect(result.progress).toBe(100)
-            expect(result.completedAt).toBeTruthy()
+            expect(result.completedAt).toBeUndefined()
         })
 
         it('marks failed when score is 0 and pass score is 80', () => {
-            const result = applyScore(0, 80)
+            const enrollment = createMockEnrollment()
+            const result = applyScore(0, 80, enrollment)
             expect(result.status).toBe('failed')
         })
 
         it('marks failed for a score of 99 with pass score of 100', () => {
-            const result = applyScore(99, 100)
+            const enrollment = createMockEnrollment()
+            const result = applyScore(99, 100, enrollment)
             expect(result.status).toBe('failed')
         })
     })
 
     describe('progress and completion timestamp', () => {
         it('always sets progress to 100', () => {
-            expect(applyScore(50, 80).progress).toBe(100)
-            expect(applyScore(90, 80).progress).toBe(100)
+            const enrollment = createMockEnrollment()
+            expect(applyScore(50, 80, enrollment).progress).toBe(100)
+            expect(applyScore(90, 80, enrollment).progress).toBe(100)
         })
 
-        it('sets completedAt to a valid ISO string close to now', () => {
+        it('sets completedAt to a valid ISO string close to now for first completion', () => {
+            const enrollment = createMockEnrollment()
             const before = Date.now()
-            const result = applyScore(85, 80)
+            const result = applyScore(85, 80, enrollment)
             const after = Date.now()
-            const ts = new Date(result.completedAt).getTime()
+            const ts = new Date(result.completedAt!).getTime()
             expect(ts).toBeGreaterThanOrEqual(before)
             expect(ts).toBeLessThanOrEqual(after)
+        })
+
+        it('preserves existing completedAt when re-scoring a completed enrollment', () => {
+            const existingCompletedAt = '2024-01-15T10:00:00.000Z'
+            const enrollment = createMockEnrollment({
+                status: 'completed',
+                completedAt: existingCompletedAt,
+            })
+            const result = applyScore(95, 80, enrollment)
+            expect(result.completedAt).toBe(existingCompletedAt)
+        })
+
+        it('clears completedAt when enrollment transitions to failed', () => {
+            const enrollment = createMockEnrollment({
+                status: 'completed',
+                completedAt: '2024-01-15T10:00:00.000Z',
+            })
+            const result = applyScore(50, 80, enrollment)
+            expect(result.status).toBe('failed')
+            expect(result.completedAt).toBeUndefined()
         })
     })
 
     describe('boundary validation', () => {
         it('throws RangeError when score is below 0', () => {
-            expect(() => applyScore(-1, 80)).toThrow(RangeError)
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(-1, 80, enrollment)).toThrow(RangeError)
         })
 
         it('throws RangeError when score is NaN', () => {
-            expect(() => applyScore(Number.NaN, 80)).toThrow(RangeError)
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(Number.NaN, 80, enrollment)).toThrow(RangeError)
         })
 
         it('throws RangeError when passScore is NaN', () => {
-            expect(() => applyScore(80, Number.NaN)).toThrow(RangeError)
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(80, Number.NaN, enrollment)).toThrow(RangeError)
         })
 
         it('throws RangeError when passScore is infinite', () => {
-            expect(() => applyScore(80, Number.POSITIVE_INFINITY)).toThrow(RangeError)
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(80, Number.POSITIVE_INFINITY, enrollment)).toThrow(RangeError)
         })
 
         it('throws RangeError when passScore is negative infinity', () => {
-            expect(() => applyScore(80, Number.NEGATIVE_INFINITY)).toThrow(RangeError)
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(80, Number.NEGATIVE_INFINITY, enrollment)).toThrow(RangeError)
         })
 
         it('throws RangeError when score is positive infinity', () => {
-            expect(() => applyScore(Number.POSITIVE_INFINITY, 80)).toThrow(RangeError)
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(Number.POSITIVE_INFINITY, 80, enrollment)).toThrow(RangeError)
         })
 
         it('throws RangeError when score is negative infinity', () => {
-            expect(() => applyScore(Number.NEGATIVE_INFINITY, 80)).toThrow(RangeError)
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(Number.NEGATIVE_INFINITY, 80, enrollment)).toThrow(RangeError)
         })
 
         it('throws RangeError when score exceeds 100', () => {
-            expect(() => applyScore(101, 80)).toThrow(RangeError)
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(101, 80, enrollment)).toThrow(RangeError)
         })
 
         it('throws RangeError when passScore is below 0', () => {
-            expect(() => applyScore(80, -1)).toThrow(RangeError)
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(80, -1, enrollment)).toThrow(RangeError)
         })
 
         it('throws RangeError when passScore exceeds 100', () => {
-            expect(() => applyScore(80, 101)).toThrow(RangeError)
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(80, 101, enrollment)).toThrow(RangeError)
         })
 
         it('accepts 0 as a valid score', () => {
-            expect(() => applyScore(0, 50)).not.toThrow()
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(0, 50, enrollment)).not.toThrow()
         })
 
         it('accepts 100 as a valid score', () => {
-            expect(() => applyScore(100, 50)).not.toThrow()
+            const enrollment = createMockEnrollment()
+            expect(() => applyScore(100, 50, enrollment)).not.toThrow()
         })
     })
 })

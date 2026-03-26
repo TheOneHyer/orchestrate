@@ -28,8 +28,8 @@ export interface EnrollmentScoreUpdate {
     progress: number
     /** New enrollment lifecycle status derived from the score vs. the pass threshold. */
     status: 'completed' | 'failed'
-    /** ISO 8601 timestamp of when the score was recorded. */
-    completedAt: string
+    /** ISO 8601 timestamp of when the score was recorded, or undefined if the status is 'failed'. */
+    completedAt?: string
 }
 
 /**
@@ -37,23 +37,39 @@ export interface EnrollmentScoreUpdate {
  *
  * If `score >= passScore` the enrollment transitions to `'completed'`; otherwise
  * it transitions to `'failed'`. Progress is always set to `100` because a score
- * represents a finished attempt regardless of outcome. `completedAt` is set to
- * the current UTC timestamp.
+ * represents a finished attempt regardless of outcome. When transitioning to
+ * 'completed' for the first time, `completedAt` is set to the current UTC timestamp;
+ * if the enrollment was already completed, the existing `completedAt` is preserved.
+ * When transitioning to 'failed', `completedAt` is cleared (set to undefined).
  *
  * @param score - The assessment score achieved (0–100 inclusive).
  * @param passScore - The minimum score required to pass the course (0–100 inclusive).
+ * @param enrollment - The existing enrollment record to check previous state.
  * @returns The enrollment field updates to apply.
  * @throws {RangeError} When `score` or `passScore` is outside the 0–100 range.
  */
-export function applyScore(score: number, passScore: number): EnrollmentScoreUpdate {
+export function applyScore(score: number, passScore: number, enrollment: Enrollment): EnrollmentScoreUpdate {
     assertScoreRange(score, 'score')
     assertScoreRange(passScore, 'passScore')
+
+    const newStatus = score >= passScore ? 'completed' : 'failed'
+    let completedAt: string | undefined
+
+    if (newStatus === 'completed') {
+        // Preserve existing completedAt if already completed, otherwise set new timestamp
+        completedAt = enrollment.status === 'completed' && enrollment.completedAt
+            ? enrollment.completedAt
+            : new Date().toISOString()
+    } else {
+        // Clear completedAt for failed status
+        completedAt = undefined
+    }
 
     return {
         score,
         progress: 100,
-        status: score >= passScore ? 'completed' : 'failed',
-        completedAt: new Date().toISOString(),
+        status: newStatus,
+        completedAt,
     }
 }
 

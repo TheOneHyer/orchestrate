@@ -85,11 +85,6 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
     setEditingTemplate(null)
   }
 
-  /**
-   * Duplicates the given template with a new ID and a `(Copy)` name suffix.
-   *
-   * @param template - The template to duplicate.
-   */
   const handleDuplicateTemplate = (template: ScheduleTemplate) => {
     const duplicatedTemplate: ScheduleTemplate = {
       ...template,
@@ -103,31 +98,16 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
     toast.success('Template duplicated successfully')
   }
 
-  /**
-   * Permanently removes the template with the given ID from the templates list.
-   *
-   * @param templateId - ID of the template to delete.
-   */
   const handleDeleteTemplate = (templateId: string) => {
     setTemplates((current) => (current || []).filter((t) => t.id !== templateId))
     toast.success('Template deleted')
   }
 
-  /**
-   * Stores the selected template and opens the apply-template dialog.
-   *
-   * @param template - The template to apply.
-   */
   const handleApplyTemplate = (template: ScheduleTemplate) => {
     setSelectedTemplate(template)
     setApplyDialogOpen(true)
   }
 
-  /**
-   * Increments the template's usage count, creates the sessions, and closes the apply dialog.
-   *
-   * @param sessions - Partial session objects generated from the template.
-   */
   const handleCreateSessions = (sessions: Partial<Session>[]) => {
     if (selectedTemplate) {
       setTemplates((current) =>

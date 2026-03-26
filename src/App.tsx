@@ -1189,6 +1189,7 @@ function App() {
           ? session.enrolledStudents.filter(id => id !== userId)
           : session.enrolledStudents,
         ...(shouldResetStatus ? { status: 'scheduled' as const } : {}),
+        updatedAt: new Date().toISOString(),
       }
     }))
 
@@ -1365,7 +1366,7 @@ function App() {
     const passScore = course?.passScore ?? 80
 
     try {
-      const update = applyScore(score, passScore)
+      const update = applyScore(score, passScore, enrollment)
       const notify = shouldNotifyCompletion(enrollment.status, score, passScore)
 
       setEnrollments((current) =>

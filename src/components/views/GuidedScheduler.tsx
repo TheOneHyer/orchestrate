@@ -33,7 +33,7 @@ import {
 import { TrainerScheduler, SchedulingConstraints, TrainerMatch } from '@/lib/scheduler'
 import { User, Course, Session, WellnessCheckIn, RecoveryPlan, StressLevel } from '@/lib/types'
 import { toast } from 'sonner'
-import { addDays, addMonths, format, parse } from 'date-fns'
+import { addDays, addMonths, format, parse, getDate, getYear, getMonth, setDate as setDateOfMonth, getDaysInMonth } from 'date-fns'
 import { calculateTrainerWorkload } from '@/lib/workload-balancer'
 import { calculateBurnoutRisk } from '@/lib/burnout-analytics'
 
@@ -108,6 +108,7 @@ function buildOccurrenceDates(
   const dates: string[] = []
 
   let currentDate = start
+  const originalDay = getDate(start)
 
   while (currentDate <= end) {
     dates.push(format(currentDate, 'yyyy-MM-dd'))
@@ -126,7 +127,14 @@ function buildOccurrenceDates(
       continue
     }
 
-    currentDate = addMonths(currentDate, 1)
+    if (recurrenceType === 'monthly') {
+      const nextMonth = addMonths(currentDate, 1)
+      const year = getYear(nextMonth)
+      const month = getMonth(nextMonth)
+      const daysInMonth = getDaysInMonth(nextMonth)
+      const targetDay = Math.min(originalDay, daysInMonth)
+      currentDate = new Date(year, month, targetDay)
+    }
   }
 
   return dates
@@ -137,7 +145,10 @@ function buildOccurrenceDates(
  *
  * Presents tools to define course, dates/times (including recurrence), location, and capacity; ranks trainers by certification match, availability, workload, and wellness; and creates session objects when confirmed.
  *
+ * @param users - Available users/trainers to rank and select.
+ * @param courses - Available course definitions to choose from.
  * @param onSessionsCreated - Callback invoked with an array of created Partial<Session> objects after confirmation.
+ * @param onClose - Callback to close the wizard.
  * @param prefilledDate - Optional date used to pre-populate the start date field in yyyy-MM-dd local format.
  * @returns The rendered GuidedScheduler React JSX element.
  */
@@ -460,7 +471,12 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
         <div className="space-y-2">
           <Label htmlFor="recurrence">Recurrence Pattern</Label>
-          <Select value={recurrenceType} onValueChange={(v: 'none' | 'daily' | 'weekly' | 'monthly') => setRecurrenceType(v)}>
+          <Select value={recurrenceType} onValueChange={(value: string) => {
+            const allowedValues = ['none', 'daily', 'weekly', 'monthly'] as const
+            if (allowedValues.includes(value as typeof allowedValues[number])) {
+              setRecurrenceType(value as 'none' | 'daily' | 'weekly' | 'monthly')
+            }
+          }}>
             <SelectTrigger id="recurrence">
               <SelectValue />
             </SelectTrigger>
