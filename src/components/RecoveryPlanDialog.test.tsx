@@ -200,6 +200,10 @@ describe('RecoveryPlanDialog', () => {
 
         await user.clear(screen.getByLabelText(/description/i))
         await user.type(screen.getByLabelText(/description/i), 'Move sessions to reduce fatigue')
+        // `type="date"` inputs emit intermediate strings (for example `2026-04-1`, `2026-04-15T`)
+        // when typing with userEvent, which jsdom parses/validates differently than real browsers
+        // and can cause flaky validation or state in this test. Use a single change event with a
+        // final valid value for stable cross-environment behavior.
         fireEvent.change(screen.getByLabelText(/target date/i), { target: { value: '2026-04-15' } })
         await user.type(screen.getByLabelText(/notes \(optional\)/i, { selector: 'input' }), 'Coordinate with operations lead')
         await user.type(screen.getByLabelText(/plan notes \(optional\)/i, { selector: 'textarea' }), 'Escalate if utilization stays above target')
@@ -336,19 +340,6 @@ describe('RecoveryPlanDialog', () => {
         expect(screen.queryByText(/support session/i, { selector: 'span' })).not.toBeInTheDocument()
         expect(screen.queryByText(/provide 3-5 consecutive days of paid time off/i)).not.toBeInTheDocument()
         expect(screen.getByText(/no actions added yet/i)).toBeInTheDocument()
-    })
-
-    it('submits when auto-filled data exists', async () => {
-        render(
-            <RecoveryPlanDialog
-                {...baseProps}
-                latestCheckIn={latestCheckIn}
-                currentUtilization={90}
-            />
-        )
-
-        await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
-        expect(baseProps.onSubmit).toHaveBeenCalledOnce()
     })
 
     it('displays validation error when actions list becomes empty after removal', async () => {

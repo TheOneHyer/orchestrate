@@ -370,8 +370,8 @@ describe('CheckInScheduleDialog', () => {
         trainerId: 't-1',
         frequency: 'custom',
         customDays: 10,
-        startDate: '2026-03-01T00:00:00.000Z',
-        endDate: '2026-03-20T00:00:00.000Z',
+        startDate: expect.stringMatching(/^2026-03-01T00:00:00(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/),
+        endDate: expect.stringMatching(/^2026-03-20T00:00:00(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/),
         notes: 'Follow up with coach',
       })
     )
@@ -401,7 +401,7 @@ describe('CheckInScheduleDialog', () => {
     expect(onSubmit).toHaveBeenCalledOnce()
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
-        endDate: '2026-04-30T00:00:00.000Z',
+        endDate: expect.stringMatching(/^2026-04-30T00:00:00(?:Z|[+-]\d{2}:\d{2})$/),
       })
     )
   })

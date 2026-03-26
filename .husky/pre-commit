@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+pnpm install --frozen-lockfile
+pnpm build
+pnpm test:coverage

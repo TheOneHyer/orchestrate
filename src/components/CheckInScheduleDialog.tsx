@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { CheckInSchedule, CheckInFrequency, User } from '@/lib/types'
 import { CalendarCheck } from '@phosphor-icons/react'
-import { addDays, format } from 'date-fns'
+import { addDays, format, formatISO, isValid, parseISO } from 'date-fns'
 
 /**
  * Props for the {@link CheckInScheduleDialog} component.
@@ -63,8 +63,8 @@ const checkInScheduleSchema = z.object({
   reminderHoursBefore: z.coerce.number().min(0, 'Reminder hours cannot be negative'),
   notes: z.string(),
 }).superRefine((values, ctx) => {
-  const startDate = new Date(values.startDate)
-  if (Number.isNaN(startDate.getTime())) {
+  const startDate = parseISO(values.startDate)
+  if (!isValid(startDate)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'Start date is invalid.',
@@ -98,9 +98,9 @@ const checkInScheduleSchema = z.object({
       return
     }
 
-    const endDate = new Date(values.endDate)
+    const endDate = parseISO(values.endDate)
 
-    if (Number.isNaN(endDate.getTime())) {
+    if (!isValid(endDate)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'End date is invalid.',
@@ -109,7 +109,7 @@ const checkInScheduleSchema = z.object({
       return
     }
 
-    if (!Number.isNaN(startDate.getTime()) && endDate <= startDate) {
+    if (isValid(startDate) && endDate <= startDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'End date must be after start date.',
@@ -216,13 +216,16 @@ export function CheckInScheduleDialog({
    * @param values - Validated check-in schedule form values.
    */
   const submitForm = (values: CheckInScheduleSubmissionValues) => {
+    const parsedStartDate = parseISO(values.startDate)
+    const parsedEndDate = values.hasEndDate && values.endDate ? parseISO(values.endDate) : undefined
+
     const scheduleData: Omit<CheckInSchedule, 'id' | 'createdAt' | 'completedCheckIns' | 'missedCheckIns'> = {
       trainerId: values.trainerId,
       frequency: values.frequency,
       customDays: values.frequency === 'custom' ? values.customDays : undefined,
-      startDate: new Date(values.startDate).toISOString(),
-      endDate: values.hasEndDate && values.endDate ? new Date(values.endDate).toISOString() : undefined,
-      nextScheduledDate: existingSchedule?.nextScheduledDate ?? new Date(values.startDate).toISOString(),
+      startDate: formatISO(parsedStartDate),
+      endDate: parsedEndDate ? formatISO(parsedEndDate) : undefined,
+      nextScheduledDate: existingSchedule?.nextScheduledDate ?? formatISO(parsedStartDate),
       lastCheckInDate: existingSchedule?.lastCheckInDate,
       status: existingSchedule?.status || 'active',
       notificationEnabled: values.notificationEnabled,
