@@ -56,11 +56,11 @@ const DEFAULT_TARGET_UTILIZATION = 70
 const DEFAULT_DURATION_WEEKS = 4
 
 const parseNumericInput = (value: string, fallbackValue: number, min?: number, max?: number) => {
-  const parsedValue = parseInt(value, 10)
-  if (Number.isNaN(parsedValue)) {
+  const parsedValue = Number(value)
+  if (!Number.isFinite(parsedValue)) {
     return fallbackValue
   }
-  let result = parsedValue
+  let result = Math.trunc(parsedValue)
   if (min !== undefined) {
     result = Math.max(min, result)
   }
@@ -157,7 +157,6 @@ export function RecoveryPlanDialog({
     }
   }, [open, latestCheckIn, currentUtilization])
 
-  /** Validates required fields and invokes `onSubmit` with the constructed recovery plan. */
   const handleSubmit = () => {
     setSubmitAttempted(true)
 
@@ -189,7 +188,6 @@ export function RecoveryPlanDialog({
     handleClose()
   }
 
-  /** Resets all dialog fields to their initial state and calls `onClose`. */
   const handleClose = () => {
     setTargetUtilizationInput(String(parseNumericInput(String(DEFAULT_TARGET_UTILIZATION), DEFAULT_TARGET_UTILIZATION, 40, 80)))
     setDurationWeeksInput(String(parseNumericInput(String(DEFAULT_DURATION_WEEKS), DEFAULT_DURATION_WEEKS, 1, 12)))
@@ -201,11 +199,6 @@ export function RecoveryPlanDialog({
     onClose()
   }
 
-  /**
-   * Appends a new recovery action of the given type, pre-populated from the action templates.
-   *
-   * @param type - The kind of recovery action to add.
-   */
   const addAction = (type: RecoveryAction) => {
     const newAction: Omit<RecoveryPlanAction, 'id'> = {
       type,
@@ -216,24 +209,12 @@ export function RecoveryPlanDialog({
     setActions([...actions, newAction])
   }
 
-  /**
-   * Updates a single field on the recovery action at the given index.
-   *
-   * @param index - Index of the action to update.
-   * @param field - The field key to change (excluding `id`).
-   * @param value - The new value for the field.
-   */
   function updateAction<K extends EditableRecoveryPlanActionField>(index: number, field: K, value: RecoveryPlanAction[K]) {
     const updated = [...actions]
     updated[index] = { ...updated[index], [field]: value }
     setActions(updated)
   }
 
-  /**
-   * Removes the recovery action at the given index.
-   *
-   * @param index - Index of the action to remove.
-   */
   const removeAction = (index: number) => {
     setActions(actions.filter((_, idx) => idx !== index))
   }
@@ -293,6 +274,7 @@ export function RecoveryPlanDialog({
                 type="number"
                 min={40}
                 max={80}
+                step={1}
                 value={targetUtilizationInput}
                 onChange={(e) => setTargetUtilizationInput(e.target.value)}
                 onBlur={() => setTargetUtilizationInput(String(parseNumericInput(targetUtilizationInput, DEFAULT_TARGET_UTILIZATION, 40, 80)))}
@@ -306,6 +288,7 @@ export function RecoveryPlanDialog({
                 type="number"
                 min={1}
                 max={12}
+                step={1}
                 value={durationWeeksInput}
                 onChange={(e) => setDurationWeeksInput(e.target.value)}
                 onBlur={() => setDurationWeeksInput(String(parseNumericInput(durationWeeksInput, DEFAULT_DURATION_WEEKS, 1, 12)))}

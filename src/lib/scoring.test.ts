@@ -1,6 +1,6 @@
 import { applyScore, shouldNotifyCompletion } from './scoring'
 import type { Enrollment } from './types'
-import { parseISO, getTime } from 'date-fns'
+import { parseISO } from 'date-fns'
 
 function createMockEnrollment(overrides?: Partial<Enrollment>): Enrollment {
     return {
