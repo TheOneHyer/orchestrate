@@ -10,7 +10,7 @@ overrides:
 
 patchedDependencies:
   minimatch@3.1.5:
-    hash: 2c0e3c5cf3383bc2e4f2d6af727790793aee4714738dfefb5023ebd92912e499
+    hash: 5f8e1e217b676b19278d4558a37c11df038f072c77044255fd95e3618cb7198e
     path: patches/minimatch@3.1.5.patch
 
 importers:
@@ -4179,7 +4179,7 @@ snapshots:
     dependencies:
       '@eslint/object-schema': 2.1.7
       debug: 4.4.3
-      minimatch: 3.1.5(patch_hash=2c0e3c5cf3383bc2e4f2d6af727790793aee4714738dfefb5023ebd92912e499)
+      minimatch: 3.1.5(patch_hash=5f8e1e217b676b19278d4558a37c11df038f072c77044255fd95e3618cb7198e)
     transitivePeerDependencies:
       - supports-color
 
@@ -4200,7 +4200,7 @@ snapshots:
       ignore: 5.3.2
       import-fresh: 3.3.1
       js-yaml: 4.1.1
-      minimatch: 3.1.5(patch_hash=2c0e3c5cf3383bc2e4f2d6af727790793aee4714738dfefb5023ebd92912e499)
+      minimatch: 3.1.5(patch_hash=5f8e1e217b676b19278d4558a37c11df038f072c77044255fd95e3618cb7198e)
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
       - supports-color
@@ -6247,7 +6247,7 @@ snapshots:
       estraverse: 5.3.0
       hasown: 2.0.2
       jsx-ast-utils: 3.3.5
-      minimatch: 3.1.5(patch_hash=2c0e3c5cf3383bc2e4f2d6af727790793aee4714738dfefb5023ebd92912e499)
+      minimatch: 3.1.5(patch_hash=5f8e1e217b676b19278d4558a37c11df038f072c77044255fd95e3618cb7198e)
       object.entries: 1.1.9
       object.fromentries: 2.0.8
       object.values: 1.2.1
@@ -6301,7 +6301,7 @@ snapshots:
       is-glob: 4.0.3
       json-stable-stringify-without-jsonify: 1.0.1
       lodash.merge: 4.6.2
-      minimatch: 3.1.5(patch_hash=2c0e3c5cf3383bc2e4f2d6af727790793aee4714738dfefb5023ebd92912e499)
+      minimatch: 3.1.5(patch_hash=5f8e1e217b676b19278d4558a37c11df038f072c77044255fd95e3618cb7198e)
       natural-compare: 1.4.0
       optionator: 0.9.4
     optionalDependencies:
@@ -6901,7 +6901,7 @@ snapshots:
     dependencies:
       brace-expansion: 5.0.5
 
-  minimatch@3.1.5(patch_hash=2c0e3c5cf3383bc2e4f2d6af727790793aee4714738dfefb5023ebd92912e499):
+  minimatch@3.1.5(patch_hash=5f8e1e217b676b19278d4558a37c11df038f072c77044255fd95e3618cb7198e):
     dependencies:
       brace-expansion: 5.0.5
 

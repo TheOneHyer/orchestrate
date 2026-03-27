@@ -7,8 +7,8 @@ index 38d5d7f..8b9e06e 100644
  
  var GLOBSTAR = minimatch.GLOBSTAR = Minimatch.GLOBSTAR = {}
 -var expand = require('brace-expansion')
-+var _braceExpansionPkg = require('brace-expansion')
-+var expand = typeof _braceExpansionPkg === 'function' ? _braceExpansionPkg : _braceExpansionPkg.expand
++var braceExpansionMod = require('brace-expansion')
++var expand = typeof braceExpansionMod === 'function' ? braceExpansionMod : braceExpansionMod.expand
  
  var plTypes = {
    '!': { open: '(?:(?!(?:', close: '))[^/]*?)'},
