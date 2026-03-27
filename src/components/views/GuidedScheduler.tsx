@@ -33,7 +33,7 @@ import {
 import { TrainerScheduler, SchedulingConstraints, TrainerMatch } from '@/lib/scheduler'
 import { User, Course, Session, WellnessCheckIn, RecoveryPlan, StressLevel } from '@/lib/types'
 import { toast } from 'sonner'
-import { addDays, addMonths, format, parse, getDate, getYear, getMonth, setDate as setDateOfMonth, getDaysInMonth } from 'date-fns'
+import { addDays, addMonths, format, parse, getDate, getYear, getMonth, getDaysInMonth } from 'date-fns'
 import { calculateTrainerWorkload } from '@/lib/workload-balancer'
 import { calculateBurnoutRisk } from '@/lib/burnout-analytics'
 

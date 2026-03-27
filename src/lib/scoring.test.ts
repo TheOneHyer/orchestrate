@@ -1,5 +1,3 @@
-import { describe, expect, it } from 'vitest'
-
 import { applyScore, shouldNotifyCompletion } from './scoring'
 import type { Enrollment } from './types'
 

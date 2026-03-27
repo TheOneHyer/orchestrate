@@ -236,14 +236,35 @@ describe('RecoveryPlanDialog', () => {
 
         const targetUtilizationInput = screen.getByLabelText(/target utilization/i)
         const durationWeeksInput = screen.getByLabelText(/duration \(weeks\)/i)
+        const triggerReasonInput = screen.getByLabelText(/trigger reason/i)
 
-        await user.type(screen.getByLabelText(/trigger reason/i), 'Numeric fallback coverage')
+        await user.type(triggerReasonInput, 'Numeric fallback coverage')
         await user.clear(targetUtilizationInput)
         await user.clear(durationWeeksInput)
         await user.tab()
 
         expect(targetUtilizationInput).toHaveValue(70)
         expect(durationWeeksInput).toHaveValue(4)
+
+        // Test boundary normalization: below minimum
+        await user.clear(targetUtilizationInput)
+        await user.type(targetUtilizationInput, '0')
+        await user.clear(durationWeeksInput)
+        await user.type(durationWeeksInput, '0')
+        await user.click(triggerReasonInput)
+
+        expect(targetUtilizationInput).toHaveValue(40)
+        expect(durationWeeksInput).toHaveValue(1)
+
+        // Test boundary normalization: above maximum
+        await user.clear(targetUtilizationInput)
+        await user.type(targetUtilizationInput, '999')
+        await user.clear(durationWeeksInput)
+        await user.type(durationWeeksInput, '999')
+        await user.click(triggerReasonInput)
+
+        expect(targetUtilizationInput).toHaveValue(80)
+        expect(durationWeeksInput).toHaveValue(12)
     })
 
     it('disables submit and shows validation text when trigger reason is empty', async () => {

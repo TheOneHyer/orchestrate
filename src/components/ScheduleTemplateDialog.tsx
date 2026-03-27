@@ -583,7 +583,7 @@ export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, c
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open ? (
         <ScheduleTemplateDialogBody
-          key={`${open}-${template?.id ?? 'new'}`}
+          key={template?.id ?? 'new'}
           onOpenChange={onOpenChange}
           template={template}
           onSave={onSave}
