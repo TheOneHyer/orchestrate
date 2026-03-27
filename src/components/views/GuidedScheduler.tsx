@@ -196,6 +196,12 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
     const dates = buildOccurrenceDates(startDate, endDate, recurrenceType)
     const parsedDates = dates.map((date) => parse(date, 'yyyy-MM-dd', new Date()))
+
+    if (parsedDates.length === 0) {
+      toast.error('Invalid date range: start date must be before or equal to end date')
+      return
+    }
+
     const scheduleWindowStart = parsedDates[0]
     const scheduleWindowEnd = parsedDates[parsedDates.length - 1] ?? scheduleWindowStart
 

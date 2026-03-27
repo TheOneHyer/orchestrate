@@ -70,7 +70,7 @@ const parseNumericInput = (value: string, fallbackValue: number, min?: number, m
   return result
 }
 
-type EditableRecoveryPlanActionField = 'description' | 'targetDate' | 'notes'
+type EditableRecoveryPlanActionField = keyof Pick<RecoveryPlanAction, 'description' | 'targetDate' | 'notes'>
 
 /**
  * Dialog for creating a structured recovery plan to support trainer wellbeing.
@@ -223,7 +223,7 @@ export function RecoveryPlanDialog({
    * @param field - The field key to change (excluding `id`).
    * @param value - The new value for the field.
    */
-  const updateAction = (index: number, field: EditableRecoveryPlanActionField, value: string) => {
+  function updateAction<K extends EditableRecoveryPlanActionField>(index: number, field: K, value: RecoveryPlanAction[K]) {
     const updated = [...actions]
     updated[index] = { ...updated[index], [field]: value }
     setActions(updated)

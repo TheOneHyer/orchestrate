@@ -101,7 +101,7 @@ const positiveIntegerFieldSchema = z
     const trimmedValue = value.trim()
     return /^\d+$/.test(trimmedValue) && Number(trimmedValue) > 0
   }, 'Must be a positive integer.')
-  .transform((value) => (typeof value === 'string' ? Number(value.trim()) : value))
+  .transform((value): number => (typeof value === 'string' ? Number(value.trim()) : value))
 
 const scheduleTemplateSessionValidationSchema = z.object({
   time: z.string().trim().min(1, 'Time is required.'),
@@ -375,9 +375,10 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label>Tags</Label>
+            <Label htmlFor="tags-input">Tags</Label>
             <div className="flex gap-2">
               <Input
+                id="tags-input"
                 value={tagInput}
                 onChange={e => setTagInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
