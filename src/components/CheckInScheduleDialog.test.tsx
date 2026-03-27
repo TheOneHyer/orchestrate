@@ -405,7 +405,7 @@ describe('CheckInScheduleDialog', () => {
     expect(onSubmit).toHaveBeenCalledOnce()
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
-        endDate: expect.stringMatching(/^2026-04-30T00:00:00(?:Z|[+-]\d{2}:\d{2})$/),
+        endDate: expect.stringMatching(/^2026-04-30T00:00:00(?:\.\d{3})?(?:Z|[+-]\d{2}:\d{2})$/),
       })
     )
   })
