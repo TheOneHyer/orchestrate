@@ -189,8 +189,8 @@ export function RecoveryPlanDialog({
   }
 
   const handleClose = () => {
-    setTargetUtilizationInput(String(parseNumericInput(String(DEFAULT_TARGET_UTILIZATION), DEFAULT_TARGET_UTILIZATION, 40, 80)))
-    setDurationWeeksInput(String(parseNumericInput(String(DEFAULT_DURATION_WEEKS), DEFAULT_DURATION_WEEKS, 1, 12)))
+    setTargetUtilizationInput(String(DEFAULT_TARGET_UTILIZATION))
+    setDurationWeeksInput(String(DEFAULT_DURATION_WEEKS))
     setTriggerReason('')
     setTriggerReasonTouched(false)
     setSubmitAttempted(false)
