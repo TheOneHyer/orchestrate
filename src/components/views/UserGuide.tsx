@@ -70,8 +70,9 @@ function GuideSection({ title, children }: { title: string; children: ReactNode 
 }
 
 /**
- * Renders an unordered list of guide bullet points.
- * @param items - Array of strings to display as list items.
+ * Render a vertical bulleted list from the provided strings.
+ *
+ * @param items - Strings to display as list items in document order
  */
 function GuideList({ items }: { items: string[] }) {
   return (
@@ -80,20 +81,6 @@ function GuideList({ items }: { items: string[] }) {
         <li key={i}>{item}</li>
       ))}
     </ul>
-  )
-}
-
-/**
- * Renders a single label–value pair used in guide reference tables.
- * @param label - The field label text.
- * @param value - The field value text.
- */
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-2 text-sm">
-      <span className="font-medium text-foreground min-w-32">{label}:</span>
-      <span className="text-muted-foreground">{value}</span>
-    </div>
   )
 }
 
@@ -833,16 +820,40 @@ const sections: Section[] = [
 ]
 
 /**
- * Renders the full-page User Guide for Orchestrate.
+ * Returns the section whose `id` matches `key`, or a fallback section when none is found.
  *
- * Provides a sidebar-navigated reference covering every major feature of the application,
- * organised into role-tagged sections (Overview, Schedule, Templates, People, Reports,
- * Trainer Availability, Wellness, Courses, Notifications, Settings, and Glossary).
+ * @param availableSections - Ordered list of sections to search.
+ * @param key - Optional section ID to resolve.
+ * @returns The matched section; if `key` is not found, the first section in `availableSections`; if `availableSections` is empty, a placeholder section with `id === ''` and label "No Sections Available".
  */
-export function UserGuide() {
-  const [activeSection, setActiveSection] = useState('overview')
+export function getSectionOrFallback(availableSections: Section[], key?: string): Section {
+  if (availableSections.length === 0) {
+    return {
+      id: '',
+      label: 'No Sections Available',
+      icon: BookOpen,
+      roles: [],
+      content: <p>No guide sections are available</p>,
+    }
+  }
+  return availableSections.find((section) => section.id === key) ?? availableSections[0]
+}
 
-  const current = sections.find(s => s.id === activeSection) ?? sections[0]
+interface UserGuideProps {
+  /** Optional initial section ID used to seed local navigation state. */
+  initialSection?: string
+}
+
+/**
+ * Render the full User Guide page with sidebar navigation for browsing role-tagged sections.
+ *
+ * @param initialSection - Optional section id to seed the initial active sidebar entry.
+ * @returns The rendered user guide page element.
+ */
+export function UserGuide({ initialSection = 'overview' }: UserGuideProps) {
+  const [activeSection, setActiveSection] = useState(() => getSectionOrFallback(sections, initialSection).id)
+
+  const current = getSectionOrFallback(sections, activeSection)
 
   return (
     <div className="p-6 space-y-6">

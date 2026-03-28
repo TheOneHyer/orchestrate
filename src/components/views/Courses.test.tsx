@@ -7,6 +7,7 @@ import type { Course, Enrollment, User } from '@/lib/types'
 
 const toastError = vi.fn()
 const toastSuccess = vi.fn()
+const COURSE_UPDATED_AT = '2023-01-01T00:00:00Z'
 
 vi.mock('sonner', () => ({
     toast: {
@@ -50,6 +51,7 @@ function createCourse(overrides: Partial<Course> = {}): Course {
         createdAt: '2026-01-01T00:00:00.000Z',
         published: true,
         passScore: 80,
+        updatedAt: COURSE_UPDATED_AT,
         ...overrides,
     }
 }
@@ -1051,7 +1053,10 @@ describe('Courses', () => {
         )
 
         await user.click(screen.getByRole('button', { name: /publish course/i }))
-        expect(onUpdateCourse).toHaveBeenCalledWith('c1', { published: true })
+        expect(onUpdateCourse).toHaveBeenCalledWith(
+            'c1',
+            expect.objectContaining({ published: true, updatedAt: COURSE_UPDATED_AT })
+        )
         expect(toastSuccess).toHaveBeenCalledWith(
             'Course published',
             expect.objectContaining({ description: expect.stringMatching(/available/i) })
@@ -1082,7 +1087,10 @@ describe('Courses', () => {
 
         await user.click(screen.getByRole('button', { name: /move to draft/i }))
 
-        expect(onUpdateCourse).toHaveBeenCalledWith('c1', { published: false })
+        expect(onUpdateCourse).toHaveBeenCalledWith(
+            'c1',
+            expect.objectContaining({ published: false, updatedAt: COURSE_UPDATED_AT })
+        )
         expect(toastSuccess).toHaveBeenCalledWith(
             'Course moved to draft',
             expect.objectContaining({ description: expect.stringMatching(/hidden from employees/i) })

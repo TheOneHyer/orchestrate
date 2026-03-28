@@ -119,18 +119,54 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     })
   }, [filteredTrainers, sessions, weekStart])
 
+  /**
+   * Memoized map of trainer sessions indexed by trainerId and date key.
+   * Prevents repeated O(sessions) scans during grid rendering.
+   */
+  const trainerSessionMap = useMemo(() => {
+    const map = new Map<string, Map<string, Session[]>>()
+    sessions.forEach(session => {
+      if (!map.has(session.trainerId)) {
+        map.set(session.trainerId, new Map())
+      }
+      const dateKey = format(new Date(session.startTime), 'yyyy-MM-dd')
+      const dayMap = map.get(session.trainerId)!
+      if (!dayMap.has(dateKey)) {
+        dayMap.set(dateKey, [])
+      }
+      dayMap.get(dateKey)!.push(session)
+    })
+    return map
+  }, [sessions])
+
+  /**
+   * Returns all sessions assigned to the given trainer that fall on the specified day.
+   *
+   * @param trainerId - The trainer ID to filter by.
+   * @param day - The calendar day to match.
+   * @returns The matching sessions.
+   */
   const getTrainerSessionsForDay = (trainerId: string, day: Date) => {
-    return sessions.filter(s =>
-      s.trainerId === trainerId &&
-      isSameDay(new Date(s.startTime), day)
-    )
+    const dateKey = format(day, 'yyyy-MM-dd')
+    return trainerSessionMap.get(trainerId)?.get(dateKey) || []
   }
 
+  /**
+   * Sets the selected trainer and opens the detail side sheet.
+   *
+   * @param trainer - The trainer to display in the sheet.
+   */
   const handleTrainerClick = (trainer: User) => {
     setSelectedTrainer(trainer)
     setSheetOpen(true)
   }
 
+  /**
+   * Returns a Tailwind text-color class based on the utilization rate.
+   *
+   * @param rate - Utilization rate as a percentage (0–100+).
+   * @returns A Tailwind utility class string.
+   */
   const getUtilizationColor = (rate: number) => {
     if (rate >= 90) return 'text-red-600 font-semibold'
     if (rate >= 70) return 'text-orange-600 font-medium'
@@ -138,6 +174,12 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     return 'text-muted-foreground'
   }
 
+  /**
+   * Returns a tier label for the given utilization rate.
+   *
+   * @param rate - Utilization rate as a percentage (0–100+).
+   * @returns One of `'high'`, `'medium'`, `'low'`, or `'minimal'`.
+   */
   const getUtilizationTier = (rate: number) => {
     if (rate >= 90) return 'high'
     if (rate >= 70) return 'medium'
@@ -145,6 +187,12 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     return 'minimal'
   }
 
+  /**
+   * Renders a single trainer's availability row in the grid, including per-day session counts.
+   *
+   * @param schedule - The trainer schedule data to render.
+   * @returns The row JSX element.
+   */
   const renderTrainerRow = (schedule: TrainerSchedule) => {
     const { trainer, availableHours, utilizationRate } = schedule
     const hasSchedule = trainer.trainerProfile?.shiftSchedules && trainer.trainerProfile.shiftSchedules.length > 0
@@ -253,6 +301,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     )
   }
 
+  /** Renders the slide-out detail sheet for the currently selected trainer. */
   const renderTrainerDetailSheet = () => {
     if (!selectedTrainer) return null
 
@@ -439,6 +488,11 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     )
   }
 
+  /**
+   * Computes aggregate availability statistics across all filtered trainers.
+   *
+   * @returns An object with `totalTrainers`, `avgUtilization`, `totalAvailableHours`, and `overutilizedCount`.
+   */
   const calculateAggregateStats = () => {
     const totalTrainers = filteredTrainers.length
     const avgUtilization = trainerSchedules.reduce((sum, s) => sum + s.utilizationRate, 0) / totalTrainers || 0
@@ -460,6 +514,11 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     )
   }, [users, sessions, courses, weekStart])
 
+  /**
+   * Looks up the trainer by ID and opens their detail sheet.
+   *
+   * @param trainerId - The ID of the trainer to view.
+   */
   const handleViewTrainer = (trainerId: string) => {
     const trainer = users.find(u => u.id === trainerId)
     if (trainer) {
@@ -468,11 +527,21 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
     }
   }
 
+  /**
+   * Stores the recommendation and opens the recommendation detail dialog.
+   *
+   * @param recommendation - The workload recommendation to display.
+   */
   const handleOpenRecommendationDetails = (recommendation: WorkloadRecommendation) => {
     setSelectedRecommendation(recommendation)
     setRecommendationDialogOpen(true)
   }
 
+  /**
+   * Closes the recommendation dialog and navigates to the schedule view with the recommendation context.
+   *
+   * @param recommendation - The recommendation to pass as navigation context.
+   */
   const handleOpenRecommendationScheduleContext = (recommendation: WorkloadRecommendation) => {
     setRecommendationDialogOpen(false)
     onNavigate('schedule', {

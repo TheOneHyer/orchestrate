@@ -1,7 +1,10 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useKV } from '@github/spark/hooks'
+import { useForm } from 'react-hook-form'
 import { Toaster } from '@/components/ui/sonner'
 import { toast } from 'sonner'
+import { z } from 'zod'
 import { Layout } from '@/components/Layout'
 import { Dashboard } from '@/components/views/Dashboard'
 import { Schedule } from '@/components/views/Schedule'
@@ -18,7 +21,10 @@ import { UserGuide } from '@/components/views/UserGuide'
 import { NotificationPermissionBanner } from '@/components/NotificationPermissionBanner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
+  AttendanceRecord,
   User,
   Session,
   Course,
@@ -39,6 +45,7 @@ import { getPreviewSeedMode, isPreviewSeedEnabled, PreviewSeedMode } from '@/lib
 import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
+import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
   dashboard: ['admin', 'trainer', 'employee'],
@@ -75,42 +82,73 @@ const KNOWN_NOTIFICATION_VIEWS = new Set<string>([
 ])
 
 /**
- * Generates a timestamp/random-based entity ID using a stable prefix.
+ * Creates a namespaced unique identifier using the provided prefix.
  *
- * @param prefix - Domain prefix for the ID (e.g. `session`, `course`).
- * @returns A unique prefixed identifier.
+ * @param prefix - Domain prefix for the identifier (e.g. `session`, `course`)
+ * @returns A string identifier prefixed with `prefix`
  */
 function createEntityId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
 }
 
+const signInSchema = z.object({
+  email: z.string().min(1, 'Email is required').email('Enter a valid email address.'),
+  password: z.string().min(1, 'Password is required'),
+})
+
+const firstAdminSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required'),
+  email: z.string().min(1, 'Email is required').email('Enter a valid email address.'),
+  password: z.string().min(1, 'Password is required'),
+})
+
+type SignInFormValues = z.infer<typeof signInSchema>
+type FirstAdminFormValues = z.infer<typeof firstAdminSchema>
+
 /**
- * Root application component for the Orchestrate training management platform.
+ * Root application component that manages KV-backed application state and renders the active view inside the shared layout.
  *
- * Manages all persistent application state (users, sessions, courses,
- * enrollments, notifications, wellness records, and more) via KV-backed hooks,
- * and orchestrates navigation between the various views rendered inside the
- * shared {@link Layout}.
+ * Manages users, sessions, courses, enrollments, notifications, wellness/recovery records, attendance, and related derived views;
+ * wires preview/demo seeding and preview-mode auth flows; and exposes handlers for navigation, CRUD operations, notifications, scoring,
+ * attendance, role assignment, and user/session lifecycle management.
  *
- * Also handles automatic seeding of preview/demo data when the application is
- * launched in a preview environment, and wires up utilization and
- * certification notification hooks that generate in-app alerts.
- *
- * @returns The full application shell including the active view, a
- *   notification permission banner, and the toast container.
+ * @returns The full application shell containing the active view, the notification permission banner, and the toast container.
  */
 function App() {
   const [activeView, setActiveView] = useState('dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
 
+  const signInForm = useForm<SignInFormValues>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+    },
+    mode: 'onSubmit',
+  })
+
+  const firstAdminForm = useForm<FirstAdminFormValues>({
+    resolver: zodResolver(firstAdminSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+    },
+    mode: 'onSubmit',
+  })
+
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
+  const previewMode = !import.meta.env.PROD
+  const useServerAuth = import.meta.env.VITE_USE_SERVER_AUTH === 'true'
 
   const [users, setUsers] = useKV<User[]>('users', [])
   const [activeUserId, setActiveUserId] = useKV<string>('active-user-id', '')
+  const [authPasswords, setAuthPasswords] = useKV<Record<string, string>>('auth-passwords', {})
   const [sessions, setSessions] = useKV<Session[]>('sessions', [])
   const [courses, setCourses] = useKV<Course[]>('courses', [])
   const [enrollments, setEnrollments] = useKV<Enrollment[]>('enrollments', [])
+  const [attendanceRecords, setAttendanceRecords] = useKV<AttendanceRecord[]>('attendance-records', [])
   const [notifications, setNotifications] = useKV<Notification[]>('notifications', [])
   const [, setWellnessCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const [, setRecoveryPlans] = useKV<RecoveryPlan[]>('recovery-plans', [])
@@ -121,6 +159,13 @@ function App() {
   const [previewSeedVersion, setPreviewSeedVersion] = useKV<string>('preview-seed-version', '')
 
   const { sendNotification } = usePushNotifications()
+
+  const buildPreviewAuthPasswords = useCallback((seedUsers: User[]) => {
+    return seedUsers.reduce<Record<string, string>>((acc, user) => {
+      acc[user.id] = 'password123'
+      return acc
+    }, {})
+  }, [])
 
   /**
    * Populates all KV stores with deterministic preview seed data generated by
@@ -145,6 +190,7 @@ function App() {
     setSessions(seedData.sessions)
     setCourses(seedData.courses)
     setEnrollments(seedData.enrollments)
+    setAttendanceRecords([])
     setNotifications(seedData.notifications)
     setWellnessCheckIns(seedData.wellnessCheckIns)
     setRecoveryPlans(seedData.recoveryPlans)
@@ -154,12 +200,15 @@ function App() {
     setTargetTrainerCoverage(seedData.targetTrainerCoverage)
     setPreviewSeedVersion(seedMarker)
     setActiveUserId(seedData.users[0]?.id || '')
+    setAuthPasswords(buildPreviewAuthPasswords(seedData.users))
 
     toast.success('Preview test data loaded', {
       description: `Seeded ${seedData.users.length} users, ${seedData.sessions.length} sessions, and related edge-case data.`
     })
   }, [
     setUsers,
+    setAttendanceRecords,
+    setAuthPasswords,
     setSessions,
     setCourses,
     setEnrollments,
@@ -171,7 +220,8 @@ function App() {
     setRiskHistorySnapshots,
     setTargetTrainerCoverage,
     setPreviewSeedVersion,
-    setActiveUserId
+    setActiveUserId,
+    buildPreviewAuthPasswords
   ])
 
   /**
@@ -223,9 +273,11 @@ function App() {
     }
 
     setUsers([])
+    setAuthPasswords({})
     setSessions([])
     setCourses([])
     setEnrollments([])
+    setAttendanceRecords([])
     setNotifications([])
     setWellnessCheckIns([])
     setRecoveryPlans([])
@@ -249,9 +301,11 @@ function App() {
     })
   }, [
     setUsers,
+    setAuthPasswords,
     setSessions,
     setCourses,
     setEnrollments,
+    setAttendanceRecords,
     setNotifications,
     setWellnessCheckIns,
     setRecoveryPlans,
@@ -297,6 +351,7 @@ function App() {
     setSessions,
     setCourses,
     setEnrollments,
+    setAttendanceRecords,
     setNotifications,
     setWellnessCheckIns,
     setRecoveryPlans,
@@ -307,6 +362,31 @@ function App() {
     setPreviewSeedVersion,
     applyPreviewSeedData
   ])
+
+  useEffect(() => {
+    if (!previewMode) {
+      return
+    }
+
+    if (!users || users.length === 0) {
+      return
+    }
+
+    setAuthPasswords((current) => {
+      const existing = current || {}
+      let changed = false
+      const next = { ...existing }
+
+      users.forEach((user) => {
+        if (!(user.id in next)) {
+          next[user.id] = 'password123'
+          changed = true
+        }
+      })
+
+      return changed ? next : existing
+    })
+  }, [previewMode, users, setAuthPasswords])
 
   useEffect(() => {
     if (users && users.length > 0) {
@@ -325,6 +405,7 @@ function App() {
   const safeCourses = courses || []
   const safeEnrollments = enrollments || []
   const safeNotifications = notifications || []
+  const hasPersistedUsers = safeUsers.length > 0
 
   const fallbackUser = useMemo<User>(() => ({
     id: '1',
@@ -341,8 +422,12 @@ function App() {
       return
     }
 
+    if (!activeUserId) {
+      return
+    }
+
     const hasActiveUser = safeUsers.some((user) => user.id === activeUserId)
-    if (!activeUserId || !hasActiveUser) {
+    if (!hasActiveUser) {
       const nextUser = safeUsers[0]
       setActiveUserId(nextUser.id)
       if (!VIEW_ACCESS[activeView]?.includes(nextUser.role)) {
@@ -426,6 +511,8 @@ function App() {
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 
+  const safeAttendanceRecords = attendanceRecords || []
+
   const visibleCourses = useMemo(() => {
     if (currentUser.role === 'admin') {
       return safeCourses
@@ -477,6 +564,19 @@ function App() {
     })
   }, [currentUser, safeEnrollments, visibleCourses, visibleSessions])
 
+  const visibleAttendanceRecords = useMemo(() => {
+    if (currentUser.role === 'admin') {
+      return safeAttendanceRecords
+    }
+
+    if (currentUser.role === 'employee') {
+      return safeAttendanceRecords.filter((record) => record.userId === currentUser.id)
+    }
+
+    const visibleSessionIds = new Set(visibleSessions.map((session) => session.id))
+    return safeAttendanceRecords.filter((record) => visibleSessionIds.has(record.sessionId))
+  }, [currentUser, safeAttendanceRecords, visibleSessions])
+
   const upcomingSessions = visibleSessions
     .filter(s => new Date(s.startTime) > new Date())
     .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
@@ -495,6 +595,336 @@ function App() {
     setActiveView('dashboard')
     setNavigationPayload(null)
   }, [safeUsers, setActiveUserId])
+
+  // SECURITY NOTE: `authPasswords` stores plaintext demo credentials for preview-only flows.
+  // This is not production-safe; replace with server-side auth (hashed passwords over TLS,
+  // and token-based sessions or OAuth) before shipping.
+  const handleSignIn = useCallback(async (values: SignInFormValues) => {
+    const email = values.email.trim().toLowerCase()
+    const password = values.password
+
+    if (!email || !password) {
+      toast.error('Sign-in failed', {
+        description: 'Enter an email and password to continue.',
+      })
+      return
+    }
+
+    const authenticateLocally = (): boolean => {
+      const matchedUser = safeUsers.find((user) => user.email.trim().toLowerCase() === email)
+      if (!matchedUser) {
+        toast.error('Sign-in failed', {
+          description: 'No account matches that email address.',
+        })
+        return false
+      }
+
+      const expectedPassword = authPasswords?.[matchedUser.id]
+      if (!expectedPassword || expectedPassword !== password) {
+        toast.error('Sign-in failed', {
+          description: 'Incorrect password.',
+        })
+        return false
+      }
+
+      setActiveUserId(matchedUser.id)
+      setActiveView('dashboard')
+      setNavigationPayload(null)
+      signInForm.setValue('password', '')
+      toast.success('Signed in', {
+        description: `Welcome back, ${matchedUser.name}.`,
+      })
+      return true
+    }
+
+    if (!previewMode && useServerAuth) {
+      try {
+        const response = await fetch('/api/auth/sign-in', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        })
+
+        if (!response.ok) {
+          toast.error('Authentication failed', {
+            description: 'Verify your credentials and try again.',
+          })
+          return
+        }
+
+        const data = await response.json().catch(() => null) as { userId?: string } | null
+        const matchedUser = safeUsers.find((user) => user.email.trim().toLowerCase() === email)
+        const authenticatedUserId = data?.userId ?? matchedUser?.id
+
+        if (!authenticatedUserId) {
+          toast.error('Sign-in failed', {
+            description: 'Authentication succeeded but no user account is available in this workspace.',
+          })
+          return
+        }
+
+        const authenticatedUser = safeUsers.find((user) => user.id === authenticatedUserId)
+
+        if (!authenticatedUser) {
+          toast.error('Sign-in failed', {
+            description: 'Authentication succeeded but no user account is available in this workspace.',
+          })
+          return
+        }
+
+        setActiveUserId(authenticatedUserId)
+        setActiveView('dashboard')
+        setNavigationPayload(null)
+        signInForm.setValue('password', '')
+        toast.success('Signed in', {
+          description: `Welcome back, ${authenticatedUser.name}.`,
+        })
+      } catch {
+        toast.error('Authentication failed', {
+          description: 'Unable to reach the authentication service.',
+        })
+      }
+      return
+    }
+
+    authenticateLocally()
+  }, [authPasswords, previewMode, safeUsers, setActiveUserId, signInForm, useServerAuth])
+
+  const handleSignOut = useCallback(() => {
+    setActiveUserId('')
+    setActiveView('dashboard')
+    setNavigationPayload(null)
+    signInForm.setValue('password', '')
+  }, [setActiveUserId, signInForm])
+
+  const createFirstAdmin = useCallback((values: FirstAdminFormValues) => {
+    if (hasPersistedUsers) {
+      return
+    }
+
+    if (!previewMode) {
+      toast.error('Setup unavailable', {
+        description: 'Initial admin bootstrap in this client flow is preview-only.',
+      })
+      return
+    }
+
+    const name = values.name.trim()
+    const email = values.email.trim().toLowerCase()
+    const password = values.password
+
+    if (!name || !email || !password) {
+      toast.error('Setup incomplete', {
+        description: 'Enter name, email, and password to create the first admin.',
+      })
+      return
+    }
+
+    const now = new Date().toISOString()
+    const firstAdmin: User = {
+      id: createEntityId('user'),
+      name,
+      email,
+      role: 'admin',
+      department: 'Administration',
+      certifications: [],
+      hireDate: now,
+      updatedAt: now,
+    }
+
+    setUsers([firstAdmin])
+    setAuthPasswords({ [firstAdmin.id]: password })
+
+    setActiveUserId(firstAdmin.id)
+    setActiveView('dashboard')
+    setNavigationPayload(null)
+    firstAdminForm.reset()
+    signInForm.reset({ email: '', password: '' })
+
+    toast.success('First admin created', {
+      description: `${name} can now manage the workspace.`,
+    })
+  }, [firstAdminForm, hasPersistedUsers, previewMode, setActiveUserId, setAuthPasswords, setUsers, signInForm])
+
+  const handleAssignRole = useCallback((userId: string, role: User['role']) => {
+    const targetUser = safeUsers.find((entry) => entry.id === userId)
+    if (!targetUser) {
+      return
+    }
+
+    const adminCount = safeUsers.filter((entry) => entry.role === 'admin').length
+    if (targetUser.role === 'admin' && role !== 'admin' && adminCount === 1) {
+      toast.error('Cannot remove the last admin', {
+        description: 'Assign another user as admin before changing this role.',
+      })
+      return
+    }
+
+    setUsers((currentUsers) => {
+      const existingUsers = currentUsers || []
+      const user = existingUsers.find((entry) => entry.id === userId)
+      if (!user) {
+        return existingUsers
+      }
+
+      if (user.role === role) {
+        return existingUsers
+      }
+
+      return existingUsers.map((entry) => (
+        entry.id === userId
+          ? {
+            ...entry,
+            role,
+            trainerProfile: role === 'trainer' && !entry.trainerProfile
+              ? {
+                authorizedRoles: [],
+                shiftSchedules: [],
+                tenure: {
+                  hireDate: entry.hireDate,
+                  yearsOfService: 0,
+                  monthsOfService: 0,
+                },
+                specializations: [],
+                certificationRecords: [],
+              }
+              : entry.trainerProfile,
+            updatedAt: new Date().toISOString(),
+          }
+          : entry
+      ))
+    })
+
+    if (activeUserId === userId && !VIEW_ACCESS[activeView]?.includes(role)) {
+      setActiveView('dashboard')
+      setNavigationPayload(null)
+    }
+
+    toast.success('Role updated', {
+      description: `User role changed to ${role}.`,
+    })
+  }, [activeUserId, activeView, safeUsers, setUsers])
+
+  /**
+   * Applies partial updates to a session, returning a new session object.
+   * Shows a concurrent-edit warning toast when the stored `updatedAt` timestamp
+   * differs from the expected one supplied in `updates`.
+   *
+   * @param session - The existing session to update.
+   * @param id - The ID of the session to match; unmatched sessions are returned unchanged.
+   * @param updates - Partial session fields to merge in.
+   * @returns The updated session with a fresh `updatedAt` timestamp.
+   */
+  const applySessionUpdates = (session: Session, id: string, updates: Partial<Session>): Session => {
+    if (session.id !== id) {
+      return session
+    }
+
+    const expectedUpdatedAt = updates.updatedAt
+    const { updatedAt: _ignoredUpdatedAt, ...sessionUpdates } = updates
+
+    if (expectedUpdatedAt && session.updatedAt && expectedUpdatedAt !== session.updatedAt) {
+      toast.error('Concurrent edit warning', {
+        description: 'This session changed since you opened it. Your latest update was saved with last-write-wins.',
+      })
+    }
+
+    return { ...session, ...sessionUpdates, updatedAt: new Date().toISOString() }
+  }
+
+  /**
+   * Applies partial updates to a user, returning a new user object.
+   * Shows a concurrent-edit warning toast when the stored `updatedAt` timestamp
+   * differs from the expected one supplied in `updates`.
+   *
+   * @param user - The existing user to update.
+   * @param id - The ID of the user to match; unmatched users are returned unchanged.
+   * @param updates - Partial user fields to merge in.
+   * @returns The updated user with a fresh `updatedAt` timestamp.
+   */
+  const applyUserUpdates = (user: User, id: string, updates: Partial<User>): User => {
+    if (user.id !== id) {
+      return user
+    }
+
+    const expectedUpdatedAt = updates.updatedAt
+    const { updatedAt: _ignoredUpdatedAt, ...userUpdates } = updates
+    if (expectedUpdatedAt && user.updatedAt && expectedUpdatedAt !== user.updatedAt) {
+      toast.error('Concurrent edit warning', {
+        description: 'This profile changed since you opened it. Your latest update was saved with last-write-wins.',
+      })
+    }
+
+    return {
+      ...user,
+      ...userUpdates,
+      updatedAt: new Date().toISOString(),
+    }
+  }
+
+  /**
+   * Applies partial updates to a course, returning a new course object.
+   * Shows a concurrent-edit warning toast when the stored `updatedAt` timestamp
+   * differs from the expected one supplied in `updates`.
+   *
+   * @param course - The existing course to update.
+   * @param id - The ID of the course to match; unmatched courses are returned unchanged.
+   * @param updates - Partial course fields to merge in.
+   * @returns The updated course with a fresh `updatedAt` timestamp.
+   */
+  const applyCourseUpdates = (course: Course, id: string, updates: Partial<Course>): Course => {
+    if (course.id !== id) {
+      return course
+    }
+
+    const expectedUpdatedAt = updates.updatedAt
+    const { updatedAt: _ignoredUpdatedAt, ...courseUpdates } = updates
+
+    if (expectedUpdatedAt && course.updatedAt && expectedUpdatedAt !== course.updatedAt) {
+      toast.error('Concurrent edit warning', {
+        description: 'This course changed since you opened it. Your latest update was saved with last-write-wins.',
+      })
+    }
+
+    return { ...course, ...courseUpdates, updatedAt: new Date().toISOString() }
+  }
+
+  const handleMarkAttendance = useCallback((sessionId: string, userId: string, status: AttendanceRecord['status'], notes?: string) => {
+    const now = new Date().toISOString()
+
+    setAttendanceRecords((current) => {
+      const existing = current || []
+      const existingRecord = existing.find((record) => record.sessionId === sessionId && record.userId === userId)
+
+      if (existingRecord) {
+        return existing.map((record) => (
+          record.id === existingRecord.id
+            ? {
+              ...record,
+              status,
+              notes: notes === undefined ? record.notes : notes,
+              markedAt: now,
+              markedBy: currentUser.id,
+            }
+            : record
+        ))
+      }
+
+      const newRecord: AttendanceRecord = {
+        id: createEntityId('attendance'),
+        sessionId,
+        userId,
+        status,
+        notes,
+        markedAt: now,
+        markedBy: currentUser.id,
+      }
+
+      return [newRecord, ...existing]
+    })
+  }, [currentUser.id, setAttendanceRecords])
 
   /**
    * Handles navigation events raised by child views by updating the active
@@ -547,6 +977,7 @@ function App() {
    *   current timestamp, a capacity of 20).
    */
   const handleCreateSession = (session: Partial<Session>) => {
+    const now = new Date().toISOString()
     const newSession: Session = {
       id: session.id || createEntityId('session'),
       courseId: session.courseId || '',
@@ -558,6 +989,7 @@ function App() {
       capacity: session.capacity || 20,
       enrolledStudents: session.enrolledStudents || [],
       status: session.status || 'scheduled',
+      updatedAt: now,
       ...(session.recurrence && { recurrence: session.recurrence })
     }
 
@@ -573,6 +1005,7 @@ function App() {
    * @param sessions - An array of partial session data objects.
    */
   const handleCreateMultipleSessions = (sessions: Partial<Session>[]) => {
+    const now = new Date().toISOString()
     const newSessions: Session[] = sessions.map(session => ({
       id: session.id || createEntityId('session'),
       courseId: session.courseId || '',
@@ -584,6 +1017,7 @@ function App() {
       capacity: session.capacity || 20,
       enrolledStudents: session.enrolledStudents || [],
       status: session.status || 'scheduled',
+      updatedAt: now,
       ...(session.recurrence && { recurrence: session.recurrence })
     }))
 
@@ -600,9 +1034,7 @@ function App() {
    */
   const handleUpdateSession = (id: string, updates: Partial<Session>) => {
     setSessions((currentSessions) =>
-      (currentSessions || []).map(session =>
-        session.id === id ? { ...session, ...updates } : session
-      )
+      (currentSessions || []).map((session) => applySessionUpdates(session, id, updates))
     )
   }
 
@@ -614,22 +1046,25 @@ function App() {
   const handleDeleteSession = useCallback((id: string) => {
     setSessions((currentSessions) => (currentSessions || []).filter((session) => session.id !== id))
     setEnrollments((currentEnrollments) => (currentEnrollments || []).filter((enrollment) => enrollment.sessionId !== id))
-  }, [setEnrollments, setSessions])
+    setAttendanceRecords((currentAttendanceRecords) => (currentAttendanceRecords || []).filter((record) => record.sessionId !== id))
+  }, [setAttendanceRecords, setEnrollments, setSessions])
 
   /**
-   * Replaces an existing user record in the KV store with the fully updated
-   * {@link User} object, matched by `id`.
+   * Applies partial updates to an existing user record matched by `id`.
    *
-   * @param updatedUser - The complete updated user object. Must have the same
-   *   `id` as the record it replaces.
+   * @param id - The unique identifier of the user to update.
+   * @param updates - The partial user fields to merge into the existing record.
    */
-  const handleUpdateUser = (updatedUser: User) => {
+  const handleUpdateUser = useCallback((id: string, updates: Partial<User>) => {
     setUsers((currentUsers) =>
-      (currentUsers || []).map(user =>
-        user.id === updatedUser.id ? updatedUser : user
-      )
+      (currentUsers || []).map((user) => applyUserUpdates(user, id, updates))
     )
-  }
+  }, [setUsers])
+
+  const handleUpdateUserFromProfile = useCallback((updatedUser: User) => {
+    const { id, ...updates } = updatedUser
+    handleUpdateUser(id, updates)
+  }, [handleUpdateUser])
 
   /**
    * Appends a new {@link User} to the users KV store.
@@ -637,7 +1072,15 @@ function App() {
    * @param newUser - The fully constructed user record to add.
    */
   const handleAddUser = (newUser: User) => {
-    setUsers((currentUsers) => [...(currentUsers || []), newUser])
+    const updatedAt = new Date().toISOString()
+    setUsers((currentUsers) => [...(currentUsers || []), { ...newUser, updatedAt }])
+
+    if (previewMode) {
+      setAuthPasswords((current) => ({
+        ...(current || {}),
+        [newUser.id]: current?.[newUser.id] ?? 'password123',
+      }))
+    }
   }
 
   /**
@@ -647,6 +1090,7 @@ function App() {
    * @param course - Partial course data; missing fields are defaulted.
    */
   const handleCreateCourse = useCallback((course: Partial<Course>) => {
+    const now = new Date().toISOString()
     const fullCourse: Course = {
       id: course.id || createEntityId('course'),
       title: course.title || 'Untitled Course',
@@ -657,8 +1101,9 @@ function App() {
       moduleDetails: course.moduleDetails || [],
       certifications: course.certifications || [],
       createdBy: course.createdBy || currentUser.id,
-      createdAt: course.createdAt || new Date().toISOString(),
+      createdAt: course.createdAt || now,
       published: course.published ?? false,
+      updatedAt: now,
     }
 
     setCourses((currentCourses) => [...(currentCourses || []), fullCourse])
@@ -672,7 +1117,7 @@ function App() {
    */
   const handleUpdateCourse = useCallback((id: string, updates: Partial<Course>) => {
     setCourses((currentCourses) =>
-      (currentCourses || []).map((course) => (course.id === id ? { ...course, ...updates } : course))
+      (currentCourses || []).map((course) => applyCourseUpdates(course, id, updates))
     )
   }, [setCourses])
 
@@ -688,32 +1133,115 @@ function App() {
     setEnrollments((currentEnrollments) =>
       (currentEnrollments || []).filter((enrollment) => enrollment.courseId !== id && !(enrollment.sessionId && relatedSessionIds.has(enrollment.sessionId)))
     )
-  }, [safeSessions, setCourses, setEnrollments, setSessions])
+    setAttendanceRecords((currentAttendanceRecords) =>
+      (currentAttendanceRecords || []).filter((record) => !relatedSessionIds.has(record.sessionId))
+    )
+  }, [safeSessions, setAttendanceRecords, setCourses, setEnrollments, setSessions])
 
   /**
    * Removes a user from the users KV store and cleans up related session
    * records: sessions where the deleted user was the trainer have their
    * `trainerId` cleared, and sessions where the user was an enrolled student
-   * have the user's ID removed from `enrolledStudents`.
+   * have the user's ID removed from `enrolledStudents`. Also cleans up
+   * attendance records for the deleted user and ensures the active view is
+   * accessible by the new active user.
    *
    * @param userId - The unique identifier of the user to delete.
    */
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = useCallback((userId: string) => {
+    if (activeUserId === userId) {
+      const nextUser = safeUsers.find((user) => user.id !== userId)
+      const nextUserId = nextUser?.id || ''
+      setActiveUserId(nextUserId)
+
+      // Ensure the new active user can access the current view
+      if (nextUser && !VIEW_ACCESS[activeView]?.includes(nextUser.role)) {
+        setActiveView('dashboard')
+        setNavigationPayload(null)
+      }
+    }
+
+    setAuthPasswords((currentPasswords) => {
+      if (!currentPasswords || !(userId in currentPasswords)) {
+        return currentPasswords || {}
+      }
+
+      const { [userId]: _deletedPassword, ...remainingPasswords } = currentPasswords
+      return remainingPasswords
+    })
     setUsers((currentUsers) => (currentUsers || []).filter(user => user.id !== userId))
+    setEnrollments((currentEnrollments) =>
+      (currentEnrollments || []).filter((enrollment) => enrollment.userId !== userId)
+    )
     setSessions((currentSessions) => (currentSessions || []).map(session => {
-      if (session.trainerId === userId) {
-        return { ...session, trainerId: '', status: 'scheduled' as const }
+      const removedTrainer = session.trainerId === userId
+      const removedStudent = session.enrolledStudents.includes(userId)
+      const shouldResetStatus = removedTrainer && session.status !== 'completed' && session.status !== 'cancelled'
+
+      if (!removedTrainer && !removedStudent) {
+        return session
       }
-      if (session.enrolledStudents.includes(userId)) {
-        return { ...session, enrolledStudents: session.enrolledStudents.filter(id => id !== userId) }
+
+      return {
+        ...session,
+        trainerId: removedTrainer ? '' : session.trainerId,
+        enrolledStudents: removedStudent
+          ? session.enrolledStudents.filter(id => id !== userId)
+          : session.enrolledStudents,
+        ...(shouldResetStatus ? { status: 'scheduled' as const } : {}),
+        updatedAt: new Date().toISOString(),
       }
-      return session
     }))
 
-    if (activeUserId === userId) {
-      setActiveUserId('')
-    }
-  }
+    // Clean up attendance records for the deleted user
+    setAttendanceRecords((currentRecords) =>
+      (currentRecords || []).filter(record => record.userId !== userId)
+    )
+    setNotifications((currentNotifications) =>
+      (currentNotifications || []).filter((notification) => notification.userId !== userId)
+    )
+    setWellnessCheckIns((currentCheckIns) =>
+      (currentCheckIns || []).filter((checkIn) => checkIn.trainerId !== userId)
+    )
+    setRecoveryPlans((currentPlans) =>
+      (currentPlans || []).filter((plan) => plan.trainerId !== userId)
+    )
+    setCheckInSchedules((currentSchedules) =>
+      (currentSchedules || []).filter((schedule) => schedule.trainerId !== userId)
+    )
+    setScheduleTemplates((currentTemplates) =>
+      (currentTemplates || [])
+        .filter((template) => template.createdBy !== userId)
+        .map((template) => ({
+          ...template,
+          sessions: template.sessions.map((session) => ({
+            ...session,
+            preferredTrainers: session.preferredTrainers?.filter((trainerId) => trainerId !== userId),
+          })),
+        }))
+    )
+    setRiskHistorySnapshots((currentSnapshots) =>
+      (currentSnapshots || []).filter((snapshot) => snapshot.trainerId !== userId)
+    )
+  }, [
+    activeUserId,
+    activeView,
+    safeUsers,
+    setActiveUserId,
+    setActiveView,
+    setAttendanceRecords,
+    setAuthPasswords,
+    setCheckInSchedules,
+    setEnrollments,
+    setNavigationPayload,
+    setNotifications,
+    setRecoveryPlans,
+    setRiskHistorySnapshots,
+    setScheduleTemplates,
+    setSessions,
+    setUsers,
+    setWellnessCheckIns,
+  ])
 
   /**
    * Adds a new {@link CertificationRecord} to the `trainerProfile` of each
@@ -818,6 +1346,59 @@ function App() {
   }, [setNotifications])
 
   /**
+   * Records a final assessment score for an enrollment and, when the score
+   * triggers a `'completed'` status transition for the first time, emits a
+   * completion notification to the enrolled student.
+   *
+   * Progress is always set to `100` and `completedAt` is stamped when a score
+   * is applied. A completion notification is only sent when the enrollment was
+   * previously NOT already in `'completed'` status, preventing duplicate alerts
+   * on subsequent score edits.
+   *
+   * @param enrollmentId - ID of the enrollment being scored.
+   * @param score - The assessment score (0–100 inclusive).
+   */
+  const handleRecordScore = useCallback((enrollmentId: string, score: number) => {
+    const enrollment = safeEnrollments.find((e) => e.id === enrollmentId)
+    if (!enrollment) return
+
+    const course = safeCourses.find((c) => c.id === enrollment.courseId)
+    const passScore = course?.passScore ?? 80
+
+    try {
+      const update = applyScore(score, passScore, enrollment)
+      const notify = shouldNotifyCompletion(enrollment.status, score, passScore)
+
+      setEnrollments((current) =>
+        (current || []).map((e) =>
+          e.id === enrollmentId ? { ...e, ...update } : e,
+        ),
+      )
+
+      if (notify && course) {
+        const student = safeUsers.find((u) => u.id === enrollment.userId)
+        handleCreateNotification({
+          userId: enrollment.userId,
+          type: 'completion',
+          title: `Course Completed — ${course.title}`,
+          message: `${student?.name ?? 'A student'} completed "${course.title}" with a score of ${score}%.`,
+          priority: 'medium',
+          read: false,
+          metadata: { enrollmentId, courseId: course.id, score },
+        })
+      }
+    } catch (error: unknown) {
+      if (error instanceof RangeError) {
+        toast.error('Unable to record score', {
+          description: error.message,
+        })
+        return
+      }
+      throw error
+    }
+  }, [safeEnrollments, safeCourses, safeUsers, setEnrollments, handleCreateNotification])
+
+  /**
    * Returns the JSX for the currently active view, selected by the
    * `activeView` state string. Each case passes the relevant slice of
    * application state and the appropriate handler callbacks down to the
@@ -848,12 +1429,16 @@ function App() {
             courses={visibleCourses}
             users={safeUsers}
             currentUser={currentUser}
+            enrollments={visibleEnrollments}
+            attendanceRecords={visibleAttendanceRecords}
             onCreateSession={handleCreateSession}
             onUpdateSession={handleUpdateSession}
             onDeleteSession={handleDeleteSession}
             onNavigate={handleNavigate}
             navigationPayload={navigationPayload}
             onNavigationPayloadConsumed={clearNavigationPayload}
+            onRecordScore={handleRecordScore}
+            onMarkAttendance={handleMarkAttendance}
           />
         )
       case 'schedule-templates':
@@ -887,7 +1472,7 @@ function App() {
             sessions={visibleSessions}
             currentUser={currentUser}
             onNavigate={handleNavigate}
-            onUpdateUser={handleUpdateUser}
+            onUpdateUser={handleUpdateUserFromProfile}
             onAddUser={handleAddUser}
             onDeleteUser={handleDeleteUser}
             navigationPayload={navigationPayload}
@@ -901,6 +1486,7 @@ function App() {
             enrollments={visibleEnrollments}
             sessions={visibleSessions}
             courses={visibleCourses}
+            attendanceRecords={visibleAttendanceRecords}
           />
         )
       case 'trainer-availability':
@@ -968,27 +1554,59 @@ function App() {
               <p className="text-muted-foreground mt-1">Configure system settings</p>
             </div>
             <div className="max-w-4xl space-y-4">
+              {previewMode && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Local Session</CardTitle>
+                    <CardDescription>
+                      Sign in with a user email and password, then manage role-based access for the active session.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="rounded-lg border p-4">
+                      <div className="text-sm text-muted-foreground">Active user</div>
+                      <div className="mt-1 font-medium">{currentUser.name} ({currentUser.role})</div>
+                      <div className="text-sm text-muted-foreground">{currentUser.email}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {safeUsers.map((user) => (
+                        <Button key={user.id} variant={user.id === currentUser.id ? 'default' : 'outline'} onClick={() => handleSwitchUser(user.id)}>
+                          Switch to {user.name}
+                        </Button>
+                      ))}
+                      <Button variant="secondary" onClick={handleLogout}>Reset Session</Button>
+                      <Button variant="outline" onClick={handleSignOut}>Sign Out</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               <Card>
                 <CardHeader>
-                  <CardTitle>Local Session</CardTitle>
+                  <CardTitle>Role Assignment</CardTitle>
                   <CardDescription>
-                    This preview build uses a local active-user session instead of backend authentication.
+                    Assign user roles with immediate access-control updates.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-lg border p-4">
-                    <div className="text-sm text-muted-foreground">Active user</div>
-                    <div className="mt-1 font-medium">{currentUser.name} ({currentUser.role})</div>
-                    <div className="text-sm text-muted-foreground">{currentUser.email}</div>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    {safeUsers.map((user) => (
-                      <Button key={user.id} variant={user.id === currentUser.id ? 'default' : 'outline'} onClick={() => handleSwitchUser(user.id)}>
-                        Switch to {user.name}
-                      </Button>
-                    ))}
-                    <Button variant="secondary" onClick={handleLogout}>Reset Session</Button>
-                  </div>
+                <CardContent className="space-y-3">
+                  {safeUsers.map((user) => (
+                    <div key={user.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
+                      <div>
+                        <div className="font-medium">{user.name}</div>
+                        <div className="text-sm text-muted-foreground">{user.email} • {user.role}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant={user.role === 'admin' ? 'default' : 'outline'} onClick={() => handleAssignRole(user.id, 'admin')}>
+                          Admin
+                        </Button>
+                        <Button size="sm" variant={user.role === 'trainer' ? 'default' : 'outline'} onClick={() => handleAssignRole(user.id, 'trainer')}>
+                          Trainer
+                        </Button>
+                        <Button size="sm" variant={user.role === 'employee' ? 'default' : 'outline'} onClick={() => handleAssignRole(user.id, 'employee')}>
+                          Employee
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
               <Card>
@@ -1028,6 +1646,141 @@ function App() {
     }
   }
 
+  if (!activeUserId) {
+    if (!hasPersistedUsers && previewMode) {
+      return (
+        <div className="min-h-screen bg-muted/20 p-6">
+          <div className="mx-auto w-full max-w-md pt-16">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create First Admin</CardTitle>
+                <CardDescription>
+                  Set up the initial administrator account to bootstrap this workspace.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form className="space-y-4" noValidate onSubmit={firstAdminForm.handleSubmit(createFirstAdmin)}>
+                  <div className="space-y-2">
+                    <Label htmlFor="setup-name">Name</Label>
+                    <Input
+                      id="setup-name"
+                      placeholder="Administrator"
+                      {...firstAdminForm.register('name')}
+                    />
+                    {firstAdminForm.formState.errors.name && (
+                      <p className="text-sm text-destructive">{firstAdminForm.formState.errors.name.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="setup-email">Email</Label>
+                    <Input
+                      id="setup-email"
+                      type="email"
+                      placeholder="admin@company.com"
+                      {...firstAdminForm.register('email')}
+                    />
+                    {firstAdminForm.formState.errors.email && (
+                      <p className="text-sm text-destructive">{firstAdminForm.formState.errors.email.message}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="setup-password">Password</Label>
+                    <Input
+                      id="setup-password"
+                      type="password"
+                      {...firstAdminForm.register('password')}
+                    />
+                    {firstAdminForm.formState.errors.password && (
+                      <p className="text-sm text-destructive">{firstAdminForm.formState.errors.password.message}</p>
+                    )}
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Create First Admin
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+          <Toaster />
+        </div>
+      )
+    }
+
+    if (!hasPersistedUsers && !previewMode) {
+      return (
+        <div className="min-h-screen bg-muted/20 p-6">
+          <div className="mx-auto w-full max-w-md pt-16">
+            <Card>
+              <CardHeader>
+                <CardTitle>Setup Required</CardTitle>
+                <CardDescription>
+                  No users have been created in this workspace yet.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">
+                  User setup is only available during preview mode. Please configure users through your deployment or server setup process.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+          <Toaster />
+        </div>
+      )
+    }
+
+    return (
+      <div className="min-h-screen bg-muted/20 p-6">
+        <div className="mx-auto w-full max-w-md pt-16">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sign In</CardTitle>
+              <CardDescription>
+                Authenticate with your account to access role-based views.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" noValidate onSubmit={signInForm.handleSubmit(handleSignIn)}>
+                <div className="space-y-2">
+                  <Label htmlFor="login-email">Email</Label>
+                  <Input
+                    id="login-email"
+                    type="email"
+                    placeholder="name@company.com"
+                    {...signInForm.register('email')}
+                  />
+                  {signInForm.formState.errors.email && (
+                    <p className="text-sm text-destructive">{signInForm.formState.errors.email.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="login-password">Password</Label>
+                  <Input
+                    id="login-password"
+                    type="password"
+                    {...signInForm.register('password')}
+                  />
+                  {signInForm.formState.errors.password && (
+                    <p className="text-sm text-destructive">{signInForm.formState.errors.password.message}</p>
+                  )}
+                </div>
+                <Button type="submit" className="w-full">
+                  Sign In
+                </Button>
+                {previewMode && (
+                  <p className="text-xs text-muted-foreground">
+                    Default password for seeded users is <strong>password123</strong>.
+                  </p>
+                )}
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+        <Toaster />
+      </div>
+    )
+  }
+
   return (
     <>
       <Layout
@@ -1036,9 +1789,9 @@ function App() {
         notificationCount={unreadNotifications.length}
         userRole={currentUser.role}
         currentUser={currentUser}
-        users={safeUsers}
-        onSwitchUser={handleSwitchUser}
-        onLogout={handleLogout}
+        users={previewMode ? safeUsers : [currentUser]}
+        onSwitchUser={previewMode ? handleSwitchUser : undefined}
+        onLogout={previewMode ? handleLogout : undefined}
       >
         {renderView()}
       </Layout>

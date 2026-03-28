@@ -29,6 +29,26 @@ interface RiskTrendChartProps {
 }
 
 /**
+ * Full chart payload used by the custom tooltip for a hovered point.
+ */
+interface TooltipPointPayload {
+  /** Fully formatted date label for tooltip display. */
+  fullDate: string
+  /** Risk score value plotted for the point. */
+  'Risk Score': number
+  /** Optional utilization percentage when utilization is enabled. */
+  'Utilization %'?: number
+  /** Session count associated with the point. */
+  sessions: number
+  /** Scheduled hours associated with the point. */
+  hours: number
+  /** Derived categorical risk level for badge styling. */
+  riskLevel: RiskHistoryPoint['riskLevel']
+}
+
+
+
+/**
  * Area/line chart that visualises a trainer's burnout risk score trend over time.
  *
  * Optionally overlays the utilization-rate series when `showUtilization` is
@@ -71,39 +91,39 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
     return `Utilization average ${average.toFixed(1)}% trend ${trendDirection}`
   }, [chartData, showUtilization])
 
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload?: TooltipPointPayload }> }) => {
+    const point = payload?.[0]?.payload
+    if (active && point) {
       return (
         <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-semibold mb-2">{data.fullDate}</p>
+          <p className="font-semibold mb-2">{point.fullDate}</p>
           <div className="space-y-1 text-sm">
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Risk Score:</span>
-              <span className="font-bold">{data['Risk Score']}</span>
+              <span className="font-bold">{point['Risk Score']}</span>
             </div>
             {showUtilization && (
               <div className="flex items-center justify-between gap-4">
                 <span className="text-muted-foreground">Utilization:</span>
-                <span className="font-semibold">{data['Utilization %']?.toFixed(1)}%</span>
+                <span className="font-semibold">{point['Utilization %']?.toFixed(1)}%</span>
               </div>
             )}
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Sessions:</span>
-              <span className="font-semibold">{data.sessions}</span>
+              <span className="font-semibold">{point.sessions}</span>
             </div>
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Hours:</span>
-              <span className="font-semibold">{data.hours}h</span>
+              <span className="font-semibold">{point.hours}h</span>
             </div>
             <div className="flex items-center justify-between gap-4 pt-1 border-t border-border mt-2">
               <span className="text-muted-foreground">Risk Level:</span>
-              <span className={`font-bold uppercase text-xs px-2 py-0.5 rounded ${data.riskLevel === 'critical' ? 'bg-destructive/20 text-destructive' :
-                data.riskLevel === 'high' ? 'bg-orange-500/20 text-orange-500' :
-                  data.riskLevel === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
+              <span className={`font-bold uppercase text-xs px-2 py-0.5 rounded ${point.riskLevel === 'critical' ? 'bg-destructive/20 text-destructive' :
+                point.riskLevel === 'high' ? 'bg-orange-500/20 text-orange-500' :
+                  point.riskLevel === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
                     'bg-green-500/20 text-green-500'
                 }`}>
-                {data.riskLevel}
+                {point.riskLevel}
               </span>
             </div>
           </div>

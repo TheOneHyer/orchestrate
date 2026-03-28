@@ -212,6 +212,35 @@ describe('useNotificationSound', () => {
         expect(mockGainNode.gain.value).toBe(0.65)
     })
 
+    it('reuses an existing audio context on subsequent playSound calls', () => {
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                volume: 0.4,
+                soundType: 'pleasant',
+                quietHours: { enabled: false, startTime: '22:00', endTime: '08:00', allowCritical: true }
+            },
+            vi.fn()
+        ] as any)
+
+        const { result } = renderHook(() => useNotificationSound())
+
+        act(() => {
+            result.current.playSound('medium')
+        })
+
+        const afterFirstPlayOscillators = mockAudioContextInstance.createOscillator.mock.calls.length
+        const afterFirstPlayStarts = mockOscillator.start.mock.calls.length
+
+        act(() => {
+            result.current.playSound('medium')
+        })
+
+        expect(MockAudioContext).toHaveBeenCalledTimes(1)
+        expect(mockAudioContextInstance.createOscillator.mock.calls.length).toBeGreaterThan(afterFirstPlayOscillators)
+        expect(mockOscillator.start.mock.calls.length).toBeGreaterThan(afterFirstPlayStarts)
+    })
+
     it('blocks critical alerts during quiet hours when allowCritical is false', () => {
         const quietHoursUtcTime = Date.UTC(2026, 2, 16, 23, 0, 0)
         const { startTime, endTime } = makeQuietHoursTimes(quietHoursUtcTime)

@@ -122,6 +122,12 @@ export function Notifications({
 
   const filteredNotifications = getFilteredNotifications()
 
+  /**
+   * Groups a flat list of notifications into Today, Yesterday, This Week, and Earlier buckets.
+   *
+   * @param notifs - The notifications to group.
+   * @returns An array of `[label, notifications]` tuples, filtered to non-empty groups.
+   */
   const groupNotificationsByDate = (notifs: Notification[]) => {
     const groups: { [key: string]: Notification[] } = {
       'Today': [],
@@ -148,8 +154,17 @@ export function Notifications({
 
   const groupedNotifications = groupNotificationsByDate(filteredNotifications)
 
+  /**
+   * Returns an icon element styled for the notification's type.
+   *
+   * @param notification - The notification to get an icon for.
+   * @returns A Phosphor icon element.
+   */
   const getNotificationIcon = (notification: Notification) => {
-    const className = notificationIconClassNames[notification.type]
+    const className =
+      notificationIconClassNames[notification.type] ??
+      notificationIconClassNames.system ??
+      'text-muted-foreground'
 
     switch (notification.type) {
       case 'session':
@@ -165,10 +180,16 @@ export function Notifications({
       case 'completion':
         return <CheckCircleFilled size={20} className={className} />
       default:
-        return <Info size={20} className={className} />
+        return <Info size={20} className={className} data-testid="icon-info" />
     }
   }
 
+  /**
+   * Returns a styled Badge element for the given priority level, or `null` for low priority.
+   *
+   * @param priority - The notification priority; omit or pass `'low'` to return `null`.
+   * @returns A Badge element or `null`.
+   */
   const getPriorityBadge = (priority?: Notification['priority']) => {
     if (!priority || priority === 'low') return null
 
@@ -186,6 +207,11 @@ export function Notifications({
     )
   }
 
+  /**
+   * Marks the notification as read and navigates to its link if present.
+   *
+   * @param notification - The notification that was clicked.
+   */
   const handleNotificationClick = (notification: Notification) => {
     if (!notification.read) {
       onMarkAsRead(notification.id)
@@ -195,11 +221,17 @@ export function Notifications({
     }
   }
 
+  /**
+   * Stores the filter and shows the dismiss-all confirmation dialog.
+   *
+   * @param filter - `'all'` to dismiss all notifications, or `'read'` to dismiss only read ones.
+   */
   const handleDismissAllClick = (filter: 'all' | 'read') => {
     setDismissAllFilter(filter)
     setShowDismissAllDialog(true)
   }
 
+  /** Executes the dismiss-all action with the stored filter and closes the confirmation dialog. */
   const confirmDismissAll = () => {
     onDismissAll(dismissAllFilter)
     setShowDismissAllDialog(false)

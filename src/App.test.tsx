@@ -6,6 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
 
+/** Pass score threshold used for the record-score test course. */
+const RECORD_SCORE_PASS_THRESHOLD = 80
+/** A score strictly above the pass threshold — produces a passing enrollment and completion notification. */
+const RECORD_SCORE_ABOVE_PASS = 90
+/** A score strictly below the pass threshold — produces a failing enrollment and no notification. */
+const RECORD_SCORE_BELOW_PASS = 50
+
 const sendNotificationMock = vi.fn()
 let utilizationNotified = false
 function createUtilizationNotificationPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -85,6 +92,7 @@ const getPreviewSeedModeMock = vi.fn(() => 'off')
 const isPreviewSeedEnabledMock = vi.fn(() => false)
 
 const kvSeed: Record<string, unknown> = {}
+const kvState: Record<string, unknown> = {}
 
 vi.mock('sonner', () => ({
     toast: {
@@ -103,8 +111,16 @@ vi.mock('@github/spark/hooks', async () => {
                 : initialValue
             const [value, setValue] = React.useState<T>(seeded)
 
+            React.useEffect(() => {
+                kvState[key] = value
+            }, [key, value])
+
             const setter = (next: T | ((current: T) => T)) => {
-                setValue((current) => (typeof next === 'function' ? (next as (current: T) => T)(current) : next))
+                setValue((current) => {
+                    const resolvedValue = typeof next === 'function' ? (next as (current: T) => T)(current) : next
+                    kvState[key] = resolvedValue
+                    return resolvedValue
+                })
             }
 
             return [value, setter, vi.fn()] as const
@@ -192,18 +208,31 @@ vi.mock('@/components/views/Dashboard', () => ({
 vi.mock('@/components/views/Schedule', () => ({
     Schedule: ({
         sessions,
+        attendanceRecords,
         onCreateSession,
         onUpdateSession,
         onDeleteSession,
+        onRecordScore,
+        onMarkAttendance,
     }: {
         sessions: Array<{ id: string; title: string; status: string }>
+        attendanceRecords?: Array<{ id: string; userId: string; status: string; notes?: string }>
         onCreateSession: (session: unknown) => void
         onUpdateSession: (id: string, session: unknown) => void
         onDeleteSession?: (id: string) => void
+        onRecordScore?: (enrollmentId: string, score: number) => void
+        onMarkAttendance?: (sessionId: string, userId: string, status: 'present' | 'absent') => void
     }) => (
         <div>
             <div>Schedule View</div>
             <div>Session Count: {sessions.length}</div>
+            <div>Attendance Count: {attendanceRecords?.length ?? 0}</div>
+            <div>Attendance Notes: {attendanceRecords?.[0]?.notes ?? ''}</div>
+            {attendanceRecords?.map((record) => (
+                <div key={record.id} data-testid={`attendance-record-${record.id}`}>
+                    {record.userId}: {record.status}
+                </div>
+            ))}
             {sessions.map((session) => (
                 <div key={session.id}>{session.id}|{session.title} ({session.status})</div>
             ))}
@@ -221,11 +250,18 @@ vi.mock('@/components/views/Schedule', () => ({
                 callbackSpies.onUpdateSession('session-1', payload)
                 onUpdateSession('session-1', payload)
             }}>Update Session</button>
+            <button onClick={() => onUpdateSession('session-1', { status: 'completed', updatedAt: 'stale-updated-at' })}>Apply Stale Session Update</button>
             <button onClick={() => {
                 const payload = { id: 'custom-session-id', title: 'Session With Custom Id' }
                 onCreateSession(payload)
             }}>Create Session With Id</button>
             <button onClick={() => onDeleteSession?.('session-1')}>Delete Session</button>
+            <button onClick={() => onMarkAttendance?.('session-2', 'trainer-1', 'present')}>Mark Present</button>
+            <button onClick={() => onMarkAttendance?.('session-2', 'trainer-1', 'absent')}>Mark Absent</button>
+            <button onClick={() => onRecordScore?.('enrollment-rs-1', RECORD_SCORE_ABOVE_PASS)}>Record Score Pass</button>
+            <button onClick={() => onRecordScore?.('enrollment-rs-1', RECORD_SCORE_BELOW_PASS)}>Record Score Fail</button>
+            <button onClick={() => onRecordScore?.('enrollment-rs-1', RECORD_SCORE_PASS_THRESHOLD)}>Record Score Notify</button>
+            <button onClick={() => onRecordScore?.('unknown-enrollment', RECORD_SCORE_ABOVE_PASS)}>Record Score Unknown</button>
         </div>
     ),
 }))
@@ -305,7 +341,8 @@ vi.mock('@/components/views/Courses', () => ({
                 callbackSpies.onCreateCourse(payload)
                 onCreateCourse?.(payload)
             }}>Create Course With Id</button>
-            <button onClick={() => onUpdateCourse?.(courses[0]?.id ?? 'course-1', { published: true })}>Update Course</button>
+            <button onClick={() => onCreateCourse?.({})}>Create Empty Course</button>
+            <button onClick={() => onUpdateCourse?.(courses[0]?.id ?? 'course-1', { published: true, updatedAt: 'stale-updated-at' })}>Update Course</button>
             <button onClick={() => onDeleteCourse?.(courses[0]?.id ?? 'course-1')}>Delete Course</button>
         </div>
     ),
@@ -345,10 +382,12 @@ vi.mock('@/components/views/People', () => ({
                 callbackSpies.onUpdateUser(payload)
                 onUpdateUser(payload)
             }}>Update User</button>
+            <button onClick={() => onUpdateUser({ id: 'trainer-1', role: 'trainer', name: 'Updated Trainer', email: 'trainer1@example.com', department: 'Ops', certifications: [], hireDate: '2024-01-01T00:00:00.000Z', updatedAt: 'stale-updated-at', trainerProfile: { authorizedRoles: [], shiftSchedules: [], tenure: { hireDate: '2024-01-01T00:00:00.000Z', yearsOfService: 1, monthsOfService: 12 }, specializations: [] } })}>Apply Stale User Update</button>
             <button onClick={() => {
                 callbackSpies.onDeleteUser('trainer-1')
                 onDeleteUser('trainer-1')
             }}>Delete User</button>
+            <button onClick={() => onDeleteUser('admin-1')}>Delete Active User</button>
             <button onClick={() => onNavigationPayloadConsumed?.()}>Consume Navigation Payload</button>
         </div>
     ),
@@ -488,6 +527,7 @@ describe('App', () => {
         getPreviewSeedModeMock.mockReturnValue('off')
         isPreviewSeedEnabledMock.mockReturnValue(false)
         Object.keys(kvSeed).forEach((key) => delete kvSeed[key])
+        Object.keys(kvState).forEach((key) => delete kvState[key])
         kvSeed['users'] = [
             {
                 id: 'admin-1',
@@ -544,6 +584,11 @@ describe('App', () => {
                 status: 'scheduled',
             },
         ]
+        kvSeed['active-user-id'] = 'admin-1'
+        kvSeed['auth-passwords'] = {
+            'admin-1': 'password123',
+            'trainer-1': 'password123',
+        }
         vi.stubGlobal('confirm', vi.fn(() => true))
     })
 
@@ -645,7 +690,7 @@ describe('App', () => {
     })
 
     it('handles notification creation and routes on notification click action', async () => {
-        const { unmount } = render(<App />)
+        render(<App />)
 
         await waitFor(() => {
             expect(sendNotificationMock).toHaveBeenCalledWith(
@@ -679,7 +724,7 @@ describe('App', () => {
             },
         ]
 
-        const { unmount } = render(<App />)
+        render(<App />)
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
 
@@ -695,6 +740,73 @@ describe('App', () => {
         expect(toastSuccess).toHaveBeenCalledWith(
             'Preview data reset complete',
             expect.objectContaining({ description: expect.stringMatching(/cleared/i) })
+        )
+    })
+
+    it('requires sign in when there is no active session and allows valid login', async () => {
+        const user = userEvent.setup()
+        kvSeed['active-user-id'] = ''
+
+        render(<App />)
+
+        expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+
+        await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+    })
+
+    it('lets a newly added user sign in with the default local password', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /add user/i }))
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /^sign out$/i }))
+
+        expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+
+        await user.type(screen.getByLabelText(/email/i), 'added@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(screen.getByText(/current user:\s*added user/i)).toBeInTheDocument()
+    })
+
+    it('tracks attendance as first-class session data', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/attendance count:\s*0/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^mark present$/i }))
+        expect(screen.getByText(/attendance count:\s*1/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^mark absent$/i }))
+        expect(screen.getByText(/attendance count:\s*1/i)).toBeInTheDocument()
+    })
+
+    it('shows a warning toast when a stale course update is applied', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        await user.click(screen.getByRole('button', { name: /create minimal course/i }))
+
+        toastError.mockClear()
+        await user.click(screen.getByRole('button', { name: /update course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Concurrent edit warning',
+            expect.objectContaining({ description: expect.stringMatching(/last-write-wins/i) })
         )
     })
 
@@ -883,6 +995,338 @@ describe('App', () => {
         await waitFor(() => {
             expect(screen.getByText(/current user:\s*admin user/i)).toBeInTheDocument()
         })
+    })
+
+    it('reverts to a permitted view and prunes user-owned data when deleting the active user', async () => {
+        const user = userEvent.setup()
+
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+        kvSeed['active-user-id'] = 'admin-1'
+        kvSeed['auth-passwords'] = {
+            'admin-1': 'admin-secret',
+            'trainer-1': 'trainer-secret',
+        }
+        kvSeed['sessions'] = [
+            {
+                id: 'session-1',
+                courseId: 'course-1',
+                trainerId: 'admin-1',
+                title: 'Admin-led Session',
+                startTime: '2026-03-20T09:00:00.000Z',
+                endTime: '2026-03-20T11:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: ['admin-1', 'trainer-1'],
+                status: 'scheduled',
+            },
+        ]
+        kvSeed['enrollments'] = [
+            {
+                id: 'enrollment-1',
+                userId: 'admin-1',
+                courseId: 'course-1',
+                status: 'enrolled',
+                progress: 25,
+                enrolledAt: '2026-03-01T00:00:00.000Z',
+            },
+            {
+                id: 'enrollment-2',
+                userId: 'trainer-1',
+                courseId: 'course-1',
+                status: 'enrolled',
+                progress: 50,
+                enrolledAt: '2026-03-01T00:00:00.000Z',
+            },
+        ]
+        kvSeed['attendance-records'] = [
+            {
+                id: 'attendance-1',
+                sessionId: 'session-1',
+                userId: 'admin-1',
+                status: 'present',
+                markedBy: 'trainer-1',
+                markedAt: '2026-03-20T09:05:00.000Z',
+            },
+            {
+                id: 'attendance-2',
+                sessionId: 'session-1',
+                userId: 'trainer-1',
+                status: 'present',
+                markedBy: 'admin-1',
+                markedAt: '2026-03-20T09:05:00.000Z',
+            },
+        ]
+        kvSeed['notifications'] = [
+            {
+                id: 'notification-1',
+                userId: 'admin-1',
+                type: 'system',
+                title: 'Admin notice',
+                message: 'Message',
+                read: false,
+                createdAt: '2026-03-20T08:00:00.000Z',
+            },
+            {
+                id: 'notification-2',
+                userId: 'trainer-1',
+                type: 'system',
+                title: 'Trainer notice',
+                message: 'Message',
+                read: false,
+                createdAt: '2026-03-20T08:00:00.000Z',
+            },
+        ]
+        kvSeed['wellness-check-ins'] = [
+            {
+                id: 'checkin-1',
+                trainerId: 'admin-1',
+                timestamp: '2026-03-18T10:00:00.000Z',
+                mood: 3,
+                stress: 'moderate',
+                energy: 'neutral',
+                workloadSatisfaction: 3,
+                sleepQuality: 3,
+                physicalWellbeing: 3,
+                mentalClarity: 3,
+                followUpRequired: false,
+            },
+        ]
+        kvSeed['recovery-plans'] = [
+            {
+                id: 'plan-1',
+                trainerId: 'admin-1',
+                createdBy: 'trainer-1',
+                createdAt: '2026-03-18T00:00:00.000Z',
+                status: 'active',
+                triggerReason: 'Load',
+                targetUtilization: 60,
+                currentUtilization: 85,
+                startDate: '2026-03-18',
+                targetCompletionDate: '2026-04-18',
+                actions: [],
+                checkIns: ['checkin-1'],
+            },
+        ]
+        kvSeed['check-in-schedules'] = [
+            {
+                id: 'schedule-1',
+                trainerId: 'admin-1',
+                frequency: 'weekly',
+                startDate: '2026-03-20T00:00:00.000Z',
+                nextScheduledDate: '2026-03-27T00:00:00.000Z',
+                status: 'active',
+                notificationEnabled: true,
+                autoReminders: true,
+                reminderHoursBefore: 24,
+                createdBy: 'trainer-1',
+                createdAt: '2026-03-19T00:00:00.000Z',
+                completedCheckIns: 0,
+                missedCheckIns: 0,
+            },
+        ]
+        kvSeed['schedule-templates'] = [
+            {
+                id: 'template-1',
+                name: 'Admin Template',
+                description: 'Owned by admin',
+                category: 'general',
+                recurrenceType: 'weekly',
+                sessions: [
+                    {
+                        dayOfWeek: 1,
+                        time: '09:00',
+                        duration: 60,
+                        capacity: 10,
+                        requiresCertifications: [],
+                    },
+                ],
+                autoAssignTrainers: true,
+                notifyParticipants: true,
+                createdBy: 'admin-1',
+                createdAt: '2026-03-19T00:00:00.000Z',
+                usageCount: 0,
+                tags: [],
+                isActive: true,
+            },
+            {
+                id: 'template-2',
+                name: 'Shared Template',
+                description: 'Keeps other trainers',
+                category: 'general',
+                recurrenceType: 'weekly',
+                sessions: [
+                    {
+                        dayOfWeek: 2,
+                        time: '10:00',
+                        duration: 90,
+                        capacity: 8,
+                        requiresCertifications: [],
+                        preferredTrainers: ['admin-1', 'trainer-1'],
+                    },
+                ],
+                autoAssignTrainers: true,
+                notifyParticipants: true,
+                createdBy: 'trainer-1',
+                createdAt: '2026-03-19T00:00:00.000Z',
+                usageCount: 0,
+                tags: [],
+                isActive: true,
+            },
+        ]
+        kvSeed['risk-history-snapshots'] = [
+            {
+                id: 'snapshot-1',
+                trainerId: 'admin-1',
+                timestamp: '2026-03-20T00:00:00.000Z',
+                riskScore: 70,
+                riskLevel: 'critical',
+                utilizationRate: 90,
+                hoursScheduled: 40,
+                sessionCount: 4,
+                consecutiveDays: 5,
+                factorCount: 3,
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        expect(screen.getByText(/local session/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete active user$/i }))
+
+        await waitFor(() => {
+            expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
+            expect(screen.getByText(/active view:\s*people/i)).toBeInTheDocument()
+        })
+
+        expect(kvState['auth-passwords']).toEqual({ 'trainer-1': 'trainer-secret' })
+        expect(kvState['enrollments']).toEqual([
+            expect.objectContaining({ id: 'enrollment-2', userId: 'trainer-1' }),
+        ])
+        expect(kvState['attendance-records']).toEqual([
+            expect.objectContaining({ id: 'attendance-2', userId: 'trainer-1' }),
+        ])
+        expect(kvState['notifications']).toEqual([
+            expect.objectContaining({ id: 'notification-2', userId: 'trainer-1' }),
+        ])
+        expect(kvState['wellness-check-ins']).toEqual([])
+        expect(kvState['recovery-plans']).toEqual([])
+        expect(kvState['check-in-schedules']).toEqual([])
+        expect(kvState['risk-history-snapshots']).toEqual([])
+        expect(kvState['sessions']).toEqual([
+            expect.objectContaining({
+                id: 'session-1',
+                trainerId: '',
+                enrolledStudents: ['trainer-1'],
+                status: 'scheduled',
+            }),
+        ])
+        expect(kvState['schedule-templates']).toEqual([
+            expect.objectContaining({
+                id: 'template-2',
+                sessions: [
+                    expect.objectContaining({ preferredTrainers: ['trainer-1'] }),
+                ],
+            }),
+        ])
+    })
+
+    it('removes deleted students from session rosters even when they have no stored password entry', async () => {
+        const user = userEvent.setup()
+
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+        kvSeed['auth-passwords'] = { 'admin-1': 'admin-secret' }
+        kvSeed['sessions'] = [
+            {
+                id: 'session-1',
+                courseId: 'course-1',
+                trainerId: 'admin-1',
+                title: 'Roster Cleanup Session',
+                startTime: '2026-03-20T09:00:00.000Z',
+                endTime: '2026-03-20T11:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: ['trainer-1'],
+                status: 'scheduled',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete user$/i }))
+
+        await waitFor(() => {
+            expect(kvState['sessions']).toEqual([
+                expect.objectContaining({
+                    id: 'session-1',
+                    trainerId: 'admin-1',
+                    enrolledStudents: [],
+                }),
+            ])
+        })
+
+        expect(kvState['auth-passwords']).toEqual({ 'admin-1': 'admin-secret' })
     })
 
     it('clears one-time people deep-link payload after consumption callback', async () => {
@@ -1099,7 +1543,7 @@ describe('App', () => {
         const user = userEvent.setup()
         vi.stubGlobal('confirm', vi.fn(() => false))
 
-        const { unmount } = render(<App />)
+        render(<App />)
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         await user.click(screen.getByRole('button', { name: /load seed data/i }))
@@ -1418,6 +1862,7 @@ describe('App', () => {
         kvSeed['sessions'] = undefined
         kvSeed['courses'] = undefined
         kvSeed['enrollments'] = undefined
+        kvSeed['attendance-records'] = undefined
         kvSeed['notifications'] = undefined
 
         render(<App />)
@@ -1428,8 +1873,15 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: /update session/i }))
+        await user.click(screen.getByRole('button', { name: /^delete session$/i }))
+        await user.click(screen.getByRole('button', { name: /^mark present$/i }))
         await user.click(screen.getByRole('button', { name: /^go schedule templates$/i }))
         await user.click(screen.getByRole('button', { name: /create template sessions/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        await user.click(screen.getByRole('button', { name: /create minimal course/i }))
+        await user.click(screen.getByRole('button', { name: /^update course$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete course$/i }))
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
@@ -1451,10 +1903,221 @@ describe('App', () => {
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
-        await user.click(screen.getByRole('button', { name: /add user/i }))
+        await user.click(screen.getByRole('button', { name: /^reset session$/i }))
 
-        expect(callbackSpies.onAddUser).toHaveBeenCalled()
+        expect(screen.getByRole('button', { name: /^create first admin$/i })).toBeInTheDocument()
+    })
+
+    it('sets an empty active user id when deleting the currently active last user', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+        kvSeed['active-user-id'] = 'admin-1'
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete active user$/i }))
+
+        expect(screen.getByRole('button', { name: /^create first admin$/i })).toBeInTheDocument()
+    })
+
+    it('blocks notification deep-link navigation when the active role lacks access', async () => {
+        const user = userEvent.setup()
+        utilizationNotificationPayload = createUtilizationNotificationPayload({
+            title: 'Restricted Destination',
+            link: '/certifications',
+            priority: 'high',
+        })
+
+        render(<App />)
+        await user.click(screen.getByRole('button', { name: /^switch to trainer$/i }))
+
+        const sendCall = sendNotificationMock.mock.calls[0]
+        const options = sendCall?.[1]
+        act(() => {
+            options.onClick()
+        })
+
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+    })
+
+    it('includes enrollments visible via session visibility even when course visibility is restricted', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = [
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+        kvSeed['active-user-id'] = 'trainer-1'
+        kvSeed['courses'] = [
+            {
+                id: 'course-hidden',
+                title: 'Hidden Course',
+                description: 'not published and not creator-owned',
+                duration: 45,
+                passScore: 80,
+                modules: [],
+                certifications: [],
+                createdBy: 'admin-1',
+                createdAt: '2024-01-01T00:00:00.000Z',
+                published: false,
+            },
+        ]
+        kvSeed['sessions'] = [
+            {
+                id: 'session-visible',
+                courseId: 'course-hidden',
+                trainerId: 'trainer-1',
+                title: 'Trainer-Owned Session',
+                startTime: '2099-01-01T09:00:00.000Z',
+                endTime: '2099-01-01T10:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: ['trainer-1'],
+                status: 'scheduled',
+            },
+        ]
+        kvSeed['enrollments'] = [
+            {
+                id: 'enroll-visible-via-session',
+                userId: 'trainer-1',
+                courseId: 'course-hidden',
+                sessionId: 'session-visible',
+                status: 'in-progress',
+                progress: 20,
+                enrolledAt: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+        expect(screen.getByText(/dashboard enrollments:\s*1/i)).toBeInTheDocument()
+    })
+
+    it('updates only the matched attendance record when multiple records exist', async () => {
+        const user = userEvent.setup()
+        kvSeed['attendance-records'] = [
+            {
+                id: 'attendance-1',
+                sessionId: 'session-2',
+                userId: 'trainer-1',
+                status: 'absent',
+                markedAt: '2024-01-01T00:00:00.000Z',
+                markedBy: 'admin-1',
+            },
+            {
+                id: 'attendance-2',
+                sessionId: 'session-2',
+                userId: 'someone-else',
+                status: 'present',
+                markedAt: '2024-01-01T00:00:00.000Z',
+                markedBy: 'admin-1',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        await user.click(screen.getByRole('button', { name: /^mark present$/i }))
+
+        expect(screen.getByText(/attendance count:\s*2/i)).toBeInTheDocument()
+        expect(screen.getByTestId('attendance-record-attendance-1')).toHaveTextContent('trainer-1: present')
+        expect(screen.getByTestId('attendance-record-attendance-2')).toHaveTextContent('someone-else: present')
+    })
+
+    it('preserves existing attendance notes when status is updated without notes', async () => {
+        const user = userEvent.setup()
+        kvSeed['attendance-records'] = [
+            {
+                id: 'attendance-1',
+                sessionId: 'session-2',
+                userId: 'trainer-1',
+                status: 'absent',
+                notes: 'Arrived late due to traffic',
+                markedAt: '2024-01-01T00:00:00.000Z',
+                markedBy: 'admin-1',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/attendance notes:\s*arrived late due to traffic/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^mark present$/i }))
+        expect(screen.getByText(/attendance notes:\s*arrived late due to traffic/i)).toBeInTheDocument()
+    })
+
+    it('handles course update and delete when course/session/enrollment stores are undefined', async () => {
+        const user = userEvent.setup()
+        kvSeed['courses'] = undefined
+        kvSeed['sessions'] = undefined
+        kvSeed['enrollments'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        await user.click(screen.getByRole('button', { name: /^update course$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete course$/i }))
+
+        expect(screen.getByText(/courses count:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('handles deleting a session when sessions store is undefined', async () => {
+        const user = userEvent.setup()
+        kvSeed['sessions'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete session$/i }))
+
+        expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('assigns default preview passwords when preview mode is enabled and auth map is empty', async () => {
+        const user = userEvent.setup()
+        getPreviewSeedModeMock.mockReturnValue('empty')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        kvSeed['auth-passwords'] = undefined
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /^sign out$/i }))
+
+        await user.type(screen.getByLabelText(/email/i), 'trainer1@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
     })
 
     it('creates a notification when notification state is initially undefined', async () => {
@@ -1593,6 +2256,7 @@ describe('App', () => {
         const user = userEvent.setup()
         localStorage.setItem('reminder-schedule-1-2099-01-01T09:00:00.000Z', 'true')
         localStorage.setItem('unrelated-key', 'keep')
+        kvSeed['auth-passwords'] = { 'admin-1': 'stale-password' }
 
         render(<App />)
 
@@ -1601,5 +2265,520 @@ describe('App', () => {
 
         expect(localStorage.getItem('reminder-schedule-1-2099-01-01T09:00:00.000Z')).toBeNull()
         expect(localStorage.getItem('unrelated-key')).toBe('keep')
+        expect(kvState['auth-passwords']).toEqual({})
+    })
+
+    it('shows sign-in errors for missing credentials, unknown users, and wrong passwords', async () => {
+        const user = userEvent.setup()
+        kvSeed['active-user-id'] = ''
+
+        render(<App />)
+        toastError.mockClear()
+
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+        expect(screen.getByText('Email is required')).toBeInTheDocument()
+        expect(screen.getByText('Password is required')).toBeInTheDocument()
+
+        await user.type(screen.getByLabelText(/email/i), 'nobody@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+        expect(toastError).toHaveBeenCalledWith(
+            'Sign-in failed',
+            expect.objectContaining({ description: 'No account matches that email address.' }),
+        )
+
+        await user.clear(screen.getByLabelText(/email/i))
+        await user.clear(screen.getByLabelText(/password/i))
+        await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'wrong-password')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+        expect(toastError).toHaveBeenCalledWith(
+            'Sign-in failed',
+            expect.objectContaining({ description: 'Incorrect password.' }),
+        )
+    })
+
+    it('shows the first-admin setup form when there are no users and creates an admin account', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+
+        render(<App />)
+
+        expect(screen.getByRole('button', { name: /^create first admin$/i })).toBeInTheDocument()
+
+        await user.type(screen.getByLabelText(/^name$/i), 'First Admin')
+        await user.type(screen.getByLabelText(/^email$/i), 'first@example.com')
+        await user.type(screen.getByLabelText(/^password$/i), 'securepass123')
+
+        await user.click(screen.getByRole('button', { name: /^create first admin$/i }))
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'First admin created',
+            expect.objectContaining({ description: expect.stringContaining('First Admin') }),
+        )
+    })
+
+    it('shows a setup-incomplete error when creating the first admin with empty fields', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+
+        render(<App />)
+        toastError.mockClear()
+
+        await user.click(screen.getByRole('button', { name: /^create first admin$/i }))
+        expect(screen.getByText('Name is required')).toBeInTheDocument()
+        expect(screen.getByText('Email is required')).toBeInTheDocument()
+        expect(screen.getByText('Password is required')).toBeInTheDocument()
+    })
+
+    it('assigns a new role from the settings role assignment card', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+
+        // trainer-1 (second user) is promoted to admin
+        const adminButtons = screen.getAllByRole('button', { name: /^admin$/i })
+        await user.click(adminButtons[1])
+
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Role updated',
+            expect.objectContaining({ description: expect.stringMatching(/admin/i) }),
+        )
+
+        const persistedUsers = kvState['users'] as Array<{ id: string; role: string }>
+        expect(persistedUsers).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'trainer-1', role: 'admin' }),
+            ])
+        )
+    })
+
+    it('prevents removing the last admin via the settings role assignment card', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+
+        // admin-1 (first user) is the only admin; changing to Employee should be blocked
+        const employeeButtons = screen.getAllByRole('button', { name: /^employee$/i })
+        await user.click(employeeButtons[0])
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Cannot remove the last admin',
+            expect.objectContaining({ description: expect.stringMatching(/another user as admin/i) }),
+        )
+
+        const persistedUsers = kvState['users'] as Array<{ id: string; role: string }>
+        expect(persistedUsers).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'admin-1', role: 'admin' }),
+            ])
+        )
+    })
+
+    it('warns when stale session and stale user updates are submitted', async () => {
+        const user = userEvent.setup()
+        kvSeed['sessions'] = [
+            {
+                id: 'session-1',
+                courseId: 'course-1',
+                trainerId: 'trainer-1',
+                title: 'Stale Session',
+                startTime: '2099-01-01T09:00:00.000Z',
+                endTime: '2099-01-01T10:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: [],
+                status: 'scheduled',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+        ]
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        await user.click(screen.getByRole('button', { name: /apply stale session update/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /apply stale user update/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Concurrent edit warning',
+            expect.objectContaining({ description: expect.stringMatching(/session changed/i) }),
+        )
+        expect(toastError).toHaveBeenCalledWith(
+            'Concurrent edit warning',
+            expect.objectContaining({ description: expect.stringMatching(/profile changed/i) }),
+        )
+    })
+
+    it('keeps warning on repeated stale user updates after the stored timestamp is refreshed', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        toastError.mockClear()
+
+        await user.click(screen.getByRole('button', { name: /apply stale user update/i }))
+        await user.click(screen.getByRole('button', { name: /apply stale user update/i }))
+
+        expect(
+            toastError.mock.calls.filter(
+                ([title, options]) =>
+                    title === 'Concurrent edit warning' &&
+                    typeof options === 'object' &&
+                    options !== null &&
+                    'description' in options &&
+                    /profile changed/i.test(String(options.description)),
+            ),
+        ).toHaveLength(2)
+    })
+
+    it('deletes session-linked enrollments when a session is deleted', async () => {
+        const user = userEvent.setup()
+        kvSeed['enrollments'] = [
+            {
+                id: 'enroll-delete-session',
+                userId: 'trainer-1',
+                courseId: 'course-1',
+                sessionId: 'session-1',
+                status: 'in-progress',
+                progress: 40,
+                enrolledAt: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+        expect(screen.getByText(/dashboard enrollments:\s*1/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete session$/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+        expect(screen.getByText(/dashboard enrollments:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('deletes course-linked sessions and enrollments when a course is deleted', async () => {
+        const user = userEvent.setup()
+        kvSeed['courses'] = [
+            {
+                id: 'course-1',
+                title: 'Delete Me Course',
+                description: 'For delete-path testing',
+                duration: 60,
+                passScore: 80,
+                modules: [],
+                certifications: [],
+                createdBy: 'admin-1',
+                createdAt: '2024-01-01T00:00:00.000Z',
+                published: true,
+            },
+        ]
+        kvSeed['sessions'] = [
+            {
+                id: 'session-1',
+                courseId: 'course-1',
+                trainerId: 'trainer-1',
+                title: 'Delete Session With Course',
+                startTime: '2099-01-01T09:00:00.000Z',
+                endTime: '2099-01-01T10:00:00.000Z',
+                location: 'Room A',
+                capacity: 10,
+                enrolledStudents: [],
+                status: 'scheduled',
+            },
+        ]
+        kvSeed['enrollments'] = [
+            {
+                id: 'enroll-delete-course',
+                userId: 'trainer-1',
+                courseId: 'course-1',
+                sessionId: 'session-1',
+                status: 'in-progress',
+                progress: 40,
+                enrolledAt: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        await user.click(screen.getByRole('button', { name: /^delete course$/i }))
+
+        await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+        expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+        expect(screen.getByText(/dashboard enrollments:\s*0/i)).toBeInTheDocument()
+    })
+
+    it('uses untitled course fallback when creating an empty course payload', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go courses$/i }))
+        await user.click(screen.getByRole('button', { name: /^create empty course$/i }))
+
+        expect(screen.getByText(/untitled course/i)).toBeInTheDocument()
+    })
+
+    describe('handleRecordScore', () => {
+        beforeEach(() => {
+            kvSeed['courses'] = [
+                {
+                    id: 'course-rs',
+                    title: 'Record Score Course',
+                    description: 'For testing',
+                    duration: 60,
+                    passScore: RECORD_SCORE_PASS_THRESHOLD,
+                    modules: [],
+                    certifications: [],
+                    createdBy: 'admin-1',
+                    createdAt: '2024-01-01T00:00:00.000Z',
+                    published: true,
+                },
+            ]
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-rs-1',
+                    userId: 'admin-1',
+                    courseId: 'course-rs',
+                    sessionId: 'session-1',
+                    status: 'in-progress',
+                    progress: 50,
+                    enrolledAt: '2024-01-01T00:00:00.000Z',
+                },
+            ]
+        })
+
+        it('fires a completion notification when a passing score is submitted', async () => {
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+
+            await user.click(screen.getByRole('button', { name: /record score pass/i }))
+            expect(screen.getByText(/notification count:\s*2/i)).toBeInTheDocument()
+        })
+
+        it('does not fire a notification when a failing score is submitted', async () => {
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score fail/i }))
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
+
+        it('is a no-op when the enrollment ID is not found', async () => {
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score unknown/i }))
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
+
+        it('does not send a duplicate notification when enrollment is already completed', async () => {
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-rs-1',
+                    userId: 'admin-1',
+                    courseId: 'course-rs',
+                    sessionId: 'session-1',
+                    status: 'completed',
+                    progress: 100,
+                    enrolledAt: '2024-01-01T00:00:00.000Z',
+                },
+            ]
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score notify/i }))
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
+
+        it('uses default pass score of 80 and does not fire notification when course is not found', async () => {
+            // Override enrollments to have a courseId that has no matching course
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-rs-1',
+                    userId: 'admin-1',
+                    courseId: 'course-nonexistent',
+                    sessionId: 'session-1',
+                    status: 'in-progress',
+                    progress: 50,
+                    enrolledAt: '2024-01-01T00:00:00.000Z',
+                },
+            ]
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            // Score 90 >= default passScore 80, so notify=true, but course is undefined → no notification
+            await user.click(screen.getByRole('button', { name: /record score pass/i }))
+            expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
+        })
+
+        it('uses fallback student label in completion message when the student record is missing', async () => {
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-rs-1',
+                    userId: 'missing-user',
+                    courseId: 'course-rs',
+                    sessionId: 'session-1',
+                    status: 'in-progress',
+                    progress: 50,
+                    enrolledAt: '2024-01-01T00:00:00.000Z',
+                },
+            ]
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score pass/i }))
+
+            expect(sendNotificationMock).toHaveBeenCalledWith(
+                'Course Completed — Record Score Course',
+                expect.objectContaining({ body: expect.stringContaining('A student completed') }),
+            )
+        })
+
+        it('updates only the targeted enrollment when recording a score', async () => {
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-rs-1',
+                    userId: 'admin-1',
+                    courseId: 'course-rs',
+                    sessionId: 'session-1',
+                    status: 'in-progress',
+                    progress: 50,
+                    enrolledAt: '2024-01-01T00:00:00.000Z',
+                },
+                {
+                    id: 'enrollment-rs-2',
+                    userId: 'admin-1',
+                    courseId: 'course-rs',
+                    sessionId: 'session-2',
+                    status: 'in-progress',
+                    progress: 10,
+                    enrolledAt: '2024-01-02T00:00:00.000Z',
+                },
+            ]
+            const user = userEvent.setup()
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score pass/i }))
+            await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
+
+            const persistedEnrollments = kvState['enrollments'] as Array<{
+                id: string
+                status: string
+                progress: number
+                score?: number
+            }>
+            const updatedEnrollment = persistedEnrollments.find((enrollment) => enrollment.id === 'enrollment-rs-1')
+            const untouchedEnrollment = persistedEnrollments.find((enrollment) => enrollment.id === 'enrollment-rs-2')
+
+            expect(updatedEnrollment).toEqual(
+                expect.objectContaining({
+                    id: 'enrollment-rs-1',
+                    status: 'completed',
+                    progress: 100,
+                    score: 90,
+                }),
+            )
+            expect(untouchedEnrollment).toEqual(
+                expect.objectContaining({
+                    id: 'enrollment-rs-2',
+                    status: 'in-progress',
+                    progress: 10,
+                }),
+            )
+
+            expect(screen.getByText(/dashboard enrollments:\s*2/i)).toBeInTheDocument()
+            expect(screen.getByText(/enrollment: enrollment-rs-2/i)).toBeInTheDocument()
+        })
     })
 })

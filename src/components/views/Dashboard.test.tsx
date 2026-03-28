@@ -243,6 +243,34 @@ describe('Dashboard', () => {
     expect(screen.queryByText('Failed Course')).not.toBeInTheDocument()
   })
 
+  it('skips in-progress enrollments when their course cannot be resolved', () => {
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-missing-course',
+        userId: baseUser.id,
+        courseId: 'missing-course',
+        status: 'in-progress',
+        progress: 25,
+        score: 0,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/^in progress$/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /safety foundations/i })).not.toBeInTheDocument()
+  })
+
   it('handles sessions with various status types', () => {
     const sessions: Session[] = [
       { id: 's1', courseId: 'c1', trainerId: 'u1', title: 'Scheduled Session', startTime: '2026-03-20T09:00:00.000Z', endTime: '2026-03-20T10:00:00.000Z', location: 'Room A', capacity: 10, enrolledStudents: [], status: 'scheduled' },

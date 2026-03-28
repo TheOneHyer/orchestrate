@@ -135,6 +135,18 @@ describe('WorkloadRecommendations', () => {
     expect(screen.getByText(/recommendations \(2\)/i)).toBeInTheDocument()
   })
 
+  it('shows excellent balance styling and label when score is high with recommendations', () => {
+    const analysis = makeAnalysis({
+      balanceScore: 82,
+      recommendations: [makeRecommendation({ title: 'Keep Current Allocation' })],
+    })
+
+    render(<WorkloadRecommendations analysis={analysis} users={[]} />)
+
+    expect(screen.getByText('82')).toBeInTheDocument()
+    expect(screen.getByText(/excellent balance/i)).toBeInTheDocument()
+  })
+
   it('calls onViewTrainer when an affected trainer button is clicked', async () => {
     const user = userEvent.setup()
     const trainer = makeUser('t-1', 'Viewed Trainer')

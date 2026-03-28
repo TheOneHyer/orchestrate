@@ -94,6 +94,27 @@ describe('usePushNotifications', () => {
         expect(result.current.isSupported).toBe(false)
     })
 
+    it('requestPermission returns denied when Notification API is unavailable', async () => {
+        const hadNotification = Object.prototype.hasOwnProperty.call(globalThis, 'Notification')
+        const originalNotification = globalThis.Notification
+        delete (globalThis as { Notification?: typeof Notification }).Notification
+
+        try {
+            const { result } = renderHook(() => usePushNotifications())
+            let permission: NotificationPermission | undefined
+
+            await act(async () => {
+                permission = await result.current.requestPermission()
+            })
+
+            expect(permission).toBe('denied')
+        } finally {
+            if (hadNotification) {
+                vi.stubGlobal('Notification', originalNotification)
+            }
+        }
+    })
+
     it('requestPermission returns "granted" and updates settings to enabled', async () => {
         // Use permission='granted' in initial settings so the mount effect does not fire a
         // competing setSettings call (Notification.permission is already 'granted' in the mock)

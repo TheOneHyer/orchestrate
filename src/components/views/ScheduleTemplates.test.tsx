@@ -85,7 +85,9 @@ vi.mock('@/components/ScheduleTemplateDialog', () => ({
 
 vi.mock('@/components/ApplyTemplateDialog', () => ({
     ApplyTemplateDialog: ({ open, template, onApply }: { open: boolean; template: ScheduleTemplate | null; onApply: (sessions: Array<Partial<Session>>) => void }) => {
-        if (!open || !template) return null
+        if (!open || !template) {
+            return null
+        }
         return (
             <div>
                 <p>Applying {template.name}</p>
@@ -388,6 +390,13 @@ describe('ScheduleTemplates', () => {
 
         expect(toastSuccess).toHaveBeenCalledWith('2 sessions created successfully')
         expect(setTemplatesMock).toHaveBeenCalled()
+    })
+
+    it('does not expose apply actions when the apply dialog is closed', () => {
+        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+
+        expect(screen.queryByRole('button', { name: /^mock confirm apply$/i })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^mock confirm apply multiple$/i })).not.toBeInTheDocument()
     })
 
     it('opens apply dialog from dropdown menu apply action', async () => {

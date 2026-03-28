@@ -261,6 +261,23 @@ describe('AddCertificationDialog', () => {
     expect(onAddCertification).not.toHaveBeenCalled()
   })
 
+  it('shows validation error when issued date is cleared', async () => {
+    const onAddCertification = vi.fn()
+
+    render(<AddCertificationDialog users={trainers} onAddCertification={onAddCertification} />)
+    await user.click(screen.getByRole('button', { name: /add certification/i }))
+
+    await user.type(screen.getByLabelText(/certification name/i), 'Equipment Safety')
+    setDateInput(/issued date/i, '')
+    setDateInput(/expiration date/i, '2028-01-01')
+    await user.click(screen.getByRole('checkbox', { name: /alex trainer/i }))
+
+    await user.click(screen.getByRole('button', { name: /^add certification$/i }))
+
+    expect(toastError).toHaveBeenCalledWith(expect.stringMatching(/issued date/i))
+    expect(onAddCertification).not.toHaveBeenCalled()
+  })
+
   it('shows validation error when required fields are missing', async () => {
     const onAddCertification = vi.fn()
 

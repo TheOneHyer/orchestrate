@@ -37,12 +37,12 @@ interface EnrollStudentsDialogProps {
 }
 
 /**
- * Dialog for searching and enrolling students into a training session.
+ * Dialog UI for searching, selecting, and enrolling students into a training session.
  *
- * Displays a searchable, scrollable list of available students (excluding those already
- * enrolled). As students are selected, scheduling conflicts are detected in real time via
- * `checkStudentEnrollmentConflicts`. Conflicting students are highlighted and excluded from
- * the final enrollment call. The dialog also enforces the session's remaining capacity.
+ * Renders a searchable, scrollable list of available students (excluding those already enrolled),
+ * supports bulk import and badge-scan entry, highlights scheduling conflicts in real time, and
+ * enforces the session's remaining capacity. When enrollment is confirmed, the component invokes
+ * `onEnrollStudents` with only the student IDs that can be enrolled (conflict-free and within capacity).
  */
 export function EnrollStudentsDialog({
   open,
@@ -81,6 +81,11 @@ export function EnrollStudentsDialog({
     return checkStudentEnrollmentConflicts(session, selectedStudents, allSessions, availableStudents)
   }, [session, selectedStudents, allSessions, availableStudents])
 
+  /**
+   * Toggles a student's selection state.
+   *
+   * @param studentId - The ID of the student to toggle.
+   */
   const handleToggleStudent = (studentId: string) => {
     setSelectedStudents(prev =>
       prev.includes(studentId)
@@ -90,6 +95,7 @@ export function EnrollStudentsDialog({
     setShowConflicts(true)
   }
 
+  /** Selects all currently visible students, or deselects them if all are already selected. */
   const handleSelectAll = () => {
     if (visibleStudentIds.length === 0) {
       return
@@ -115,6 +121,11 @@ export function EnrollStudentsDialog({
     setImportSummary(null)
   }, [])
 
+  /**
+   * Adds a list of matched student IDs to the current selection.
+   *
+   * @param studentIds - The IDs to add; no-op when the array is empty.
+   */
   const addMatchedStudents = (studentIds: string[]) => {
     if (studentIds.length === 0) {
       return
@@ -124,6 +135,7 @@ export function EnrollStudentsDialog({
     setShowConflicts(true)
   }
 
+  /** Parses the bulk-identifiers text area and adds all matched, un-enrolled students to the selection. */
   const handleImportIdentifiers = () => {
     const identifiers = parseEnrollmentIdentifiers(bulkIdentifiers)
     const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, availableStudents)
@@ -153,6 +165,7 @@ export function EnrollStudentsDialog({
     setImportSummary(`Added ${filteredMatchedIds.length} student${filteredMatchedIds.length === 1 ? '' : 's'} from bulk upload.${unmatchedMessage}`)
   }
 
+  /** Processes the badge scan input field and adds the matched student to the selection. */
   const handleBadgeScan = () => {
     const identifiers = parseEnrollmentIdentifiers(badgeScanValue)
     const { matchedIds, unmatched } = matchStudentsByIdentifiers(identifiers, availableStudents)
@@ -178,6 +191,7 @@ export function EnrollStudentsDialog({
       : 'Scan a student badge ID, email, or email username to add them.')
   }
 
+  /** Enrolls the selected students, skipping those with conflicts, and closes the dialog. */
   const handleEnroll = () => {
     if (conflictCheck.hasConflicts) {
       onEnrollStudents(conflictCheck.allowedStudents)
@@ -188,11 +202,17 @@ export function EnrollStudentsDialog({
     onOpenChange(false)
   }
 
+  /** Resets transient state and closes the dialog without enrolling anyone. */
   const handleCancel = () => {
     resetTransientState()
     onOpenChange(false)
   }
 
+  /**
+   * Handles controlled open/close state changes for the dialog.
+   *
+   * @param nextOpen - Whether the dialog should be open.
+   */
   const handleDialogOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
       resetTransientState()

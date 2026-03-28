@@ -52,13 +52,50 @@ const RECOVERY_ACTION_TEMPLATES: Record<RecoveryAction, string> = {
   'custom': 'Custom action'
 }
 
+const DEFAULT_TARGET_UTILIZATION = 70
+const DEFAULT_DURATION_WEEKS = 4
+
 /**
- * Dialog for creating a structured recovery plan to support trainer wellbeing.
+ * Parse a numeric string into an integer with optional min/max clamping.
  *
- * When opened with a `latestCheckIn`, the form is automatically pre-populated: the trigger
- * reason is generated from wellness score, stress level, and utilization, and relevant
- * recovery actions are suggested. The user can add/remove/edit actions, set target utilization
- * and plan duration, and add free-text notes before submitting.
+ * Empty, non-finite, or non-numeric values fall back to the provided default.
+ *
+ * @param value - Raw input value from form state.
+ * @param fallbackValue - Value returned when parsing fails.
+ * @param min - Optional minimum allowed value.
+ * @param max - Optional maximum allowed value.
+ * @returns A normalized integer suitable for plan numeric fields.
+ */
+export function parseNumericInput(value: string, fallbackValue: number, min?: number, max?: number): number {
+  if (value.trim() === '') {
+    return fallbackValue
+  }
+
+  const parsedValue = Number(value)
+  if (!Number.isFinite(parsedValue)) {
+    return fallbackValue
+  }
+  let result = Math.trunc(parsedValue)
+  if (min !== undefined) {
+    result = Math.max(min, result)
+  }
+  if (max !== undefined) {
+    result = Math.min(max, result)
+  }
+  return result
+}
+
+type EditableRecoveryPlanActionField = keyof Pick<RecoveryPlanAction, 'description' | 'targetDate' | 'notes'>
+
+/**
+ * Render a dialog for creating a structured recovery plan to support a trainer's wellbeing.
+ *
+ * When opened with a `latestCheckIn`, the form is pre-populated with a generated trigger reason
+ * and suggested recovery actions; the user can add, edit, or remove actions, set target utilization
+ * and plan duration, add optional notes, and submit the finalized plan via `onSubmit`.
+ *
+ * Validation enforces a non-empty trigger reason and at least one action before submission.
+ * Numeric inputs are normalized and clamped to their allowed ranges, and the form resets to defaults on close.
  */
 export function RecoveryPlanDialog({
   open,
@@ -70,8 +107,8 @@ export function RecoveryPlanDialog({
   latestCheckIn,
   currentUtilization = 75
 }: RecoveryPlanDialogProps) {
-  const [targetUtilization, setTargetUtilization] = useState(70)
-  const [durationWeeks, setDurationWeeks] = useState(4)
+  const [targetUtilizationInput, setTargetUtilizationInput] = useState(String(DEFAULT_TARGET_UTILIZATION))
+  const [durationWeeksInput, setDurationWeeksInput] = useState(String(DEFAULT_DURATION_WEEKS))
   const [triggerReason, setTriggerReason] = useState('')
   const [triggerReasonTouched, setTriggerReasonTouched] = useState(false)
   const [submitAttempted, setSubmitAttempted] = useState(false)
@@ -144,6 +181,9 @@ export function RecoveryPlanDialog({
       return
     }
 
+    const targetUtilization = parseNumericInput(targetUtilizationInput, DEFAULT_TARGET_UTILIZATION, 40, 80)
+    const durationWeeks = parseNumericInput(durationWeeksInput, DEFAULT_DURATION_WEEKS, 1, 12)
+
     const plan: Omit<RecoveryPlan, 'id' | 'createdAt'> = {
       trainerId,
       createdBy: currentUser.id,
@@ -166,8 +206,8 @@ export function RecoveryPlanDialog({
   }
 
   const handleClose = () => {
-    setTargetUtilization(70)
-    setDurationWeeks(4)
+    setTargetUtilizationInput(String(DEFAULT_TARGET_UTILIZATION))
+    setDurationWeeksInput(String(DEFAULT_DURATION_WEEKS))
     setTriggerReason('')
     setTriggerReasonTouched(false)
     setSubmitAttempted(false)
@@ -186,7 +226,14 @@ export function RecoveryPlanDialog({
     setActions([...actions, newAction])
   }
 
-  const updateAction = (index: number, field: keyof Omit<RecoveryPlanAction, 'id'>, value: any) => {
+  /**
+   * Update a specific editable field of the action at the given index in the local actions state.
+   *
+   * @param index - Zero-based index of the action to update; must refer to an existing action
+   * @param field - One of the editable action fields (`description`, `targetDate`, `notes`)
+   * @param value - New value for the specified field; must be the appropriate value for that field
+   */
+  function updateAction<K extends EditableRecoveryPlanActionField>(index: number, field: K, value: RecoveryPlanAction[K]) {
     const updated = [...actions]
     updated[index] = { ...updated[index], [field]: value }
     setActions(updated)
@@ -251,8 +298,10 @@ export function RecoveryPlanDialog({
                 type="number"
                 min={40}
                 max={80}
-                value={targetUtilization}
-                onChange={(e) => setTargetUtilization(parseInt(e.target.value) || 70)}
+                step={1}
+                value={targetUtilizationInput}
+                onChange={(e) => setTargetUtilizationInput(e.target.value)}
+                onBlur={() => setTargetUtilizationInput(String(parseNumericInput(targetUtilizationInput, DEFAULT_TARGET_UTILIZATION, 40, 80)))}
               />
             </div>
 
@@ -263,8 +312,10 @@ export function RecoveryPlanDialog({
                 type="number"
                 min={1}
                 max={12}
-                value={durationWeeks}
-                onChange={(e) => setDurationWeeks(parseInt(e.target.value) || 4)}
+                step={1}
+                value={durationWeeksInput}
+                onChange={(e) => setDurationWeeksInput(e.target.value)}
+                onBlur={() => setDurationWeeksInput(String(parseNumericInput(durationWeeksInput, DEFAULT_DURATION_WEEKS, 1, 12)))}
               />
             </div>
           </div>

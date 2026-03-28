@@ -42,12 +42,15 @@ interface ScheduleTemplatesProps {
 }
 
 /**
- * Renders the Schedule Templates management view.
+ * Render the Schedule Templates management view.
  *
- * Allows admins to create, edit, duplicate, delete, and apply reusable training-schedule
- * templates. Templates are persisted via the Spark KV store. Applying a template opens a
- * dialog that generates concrete {@link Session} stubs and, when
- * `onCreateSessions` is provided, passes them upstream.
+ * Provides a UI to create, edit, duplicate, delete, search, filter, and apply reusable schedule templates.
+ * Templates are persisted to the Spark KV store and their usage metadata is updated when a template is applied.
+ *
+ * @param courses - Available course options used by the template editor.
+ * @param onNavigate - Optional callback to handle navigation requests (e.g., opening course or session pages).
+ * @param onCreateSessions - Optional callback invoked with the concrete `Session` objects created when applying a template.
+ * @returns A React element representing the schedule templates management UI.
  */
 export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: ScheduleTemplatesProps) {
   const [templates, setTemplates] = useKV<ScheduleTemplate[]>('schedule-templates', [])
@@ -130,6 +133,11 @@ export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: Sch
     setSelectedTemplate(null)
   }
 
+  /**
+   * Stores the template for editing and opens the template editor dialog.
+   *
+   * @param template - The template to edit.
+   */
   const handleEditTemplate = (template: ScheduleTemplate) => {
     setEditingTemplate(template)
     setTemplateDialogOpen(true)

@@ -4,7 +4,7 @@ import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Schedule } from './Schedule'
-import type { User, Course, Session } from '@/lib/types'
+import type { User, Course, Session, Enrollment } from '@/lib/types'
 import * as conflictDetection from '@/lib/conflict-detection'
 
 const toastError = vi.fn()
@@ -16,7 +16,6 @@ vi.mock('sonner', () => ({
     success: (...args: unknown[]) => toastSuccess(...args),
   },
 }))
-
 vi.mock('./AutoScheduler', () => ({
   AutoScheduler: ({
     onSessionsCreated,
@@ -63,6 +62,38 @@ vi.mock('@/components/EnrollStudentsDialog', () => ({
     ) : null
   ),
 }))
+
+vi.mock('@/components/RecordScoreDialog', () => ({
+  RecordScoreDialog: ({
+    open,
+    onOpenChange,
+    enrollment,
+    onSubmit,
+  }: {
+    open: boolean
+    onOpenChange: (open: boolean) => void
+    enrollment: { id: string }
+    onSubmit: (enrollmentId: string, score: number) => void
+  }) => (
+    open ? (
+      <div data-testid="record-score-dialog">
+        <button data-testid="submit-score" onClick={() => onSubmit(enrollment.id, 88)}>Submit 88</button>
+        <button data-testid="keep-score-dialog-open" onClick={() => onOpenChange(true)}>Keep Open</button>
+        <button data-testid="close-score-dialog" onClick={() => onOpenChange(false)}>Close</button>
+      </div>
+    ) : null
+  ),
+}))
+
+const baseEnrollment: Enrollment = {
+  id: 'enroll-1',
+  userId: 'u-employee',
+  courseId: 'c-1',
+  sessionId: 's-1',
+  status: 'in-progress',
+  progress: 50,
+  enrolledAt: '2024-01-15T00:00:00.000Z',
+}
 
 const baseTrainer: User = {
   id: 'u-trainer',
@@ -169,6 +200,12 @@ describe('Schedule', () => {
       sessionCard,
       dropZone: calendarBody.parentElement,
     }
+  }
+
+  const selectFilterOption = async (label: RegExp, optionLabel: RegExp) => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    await user.click(screen.getByLabelText(label))
+    await user.click(await screen.findByRole('option', { name: optionLabel }))
   }
 
   it('opens the Auto-Schedule dialog', async () => {
@@ -1676,6 +1713,73 @@ describe('Schedule', () => {
     expect(screen.getByRole('button', { name: /^edit$/i })).toBeInTheDocument()
   })
 
+  it('filters sessions by the next 7 days date window', async () => {
+    const upcomingSession: Session = {
+      ...baseSession,
+      id: 's-next-7',
+      title: 'Upcoming Next Seven',
+      startTime: '2026-03-25T09:00:00.000Z',
+      endTime: '2026-03-25T10:30:00.000Z',
+    }
+    const outsideWindowSession: Session = {
+      ...baseSession,
+      id: 's-beyond-7',
+      title: 'Beyond Seven Days',
+      startTime: '2026-03-31T09:00:00.000Z',
+      endTime: '2026-03-31T10:30:00.000Z',
+    }
+
+    renderSchedule({ sessions: [upcomingSession, outsideWindowSession] })
+
+    await selectFilterOption(/date window/i, /next 7 days/i)
+    await selectFilterOption(/status/i, /all status/i)
+    await selectFilterOption(/filter by trainer/i, /all trainers/i)
+
+    expect(screen.getByText(/upcoming next seven/i)).toBeInTheDocument()
+    expect(screen.queryByText(/beyond seven days/i)).toBeNull()
+  })
+
+  it('filters sessions by the next 30 days date window', async () => {
+    const withinThirtyDays: Session = {
+      ...baseSession,
+      id: 's-next-30',
+      title: 'Inside Thirty Days',
+      startTime: '2026-04-10T09:00:00.000Z',
+      endTime: '2026-04-10T10:30:00.000Z',
+    }
+    const beyondThirtyDays: Session = {
+      ...baseSession,
+      id: 's-beyond-30',
+      title: 'Beyond Thirty Days',
+      startTime: '2026-05-05T09:00:00.000Z',
+      endTime: '2026-05-05T10:30:00.000Z',
+    }
+
+    renderSchedule({ sessions: [withinThirtyDays, beyondThirtyDays] })
+
+    await selectFilterOption(/date window/i, /next 30 days/i)
+
+    expect(screen.getByText(/inside thirty days/i)).toBeInTheDocument()
+    expect(screen.queryByText(/beyond thirty days/i)).toBeNull()
+  })
+
+  it('handles search with sessions whose trainer and course cannot be resolved', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const orphanedSession: Session = {
+      ...baseSession,
+      id: 's-orphaned',
+      title: 'Orphaned Session',
+      trainerId: 'missing-trainer',
+      courseId: 'missing-course',
+      location: 'Hangar 9',
+    }
+
+    renderSchedule({ sessions: [orphanedSession] })
+
+    await user.type(screen.getByPlaceholderText(/search by session, trainer, location, or course/i), 'hangar 9')
+    expect(screen.getByText(/orphaned session/i)).toBeInTheDocument()
+  })
+
   it('opens guided scheduler when clicking an empty month calendar cell body as a manager', async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 })
 
@@ -1689,5 +1793,384 @@ describe('Schedule', () => {
     await user.click(emptyCellBody as HTMLElement)
 
     expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
+
+  it('opens guided scheduler when clicking an empty week calendar cell body as a manager', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: { ...baseTrainer, role: 'admin' }, sessions: [] })
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+
+    const emptyCellBody = Array.from(document.querySelectorAll('[data-calendar-cell-body]')).find((cell) => {
+      return !cell.querySelector('[draggable]')
+    })
+
+    expect(emptyCellBody).not.toBeUndefined()
+    await user.click(emptyCellBody as HTMLElement)
+
+    expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
+
+  describe('enrolled students list and record score', () => {
+    it('shows enrolled students list in session details when session has enrolled students', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.getByText('Evan Employee')).toBeInTheDocument()
+    })
+
+    it('shows enrollment status and score in the student row when enrollment has a score', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [{ ...baseEnrollment, score: 75, status: 'failed' }],
+        onRecordScore: vi.fn(),
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.getByText(/failed/i)).toBeInTheDocument()
+      expect(screen.getByText(/75%/i)).toBeInTheDocument()
+    })
+
+    it('shows Record Score button when canManageSchedule and onRecordScore are provided', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.getByTestId('record-score-btn-u-employee')).toBeInTheDocument()
+    })
+
+    it('does not show Record Score button when onRecordScore is not provided', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        // onRecordScore intentionally omitted
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.queryByTestId('record-score-btn-u-employee')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('mark-present-btn-u-employee')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('mark-absent-btn-u-employee')).not.toBeInTheDocument()
+    })
+
+    it('renders attendance action buttons and calls onMarkAttendance for admins', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const onMarkAttendance = vi.fn()
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        attendanceRecords: [],
+        currentUser: { ...baseTrainer, role: 'admin' },
+        onMarkAttendance,
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('mark-present-btn-u-employee'))
+      await user.click(screen.getByTestId('mark-absent-btn-u-employee'))
+
+      expect(onMarkAttendance).toHaveBeenNthCalledWith(1, 's-1', 'u-employee', 'present')
+      expect(onMarkAttendance).toHaveBeenNthCalledWith(2, 's-1', 'u-employee', 'absent')
+    })
+
+    it('disables the matching attendance action when that state is already recorded', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const onMarkAttendance = vi.fn()
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        attendanceRecords: [
+          {
+            id: 'attendance-1',
+            sessionId: 's-1',
+            userId: 'u-employee',
+            status: 'present',
+            markedAt: '2026-03-20T08:00:00.000Z',
+            markedBy: 'u-trainer',
+          },
+        ],
+        currentUser: { ...baseTrainer, role: 'admin' },
+        onMarkAttendance,
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+
+      expect(screen.getByTestId('mark-present-btn-u-employee')).toBeDisabled()
+      expect(screen.getByTestId('mark-absent-btn-u-employee')).toBeEnabled()
+      expect(screen.getByText(/attendance:\s*present/i)).toBeInTheDocument()
+    })
+
+    it('does not show enrolled students section when session has no enrolled students', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        sessions: [{ ...baseSession, enrolledStudents: [] }],
+        enrollments: [],
+        onRecordScore: vi.fn(),
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.queryByText('Enrolled Students')).not.toBeInTheDocument()
+    })
+
+    it('opens RecordScoreDialog when Record Score is clicked and calls onRecordScore on submit', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const onRecordScore = vi.fn()
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore,
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+
+      await user.click(screen.getByTestId('submit-score'))
+      expect(onRecordScore).toHaveBeenCalledWith('enroll-1', 88)
+    })
+
+    it('closes RecordScoreDialog when onOpenChange(false) is called', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+
+      await user.click(screen.getByTestId('close-score-dialog'))
+      expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
+    })
+
+    it('keeps RecordScoreDialog open when onOpenChange(true) is called', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+
+      await user.click(screen.getByTestId('keep-score-dialog-open'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+    })
+
+    it('closes an open RecordScoreDialog if enrollments become undefined', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const { rerender } = renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+
+      rerender(
+        <Schedule
+          sessions={[baseSession]}
+          courses={[baseCourse]}
+          users={[baseTrainer, baseEmployee]}
+          currentUser={{ ...baseTrainer, role: 'admin' }}
+          onCreateSession={vi.fn()}
+          onUpdateSession={vi.fn()}
+          onNavigate={vi.fn()}
+          enrollments={undefined}
+          onRecordScore={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
+    })
+
+    it('closes an open RecordScoreDialog if the matching enrollment disappears', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const { rerender } = renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+
+      rerender(
+        <Schedule
+          sessions={[baseSession]}
+          courses={[baseCourse]}
+          users={[baseTrainer, baseEmployee]}
+          currentUser={{ ...baseTrainer, role: 'admin' }}
+          onCreateSession={vi.fn()}
+          onUpdateSession={vi.fn()}
+          onNavigate={vi.fn()}
+          enrollments={[]}
+          onRecordScore={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
+    })
+
+    it('does not reopen RecordScoreDialog when the backing enrollment returns after disappearing', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const { rerender } = renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+
+      rerender(
+        <Schedule
+          sessions={[baseSession]}
+          courses={[baseCourse]}
+          users={[baseTrainer, baseEmployee]}
+          currentUser={{ ...baseTrainer, role: 'admin' }}
+          onCreateSession={vi.fn()}
+          onUpdateSession={vi.fn()}
+          onNavigate={vi.fn()}
+          enrollments={[]}
+          onRecordScore={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
+
+      rerender(
+        <Schedule
+          sessions={[baseSession]}
+          courses={[baseCourse]}
+          users={[baseTrainer, baseEmployee]}
+          currentUser={{ ...baseTrainer, role: 'admin' }}
+          onCreateSession={vi.fn()}
+          onUpdateSession={vi.fn()}
+          onNavigate={vi.fn()}
+          enrollments={[baseEnrollment]}
+          onRecordScore={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
+    })
+
+    it('closes an open RecordScoreDialog if the enrollment course no longer exists', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const { rerender } = renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+
+      rerender(
+        <Schedule
+          sessions={[baseSession]}
+          courses={[]}
+          users={[baseTrainer, baseEmployee]}
+          currentUser={{ ...baseTrainer, role: 'admin' }}
+          onCreateSession={vi.fn()}
+          onUpdateSession={vi.fn()}
+          onNavigate={vi.fn()}
+          enrollments={[baseEnrollment]}
+          onRecordScore={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
+    })
+
+    it('closes an open RecordScoreDialog if the enrollment student no longer exists', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+      const { rerender } = renderSchedule({
+        enrollments: [baseEnrollment],
+        onRecordScore: vi.fn(),
+        currentUser: { ...baseTrainer, role: 'admin' },
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      await user.click(screen.getByTestId('record-score-btn-u-employee'))
+      expect(screen.getByTestId('record-score-dialog')).toBeInTheDocument()
+
+      rerender(
+        <Schedule
+          sessions={[baseSession]}
+          courses={[baseCourse]}
+          users={[baseTrainer]}
+          currentUser={{ ...baseTrainer, role: 'admin' }}
+          onCreateSession={vi.fn()}
+          onUpdateSession={vi.fn()}
+          onNavigate={vi.fn()}
+          enrollments={[baseEnrollment]}
+          onRecordScore={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByTestId('record-score-dialog')).not.toBeInTheDocument()
+    })
+
+    it('skips rendering student rows whose userId is not found in users list', async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+      renderSchedule({
+        sessions: [{ ...baseSession, enrolledStudents: ['unknown-user-id'] }],
+        enrollments: [{ ...baseEnrollment, userId: 'unknown-user-id' }],
+        onRecordScore: vi.fn(),
+      })
+
+      await user.click(screen.getByText(/morning safety session/i))
+      expect(screen.getByText('Enrolled Students')).toBeInTheDocument()
+      expect(screen.queryByTestId('enrolled-student-unknown-user-id')).not.toBeInTheDocument()
+    })
+  })
+
+  it('opens session details when a session card is clicked in the weekly calendar view', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule()
+
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+    await user.click(screen.getByText(/morning safety session/i))
+
+    expect(screen.getByRole('heading', { name: /morning safety session/i })).toBeInTheDocument()
+  })
+
+  it('resets the monthly view back to today when the Today button is clicked in month view', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule()
+
+    const monthHeadingBefore = screen.getByRole('heading', { level: 3 }).textContent
+    await user.click(screen.getByRole('button', { name: /next month/i }))
+    expect(screen.getByRole('heading', { level: 3 }).textContent).not.toEqual(monthHeadingBefore)
+
+    await user.click(screen.getByRole('button', { name: /^today$/i }))
+    expect(screen.getByRole('heading', { level: 3 }).textContent).toEqual(monthHeadingBefore)
   })
 })

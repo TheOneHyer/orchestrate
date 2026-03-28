@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useKV } from '@github/spark/hooks'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -33,7 +33,7 @@ import {
 import { TrainerScheduler, SchedulingConstraints, TrainerMatch } from '@/lib/scheduler'
 import { User, Course, Session, WellnessCheckIn, RecoveryPlan, StressLevel } from '@/lib/types'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import { addDays, addMonths, format, parse, getDate, getYear, getMonth, getDaysInMonth } from 'date-fns'
 import { calculateTrainerWorkload } from '@/lib/workload-balancer'
 import { calculateBurnoutRisk } from '@/lib/burnout-analytics'
 
@@ -91,19 +91,66 @@ const BURNOUT_RISK_MAX = 100
 const guidedSchedulerSteps = ['parameters', 'trainer-selection', 'confirmation'] as const
 
 /**
- * Renders a step-by-step Guided Trainer Scheduler panel.
+ * Builds the list of occurrence dates for the selected recurrence pattern using local dates.
  *
- * Walks the user through three steps: (1) session parameters (course, dates, time, location,
- * capacity, recurrence), (2) trainer selection ranked by certification match, availability,
- * workload, and wellness, and (3) a confirmation summary before committing. Calls
- * `onSessionsCreated` with the resulting sessions on confirmation.
+ * @param startDate - The first occurrence date in `yyyy-MM-dd` format.
+ * @param endDate - The last recurrence boundary in `yyyy-MM-dd` format, when provided.
+ * @param recurrenceType - The recurrence pattern to expand.
+ * @returns Ordered list of occurrence dates in `yyyy-MM-dd` format.
+ */
+function buildOccurrenceDates(
+  startDate: string,
+  endDate: string,
+  recurrenceType: 'none' | 'daily' | 'weekly' | 'monthly'
+): string[] {
+  const start = parse(startDate, 'yyyy-MM-dd', new Date())
+  const end = endDate ? parse(endDate, 'yyyy-MM-dd', new Date()) : start
+  const dates: string[] = []
+
+  let currentDate = start
+  const originalDay = getDate(start)
+
+  while (currentDate <= end) {
+    dates.push(format(currentDate, 'yyyy-MM-dd'))
+
+    if (recurrenceType === 'none') {
+      break
+    }
+
+    if (recurrenceType === 'daily') {
+      currentDate = addDays(currentDate, 1)
+      continue
+    }
+
+    if (recurrenceType === 'weekly') {
+      currentDate = addDays(currentDate, 7)
+      continue
+    }
+
+    if (recurrenceType === 'monthly') {
+      const nextMonth = addMonths(currentDate, 1)
+      const year = getYear(nextMonth)
+      const month = getMonth(nextMonth)
+      const daysInMonth = getDaysInMonth(nextMonth)
+      const targetDay = Math.min(originalDay, daysInMonth)
+      currentDate = new Date(year, month, targetDay)
+    }
+  }
+
+  return dates
+}
+
+/**
+ * Guides the user through a three-step wizard to configure session parameters, compare and select trainers, and confirm scheduling.
  *
- * @param users - All users; trainers are scored and ranked for selection.
- * @param courses - Available courses to schedule.
- * @param onSessionsCreated - Called with new session objects on successful scheduling.
- * @param onClose - Optional handler to dismiss the panel.
- * @param prefilledDate - Optional date to pre-populate the start date field.
- * @returns The rendered GuidedScheduler JSX element.
+ * Presents tools to define course, dates/times (including recurrence), location, and capacity; ranks trainers by certification match, availability, workload, and wellness; and creates session objects when confirmed.
+ *
+ * @param users - Available users/trainers to rank and select.
+ * @param courses - Available course definitions to choose from.
+ * @param onSessionsCreated - Callback invoked with an array of created Partial<Session> objects after confirmation.
+ * @param onClose - Callback to close the wizard.
+ * @param prefilledDate - Optional date used to pre-populate the start date field in yyyy-MM-dd local format.
+ * @returns The rendered GuidedScheduler React JSX element.
  */
 export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, prefilledDate }: GuidedSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])
@@ -131,6 +178,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
   const selectedCourseData = courses.find(c => c.id === selectedCourse)
 
+  /** Runs trainer analysis for the selected course and start date and populates trainer insights. */
   const analyzeTrainers = () => {
     if (!selectedCourse || !startDate) {
       toast.error('Please fill in all required fields')
@@ -146,34 +194,73 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     const course = courses.find(c => c.id === selectedCourse)
     if (!course) return
 
-    const dates: string[] = []
-    const start = new Date(startDate)
-    const end = endDate ? new Date(endDate) : new Date(startDate)
+    const dates = buildOccurrenceDates(startDate, endDate, recurrenceType)
+    const parsedDates = dates.map((date) => parse(date, 'yyyy-MM-dd', new Date()))
 
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      dates.push(new Date(d).toISOString().split('T')[0])
+    if (parsedDates.length === 0) {
+      toast.error('Invalid date range: start date must be before or equal to end date')
+      return
     }
+
+    const scheduleWindowStart = parsedDates[0]
+    const scheduleWindowEnd = parsedDates[parsedDates.length - 1] ?? scheduleWindowStart
 
     setSessionDates(dates)
 
     const constraints: SchedulingConstraints = {
       courseId: selectedCourse,
       requiredCertifications: course.certifications,
-      dates: [startDate],
+      dates,
       startTime,
       endTime,
       location: location || 'TBD',
       capacity
     }
 
-    const trainers = scheduler.findAvailableTrainers(constraints, new Date(startDate))
+    const trainers = new Map<string, TrainerMatch & { matchedDateCount: number; totalScore: number }>()
 
-    const enrichedTrainers: TrainerInsights[] = trainers.map(match => {
+    for (const targetDate of parsedDates) {
+      const matchesForDate = scheduler.findAvailableTrainers(constraints, targetDate)
+
+      for (const match of matchesForDate) {
+        const existingMatch = trainers.get(match.trainer.id)
+
+        if (existingMatch) {
+          existingMatch.matchedDateCount += 1
+          existingMatch.totalScore += match.score
+          existingMatch.matchReasons = Array.from(new Set([...existingMatch.matchReasons, ...match.matchReasons]))
+          existingMatch.conflicts = Array.from(new Set([...existingMatch.conflicts, ...match.conflicts]))
+          if (existingMatch.availability === 'unavailable' || match.availability === 'unavailable') {
+            existingMatch.availability = 'unavailable'
+          } else {
+            existingMatch.availability = existingMatch.availability === 'partial' || match.availability === 'partial'
+              ? 'partial'
+              : match.availability
+          }
+          continue
+        }
+
+        trainers.set(match.trainer.id, {
+          ...match,
+          matchedDateCount: 1,
+          totalScore: match.score,
+        })
+      }
+    }
+
+    const availableTrainers = Array.from(trainers.values())
+      .filter((match) => match.matchedDateCount === parsedDates.length && match.availability !== 'unavailable')
+      .map(({ matchedDateCount: _matchedDateCount, totalScore, ...match }) => ({
+        ...match,
+        score: Math.round(totalScore / parsedDates.length),
+      }))
+
+    const enrichedTrainers: TrainerInsights[] = availableTrainers.map(match => {
       const workload = calculateTrainerWorkload(
         match.trainer,
         sessions || [],
-        new Date(startDate),
-        new Date(end)
+        scheduleWindowStart,
+        scheduleWindowEnd
       )
 
       const recentCheckIns = (wellnessCheckIns || [])
@@ -258,11 +345,17 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     }
   }
 
+  /**
+   * Sets the selected trainer and advances the wizard to the confirmation step.
+   *
+   * @param trainerId - The ID of the trainer to select.
+   */
   const handleTrainerSelect = (trainerId: string) => {
     setSelectedTrainerId(trainerId)
     setStep('confirmation')
   }
 
+  /** Creates sessions for the selected trainer and course, then invokes `onSchedule`. */
   const confirmAndSchedule = () => {
     if (!selectedTrainerId) {
       toast.error('Please select a trainer')
@@ -273,15 +366,8 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     if (!course) return
 
     const sessionsToCreate: Partial<Session>[] = sessionDates.map(dateStr => {
-      const [startHour, startMin] = startTime.split(':').map(Number)
-      const [endHour, endMin] = endTime.split(':').map(Number)
-
-      const date = new Date(dateStr)
-      const startDateTime = new Date(date)
-      startDateTime.setHours(startHour, startMin, 0, 0)
-
-      const endDateTime = new Date(date)
-      endDateTime.setHours(endHour, endMin, 0, 0)
+      const startDateTime = parse(`${dateStr} ${startTime}`, 'yyyy-MM-dd HH:mm', new Date())
+      const endDateTime = parse(`${dateStr} ${endTime}`, 'yyyy-MM-dd HH:mm', new Date())
 
       return {
         courseId: selectedCourse,
@@ -312,6 +398,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
   const selectedTrainerInsights = trainerInsights.find(t => t.trainer.id === selectedTrainerId)
 
+  /** Renders the first wizard step where the user configures session parameters. */
   const renderParametersStep = () => (
     <Card>
       <CardHeader>
@@ -390,7 +477,12 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
         <div className="space-y-2">
           <Label htmlFor="recurrence">Recurrence Pattern</Label>
-          <Select value={recurrenceType} onValueChange={(v: any) => setRecurrenceType(v)}>
+          <Select value={recurrenceType} onValueChange={(value: string) => {
+            const allowedValues = ['none', 'daily', 'weekly', 'monthly'] as const
+            if (allowedValues.includes(value as typeof allowedValues[number])) {
+              setRecurrenceType(value as 'none' | 'daily' | 'weekly' | 'monthly')
+            }
+          }}>
             <SelectTrigger id="recurrence">
               <SelectValue />
             </SelectTrigger>
@@ -439,8 +531,15 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     </Card>
   )
 
+  /** Returns the Tailwind color class for the given trainer recommendation level. */
   const getRecommendationColor = (level: TrainerInsights['recommendationLevel']) => recommendationColorClasses[level]
 
+  /**
+   * Returns the icon component for the given trainer recommendation level.
+   *
+   * @param level - The recommendation level to get an icon for.
+   * @returns A Phosphor icon element.
+   */
   const getRecommendationIcon = (level: TrainerInsights['recommendationLevel']) => {
     switch (level) {
       case 'optimal': return <Sparkle size={20} weight="fill" className="text-green-600" />
@@ -450,8 +549,10 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     }
   }
 
+  /** Returns the display label string for the given trainer recommendation level. */
   const getRecommendationText = (level: TrainerInsights['recommendationLevel']) => recommendationLabels[level]
 
+  /** Renders the second wizard step where the user selects a trainer from the analyzed options. */
   const renderTrainerSelectionStep = () => {
     const filteredInsights = hideUnconfigured
       ? trainerInsights.filter(insights =>
@@ -674,6 +775,7 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
     )
   }
 
+  /** Renders the third wizard step where the user reviews and confirms the scheduled sessions. */
   const renderConfirmationStep = () => (
     <div className="space-y-4">
       <Card>

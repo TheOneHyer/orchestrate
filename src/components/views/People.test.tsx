@@ -217,6 +217,19 @@ describe('People', () => {
         )
     })
 
+    it('closes the add-person flow even when no add callback is provided', async () => {
+        const user = userEvent.setup()
+
+        renderPeople({ onAddUser: undefined })
+
+        await user.click(screen.getByRole('button', { name: /add person/i }))
+        expect(screen.getByRole('button', { name: /mock confirm add person/i })).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /mock confirm add person/i }))
+
+        expect(screen.queryByRole('button', { name: /mock confirm add person/i })).not.toBeInTheDocument()
+    })
+
     it('does not allow trainers to complete add-person flow', async () => {
         const onAddUser = vi.fn()
 
@@ -449,4 +462,5 @@ describe('People', () => {
 
         expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
     })
+
 })

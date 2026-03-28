@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
-import { User, Enrollment, Session, Course } from '@/lib/types'
+import { AttendanceRecord, User, Enrollment, Session, Course } from '@/lib/types'
 
 /** Props for the Analytics view component. */
 interface AnalyticsProps {
@@ -15,6 +15,8 @@ interface AnalyticsProps {
   sessions: Session[]
   /** All courses used to compute per-course performance metrics. */
   courses: Course[]
+  /** First-class attendance records used to compute attendance metrics. */
+  attendanceRecords?: AttendanceRecord[]
 }
 
 /**
@@ -41,19 +43,12 @@ function trainerLabel(count: number): string {
 }
 
 /**
- * Renders the Analytics view with training performance metrics and insights.
+ * Render the Analytics view showing training performance metrics and operational insights.
  *
- * Displays summary KPI cards (total employees, completion rate, average score, sessions),
- * a top-courses-by-completion table with progress bars, a department distribution breakdown,
- * and a trainer schedule configuration status panel.
- *
- * @param users - All users for computing employee/trainer counts and department distribution.
- * @param enrollments - All enrollments for completion and score calculations.
- * @param sessions - All sessions for session completion metrics.
- * @param courses - All courses for per-course performance analysis.
- * @returns The rendered Analytics page element.
+ * @param attendanceRecords - Optional attendance marks used to compute attendance KPIs; filtered to the currently visible sessions. Defaults to an empty array.
+ * @returns A React element representing the Analytics page UI.
  */
-export function Analytics({ users, enrollments, sessions, courses }: AnalyticsProps) {
+export function Analytics({ users, enrollments, sessions, courses, attendanceRecords = [] }: AnalyticsProps) {
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
   const [courseFilter, setCourseFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -118,6 +113,12 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
 
   const employeeCount = filteredUsers.filter(u => u.role === 'employee').length
   const trainerCount = filteredUsers.filter(u => u.role === 'trainer').length
+  const visibleSessionIds = new Set(filteredSessions.map((session) => session.id))
+  const filteredAttendance = attendanceRecords.filter((record) => visibleSessionIds.has(record.sessionId))
+  const presentLikeCount = filteredAttendance.filter((record) => record.status === 'present' || record.status === 'late').length
+  const attendanceRate = filteredAttendance.length > 0
+    ? Math.round((presentLikeCount / filteredAttendance.length) * 100)
+    : 0
 
   const fullCourses = filteredCourses
     .map(course => {
@@ -188,7 +189,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
         </Select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -249,6 +250,21 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <CheckCircle size={16} />
+              Attendance Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div data-testid="attendance-rate" className="text-3xl font-semibold text-foreground">{attendanceRate}%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {presentLikeCount} present/late of {filteredAttendance.length} marks
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -259,7 +275,7 @@ export function Analytics({ users, enrollments, sessions, courses }: AnalyticsPr
         <CardContent className="grid gap-4 md:grid-cols-3">
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Filtered enrollments</div>
-            <div className="mt-1 text-2xl font-semibold">{totalEnrollments}</div>
+            <div data-testid="filtered-enrollments-value" className="mt-1 text-2xl font-semibold">{totalEnrollments}</div>
           </div>
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Courses needing attention</div>

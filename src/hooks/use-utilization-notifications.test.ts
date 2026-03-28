@@ -185,4 +185,22 @@ describe('use-utilization-notifications', () => {
         expect(calls.some(n => n.userId === trainer.id && n.priority === 'high')).toBe(true)
         expect(calls.some(n => n.userId === adminId && n.priority === 'high')).toBe(true)
     })
+
+    it('does not fire notifications when utilization remains overutilized across renders', () => {
+        const trainer = createTrainer('trainer-7')
+        const initiallyOverSessions = buildSessions(trainer.id, 4, 9) // 90%
+        const stillOverSessions = buildSessions(trainer.id, 3, 12) // 90%
+        const onCreateNotification = vi.fn()
+
+        const { rerender } = renderHook(
+            ({ sessions }: { sessions: Session[] }) =>
+                useUtilizationNotifications([trainer], sessions, onCreateNotification),
+            { initialProps: { sessions: initiallyOverSessions } }
+        )
+
+        vi.mocked(onCreateNotification).mockClear()
+        rerender({ sessions: stillOverSessions })
+
+        expect(onCreateNotification).not.toHaveBeenCalled()
+    })
 })

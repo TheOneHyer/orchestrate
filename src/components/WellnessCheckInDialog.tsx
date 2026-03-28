@@ -105,6 +105,7 @@ export function WellnessCheckInDialog({
     handleClose()
   }
 
+  /** Resets all form fields to their default values when the dialog is closed. */
   const handleClose = () => {
     setMood(3)
     setStress('moderate')

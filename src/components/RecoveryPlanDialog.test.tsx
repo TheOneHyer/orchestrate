@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { RecoveryPlanDialog } from './RecoveryPlanDialog'
+import { parseNumericInput, RecoveryPlanDialog } from './RecoveryPlanDialog'
 import { calculateWellnessScore, getRecoveryPlanRecommendations } from '@/lib/wellness-analytics'
 import type { User, WellnessCheckIn } from '@/lib/types'
 
@@ -187,14 +187,23 @@ describe('RecoveryPlanDialog', () => {
         render(<RecoveryPlanDialog {...baseProps} currentUtilization={88} />)
 
         await user.type(screen.getByLabelText(/trigger reason/i), 'Need a short-term recovery plan')
-        fireEvent.change(screen.getByLabelText(/target utilization/i), { target: { value: '65' } })
-        fireEvent.change(screen.getByLabelText(/duration \(weeks\)/i), { target: { value: '6' } })
+        const targetUtilizationInput = screen.getByLabelText(/target utilization/i)
+        const durationWeeksInput = screen.getByLabelText(/duration \(weeks\)/i)
+
+        await user.clear(targetUtilizationInput)
+        await user.type(targetUtilizationInput, '65')
+        await user.clear(durationWeeksInput)
+        await user.type(durationWeeksInput, '6')
 
         await user.click(screen.getByRole('combobox'))
         await user.click(await screen.findByRole('option', { name: /schedule adjustment/i }))
 
         await user.clear(screen.getByLabelText(/description/i))
         await user.type(screen.getByLabelText(/description/i), 'Move sessions to reduce fatigue')
+        // `type="date"` inputs emit intermediate strings (for example `2026-04-1`, `2026-04-15T`)
+        // when typing with userEvent, which jsdom parses/validates differently than real browsers
+        // and can cause flaky validation or state in this test. Use a single change event with a
+        // final valid value for stable cross-environment behavior.
         fireEvent.change(screen.getByLabelText(/target date/i), { target: { value: '2026-04-15' } })
         await user.type(screen.getByLabelText(/notes \(optional\)/i, { selector: 'input' }), 'Coordinate with operations lead')
         await user.type(screen.getByLabelText(/plan notes \(optional\)/i, { selector: 'textarea' }), 'Escalate if utilization stays above target')
@@ -225,12 +234,46 @@ describe('RecoveryPlanDialog', () => {
     it('falls back to default numeric values when target utilization or duration are cleared', async () => {
         render(<RecoveryPlanDialog {...baseProps} currentUtilization={82} />)
 
-        await user.type(screen.getByLabelText(/trigger reason/i), 'Numeric fallback coverage')
-        await user.clear(screen.getByLabelText(/target utilization/i))
-        await user.clear(screen.getByLabelText(/duration \(weeks\)/i))
+        const targetUtilizationInput = screen.getByLabelText(/target utilization/i)
+        const durationWeeksInput = screen.getByLabelText(/duration \(weeks\)/i)
+        const triggerReasonInput = screen.getByLabelText(/trigger reason/i)
 
-        expect(screen.getByLabelText(/target utilization/i)).toHaveValue(70)
-        expect(screen.getByLabelText(/duration \(weeks\)/i)).toHaveValue(4)
+        await user.type(triggerReasonInput, 'Numeric fallback coverage')
+        await user.clear(targetUtilizationInput)
+        await user.clear(durationWeeksInput)
+        await user.tab()
+
+        expect(targetUtilizationInput).toHaveValue(70)
+        expect(durationWeeksInput).toHaveValue(4)
+
+        // Test boundary normalization: below minimum
+        await user.clear(targetUtilizationInput)
+        await user.type(targetUtilizationInput, '0')
+        await user.clear(durationWeeksInput)
+        await user.type(durationWeeksInput, '0')
+        await user.click(triggerReasonInput)
+
+        expect(targetUtilizationInput).toHaveValue(40)
+        expect(durationWeeksInput).toHaveValue(1)
+
+        // Test boundary normalization: above maximum
+        await user.clear(targetUtilizationInput)
+        await user.type(targetUtilizationInput, '999')
+        await user.clear(durationWeeksInput)
+        await user.type(durationWeeksInput, '999')
+        await user.click(triggerReasonInput)
+
+        expect(targetUtilizationInput).toHaveValue(80)
+        expect(durationWeeksInput).toHaveValue(12)
+
+        // Test non-finite numeric input normalization (Infinity)
+        fireEvent.change(targetUtilizationInput, { target: { value: '1e309' } })
+        fireEvent.change(durationWeeksInput, { target: { value: '1e309' } })
+        fireEvent.blur(targetUtilizationInput)
+        fireEvent.blur(durationWeeksInput)
+
+        expect(targetUtilizationInput).toHaveValue(70)
+        expect(durationWeeksInput).toHaveValue(4)
     })
 
     it('disables submit and shows validation text when trigger reason is empty', async () => {
@@ -327,5 +370,69 @@ describe('RecoveryPlanDialog', () => {
         expect(screen.queryByText(/support session/i, { selector: 'span' })).not.toBeInTheDocument()
         expect(screen.queryByText(/provide 3-5 consecutive days of paid time off/i)).not.toBeInTheDocument()
         expect(screen.getByText(/no actions added yet/i)).toBeInTheDocument()
+    })
+
+    it('displays validation error when actions list becomes empty after removal', async () => {
+        render(<RecoveryPlanDialog {...baseProps} />)
+
+        await user.type(screen.getByLabelText(/trigger reason/i), 'Test reason')
+        await user.click(screen.getByRole('combobox'))
+        await user.click(await screen.findByRole('option', { name: /workload reduction/i }))
+
+        expect(screen.getByRole('button', { name: /create recovery plan/i })).not.toBeDisabled()
+
+        await user.click(screen.getByRole('button', { name: /remove action workload reduction/i }))
+
+        expect(screen.getByRole('button', { name: /create recovery plan/i })).toBeDisabled()
+        expect(screen.getByText(/no actions added yet/i)).toBeInTheDocument()
+    })
+
+    it('handles form submission with all fields populated and custom values', async () => {
+        render(<RecoveryPlanDialog {...baseProps} currentUtilization={85} />)
+
+        await user.type(screen.getByLabelText(/trigger reason/i), 'Long-term sustainability plan needed')
+        const targetUtilizationInput = screen.getByLabelText(/target utilization/i)
+        const durationWeeksInput = screen.getByLabelText(/duration \(weeks\)/i)
+
+        await user.clear(targetUtilizationInput)
+        await user.type(targetUtilizationInput, '60')
+        await user.clear(durationWeeksInput)
+        await user.type(durationWeeksInput, '8')
+
+        await user.click(screen.getByRole('combobox'))
+        await user.click(await screen.findByRole('option', { name: /workload reduction/i }))
+
+        await user.clear(screen.getByLabelText(/description/i))
+        await user.type(screen.getByLabelText(/description/i), 'Custom action description')
+
+        await user.type(screen.getByLabelText(/plan notes \(optional\)/i, { selector: 'textarea' }), 'Priority case')
+
+        await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
+
+        expect(baseProps.onSubmit).toHaveBeenCalledOnce()
+        expect(baseProps.onSubmit).toHaveBeenCalledWith(
+            expect.objectContaining({
+                trainerId: 'trainer-1',
+                createdBy: 'admin-1',
+                status: 'active',
+                triggerReason: 'Long-term sustainability plan needed',
+                targetUtilization: 60,
+                currentUtilization: 85,
+                notes: 'Priority case',
+                actions: expect.arrayContaining([
+                    expect.objectContaining({
+                        description: 'Custom action description',
+                    }),
+                ]),
+            })
+        )
+        expect(baseProps.onClose).toHaveBeenCalled()
+    })
+
+    it('parses non-finite and non-numeric values with safe numeric fallback rules', () => {
+        expect(parseNumericInput('1e309', 70, 40, 80)).toBe(70)
+        expect(parseNumericInput('not-a-number', 4, 1, 12)).toBe(4)
+        expect(parseNumericInput('72.9', 70, 40, 80)).toBe(72)
+        expect(parseNumericInput('5', 70)).toBe(5)
     })
 })

@@ -988,4 +988,20 @@ describe('TrainerWellness', () => {
 
         expect(screen.getByText('Mock Check-In Props: |')).toBeInTheDocument()
     })
+
+    it('executes the recovery plan dialog onClose callback when the dialog is dismissed', async () => {
+        const user = userEvent.setup()
+        recoveryPlansState = []
+
+        renderTrainerWellness(users[0])
+
+        await user.click(screen.getByRole('tab', { name: /recovery plans/i }))
+        await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
+
+        expect(screen.getByRole('button', { name: /mock close recovery plan/i })).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /mock close recovery plan/i }))
+
+        expect(screen.queryByRole('button', { name: /mock close recovery plan/i })).not.toBeInTheDocument()
+    })
 })

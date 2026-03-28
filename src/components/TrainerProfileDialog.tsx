@@ -137,6 +137,12 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     })
   }
 
+  /**
+   * Merges partial updates into the shift schedule at the given index and recalculates weekly hours.
+   *
+   * @param index - Index of the shift schedule to update.
+   * @param updates - Partial shift schedule fields to apply.
+   */
   const updateShiftSchedule = (index: number, updates: Partial<ShiftSchedule>) => {
     if (!editedUser.trainerProfile) return
 
@@ -234,12 +240,6 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     })
   }
 
-  /**
-   * Returns the Tailwind CSS class string for a certification status badge.
-   *
-   * @param status - Certification status: `"active"`, `"expiring-soon"`, or `"expired"`.
-   * @returns Space-separated Tailwind classes for background, text, and border colours.
-   */
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':

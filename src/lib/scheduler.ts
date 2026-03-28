@@ -294,7 +294,7 @@ export class TrainerScheduler {
       const [schedStartHour, schedStartMin] = schedule.startTime.split(':').map(Number)
       const [schedEndHour, schedEndMin] = schedule.endTime.split(':').map(Number)
 
-      let schedStartMinutes = schedStartHour * 60 + schedStartMin
+      const schedStartMinutes = schedStartHour * 60 + schedStartMin
       let schedEndMinutes = schedEndHour * 60 + schedEndMin
 
       if (schedEndMinutes < schedStartMinutes) {

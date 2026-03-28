@@ -166,6 +166,36 @@ describe('Notifications', () => {
     expect(onMarkAsUnread).toHaveBeenCalledWith('n-2')
   })
 
+  it('navigates read notifications without marking them as read again', async () => {
+    const onMarkAsRead = vi.fn()
+    const onNavigate = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <Notifications
+        notifications={[
+          {
+            ...baseNotification,
+            id: 'n-read',
+            title: 'Read session reminder',
+            read: true,
+          },
+        ]}
+        onMarkAsRead={onMarkAsRead}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={onNavigate}
+      />
+    )
+
+    await user.click(screen.getByText(/read session reminder/i))
+
+    expect(onMarkAsRead).not.toHaveBeenCalled()
+    expect(onNavigate).toHaveBeenCalledWith('schedule')
+  })
+
   it('dismisses a single notification entry', async () => {
     const onDismiss = vi.fn()
     const user = userEvent.setup()
@@ -545,5 +575,77 @@ describe('Notifications', () => {
     expect(container.querySelector('svg.text-muted-foreground')).toBeInTheDocument()
     // reminder type uses text-accent from notificationIconClassNames
     expect(container.querySelector('svg.text-accent')).toBeInTheDocument()
+  })
+
+  it('groups notifications into Today, Yesterday, This Week, and Earlier sections', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-19T12:00:00.000Z'))
+
+    try {
+      const notifications: Notification[] = [
+        { ...baseNotification, id: 'n-today', createdAt: '2026-03-19T08:00:00.000Z', title: 'Today Note', type: 'session' },
+        { ...baseNotification, id: 'n-yesterday', createdAt: '2026-03-18T08:00:00.000Z', title: 'Yesterday Note', type: 'assignment' },
+        { ...baseNotification, id: 'n-thisweek', createdAt: '2026-03-16T08:00:00.000Z', title: 'This Week Note', type: 'reminder' },
+        { ...baseNotification, id: 'n-earlier', createdAt: '2026-03-01T08:00:00.000Z', title: 'Earlier Note', type: 'system' },
+      ]
+
+      render(
+        <Notifications
+          notifications={notifications}
+          onMarkAsRead={vi.fn()}
+          onMarkAsUnread={vi.fn()}
+          onMarkAllAsRead={vi.fn()}
+          onDismiss={vi.fn()}
+          onDismissAll={vi.fn()}
+          onNavigate={vi.fn()}
+        />
+      )
+
+      expect(screen.getByText('Today')).toBeInTheDocument()
+      expect(screen.getByText('Yesterday')).toBeInTheDocument()
+      expect(screen.getByText('This Week')).toBeInTheDocument()
+      expect(screen.getByText('Earlier')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('renders the fallback Info icon for an unrecognized notification type', () => {
+    const unknownTypeNotification = { ...baseNotification, id: 'n-unknown-type', type: 'unknown_type_xyz' as Notification['type'] }
+
+    render(
+      <Notifications
+        notifications={[unknownTypeNotification]}
+        onMarkAsRead={vi.fn()}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByTestId('icon-info')).toBeInTheDocument()
+  })
+
+  it('calls onMarkAsRead when the per-notification mark-as-read button is clicked', async () => {
+    const onMarkAsRead = vi.fn()
+    const user = userEvent.setup()
+
+    render(
+      <Notifications
+        notifications={[{ ...baseNotification, id: 'n-unread', title: 'Unread Notification', read: false }]}
+        onMarkAsRead={onMarkAsRead}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: /mark unread notification as read/i }))
+
+    expect(onMarkAsRead).toHaveBeenCalledWith('n-unread')
   })
 })
