@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { RecoveryPlanDialog } from './RecoveryPlanDialog'
+import { parseNumericInput, RecoveryPlanDialog } from './RecoveryPlanDialog'
 import { calculateWellnessScore, getRecoveryPlanRecommendations } from '@/lib/wellness-analytics'
 import type { User, WellnessCheckIn } from '@/lib/types'
 
@@ -265,6 +265,15 @@ describe('RecoveryPlanDialog', () => {
 
         expect(targetUtilizationInput).toHaveValue(80)
         expect(durationWeeksInput).toHaveValue(12)
+
+        // Test non-finite numeric input normalization (Infinity)
+        fireEvent.change(targetUtilizationInput, { target: { value: '1e309' } })
+        fireEvent.change(durationWeeksInput, { target: { value: '1e309' } })
+        fireEvent.blur(targetUtilizationInput)
+        fireEvent.blur(durationWeeksInput)
+
+        expect(targetUtilizationInput).toHaveValue(70)
+        expect(durationWeeksInput).toHaveValue(4)
     })
 
     it('disables submit and shows validation text when trigger reason is empty', async () => {
@@ -418,5 +427,12 @@ describe('RecoveryPlanDialog', () => {
             })
         )
         expect(baseProps.onClose).toHaveBeenCalled()
+    })
+
+    it('parses non-finite and non-numeric values with safe numeric fallback rules', () => {
+        expect(parseNumericInput('1e309', 70, 40, 80)).toBe(70)
+        expect(parseNumericInput('not-a-number', 4, 1, 12)).toBe(4)
+        expect(parseNumericInput('72.9', 70, 40, 80)).toBe(72)
+        expect(parseNumericInput('5', 70)).toBe(5)
     })
 })

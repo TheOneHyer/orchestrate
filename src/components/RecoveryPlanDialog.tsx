@@ -55,7 +55,22 @@ const RECOVERY_ACTION_TEMPLATES: Record<RecoveryAction, string> = {
 const DEFAULT_TARGET_UTILIZATION = 70
 const DEFAULT_DURATION_WEEKS = 4
 
-const parseNumericInput = (value: string, fallbackValue: number, min?: number, max?: number) => {
+/**
+ * Parse a numeric string into an integer with optional min/max clamping.
+ *
+ * Empty, non-finite, or non-numeric values fall back to the provided default.
+ *
+ * @param value - Raw input value from form state.
+ * @param fallbackValue - Value returned when parsing fails.
+ * @param min - Optional minimum allowed value.
+ * @param max - Optional maximum allowed value.
+ * @returns A normalized integer suitable for plan numeric fields.
+ */
+export function parseNumericInput(value: string, fallbackValue: number, min?: number, max?: number): number {
+  if (value.trim() === '') {
+    return fallbackValue
+  }
+
   const parsedValue = Number(value)
   if (!Number.isFinite(parsedValue)) {
     return fallbackValue
