@@ -99,11 +99,16 @@ function isViewType(v: string): v is ViewType {
 }
 
 /**
- * Renders the schedule management UI with calendar, list, and board views and handles session creation, editing, enrollment, drag-and-drop rescheduling, and conflict detection.
+ * Render the schedule management UI and manage session lifecycle, navigation deep-links, enrollment, attendance, scoring, and drag‑and‑drop rescheduling with conflict detection.
  *
- * @param props - Properties including `sessions`, `courses`, `users`, `currentUser`, and callbacks `onCreateSession`, `onUpdateSession`, and `onNavigate`.
- * Navigation payload deep-links are processed once per payload so later session list refreshes do not reopen the same sheet unexpectedly.
- * @returns The Schedule component's React element.
+ * @param props - Component props.
+ * @param props.enrollments - Optional list of enrollment records used to show per-session enrollments and resolve scoring context.
+ * @param props.attendanceRecords - Optional list of attendance records used to display and update per-student attendance status.
+ * @param props.navigationPayload - Optional deep-link payload that may open the guided scheduler (`{ create: true }`) or open a specific session (`{ sessionId }`); payloads are processed once.
+ * @param props.onNavigationPayloadConsumed - Optional callback invoked when the component consumes a navigation payload.
+ * @param props.onRecordScore - Optional callback invoked to persist a recorded score for an enrollment.
+ * @param props.onMarkAttendance - Optional callback invoked to mark attendance for a specific session and user.
+ * @returns The Schedule component React element.
  */
 export function Schedule({ sessions, courses, users, currentUser, enrollments, attendanceRecords, onCreateSession, onUpdateSession, onDeleteSession, onNavigate, navigationPayload, onNavigationPayloadConsumed, onRecordScore, onMarkAttendance }: ScheduleProps) {
   const [viewType, setViewType] = useState<ViewType>('calendar')

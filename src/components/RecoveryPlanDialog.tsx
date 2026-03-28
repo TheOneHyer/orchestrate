@@ -73,12 +73,14 @@ const parseNumericInput = (value: string, fallbackValue: number, min?: number, m
 type EditableRecoveryPlanActionField = keyof Pick<RecoveryPlanAction, 'description' | 'targetDate' | 'notes'>
 
 /**
- * Dialog for creating a structured recovery plan to support trainer wellbeing.
+ * Render a dialog for creating a structured recovery plan to support a trainer's wellbeing.
  *
- * When opened with a `latestCheckIn`, the form is automatically pre-populated: the trigger
- * reason is generated from wellness score, stress level, and utilization, and relevant
- * recovery actions are suggested. The user can add/remove/edit actions, set target utilization
- * and plan duration, and add free-text notes before submitting.
+ * When opened with a `latestCheckIn`, the form is pre-populated with a generated trigger reason
+ * and suggested recovery actions; the user can add, edit, or remove actions, set target utilization
+ * and plan duration, add optional notes, and submit the finalized plan via `onSubmit`.
+ *
+ * Validation enforces a non-empty trigger reason and at least one action before submission.
+ * Numeric inputs are normalized and clamped to their allowed ranges, and the form resets to defaults on close.
  */
 export function RecoveryPlanDialog({
   open,
@@ -209,6 +211,13 @@ export function RecoveryPlanDialog({
     setActions([...actions, newAction])
   }
 
+  /**
+   * Update a specific editable field of the action at the given index in the local actions state.
+   *
+   * @param index - Zero-based index of the action to update; must refer to an existing action
+   * @param field - One of the editable action fields (`description`, `targetDate`, `notes`)
+   * @param value - New value for the specified field; must be the appropriate value for that field
+   */
   function updateAction<K extends EditableRecoveryPlanActionField>(index: number, field: K, value: RecoveryPlanAction[K]) {
     const updated = [...actions]
     updated[index] = { ...updated[index], [field]: value }

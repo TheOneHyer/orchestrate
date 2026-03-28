@@ -123,10 +123,16 @@ type CheckInScheduleFormValues = z.input<typeof checkInScheduleSchema>
 type CheckInScheduleSubmissionValues = z.output<typeof checkInScheduleSchema>
 
 /**
- * Builds default form values for create and edit schedule flows.
+ * Produce the initial form values used by the check-in schedule form for create or edit flows.
  *
- * @param existingSchedule - Optional schedule used to prefill edit values.
- * @returns Initial values consumed by the check-in schedule form.
+ * When `existingSchedule` is provided, corresponding fields are taken from it; otherwise sensible defaults are used:
+ * - `frequency` defaults to `'weekly'`
+ * - `customDays` defaults to `7`
+ * - `startDate` and `endDate` are returned as `yyyy-MM-dd` strings (`startDate` defaults to today, `endDate` defaults to 90 days from today)
+ * - `notificationEnabled` and `autoReminders` default to `true`, `reminderHoursBefore` defaults to `24`
+ *
+ * @param existingSchedule - Optional schedule whose values are used to prefill the form for editing.
+ * @returns The form-ready values matching `CheckInScheduleFormValues`, with date fields formatted as `yyyy-MM-dd`.
  */
 function getDefaultFormValues(existingSchedule?: CheckInSchedule): CheckInScheduleFormValues {
   return {

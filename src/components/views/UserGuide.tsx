@@ -820,12 +820,11 @@ const sections: Section[] = [
 ]
 
 /**
- * Selects a section by id from an ordered list or provides a fallback when none is found.
+ * Returns the section whose `id` matches `key`, or a fallback section when none is found.
  *
- * @param availableSections - The ordered section list to search.
- * @param key - The optional section ID to resolve.
- * @returns The matching section or the first available fallback section.
- * @throws Does not throw.
+ * @param availableSections - Ordered list of sections to search.
+ * @param key - Optional section ID to resolve.
+ * @returns The matched section; if `key` is not found, the first section in `availableSections`; if `availableSections` is empty, a placeholder section with `id === ''` and label "No Sections Available".
  */
 export function getSectionOrFallback(availableSections: Section[], key?: string): Section {
   if (availableSections.length === 0) {
@@ -846,15 +845,10 @@ interface UserGuideProps {
 }
 
 /**
- * Renders the full-page User Guide for Orchestrate.
+ * Render the full User Guide page with sidebar navigation for browsing role-tagged sections.
  *
- * Provides a sidebar-navigated reference covering every major feature of the application,
- * organised into role-tagged sections (Overview, Schedule, Templates, People, Reports,
- * Trainer Availability, Wellness, Courses, Notifications, Settings, and Glossary).
- *
- * @param initialSection - The optional section ID used to seed local navigation state.
- * @returns The rendered user guide page.
- * @throws Does not throw.
+ * @param initialSection - Optional section id to seed the initial active sidebar entry.
+ * @returns The rendered user guide page element.
  */
 export function UserGuide({ initialSection = 'overview' }: UserGuideProps) {
   const [activeSection, setActiveSection] = useState(() => getSectionOrFallback(sections, initialSection).id)
