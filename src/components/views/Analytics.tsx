@@ -43,17 +43,10 @@ function trainerLabel(count: number): string {
 }
 
 /**
- * Renders the Analytics view with training performance metrics and insights.
+ * Render the Analytics view showing training performance metrics and operational insights.
  *
- * Displays summary KPI cards (total employees, completion rate, average score, sessions),
- * a top-courses-by-completion table with progress bars, a department distribution breakdown,
- * and a trainer schedule configuration status panel.
- *
- * @param users - All users for computing employee/trainer counts and department distribution.
- * @param enrollments - All enrollments for completion and score calculations.
- * @param sessions - All sessions for session completion metrics.
- * @param courses - All courses for per-course performance analysis.
- * @returns The rendered Analytics page element.
+ * @param attendanceRecords - Optional attendance marks used to compute attendance KPIs; filtered to the currently visible sessions. Defaults to an empty array.
+ * @returns A React element representing the Analytics page UI.
  */
 export function Analytics({ users, enrollments, sessions, courses, attendanceRecords = [] }: AnalyticsProps) {
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')

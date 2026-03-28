@@ -111,6 +111,16 @@ const scheduleTemplateSessionValidationSchema = z.object({
 
 type ScheduleTemplateDialogBodyProps = Omit<ScheduleTemplateDialogProps, 'open'>
 
+/**
+ * Renders the create/edit form body for schedule templates, managing local form state,
+ * session/tag editing, validation, and invoking `onSave` with a validated template payload.
+ *
+ * @param props.onOpenChange - Callback invoked with `false` to close the dialog; also used when canceling or after save to reset state.
+ * @param props.template - Optional existing template used to seed the form for edit mode; when absent the form is initialized for creation.
+ * @param props.onSave - Callback invoked with the assembled and validated template data (omitting server-managed fields) when the user saves.
+ * @param props.courses - List of available courses shown in the optional Course selector.
+ * @returns The dialog content element containing the template form UI.
+ */
 function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }: ScheduleTemplateDialogBodyProps) {
   const initialFormState = createInitialFormState(template)
 
@@ -564,20 +574,14 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
 }
 
 /**
- * Dialog for creating or editing a reusable {@link ScheduleTemplate}.
- *
- * Lets the user define a template name, description, optional course association, category,
- * recurrence type, tags, and one or more session slots (each with a day-of-week, time,
- * duration, shift, capacity, and optional location). Handles both create and edit modes;
- * in edit mode the form is pre-populated from the `template` prop.
+ * Render a dialog for creating or editing a schedule template.
  *
  * @param open - Whether the dialog is open.
- * @param onOpenChange - Callback to update the open state of the dialog.
- * @param template - When provided, the dialog operates in edit mode and pre-populates its fields from this template.
- * @param onSave - Callback invoked with the template data when the user saves.
+ * @param onOpenChange - Callback invoked with the new open state.
+ * @param template - Optional template to edit; when provided the form is pre-populated from this template.
+ * @param onSave - Callback invoked with the assembled template data when the user saves.
  * @param courses - Available courses to optionally associate with the template.
- * @returns JSX.Element representing the schedule template dialog.
- * @throws Validation errors when required fields are missing or session values are invalid.
+ * @returns The dialog as a JSX element.
  */
 export function ScheduleTemplateDialog({ open, onOpenChange, template, onSave, courses }: ScheduleTemplateDialogProps) {
   return (
