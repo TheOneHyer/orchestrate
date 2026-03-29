@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -538,6 +538,36 @@ describe('Courses', () => {
             expect.objectContaining({ description: 'Service unavailable' })
         )
         expect(toastSuccess).not.toHaveBeenCalled()
+    })
+
+    it('shows saving state while create callback is pending', async () => {
+        const user = userEvent.setup()
+        let resolveCreate: (() => void) | undefined
+        const onCreateCourse = vi.fn(() => new Promise<void>((resolve) => {
+            resolveCreate = resolve
+        }))
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await fillValidCourseForm(user)
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(onCreateCourse).toHaveBeenCalledTimes(1)
+        expect(screen.getByRole('button', { name: /saving/i })).toBeDisabled()
+
+        resolveCreate?.()
+        await waitFor(() => {
+            expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
+        })
     })
 
     it('shows a fallback error message when course creation fails without an Error object', async () => {
@@ -1117,6 +1147,52 @@ describe('Courses', () => {
         expect(toastError).toHaveBeenCalledWith(
             'Delete failed',
             expect.objectContaining({ description: 'delete failed' })
+        )
+    })
+
+    it('shows fallback status error text when publish fails without an Error object', async () => {
+        const user = userEvent.setup()
+        const onUpdateCourse = vi.fn().mockRejectedValue('publish unavailable')
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onUpdateCourse={onUpdateCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /publish course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Status update failed',
+            expect.objectContaining({ description: 'Please try again after resolving the issue.' })
+        )
+    })
+
+    it('shows fallback delete error text when delete fails without an Error object', async () => {
+        const user = userEvent.setup()
+        const onDeleteCourse = vi.fn().mockRejectedValue('delete unavailable')
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onDeleteCourse={onDeleteCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /delete course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Delete failed',
+            expect.objectContaining({ description: 'Please try again after resolving the issue.' })
         )
     })
 

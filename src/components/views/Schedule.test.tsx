@@ -535,6 +535,63 @@ describe('Schedule', () => {
     )
   })
 
+  it('renders multiple enrollment and attendance records for the same selected session', async () => {
+    const user = userEvent.setup()
+    const secondEmployee: User = {
+      ...baseEmployee,
+      id: 'u-second',
+      name: 'Sam Student',
+      email: 'sam@example.com',
+    }
+
+    const sessionWithTwoStudents: Session = {
+      ...baseSession,
+      enrolledStudents: ['u-employee', 'u-second'],
+    }
+
+    renderSchedule({
+      sessions: [sessionWithTwoStudents],
+      users: [baseTrainer, baseEmployee, secondEmployee],
+      onMarkAttendance: vi.fn(),
+      enrollments: [
+        baseEnrollment,
+        {
+          ...baseEnrollment,
+          id: 'enroll-2',
+          userId: 'u-second',
+        },
+      ],
+      attendanceRecords: [
+        {
+          id: 'att-1',
+          sessionId: sessionWithTwoStudents.id,
+          userId: 'u-employee',
+          status: 'absent',
+          markedBy: 'u-trainer',
+          markedAt: '2026-03-20T09:30:00.000Z',
+        },
+        {
+          id: 'att-2',
+          sessionId: sessionWithTwoStudents.id,
+          userId: 'u-second',
+          status: 'present',
+          markedBy: 'u-trainer',
+          markedAt: '2026-03-20T09:31:00.000Z',
+        },
+      ],
+    })
+
+    await user.click(screen.getByText(/morning safety session/i))
+
+    expect(screen.getByText(/evan employee/i)).toBeInTheDocument()
+    expect(screen.getByText(/sam student/i)).toBeInTheDocument()
+    expect(screen.getByText(/attendance:\s*absent/i)).toBeInTheDocument()
+
+    const absentButton = screen.getByTestId('mark-absent-btn-u-employee')
+    expect(absentButton).toBeDisabled()
+    expect(absentButton).toHaveClass('opacity-100')
+  })
+
   it('opens guided scheduler from an empty day cell for schedule managers', async () => {
     renderSchedule({ sessions: [] })
 

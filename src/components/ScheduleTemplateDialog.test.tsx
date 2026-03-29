@@ -28,6 +28,19 @@ describe('ScheduleTemplateDialog', () => {
         expect(await screen.findByRole('button', { name: /create template/i })).toBeDisabled()
     })
 
+    it('does not render dialog body when open is false', () => {
+        render(
+            <ScheduleTemplateDialog
+                open={false}
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+                courses={courses}
+            />
+        )
+
+        expect(screen.queryByLabelText(/template name/i)).not.toBeInTheDocument()
+    })
+
     it('adds tags only once when duplicate input is submitted', async () => {
         const user = userEvent.setup()
 
@@ -599,6 +612,56 @@ describe('ScheduleTemplateDialog', () => {
             expect.objectContaining({
                 autoAssignTrainers: false,
                 notifyParticipants: false,
+            })
+        )
+    })
+
+    it('normalizes missing session certification requirements to an empty array', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+        const importedTemplate = {
+            id: 'template-missing-cert-requirements',
+            name: 'Imported Legacy Template',
+            description: 'Legacy record without requiresCertifications',
+            category: 'general',
+            recurrenceType: 'weekly',
+            sessions: [
+                {
+                    dayOfWeek: 1,
+                    time: '09:00',
+                    duration: 45,
+                    capacity: 12,
+                },
+            ],
+            autoAssignTrainers: true,
+            notifyParticipants: true,
+            createdBy: 'admin-1',
+            createdAt: '2026-01-01T00:00:00.000Z',
+            usageCount: 0,
+            tags: [],
+            isActive: true,
+        } as unknown as ScheduleTemplate
+
+        render(
+            <ScheduleTemplateDialog
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+                courses={courses}
+                template={importedTemplate}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /update template/i }))
+
+        expect(onSave).toHaveBeenCalledOnce()
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                sessions: [
+                    expect.objectContaining({
+                        requiresCertifications: [],
+                    }),
+                ],
             })
         )
     })
