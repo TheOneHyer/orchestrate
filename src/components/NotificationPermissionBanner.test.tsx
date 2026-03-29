@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -205,6 +205,34 @@ describe('NotificationPermissionBanner', () => {
         const enableButton = await screen.findByRole('button', { name: /enable/i })
         await user.click(enableButton)
         await user.click(enableButton)
+
+        expect(requestPermission).toHaveBeenCalledTimes(1)
+
+        resolvePermission('granted')
+        await waitFor(() => {
+            expect(setDismissed).toHaveBeenCalledWith(true)
+        })
+    })
+
+    it('returns early when enable is triggered again while a request is already pending', async () => {
+        const setDismissed = vi.fn()
+        let resolvePermission!: (value: NotificationPermission) => void
+        const requestPermission = vi.fn(
+            () => new Promise<NotificationPermission>((resolve) => { resolvePermission = resolve })
+        )
+
+        mockUsePushNotifications.mockReturnValue({
+            isSupported: true,
+            settings: { permission: 'default' },
+            requestPermission,
+        })
+        mockUseKV.mockReturnValue([false, setDismissed])
+
+        render(<NotificationPermissionBanner />)
+
+        const enableButton = await screen.findByRole('button', { name: /enable/i })
+        fireEvent.click(enableButton)
+        fireEvent.click(enableButton)
 
         expect(requestPermission).toHaveBeenCalledTimes(1)
 

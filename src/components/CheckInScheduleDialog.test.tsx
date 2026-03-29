@@ -287,6 +287,24 @@ describe('CheckInScheduleDialog', () => {
     expect(screen.getByText(/custom days must be at least 1/i)).toBeInTheDocument()
   })
 
+  it('shows a validation error when custom days are left empty', async () => {
+    const user = userEvent.setup()
+    const onSubmit = vi.fn()
+
+    render(<CheckInScheduleDialog {...makeProps({ onSubmit })} />)
+
+    await user.click(screen.getByRole('combobox', { name: /trainer/i }))
+    await user.click(await screen.findByRole('option', { name: /alex trainer/i }))
+    await user.click(screen.getByRole('combobox', { name: /check-in frequency/i }))
+    await user.click(await screen.findByRole('option', { name: /custom interval/i }))
+
+    await user.clear(screen.getByLabelText(/custom days/i))
+    await user.click(screen.getByRole('button', { name: /create schedule/i }))
+
+    expect(onSubmit).not.toHaveBeenCalled()
+    expect(screen.getByText(/custom days must be at least 1/i)).toBeInTheDocument()
+  })
+
   it('shows a validation error when custom days exceed the maximum', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn()

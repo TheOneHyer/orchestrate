@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -14,6 +14,10 @@ const RECORD_SCORE_ABOVE_PASS = 90
 const RECORD_SCORE_BELOW_PASS = 50
 
 const sendNotificationMock = vi.fn()
+const scoringControls = vi.hoisted(() => ({
+    applyScoreImpl: null as null | ((score: number, passScore: number, enrollment: unknown) => Record<string, unknown>),
+    shouldNotifyCompletionImpl: null as null | ((status: unknown, score: number, passScore: number) => boolean),
+}))
 let utilizationNotified = false
 function createUtilizationNotificationPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
@@ -93,6 +97,20 @@ const isPreviewSeedEnabledMock = vi.fn(() => false)
 
 const kvSeed: Record<string, unknown> = {}
 const kvState: Record<string, unknown> = {}
+
+function setAppRuntimeEnv(overrides?: { initialActiveView?: string; previewMode?: boolean; useServerAuth?: boolean }) {
+    globalThis.__ORCHESTRATE_APP_TEST_ENV__ = overrides
+}
+
+function installAppTestHooks() {
+    const hooks: {
+        createFirstAdmin?: (values: { name: string; email: string; password: string }) => void
+        handleAssignRole?: (userId: string, role: 'admin' | 'trainer' | 'employee') => void
+        handleDeleteUser?: (userId: string) => void
+    } = {}
+    globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ = hooks
+    return hooks
+}
 
 vi.mock('sonner', () => ({
     toast: {
@@ -517,6 +535,22 @@ vi.mock('@/lib/preview-seed-data', () => ({
     createPreviewSeedData: () => createPreviewSeedDataMock(),
 }))
 
+vi.mock('@/lib/scoring', async () => {
+    const actual = await vi.importActual<typeof import('@/lib/scoring')>('@/lib/scoring')
+
+    return {
+        ...actual,
+        applyScore: (...args: Parameters<typeof actual.applyScore>) => (
+            scoringControls.applyScoreImpl ? scoringControls.applyScoreImpl(...args) : actual.applyScore(...args)
+        ),
+        shouldNotifyCompletion: (...args: Parameters<typeof actual.shouldNotifyCompletion>) => (
+            scoringControls.shouldNotifyCompletionImpl
+                ? scoringControls.shouldNotifyCompletionImpl(...args)
+                : actual.shouldNotifyCompletion(...args)
+        ),
+    }
+})
+
 import App from './App'
 
 describe('App', () => {
@@ -524,6 +558,8 @@ describe('App', () => {
         vi.clearAllMocks()
         utilizationNotified = false
         utilizationNotificationPayload = createUtilizationNotificationPayload()
+        scoringControls.applyScoreImpl = null
+        scoringControls.shouldNotifyCompletionImpl = null
         getPreviewSeedModeMock.mockReturnValue('off')
         isPreviewSeedEnabledMock.mockReturnValue(false)
         Object.keys(kvSeed).forEach((key) => delete kvSeed[key])
@@ -594,6 +630,8 @@ describe('App', () => {
 
     afterEach(() => {
         vi.unstubAllGlobals()
+        setAppRuntimeEnv(undefined)
+        globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ = undefined
         localStorage.clear()
     })
 
@@ -2298,6 +2336,25 @@ describe('App', () => {
         )
     })
 
+    it('shows an incorrect-password error when a local account has no stored password', async () => {
+        const user = userEvent.setup()
+        kvSeed['active-user-id'] = ''
+        kvSeed['auth-passwords'] = {}
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        render(<App />)
+        toastError.mockClear()
+
+        await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Sign-in failed',
+            expect.objectContaining({ description: 'Incorrect password.' }),
+        )
+    })
+
     it('shows the first-admin setup form when there are no users and creates an admin account', async () => {
         const user = userEvent.setup()
         kvSeed['users'] = []
@@ -2332,6 +2389,419 @@ describe('App', () => {
         expect(screen.getByText('Name is required')).toBeInTheDocument()
         expect(screen.getByText('Email is required')).toBeInTheDocument()
         expect(screen.getByText('Password is required')).toBeInTheDocument()
+    })
+
+    it('shows the non-preview setup-required screen when no users exist', () => {
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        render(<App />)
+
+        expect(screen.getByText(/setup required/i)).toBeInTheDocument()
+        expect(screen.getByText(/no users have been created in this workspace yet/i)).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^create first admin$/i })).toBeNull()
+    })
+
+    it('does not create a first admin through the test hook when users already exist', async () => {
+        const hooks = installAppTestHooks()
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.createFirstAdmin).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.createFirstAdmin?.({
+                name: 'Ignored Admin',
+                email: 'ignored@example.com',
+                password: 'password123',
+            })
+        })
+
+        expect(kvState['users']).toHaveLength(2)
+        expect(toastSuccess).not.toHaveBeenCalledWith(
+            'First admin created',
+            expect.anything(),
+        )
+    })
+
+    it('shows setup unavailable when the first-admin hook is used outside preview mode', async () => {
+        const hooks = installAppTestHooks()
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.createFirstAdmin).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.createFirstAdmin?.({
+                name: 'Blocked Admin',
+                email: 'blocked@example.com',
+                password: 'password123',
+            })
+        })
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Setup unavailable',
+            expect.objectContaining({ description: 'Initial admin bootstrap in this client flow is preview-only.' }),
+        )
+    })
+
+    it('ignores role assignment for a missing user through the test hook', async () => {
+        const hooks = installAppTestHooks()
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.handleAssignRole).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.handleAssignRole?.('missing-user', 'trainer')
+        })
+
+        expect(kvState['users']).toEqual(kvSeed['users'])
+    })
+
+    it('falls back to dashboard when deleting the active user from an inaccessible hooked view', async () => {
+        const hooks = installAppTestHooks()
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+        setAppRuntimeEnv({ initialActiveView: 'settings' })
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.handleDeleteUser).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.handleDeleteUser?.('admin-1')
+        })
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+        expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
+    })
+
+    it('shows a server-auth credential error when the server rejects sign-in', async () => {
+        const user = userEvent.setup()
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: true })
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))
+
+        render(<App />)
+
+        await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Authentication failed',
+            expect.objectContaining({ description: 'Verify your credentials and try again.' }),
+        )
+    })
+
+    it('signs in through server auth when the response omits userId but the workspace user matches by email', async () => {
+        const user = userEvent.setup()
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: true })
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({}),
+        }))
+
+        render(<App />)
+
+        await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(toastSuccess).toHaveBeenCalledWith(
+            'Signed in',
+            expect.objectContaining({ description: expect.stringContaining('Admin User') }),
+        )
+    })
+
+    it('shows a server-auth workspace-user error when no matching account can be resolved', async () => {
+        const user = userEvent.setup()
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: true })
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({ userId: 'missing-user' }),
+        }))
+
+        render(<App />)
+
+        await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Sign-in failed',
+            expect.objectContaining({ description: 'Authentication succeeded but no user account is available in this workspace.' }),
+        )
+    })
+
+    it('shows a server-auth service error when the request throws', async () => {
+        const user = userEvent.setup()
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: true })
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+
+        render(<App />)
+
+        await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Authentication failed',
+            expect.objectContaining({ description: 'Unable to reach the authentication service.' }),
+        )
+    })
+
+    it('shows a server-auth workspace-user error when response parsing fails and no matching email exists', async () => {
+        const user = userEvent.setup()
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: true })
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockRejectedValue(new Error('invalid json')),
+        }))
+
+        render(<App />)
+
+        await user.type(screen.getByLabelText(/email/i), 'nobody@example.com')
+        await user.type(screen.getByLabelText(/password/i), 'password123')
+        await user.click(screen.getByRole('button', { name: /^sign in$/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Sign-in failed',
+            expect.objectContaining({ description: 'Authentication succeeded but no user account is available in this workspace.' }),
+        )
+    })
+
+    it('renders the dashboard fallback when the initial active view is unknown', () => {
+        setAppRuntimeEnv({ initialActiveView: 'unrecognized-view' })
+
+        render(<App />)
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+        expect(screen.getByText(/active view:\s*unrecognized-view/i)).toBeInTheDocument()
+    })
+
+    it('falls back to dashboard when an invalid active user is restored into an inaccessible initial view', () => {
+        kvSeed['users'] = [
+            {
+                id: 'trainer-1',
+                name: 'Trainer One',
+                email: 'trainer1@example.com',
+                role: 'trainer',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+                trainerProfile: {
+                    authorizedRoles: [],
+                    shiftSchedules: [],
+                    tenure: {
+                        hireDate: '2024-01-01T00:00:00.000Z',
+                        yearsOfService: 1,
+                        monthsOfService: 12,
+                    },
+                    specializations: [],
+                },
+            },
+        ]
+        kvSeed['active-user-id'] = 'missing-user'
+        setAppRuntimeEnv({ initialActiveView: 'settings' })
+
+        render(<App />)
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+        expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
+    })
+
+    it('restores the first available user without changing an already accessible view', () => {
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+        kvSeed['active-user-id'] = 'missing-user'
+        setAppRuntimeEnv({ initialActiveView: 'dashboard' })
+
+        render(<App />)
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+        expect(screen.getByText(/active view:\s*dashboard/i)).toBeInTheDocument()
+        expect(screen.getByText(/current user:\s*admin user/i)).toBeInTheDocument()
+    })
+
+    it('does not add a default preview password when adding a user outside preview mode', async () => {
+        const user = userEvent.setup()
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /add user/i }))
+
+        expect(kvState['auth-passwords']).toEqual({
+            'admin-1': 'password123',
+            'trainer-1': 'password123',
+        })
+    })
+
+    it('loads seed data with an empty user list and clears the active user id', async () => {
+        const user = userEvent.setup()
+        createPreviewSeedDataMock.mockReturnValueOnce({
+            users: [],
+            sessions: [],
+            courses: [],
+            enrollments: [],
+            notifications: [],
+            wellnessCheckIns: [],
+            recoveryPlans: [],
+            checkInSchedules: [],
+            scheduleTemplates: [],
+            riskHistorySnapshots: [],
+            targetTrainerCoverage: 4,
+        })
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /load seed data/i }))
+
+        expect(kvState['active-user-id']).toBe('')
+    })
+
+    it('demotes the active admin into an inaccessible role and returns to dashboard', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'admin-2',
+                name: 'Backup Admin',
+                email: 'backup@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        const trainerButtons = screen.getAllByRole('button', { name: /^trainer$/i })
+        await user.click(trainerButtons[0])
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+        const persistedUsers = kvState['users'] as Array<{ id: string; role: string; trainerProfile?: object }>
+        expect(persistedUsers).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'admin-1', role: 'trainer', trainerProfile: expect.any(Object) }),
+            ]),
+        )
+    })
+
+    it('deletes the active user when passwords are undefined and the replacement user can keep the current view', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = [
+            {
+                id: 'admin-1',
+                name: 'Admin User',
+                email: 'admin@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+            {
+                id: 'admin-2',
+                name: 'Backup Admin',
+                email: 'backup@example.com',
+                role: 'admin',
+                department: 'Ops',
+                certifications: [],
+                hireDate: '2024-01-01T00:00:00.000Z',
+            },
+        ]
+        kvSeed['auth-passwords'] = undefined
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go people$/i }))
+        await user.click(screen.getByRole('button', { name: /delete active user/i }))
+
+        expect(screen.getByText(/people view/i)).toBeInTheDocument()
+        expect(screen.getByText(/current user:\s*backup admin/i)).toBeInTheDocument()
+        expect(kvState['auth-passwords']).toEqual({})
+    })
+
+    it('keeps user state unchanged when the same role is assigned again', async () => {
+        const user = userEvent.setup()
+
+        render(<App />)
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+
+        const adminButtons = screen.getAllByRole('button', { name: /^admin$/i })
+        await user.click(adminButtons[0])
+
+        const persistedUsers = kvState['users'] as Array<{ id: string; role: string }>
+        expect(persistedUsers[0]).toEqual(expect.objectContaining({ id: 'admin-1', role: 'admin' }))
     })
 
     it('assigns a new role from the settings role assignment card', async () => {
@@ -2779,6 +3249,48 @@ describe('App', () => {
 
             expect(screen.getByText(/dashboard enrollments:\s*2/i)).toBeInTheDocument()
             expect(screen.getByText(/enrollment: enrollment-rs-2/i)).toBeInTheDocument()
+        })
+
+        it('shows a toast when scoring throws a range error', async () => {
+            const user = userEvent.setup()
+            scoringControls.applyScoreImpl = () => {
+                throw new RangeError('Score must remain within range.')
+            }
+
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+            await user.click(screen.getByRole('button', { name: /record score pass/i }))
+
+            expect(toastError).toHaveBeenCalledWith(
+                'Unable to record score',
+                expect.objectContaining({ description: 'Score must remain within range.' }),
+            )
+        })
+
+        it('rethrows unexpected scoring errors', async () => {
+            const user = userEvent.setup()
+            const errorHandler = vi.fn((event: ErrorEvent) => {
+                event.preventDefault()
+            })
+            scoringControls.applyScoreImpl = () => {
+                throw new Error('unexpected scoring failure')
+            }
+
+            window.addEventListener('error', errorHandler)
+
+            try {
+                render(<App />)
+
+                await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
+                fireEvent.click(screen.getByRole('button', { name: /record score pass/i }))
+
+                await waitFor(() => {
+                    expect(errorHandler).toHaveBeenCalled()
+                })
+            } finally {
+                window.removeEventListener('error', errorHandler)
+            }
         })
     })
 })

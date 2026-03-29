@@ -105,6 +105,33 @@ const firstAdminSchema = z.object({
 type SignInFormValues = z.infer<typeof signInSchema>
 type FirstAdminFormValues = z.infer<typeof firstAdminSchema>
 
+type AppRuntimeEnvOverrides = {
+  initialActiveView?: string
+  previewMode?: boolean
+  useServerAuth?: boolean
+}
+
+type AppTestHooks = {
+  createFirstAdmin?: (values: FirstAdminFormValues) => void
+  handleAssignRole?: (userId: string, role: User['role']) => void
+  handleDeleteUser?: (userId: string) => void
+}
+
+declare global {
+  var __ORCHESTRATE_APP_TEST_ENV__: AppRuntimeEnvOverrides | undefined
+  var __ORCHESTRATE_APP_TEST_HOOKS__: AppTestHooks | undefined
+}
+
+function getAppRuntimeEnv() {
+  const overrides = globalThis.__ORCHESTRATE_APP_TEST_ENV__
+
+  return {
+    initialActiveView: overrides?.initialActiveView,
+    previewMode: overrides?.previewMode ?? !import.meta.env.PROD,
+    useServerAuth: overrides?.useServerAuth ?? import.meta.env.VITE_USE_SERVER_AUTH === 'true',
+  }
+}
+
 /**
  * Root application component that manages KV-backed application state and renders the active view inside the shared layout.
  *
@@ -115,7 +142,8 @@ type FirstAdminFormValues = z.infer<typeof firstAdminSchema>
  * @returns The full application shell containing the active view, the notification permission banner, and the toast container.
  */
 function App() {
-  const [activeView, setActiveView] = useState('dashboard')
+  const runtimeEnv = getAppRuntimeEnv()
+  const [activeView, setActiveView] = useState(runtimeEnv.initialActiveView ?? 'dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
 
   const signInForm = useForm<SignInFormValues>({
@@ -139,8 +167,7 @@ function App() {
 
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
-  const previewMode = !import.meta.env.PROD
-  const useServerAuth = import.meta.env.VITE_USE_SERVER_AUTH === 'true'
+  const { previewMode, useServerAuth } = runtimeEnv
 
   const [users, setUsers] = useKV<User[]>('users', [])
   const [activeUserId, setActiveUserId] = useKV<string>('active-user-id', '')
@@ -1242,6 +1269,25 @@ function App() {
     setUsers,
     setWellnessCheckIns,
   ])
+
+  useEffect(() => {
+    const testHooks = globalThis.__ORCHESTRATE_APP_TEST_HOOKS__
+    if (!testHooks) {
+      return
+    }
+
+    testHooks.createFirstAdmin = createFirstAdmin
+    testHooks.handleAssignRole = handleAssignRole
+    testHooks.handleDeleteUser = handleDeleteUser
+
+    return () => {
+      if (globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ === testHooks) {
+        delete testHooks.createFirstAdmin
+        delete testHooks.handleAssignRole
+        delete testHooks.handleDeleteUser
+      }
+    }
+  }, [createFirstAdmin, handleAssignRole, handleDeleteUser])
 
   /**
    * Adds a new {@link CertificationRecord} to the `trainerProfile` of each
