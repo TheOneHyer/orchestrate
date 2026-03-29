@@ -24,9 +24,6 @@ import { User, Session, Course, WellnessCheckIn } from '@/lib/types'
 import {
   calculateTrainerUtilization,
   getUtilizationTrend,
-  getBurnoutRiskLevel,
-  type TrainerUtilization,
-  type UtilizationTrend
 } from '@/lib/burnout-analytics'
 import { UtilizationChart } from '@/components/charts/UtilizationChart'
 import { BurnoutRiskGauge } from '@/components/charts/BurnoutRiskGauge'
@@ -44,8 +41,8 @@ interface BurnoutDashboardProps {
   sessions: Session[]
   /** Courses associated with sessions, used for duration and workload calculations. */
   courses: Course[]
-  /** Callback invoked with a view name (and optional data) when navigating to another view. */
-  onNavigate: (view: string, data?: any) => void
+  /** Optional callback invoked when the dashboard requests navigation to another view. */
+  onNavigate?: (...args: any[]) => void
 }
 
 /**
@@ -58,10 +55,9 @@ interface BurnoutDashboardProps {
  * @param users - All users; trainers are filtered for analytics.
  * @param sessions - All training sessions used for utilization calculations.
  * @param courses - All courses referenced by sessions.
- * @param onNavigate - Navigation callback to redirect to other views (e.g., trainer profile).
  * @returns The rendered BurnoutDashboard JSX element.
  */
-export function BurnoutDashboard({ users, sessions, courses, onNavigate }: BurnoutDashboardProps) {
+export function BurnoutDashboard({ users, sessions, courses }: BurnoutDashboardProps) {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('month')
   const [selectedTrainer, setSelectedTrainer] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'overview' | 'trainers' | 'trends' | 'distribution'>('overview')
@@ -74,7 +70,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
     [users]
   )
 
-  const safeCheckIns = checkIns || []
+  const safeCheckIns = useMemo(() => checkIns || [], [checkIns])
 
   const trainerUtilization = useMemo(() => {
     return trainers.map(trainer =>
@@ -139,7 +135,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
         </div>
 
         <div className="flex items-center gap-3">
-          <Select value={timeRange} onValueChange={(v: any) => setTimeRange(v)}>
+          <Select value={timeRange} onValueChange={(v) => setTimeRange(v as 'week' | 'month' | 'quarter')}>
             <SelectTrigger className="w-[180px]" aria-label="Time range">
               <SelectValue />
             </SelectTrigger>
@@ -308,7 +304,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
                           <p className="text-2xl font-bold">{trainer.utilizationRate.toFixed(0)}%</p>
                           <p className="text-xs text-muted-foreground">utilization</p>
                         </div>
-                        <Badge variant={getRiskColor(trainer.riskLevel) as any}>
+                        <Badge variant={getRiskColor(trainer.riskLevel)}>
                           {trainer.riskLevel.toUpperCase()}
                         </Badge>
                       </div>
@@ -355,7 +351,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
                         <div className="text-3xl font-bold">
                           {selectedTrainerData.riskScore.toFixed(0)}
                         </div>
-                        <Badge variant={getRiskColor(selectedTrainerData.riskLevel) as any} className="mt-1">
+                        <Badge variant={getRiskColor(selectedTrainerData.riskLevel)} className="mt-1">
                           {selectedTrainerData.riskLevel.toUpperCase()}
                         </Badge>
                       </div>
@@ -584,7 +580,7 @@ export function BurnoutDashboard({ users, sessions, courses, onNavigate }: Burno
                             )}
                           </div>
                         </div>
-                        <Badge variant={getRiskColor(trainer.riskLevel) as any}>
+                        <Badge variant={getRiskColor(trainer.riskLevel)}>
                           {trainer.riskLevel}
                         </Badge>
                       </div>

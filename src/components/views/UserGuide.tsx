@@ -1,8 +1,9 @@
-import { useState, type ComponentType, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import { getSectionOrFallback, type Section } from './user-guide-utils'
 import {
   House,
   CalendarDots,
@@ -18,21 +19,6 @@ import {
   BookOpen,
   CaretRight,
 } from '@phosphor-icons/react'
-import type { IconProps } from '@phosphor-icons/react'
-
-/** Describes a single section entry in the User Guide sidebar. */
-interface Section {
-  /** Unique identifier used to track the active section. */
-  id: string
-  /** Human-readable label shown in the sidebar navigation. */
-  label: string
-  /** Phosphor icon component rendered next to the label. */
-  icon: ComponentType<IconProps>
-  /** User roles that this section is relevant to (e.g. `['admin', 'trainer']`). */
-  roles: string[]
-  /** JSX content rendered in the main panel when this section is active. */
-  content: ReactNode
-}
 
 /**
  * Renders a row of role badges indicating which user roles a guide section applies to.
@@ -818,26 +804,6 @@ const sections: Section[] = [
     ),
   },
 ]
-
-/**
- * Returns the section whose `id` matches `key`, or a fallback section when none is found.
- *
- * @param availableSections - Ordered list of sections to search.
- * @param key - Optional section ID to resolve.
- * @returns The matched section; if `key` is not found, the first section in `availableSections`; if `availableSections` is empty, a placeholder section with `id === ''` and label "No Sections Available".
- */
-export function getSectionOrFallback(availableSections: Section[], key?: string): Section {
-  if (availableSections.length === 0) {
-    return {
-      id: '',
-      label: 'No Sections Available',
-      icon: BookOpen,
-      roles: [],
-      content: <p>No guide sections are available</p>,
-    }
-  }
-  return availableSections.find((section) => section.id === key) ?? availableSections[0]
-}
 
 interface UserGuideProps {
   /** Optional initial section ID used to seed local navigation state. */

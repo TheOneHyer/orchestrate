@@ -9,23 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
-import { Progress } from '@/components/ui/progress'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import {
   UserCircleGear,
-  Calendar as CalendarIcon,
   Clock,
   Users,
   CheckCircle,
   WarningCircle,
-  Lightning,
-  ArrowRight,
   Sparkle,
   Info,
-  TrendUp,
-  TrendDown,
   ChartLine,
   Fire,
   BatteryCharging
@@ -519,14 +512,21 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
 
         <Separator />
 
-        <Button
-          onClick={analyzeTrainers}
-          disabled={!selectedCourse || !startDate}
-          className="w-full"
-        >
-          <UserCircleGear size={18} className="mr-2" />
-          Find & Compare Trainers
-        </Button>
+        <div className="flex gap-3">
+          {onClose && (
+            <Button variant="outline" onClick={onClose} className="flex-1">
+              Cancel
+            </Button>
+          )}
+          <Button
+            onClick={analyzeTrainers}
+            disabled={!selectedCourse || !startDate}
+            className="flex-1"
+          >
+            <UserCircleGear size={18} className="mr-2" />
+            Find & Compare Trainers
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
@@ -770,6 +770,11 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
           <Button variant="outline" onClick={() => setStep('parameters')} className="flex-1">
             Back to Parameters
           </Button>
+          {onClose && (
+            <Button variant="outline" onClick={onClose} className="flex-1">
+              Cancel
+            </Button>
+          )}
         </div>
       </div>
     )
@@ -882,6 +887,11 @@ export function GuidedScheduler({ users, courses, onSessionsCreated, onClose, pr
         >
           Back to Trainers
         </Button>
+        {onClose && (
+          <Button variant="outline" onClick={onClose} className="flex-1">
+            Cancel
+          </Button>
+        )}
         <Button
           onClick={confirmAndSchedule}
           className="flex-1"

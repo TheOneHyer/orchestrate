@@ -1,5 +1,5 @@
 import { User, Session, Course, WellnessCheckIn } from './types'
-import { differenceInDays, startOfDay, startOfWeek, endOfWeek, eachWeekOfInterval, subDays } from 'date-fns'
+import { differenceInDays, startOfDay, endOfWeek, eachWeekOfInterval, subDays } from 'date-fns'
 import { calculateSessionDuration } from './helpers'
 
 /**
@@ -69,7 +69,6 @@ export interface DataPoint {
 }
 
 const STANDARD_WORK_HOURS_PER_WEEK = 40
-const STANDARD_WORK_DAYS_PER_WEEK = 5
 const OVERUTILIZATION_THRESHOLD = 85
 const CRITICAL_THRESHOLD = 95
 const MAX_CONSECUTIVE_DAYS_HEALTHY = 10

@@ -192,7 +192,7 @@ describe('ScheduleTemplates', () => {
     })
 
     it('renders active templates and hides inactive templates', () => {
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         expect(screen.getByText('Ops Rotation')).toBeInTheDocument()
         expect(screen.queryByText('Inactive Template')).not.toBeInTheDocument()
@@ -203,7 +203,7 @@ describe('ScheduleTemplates', () => {
     it('filters templates by search query', async () => {
         const user = userEvent.setup()
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         await user.type(screen.getByPlaceholderText(/search templates/i), 'nonexistent')
 
@@ -222,7 +222,7 @@ describe('ScheduleTemplates', () => {
             }),
         ]
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         await user.type(screen.getByPlaceholderText(/search templates/i), 'night-shift')
         expect(screen.getByText('Alpha Plan')).toBeInTheDocument()
@@ -235,7 +235,7 @@ describe('ScheduleTemplates', () => {
             createTemplate({ id: 'template-safety', name: 'Safety Template', category: 'safety' }),
         ]
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         await user.click(screen.getByRole('combobox'))
         await user.click(screen.getByRole('option', { name: /safety/i }))
@@ -247,7 +247,7 @@ describe('ScheduleTemplates', () => {
     it('renders no templates state when KV templates are empty', () => {
         kvTemplates = []
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         expect(screen.getByText(/no templates found/i)).toBeInTheDocument()
         expect(setTemplatesMock).not.toHaveBeenCalled()
@@ -262,7 +262,7 @@ describe('ScheduleTemplates', () => {
             return [initial, vi.fn()]
         })
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         expect(screen.getByText(/no templates found/i)).toBeInTheDocument()
 
@@ -282,7 +282,7 @@ describe('ScheduleTemplates', () => {
         const user = userEvent.setup()
         kvTemplates = []
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         await user.click(screen.getByRole('button', { name: /create template/i }))
         expect(screen.getByText(/creating template/i)).toBeInTheDocument()
@@ -298,7 +298,7 @@ describe('ScheduleTemplates', () => {
         } as unknown as ScheduleTemplate
         kvTemplates = [legacyTemplate]
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         const card = screen.getByTestId('template-card-template-legacy')
         expect(screen.getByText('Legacy Template')).toBeInTheDocument()
@@ -315,7 +315,7 @@ describe('ScheduleTemplates', () => {
     it('handles special-character search terms without crashing', async () => {
         const user = userEvent.setup()
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         await user.type(screen.getByPlaceholderText(/search templates/i), '[ops]++??')
         expect(screen.getByText(/no templates found/i)).toBeInTheDocument()
@@ -328,7 +328,7 @@ describe('ScheduleTemplates', () => {
     it('creates a new template via dialog save', async () => {
         const user = userEvent.setup()
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         await user.click(screen.getByRole('button', { name: /new template/i }))
         expect(screen.getByText('Creating Template')).toBeInTheDocument()
@@ -356,7 +356,7 @@ describe('ScheduleTemplates', () => {
         const user = userEvent.setup()
         const onCreateSessions = vi.fn()
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={onCreateSessions} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={onCreateSessions} />)
 
         const applyButton = screen.getByTestId('apply-template-template-1')
         await user.click(applyButton)
@@ -383,7 +383,7 @@ describe('ScheduleTemplates', () => {
     it('applies a template with plural success copy even when onCreateSessions is not provided', async () => {
         const user = userEvent.setup()
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} />)
 
         await user.click(screen.getByTestId('apply-template-template-1'))
         await user.click(screen.getByRole('button', { name: /mock confirm apply multiple/i }))
@@ -393,7 +393,7 @@ describe('ScheduleTemplates', () => {
     })
 
     it('does not expose apply actions when the apply dialog is closed', () => {
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         expect(screen.queryByRole('button', { name: /^mock confirm apply$/i })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /^mock confirm apply multiple$/i })).not.toBeInTheDocument()
@@ -402,7 +402,7 @@ describe('ScheduleTemplates', () => {
     it('opens apply dialog from dropdown menu apply action', async () => {
         const user = userEvent.setup()
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         const card = screen.getByTestId('template-card-template-1')
         const applyButton = within(card).getByTestId('dropdown-apply-template')
@@ -414,7 +414,7 @@ describe('ScheduleTemplates', () => {
     it('duplicates and deletes templates from menu actions', async () => {
         const user = userEvent.setup()
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         const card = screen.getByTestId('template-card-template-1')
 
@@ -438,7 +438,7 @@ describe('ScheduleTemplates', () => {
     it('opens edit mode and updates an existing template', async () => {
         const user = userEvent.setup()
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         const card = screen.getByTestId('template-card-template-1')
         await user.click(within(card).getByRole('button', { name: /edit/i }))
@@ -459,7 +459,7 @@ describe('ScheduleTemplates', () => {
     it('clears editing state when template dialog closes', async () => {
         const user = userEvent.setup()
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         const card = screen.getByTestId('template-card-template-1')
         await user.click(within(card).getByRole('button', { name: /edit/i }))
@@ -490,7 +490,7 @@ describe('ScheduleTemplates', () => {
             return [initial, vi.fn()]
         })
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         // sessions.length !== 1 → plural "sessions"
         expect(screen.getByText(/3 sessions/i)).toBeInTheDocument()
@@ -505,7 +505,7 @@ describe('ScheduleTemplates', () => {
     it('handles undefined persisted template arrays in updater callbacks', async () => {
         const user = userEvent.setup()
 
-        render(<ScheduleTemplates courses={courses} onNavigate={vi.fn()} onCreateSessions={vi.fn()} />)
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         // Create flow (updater index 0)
         await user.click(screen.getByRole('button', { name: /new template/i }))

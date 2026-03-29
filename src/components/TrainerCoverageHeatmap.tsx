@@ -1,8 +1,7 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { User, DayOfWeek } from '@/lib/types'
@@ -76,15 +75,36 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     })
   }, [allTrainers, certFilter])
 
-/**
- * Parses a time string in "HH:MM" or "h:mm AM/PM" format and returns a decimal hour.
- *
- * @param timeStr - Time string to parse (e.g., "09:30", "2:45 PM").
- * @returns The time expressed as a decimal hour (e.g., 9.5 for 09:30, 14.75 for 2:45 PM).
- */
+  /**
+   * Parses a time string in "HH:MM" or "h:mm AM/PM" format and returns a decimal hour.
+   *
+   * Returns `NaN` when the input is malformed (non-string, missing colon, non-finite
+   * hours/minutes, or an unrecognised period token), so callers can safely skip invalid
+   * shift entries.
+   *
+   * @param timeStr - Time string to parse (e.g., "09:30", "2:45 PM").
+   * @returns The time expressed as a decimal hour (e.g., 9.5 for 09:30, 14.75 for 2:45 PM),
+   *   or `NaN` for malformed input.
+   */
   const parseTime = (timeStr: string): number => {
-    const [time, period] = timeStr.split(' ')
-    let [hours, minutes] = time.split(':').map(Number)
+    if (typeof timeStr !== 'string' || timeStr.trim() === '') return NaN
+
+    const parts = timeStr.split(' ')
+    if (parts.length !== 1 && parts.length !== 2) return NaN
+
+    const [time, period] = parts
+    const timeParts = time.split(':')
+    if (timeParts.length !== 2) return NaN
+
+    const parsedHours = Number(timeParts[0])
+    const minutes = Number(timeParts[1])
+    if (!Number.isInteger(parsedHours) || !Number.isInteger(minutes)) return NaN
+    if (minutes < 0 || minutes > 59) return NaN
+    if (period !== undefined && period !== 'AM' && period !== 'PM') return NaN
+    if (period === undefined && (parsedHours < 0 || parsedHours > 23)) return NaN
+    if (period !== undefined && (parsedHours < 1 || parsedHours > 12)) return NaN
+
+    let hours = parsedHours
 
     if (period === 'PM' && hours !== 12) {
       hours += 12
@@ -92,10 +112,10 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
       hours = 0
     }
 
-    return hours + (minutes || 0) / 60
+    return hours + minutes / 60
   }
 
-  const coverageByDayAndHour = useMemo(() => {
+  const { coverageByDayAndHour, malformedScheduleCount } = useMemo(() => {
     const daysOfWeek: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     const coverage: Record<DayOfWeek, HourCoverage[]> = {
       sunday: [],
@@ -106,33 +126,60 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
       friday: [],
       saturday: []
     }
+    const dailyScheduleWindows: Record<DayOfWeek, Array<{ trainerName: string; startHour: number; endHour: number }>> = {
+      sunday: [],
+      monday: [],
+      tuesday: [],
+      wednesday: [],
+      thursday: [],
+      friday: [],
+      saturday: []
+    }
+
+    const malformedScheduleKeys = new Set<string>()
 
     daysOfWeek.forEach(day => {
-      for (let hour = 0; hour < 24; hour++) {
-        const trainersWorking: string[] = []
+      trainers.forEach(trainer => {
+        const schedules = trainer.trainerProfile?.shiftSchedules || []
+        schedules.forEach(schedule => {
+          if (!schedule.daysWorked.includes(day)) {
+            return
+          }
 
-        trainers.forEach(trainer => {
-          const schedules = trainer.trainerProfile?.shiftSchedules || []
+          const startHour = parseTime(schedule.startTime)
+          const endHour = parseTime(schedule.endTime)
 
-          schedules.forEach(schedule => {
-            if (schedule.daysWorked.includes(day)) {
-              const startHour = parseTime(schedule.startTime)
-              const endHour = parseTime(schedule.endTime)
+          // Skip malformed time strings that parseTime could not parse.
+          if (isNaN(startHour) || isNaN(endHour)) {
+            const malformedKey = [
+              trainer.id,
+              trainer.name,
+              schedule.shiftCode,
+              schedule.startTime,
+              schedule.endTime,
+              schedule.daysWorked.join(',')
+            ].join('|')
+            malformedScheduleKeys.add(malformedKey)
+            return
+          }
 
-              let isWorking = false
-
-              if (startHour < endHour) {
-                isWorking = hour >= Math.floor(startHour) && hour < Math.ceil(endHour)
-              } else {
-                isWorking = hour >= Math.floor(startHour) || hour < Math.ceil(endHour)
-              }
-
-              if (isWorking) {
-                trainersWorking.push(trainer.name)
-              }
-            }
+          dailyScheduleWindows[day].push({
+            trainerName: trainer.name,
+            startHour,
+            endHour
           })
         })
+      })
+
+      for (let hour = 0; hour < 24; hour++) {
+        const trainersWorking = dailyScheduleWindows[day]
+          .filter(({ startHour, endHour }) => {
+            if (startHour < endHour) {
+              return hour >= Math.floor(startHour) && hour < Math.ceil(endHour)
+            }
+            return hour >= Math.floor(startHour) || hour < Math.ceil(endHour)
+          })
+          .map(({ trainerName }) => trainerName)
 
         coverage[day].push({
           hour,
@@ -142,16 +189,25 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
       }
     })
 
-    return coverage
+    return {
+      coverageByDayAndHour: coverage,
+      malformedScheduleCount: malformedScheduleKeys.size
+    }
   }, [trainers])
 
-/**
- * Returns the Tailwind CSS class string for a heatmap cell based on coverage ratio.
- *
- * @param count - Number of trainers working during the cell's time slot.
- * @param target - Target number of trainers required per hour.
- * @returns A space-separated string of Tailwind classes representing the cell's colour.
- */
+  useEffect(() => {
+    if (malformedScheduleCount > 0) {
+      console.warn(`TrainerCoverageHeatmap: ${malformedScheduleCount} malformed schedule time string(s) encountered and skipped`)
+    }
+  }, [malformedScheduleCount])
+
+  /**
+   * Returns the Tailwind CSS class string for a heatmap cell based on coverage ratio.
+   *
+   * @param count - Number of trainers working during the cell's time slot.
+   * @param target - Target number of trainers required per hour.
+   * @returns A space-separated string of Tailwind classes representing the cell's colour.
+   */
   const getHeatmapColor = (count: number, target: number) => {
     const ratio = count / target
 
@@ -172,13 +228,13 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     return 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800'
   }
 
-/**
- * Returns a numeric coverage tier (0–4) used as a `data-coverage-tier` attribute for testing.
- *
- * @param count - Number of trainers working during the cell's time slot.
- * @param target - Target number of trainers required per hour.
- * @returns 0 = no coverage, 1 = below 50%, 2 = 50–74%, 3 = 75–99%, 4 = at/above target.
- */
+  /**
+   * Returns a numeric coverage tier (0–4) used as a `data-coverage-tier` attribute for testing.
+   *
+   * @param count - Number of trainers working during the cell's time slot.
+   * @param target - Target number of trainers required per hour.
+   * @returns 0 = no coverage, 1 = below 50%, 2 = 50–74%, 3 = 75–99%, 4 = at/above target.
+   */
   const getCoverageTier = (count: number, target: number) => {
     if (count === 0) return 0
 
@@ -191,12 +247,12 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     return 0
   }
 
-/**
- * Formats a 24-hour integer as a compact AM/PM label (e.g., 0 → "12a", 13 → "1p").
- *
- * @param hour - Hour value from 0 to 23.
- * @returns A short string suitable for the heatmap column header.
- */
+  /**
+   * Formats a 24-hour integer as a compact AM/PM label (e.g., 0 → "12a", 13 → "1p").
+   *
+   * @param hour - Hour value from 0 to 23.
+   * @returns A short string suitable for the heatmap column header.
+   */
   const formatHour = (hour: number) => {
     if (hour === 0) return '12a'
     if (hour === 12) return '12p'
@@ -351,7 +407,7 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
                   ))}
 
                   {daysOfWeek.map(({ key, label }) => (
-                    <>
+                    <Fragment key={key}>
                       <div key={`${key}-label`} className="bg-muted/50 p-2 flex items-center">
                         <span className="text-xs font-medium text-muted-foreground">{label}</span>
                       </div>
@@ -391,7 +447,7 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
                           </Tooltip>
                         </TooltipProvider>
                       ))}
-                    </>
+                    </Fragment>
                   ))}
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CalendarBlank, ListBullets, ChartBar as ChartBarIcon, Plus, MapPin, Users as UsersIcon, Clock, Robot, UserCircleGear, UserPlus } from '@phosphor-icons/react'
 import { AttendanceRecord, Session, Course, User, Enrollment } from '@/lib/types'
 import { RecordScoreDialog } from '@/components/RecordScoreDialog'
-import { format, startOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, isSameDay, isSameMonth, eachDayOfInterval, startOfDay, differenceInMinutes, setHours, setMinutes } from 'date-fns'
+import { format, startOfWeek, startOfMonth, endOfMonth, addDays, addWeeks, addMonths, isSameDay, isSameMonth, eachDayOfInterval, differenceInMinutes } from 'date-fns'
 import { formatDuration } from '@/lib/helpers'
 import { AutoScheduler } from './AutoScheduler'
 import { GuidedScheduler } from './GuidedScheduler'
@@ -810,7 +810,6 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
           ) : (
             <div data-calendar-cell-body className="space-y-3">
               {daySessions.map(session => {
-                const course = courses.find(c => c.id === session.courseId)
                 const trainer = users.find(u => u.id === session.trainerId)
                 return (
                   <div
@@ -1008,7 +1007,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
             ))}
           </div>
           <div className="grid grid-cols-7">
-            {calendarDays.map((day, idx) => {
+            {calendarDays.map((day) => {
               const daySessions = filteredSessions.filter(s => isSameDay(new Date(s.startTime), day))
               const isToday = isSameDay(day, new Date())
               const isCurrentMonth = isSameMonth(day, currentDate)

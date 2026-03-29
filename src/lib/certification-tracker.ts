@@ -1,5 +1,5 @@
+import { differenceInDays, parseISO } from 'date-fns'
 import { CertificationRecord, User, Notification } from './types'
-import { differenceInDays, addMonths, parseISO, isBefore, isAfter } from 'date-fns'
 
 /**
  * An alert generated for a trainer's certification that is expiring soon or

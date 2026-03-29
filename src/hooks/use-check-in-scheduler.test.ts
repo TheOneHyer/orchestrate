@@ -389,6 +389,33 @@ describe('use-check-in-scheduler', () => {
         expect(setter).not.toHaveBeenCalled()
     })
 
+    it('does not synchronize when latest check-in does not match any active schedule trainer', () => {
+        const schedule = createSchedule({
+            id: 'no-match-sync',
+            trainerId: 'trainer-1',
+            nextScheduledDate: new Date(NOW.getTime() + 48 * 60 * 60 * 1000).toISOString(),
+            notificationEnabled: false,
+            autoReminders: false,
+            reminderHoursBefore: 1,
+            lastCheckInDate: '2026-03-12T00:00:00.000Z',
+        })
+
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([[schedule], setter] as any)
+
+        renderHook(() =>
+            useCheckInScheduler(
+                [createTrainer('trainer-1'), createTrainer('trainer-2')],
+                [
+                    createCheckIn({ trainerId: 'trainer-2' }),
+                ],
+                undefined
+            )
+        )
+
+        expect(setter).not.toHaveBeenCalled()
+    })
+
     it.each([
         ['daily', 'daily', undefined, '2026-03-11T00:00:00.000Z'],
         ['biweekly', 'biweekly', undefined, '2026-03-24T00:00:00.000Z'],

@@ -84,7 +84,7 @@ export function TrendChart({ data, timeRange, showAll = false }: TrendChartProps
     const sortedDates = Array.from(allDates).sort()
 
     return sortedDates.map((date) => {
-      const dataPoint: any = {
+      const dataPoint: Record<string, string | number> = {
         date: format(new Date(date), 'MMM d'),
       }
 

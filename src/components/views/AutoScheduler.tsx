@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
 import { Progress } from '@/components/ui/progress'
@@ -18,7 +17,7 @@ import {
   Lightning,
   ArrowRight
 } from '@phosphor-icons/react'
-import { TrainerScheduler, SchedulingConstraints, TrainerMatch } from '@/lib/scheduler'
+import { TrainerScheduler, SchedulingConstraints, TrainerMatch, SchedulingResult } from '@/lib/scheduler'
 import { User, Course, Session } from '@/lib/types'
 import { toast } from 'sonner'
 
@@ -45,10 +44,10 @@ interface AutoSchedulerProps {
  * @param users - All users in the system; trainers are filtered internally.
  * @param courses - Available courses to select for scheduling.
  * @param onSessionsCreated - Called with generated session objects on successful scheduling.
- * @param onClose - Optional handler to close the scheduler panel.
+ * @param onClose - Reserved for future use; currently unused but wired into props for API stability.
  * @returns The rendered AutoScheduler JSX element.
  */
-export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: AutoSchedulerProps) {
+export function AutoScheduler({ users, courses, onSessionsCreated, onClose: _onClose }: AutoSchedulerProps) {
   const [sessions] = useKV<Session[]>('sessions', [])
 
   const [selectedCourse, setSelectedCourse] = useState<string>('')
@@ -63,7 +62,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [availableTrainers, setAvailableTrainers] = useState<TrainerMatch[]>([])
-  const [schedulingResult, setSchedulingResult] = useState<any>(null)
+  const [schedulingResult, setSchedulingResult] = useState<SchedulingResult | null>(null)
 
   const selectedCourseData = courses.find(c => c.id === selectedCourse)
 
@@ -258,7 +257,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
 
           <div className="space-y-2">
             <Label htmlFor="recurrence">Recurrence Pattern</Label>
-            <Select value={recurrenceType} onValueChange={(v: any) => setRecurrenceType(v)}>
+            <Select value={recurrenceType} onValueChange={(v) => setRecurrenceType(v as 'none' | 'daily' | 'weekly' | 'monthly')}>
               <SelectTrigger id="recurrence">
                 <SelectValue />
               </SelectTrigger>
@@ -447,7 +446,7 @@ export function AutoScheduler({ users, courses, onSessionsCreated, onClose }: Au
           <AlertTitle>Scheduling Issues Detected</AlertTitle>
           <AlertDescription>
             <div className="mt-2 space-y-1">
-              {schedulingResult.conflicts.map((conflict: any, i: number) => (
+              {schedulingResult.conflicts.map((conflict, i: number) => (
                 <div key={i} className="text-sm flex items-start gap-1">
                   <ArrowRight size={14} className="mt-0.5 shrink-0" />
                   <span>{conflict.message}</span>

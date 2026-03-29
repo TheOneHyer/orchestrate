@@ -15,7 +15,7 @@ interface CertificationDashboardProps {
   /** All users in the system; trainer records are filtered to build certification listings. */
   users: User[]
   /** Navigation callback invoked with a view name and optional payload (e.g., `{ userId }`). */
-  onNavigate: (view: string, data?: any) => void
+  onNavigate: (view: string, data?: unknown) => void
   /** Callback invoked when a new certification is added for one or more trainers. */
   onAddCertification: (trainerIds: string[], certification: Omit<CertificationRecord, 'status' | 'renewalRequired' | 'remindersSent'>) => void
 }
@@ -36,7 +36,6 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
 
   const criticalAlerts = expiringAlerts.filter(a => a.urgency === 'critical')
   const highAlerts = expiringAlerts.filter(a => a.urgency === 'high')
-  const mediumAlerts = expiringAlerts.filter(a => a.urgency === 'medium')
 
   const getStatusColor = (status: string) => {
     switch (status) {

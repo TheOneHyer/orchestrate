@@ -220,16 +220,6 @@ export function EnrollStudentsDialog({
     onOpenChange(nextOpen)
   }
 
-  /**
-   * Looks up a student by ID from the `availableStudents` prop array.
-   *
-   * @param id - The user ID to search for.
-   * @returns The matching {@link User} or `undefined` if not found.
-   */
-  const getStudentById = (id: string) => {
-    return availableStudents.find(s => s.id === id)
-  }
-
   const enrollableCount = conflictCheck.hasConflicts
     ? conflictCheck.allowedStudents.length
     : selectedStudents.length

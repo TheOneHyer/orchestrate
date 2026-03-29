@@ -197,6 +197,99 @@ describe('wellness-analytics', () => {
             expect(result.reasons).toEqual([])
         })
 
+        it('triggers recovery plan on declining wellness trend alone', () => {
+            // Intentionally unsorted order verifies shouldTriggerRecoveryPlan sorts by timestamp.
+            const result = shouldTriggerRecoveryPlan(
+                [
+                    createCheckIn({
+                        id: 'prev-1',
+                        timestamp: '2026-03-15T09:00:00.000Z',
+                        mood: 3,
+                        stress: 'moderate',
+                        energy: 'neutral',
+                        workloadSatisfaction: 3,
+                        sleepQuality: 3,
+                        physicalWellbeing: 3,
+                        mentalClarity: 3,
+                    }),
+                    createCheckIn({
+                        id: 'latest',
+                        timestamp: '2026-03-16T09:00:00.000Z',
+                        mood: 3,
+                        stress: 'moderate',
+                        energy: 'neutral',
+                        workloadSatisfaction: 3,
+                        sleepQuality: 2,
+                        physicalWellbeing: 2,
+                        mentalClarity: 2,
+                        followUpRequired: false,
+                    }),
+                    createCheckIn({
+                        id: 'prev-2',
+                        timestamp: '2026-03-14T09:00:00.000Z',
+                        mood: 4,
+                        stress: 'low',
+                        energy: 'excellent',
+                        workloadSatisfaction: 4,
+                        sleepQuality: 4,
+                        physicalWellbeing: 4,
+                        mentalClarity: 4,
+                    }),
+                ],
+                'trainer-1',
+                70
+            )
+
+            expect(result.shouldTrigger).toBe(true)
+            expect(result.reasons).toEqual(['Declining wellness trend detected'])
+        })
+
+        it('does not trigger recovery plan for an improving trend alone', () => {
+            const result = shouldTriggerRecoveryPlan(
+                [
+                    createCheckIn({
+                        id: 'latest',
+                        timestamp: '2026-03-16T09:00:00.000Z',
+                        mood: 4,
+                        stress: 'moderate',
+                        energy: 'energized',
+                        workloadSatisfaction: 4,
+                        sleepQuality: 4,
+                        physicalWellbeing: 4,
+                        mentalClarity: 4,
+                        followUpRequired: false,
+                    }),
+                    createCheckIn({
+                        id: 'prev-1',
+                        timestamp: '2026-03-15T09:00:00.000Z',
+                        mood: 3,
+                        stress: 'moderate',
+                        energy: 'neutral',
+                        workloadSatisfaction: 3,
+                        sleepQuality: 3,
+                        physicalWellbeing: 3,
+                        mentalClarity: 3,
+                    }),
+                    createCheckIn({
+                        id: 'prev-2',
+                        timestamp: '2026-03-14T09:00:00.000Z',
+                        mood: 3,
+                        stress: 'moderate',
+                        energy: 'neutral',
+                        workloadSatisfaction: 3,
+                        sleepQuality: 3,
+                        physicalWellbeing: 3,
+                        mentalClarity: 3,
+                    }),
+                ],
+                'trainer-1',
+                70
+            )
+
+            expect(result.shouldTrigger).toBe(false)
+            expect(result.reasons).toEqual([])
+        })
+
         it('triggers recovery plan when risk conditions are present', () => {
             const result = shouldTriggerRecoveryPlan(
                 [
@@ -255,7 +348,18 @@ describe('wellness-analytics', () => {
         it('calculates recovery progress from completed actions', () => {
             const result = calculateRecoveryProgress(createRecoveryPlan())
 
-            // 1 of 2 actions complete => 35 points, plus the current utilization formula contributes 30 points.
+            // 1 of 2 actions complete => 35 points, plus utilization progress (~25 points).
+            expect(result).toBe(60)
+        })
+
+        it('awards full utilization credit when current utilization is at or below target', () => {
+            const result = calculateRecoveryProgress(
+                createRecoveryPlan({
+                    currentUtilization: 80,
+                    targetUtilization: 80,
+                })
+            )
+
             expect(result).toBe(65)
         })
     })

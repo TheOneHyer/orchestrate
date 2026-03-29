@@ -14,15 +14,12 @@ import {
   Heart,
   Plus,
   ClipboardText,
-  TrendUp,
-  TrendDown,
   Warning,
   CheckCircle,
   Clock,
   SmileyXEyes,
   FirstAid,
   CalendarCheck,
-  UsersFour,
   Pause,
   Play,
   X,
@@ -52,7 +49,7 @@ interface TrainerWellnessProps {
    * @param view - Target view name.
    * @param data - Optional payload for the target view.
    */
-  onNavigate: (view: string, data?: any) => void
+  onNavigate: (view: string, data?: unknown) => void
 }
 
 /**
@@ -60,7 +57,7 @@ interface TrainerWellnessProps {
  *
  * @returns The JSX element for the Trainer Wellness dashboard.
  */
-export function TrainerWellness({ users, sessions, currentUser, onNavigate }: TrainerWellnessProps) {
+export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onNavigate }: TrainerWellnessProps) {
   const [checkIns, setCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const [recoveryPlans, setRecoveryPlans] = useKV<RecoveryPlan[]>('recovery-plans', [])
 
@@ -96,8 +93,8 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
     [users]
   )
 
-  const safeCheckIns = checkIns || []
-  const safeRecoveryPlans = recoveryPlans || []
+  const safeCheckIns = useMemo(() => checkIns || [], [checkIns])
+  const safeRecoveryPlans = useMemo(() => recoveryPlans || [], [recoveryPlans])
 
   const trainerWellnessData = useMemo(() => {
     return trainers.map(trainer => {
@@ -323,7 +320,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
         </div>
 
         <div className="flex items-center gap-3">
-          <Select value={timeRange} onValueChange={(v: any) => setTimeRange(v)}>
+          <Select value={timeRange} onValueChange={(v) => setTimeRange(v as 'week' | 'month' | 'quarter')}>
             <SelectTrigger className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
@@ -1034,8 +1031,8 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate }: Tr
                           <div
                             key={idx}
                             className={`flex items-start gap-3 p-3 border rounded-lg ${insight.severity === 'critical' ? 'border-destructive/50 bg-destructive/5' :
-                                insight.severity === 'warning' ? 'border-orange-500/50 bg-orange-50/50' :
-                                  'bg-muted/30'
+                              insight.severity === 'warning' ? 'border-orange-500/50 bg-orange-50/50' :
+                                'bg-muted/30'
                               }`}
                           >
                             {insight.severity === 'critical' ? (

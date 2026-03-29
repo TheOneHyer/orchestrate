@@ -1,5 +1,5 @@
 import { User, TrainerProfile, ShiftSchedule, DayOfWeek, ShiftType } from './types'
-import { differenceInYears, differenceInMonths } from 'date-fns'
+import { differenceInYears, differenceInMonths, parseISO } from 'date-fns'
 
 export type { ShiftType }
 
@@ -42,8 +42,10 @@ export function generateTrainerProfile(user: User): User {
 
   if (user.trainerProfile) return user
 
-  const yearsOfService = differenceInYears(new Date(), new Date(user.hireDate))
-  const monthsOfService = differenceInMonths(new Date(), new Date(user.hireDate))
+  const parsedHireDate = parseISO(user.hireDate)
+  const now = new Date()
+  const yearsOfService = differenceInYears(now, parsedHireDate)
+  const monthsOfService = differenceInMonths(now, parsedHireDate)
 
   const shiftSchedules: ShiftSchedule[] = []
 

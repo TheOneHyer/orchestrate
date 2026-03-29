@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,10 +7,9 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
-import { Separator } from '@/components/ui/separator'
 import { User, ShiftSchedule, DayOfWeek, CertificationRecord } from '@/lib/types'
 import { Plus, Trash, Clock, Calendar, Certificate } from '@phosphor-icons/react'
-import { differenceInMonths, differenceInYears, format, parseISO } from 'date-fns'
+import { differenceInDays, differenceInMonths, differenceInYears, format, parseISO } from 'date-fns'
 import { ManageCertificationsDialog } from '@/components/ManageCertificationsDialog'
 import { calculateCertificationStatus } from '@/lib/certification-tracker'
 
@@ -53,22 +52,34 @@ const DAYS_OF_WEEK: { value: DayOfWeek; label: string }[] = [
  */
 export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: TrainerProfileDialogProps) {
   const [editedUser, setEditedUser] = useState<User>(user)
-  const [newRole, setNewRole] = useState('')
-  const [newSpecialization, setNewSpecialization] = useState('')
-  const [certDialogOpen, setCertDialogOpen] = useState(false)
+  const prevOpenRef = useRef(false)
 
   useEffect(() => {
-    if (!editedUser.trainerProfile) {
-      const yearsOfService = differenceInYears(new Date(), new Date(editedUser.hireDate))
-      const monthsOfService = differenceInMonths(new Date(), new Date(editedUser.hireDate))
+    const wasOpen = prevOpenRef.current
+    prevOpenRef.current = open
+
+    // Only reset editedUser when the dialog transitions from closed to open,
+    // so unsaved edits are discarded on reopen without causing extra renders
+    // on every user prop reference change.
+    if (!open || wasOpen) return
+
+    const now = new Date()
+    // TODO: Add isValid(parseISO(user.hireDate)) guard if hire dates can come from external/untrusted sources.
+    const hireDate = parseISO(user.hireDate)
+
+    if (user.trainerProfile) {
+      setEditedUser(user)
+    } else {
+      const yearsOfService = differenceInYears(now, hireDate)
+      const monthsOfService = differenceInMonths(now, hireDate)
 
       setEditedUser({
-        ...editedUser,
+        ...user,
         trainerProfile: {
           authorizedRoles: [],
           shiftSchedules: [],
           tenure: {
-            hireDate: editedUser.hireDate,
+            hireDate: user.hireDate,
             yearsOfService,
             monthsOfService,
           },
@@ -76,7 +87,10 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
         },
       })
     }
-  }, [])
+  }, [open, user])
+  const [newRole, setNewRole] = useState('')
+  const [newSpecialization, setNewSpecialization] = useState('')
+  const [certDialogOpen, setCertDialogOpen] = useState(false)
 
   /**
    * Calculates the total hours worked per week for a shift schedule.
@@ -283,7 +297,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                 <div>
                   <Label className="text-sm text-muted-foreground">Hire Date</Label>
                   <p className="text-base font-medium">
-                    {new Date(editedUser.trainerProfile.tenure.hireDate).toLocaleDateString()}
+                    {format(parseISO(editedUser.trainerProfile.tenure.hireDate), 'MMM d, yyyy')}
                   </p>
                 </div>
                 <div>
@@ -509,9 +523,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                 <div className="space-y-2">
                   {editedUser.trainerProfile.certificationRecords.map((cert, index) => {
                     const status = calculateCertificationStatus(cert)
-                    const daysUntil = Math.floor(
-                      (new Date(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-                    )
+                    const daysUntil = differenceInDays(parseISO(cert.expirationDate), new Date())
 
                     return (
                       <div

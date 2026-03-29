@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Clock, CheckCircle, Warning, Users as UsersIcon, X, Check } from '@phosphor-icons/react'
+import { Clock, CheckCircle, Warning, X, Check } from '@phosphor-icons/react'
 import { User, Session, Notification, Enrollment, Course } from '@/lib/types'
 import { formatDuration } from '@/lib/helpers'
 import { format } from 'date-fns'
@@ -21,7 +21,7 @@ interface DashboardProps {
   /** All courses referenced by sessions and enrollments. */
   courses: Course[]
   /** Navigation callback invoked with a view name and optional data. */
-  onNavigate: (view: string, data?: any) => void
+  onNavigate: (view: string, data?: unknown) => void
   /** Optional callback to mark a notification as read by its ID. */
   onMarkNotificationAsRead?: (id: string) => void
   /** Optional callback to dismiss a notification by its ID. */

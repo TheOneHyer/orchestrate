@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
 pnpm install --frozen-lockfile
-# Temporarily skip lint in pre-commit; will be re-enabled in a follow-up PR.
+pnpm lint
 pnpm build
 pnpm test:coverage

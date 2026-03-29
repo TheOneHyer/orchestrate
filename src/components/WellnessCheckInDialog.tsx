@@ -7,6 +7,7 @@ import { Slider } from '@/components/ui/slider'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { MoodLevel, StressLevel, EnergyLevel, WellnessCheckIn } from '@/lib/types'
+import { COMMON_CONCERNS } from '@/lib/wellness-concerns'
 import {
   Smiley,
   SmileyMeh,
@@ -40,23 +41,6 @@ interface WellnessCheckInDialogProps {
   /** The trainer's current utilization percentage; recorded alongside the check-in data. */
   currentUtilization?: number
 }
-
-/**
- * List of common workplace concerns presented as checkboxes during the wellness check-in.
- * Exported so it can be used in tests and other UI surfaces.
- */
-export const COMMON_CONCERNS = [
-  'Too many sessions scheduled',
-  'Insufficient preparation time',
-  'Challenging student behaviors',
-  'Lack of administrative support',
-  'Unclear expectations',
-  'Technology issues',
-  'Personal/family stress',
-  'Physical health concerns',
-  'Sleep difficulties',
-  'Work-life balance'
-]
 
 /**
  * Dialog for recording a trainer wellness check-in.

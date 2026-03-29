@@ -1,14 +1,12 @@
 import { useState } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   CheckCircle,
-  Warning,
   Info,
   Clock,
-  Users as UsersIcon,
   GraduationCap,
   CalendarDots,
   Gear,
@@ -45,7 +43,7 @@ interface NotificationsProps {
    * @param view - Target view name.
    * @param data - Optional payload passed to the target view.
    */
-  onNavigate: (view: string, data?: any) => void
+  onNavigate: (view: string, data?: unknown) => void
 }
 
 /** Maps each notification type to the Tailwind colour class used for its icon. */

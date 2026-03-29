@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
 import {
@@ -89,7 +89,7 @@ export function RecordScoreDialog({
         reset({ score: enrollment.score ?? undefined })
     }, [open, enrollment.id, enrollment.score, reset])
 
-    const score = form.watch('score')
+    const score = useWatch({ control: form.control, name: 'score' })
     const hasScore = typeof score === 'number'
     const isScoreValid = hasScore && Number.isInteger(score) && score >= 0 && score <= 100
     const canSubmit = isScoreValid
