@@ -145,8 +145,7 @@ describe('AutoScheduler', () => {
         timeoutSpy.mockRestore()
     })
 
-    async function selectCourseAndDate() {
-        const user = userEvent.setup()
+    async function selectCourseAndDate(user: ReturnType<typeof userEvent.setup>) {
         await user.click(screen.getByRole('combobox', { name: /course/i }))
         await user.click(screen.getByRole('option', { name: /safety foundations/i }))
 
@@ -167,13 +166,14 @@ describe('AutoScheduler', () => {
     })
 
     it('analyzes feasibility and shows ranked available trainers', async () => {
+        const user = userEvent.setup()
         render(
             <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
         )
 
-        await selectCourseAndDate()
+        await selectCourseAndDate(user)
 
-        await userEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+        await user.click(screen.getByRole('button', { name: /analyze feasibility/i }))
 
         expect(analyzeFeasibilityMock).toHaveBeenCalled()
         expect(findAvailableTrainersMock).toHaveBeenCalled()
@@ -184,6 +184,7 @@ describe('AutoScheduler', () => {
     })
 
     it('renders partial trainer availability with conflict details', async () => {
+        const user = userEvent.setup()
         findAvailableTrainersMock.mockReturnValueOnce([
             {
                 trainer: { ...users[0], shifts: ['day'] },
@@ -198,15 +199,16 @@ describe('AutoScheduler', () => {
             <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
         )
 
-        await selectCourseAndDate()
+        await selectCourseAndDate(user)
 
-        await userEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+        await user.click(screen.getByRole('button', { name: /analyze feasibility/i }))
 
         expect(screen.getByText(/partial/i)).toBeInTheDocument()
         expect(screen.getByText(/already assigned during selected time/i)).toBeInTheDocument()
     })
 
     it('shows no available trainers alert when analysis returns none', async () => {
+        const user = userEvent.setup()
         findAvailableTrainersMock.mockReturnValueOnce([])
         analyzeFeasibilityMock.mockReturnValueOnce({ feasible: false })
 
@@ -214,26 +216,27 @@ describe('AutoScheduler', () => {
             <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
         )
 
-        await selectCourseAndDate()
+        await selectCourseAndDate(user)
 
-        await userEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+        await user.click(screen.getByRole('button', { name: /analyze feasibility/i }))
 
         expect(screen.getByText(/no available trainers/i)).toBeInTheDocument()
         expect(toastWarning).toHaveBeenCalledWith('Some scheduling constraints detected')
     })
 
     it('returns early during feasibility analysis when selected course is no longer available', async () => {
+        const user = userEvent.setup()
         const { rerender } = render(
             <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
         )
 
-        await selectCourseAndDate()
+        await selectCourseAndDate(user)
 
         rerender(
             <AutoScheduler users={users} courses={[]} onSessionsCreated={vi.fn()} />
         )
 
-        await userEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+        await user.click(screen.getByRole('button', { name: /analyze feasibility/i }))
 
         expect(analyzeFeasibilityMock).not.toHaveBeenCalled()
         expect(findAvailableTrainersMock).not.toHaveBeenCalled()
@@ -242,16 +245,18 @@ describe('AutoScheduler', () => {
     })
 
     it('auto-schedules sessions successfully and emits recommendations', async () => {
+        const user = userEvent.setup()
         const onSessionsCreated = vi.fn()
 
         render(
             <AutoScheduler users={users} courses={courses} onSessionsCreated={onSessionsCreated} />
         )
 
-        await selectCourseAndDate()
-        fireEvent.change(screen.getByLabelText(/^location$/i), { target: { value: 'Room A' } })
+        await selectCourseAndDate(user)
+        await user.clear(screen.getByLabelText(/^location$/i))
+        await user.type(screen.getByLabelText(/^location$/i), 'Room A')
 
-        await userEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
+        await user.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
 
         expect(autoScheduleSessionsMock).toHaveBeenCalled()
         expect(onSessionsCreated).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ trainerId: 't1' })]))
@@ -261,18 +266,19 @@ describe('AutoScheduler', () => {
     })
 
     it('returns early during auto-schedule when selected course is no longer available', async () => {
+        const user = userEvent.setup()
         const onSessionsCreated = vi.fn()
         const { rerender } = render(
             <AutoScheduler users={users} courses={courses} onSessionsCreated={onSessionsCreated} />
         )
 
-        await selectCourseAndDate()
+        await selectCourseAndDate(user)
 
         rerender(
             <AutoScheduler users={users} courses={[]} onSessionsCreated={onSessionsCreated} />
         )
 
-        await userEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
+        await user.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
 
         expect(autoScheduleSessionsMock).not.toHaveBeenCalled()
         expect(onSessionsCreated).not.toHaveBeenCalled()
@@ -288,13 +294,14 @@ describe('AutoScheduler', () => {
             return [initialValue, vi.fn()]
         })
 
+        const user = userEvent.setup()
         render(
             <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
         )
 
         expect(screen.getByText(/automatic trainer scheduler/i)).toBeInTheDocument()
 
-        await selectCourseAndDate()
+        await selectCourseAndDate(user)
 
         fireEvent.change(screen.getByLabelText(/end date/i), {
             target: { value: '2026-03-21' },
@@ -308,14 +315,12 @@ describe('AutoScheduler', () => {
         fireEvent.change(screen.getByLabelText(/capacity/i), {
             target: { value: '16' },
         })
-
-        const user = userEvent.setup()
         await user.click(screen.getByRole('combobox', { name: /recurrence pattern/i }))
         await user.click(screen.getByRole('option', { name: /^weekly$/i }))
 
         fireEvent.change(screen.getByLabelText(/^location$/i), { target: { value: 'Room C' } })
 
-        await userEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
+        await user.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
 
         expect(autoScheduleSessionsMock).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -335,6 +340,7 @@ describe('AutoScheduler', () => {
     })
 
     it('renders unavailable trainer availability badge with outline variant', async () => {
+        const user = userEvent.setup()
         findAvailableTrainersMock.mockReturnValueOnce([
             {
                 trainer: { ...users[0], shifts: ['day'] },
@@ -349,9 +355,9 @@ describe('AutoScheduler', () => {
             <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
         )
 
-        await selectCourseAndDate()
+        await selectCourseAndDate(user)
 
-        await userEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+        await user.click(screen.getByRole('button', { name: /analyze feasibility/i }))
 
         const availabilityBadge = screen.getByText(/^unavailable$/i).closest('[data-slot="badge"]')
 
@@ -360,6 +366,7 @@ describe('AutoScheduler', () => {
     })
 
     it('renders scheduling conflicts when auto-schedule fails', async () => {
+        const user = userEvent.setup()
         autoScheduleSessionsMock.mockReturnValueOnce({
             success: false,
             sessions: [],
@@ -373,9 +380,9 @@ describe('AutoScheduler', () => {
             <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
         )
 
-        await selectCourseAndDate()
+        await selectCourseAndDate(user)
 
-        await userEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
+        await user.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
 
         expect(screen.getByText(/scheduling issues detected/i)).toBeInTheDocument()
         expect(screen.getByText(/no trainer available for selected date/i)).toBeInTheDocument()

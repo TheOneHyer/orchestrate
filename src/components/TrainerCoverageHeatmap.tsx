@@ -127,6 +127,8 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
       saturday: []
     }
 
+    let malformedScheduleCount = 0
+
     daysOfWeek.forEach(day => {
       for (let hour = 0; hour < 24; hour++) {
         const trainersWorking: string[] = []
@@ -140,7 +142,10 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
               const endHour = parseTime(schedule.endTime)
 
               // Skip malformed time strings that parseTime could not parse
-              if (isNaN(startHour) || isNaN(endHour)) return
+              if (isNaN(startHour) || isNaN(endHour)) {
+                malformedScheduleCount++
+                return
+              }
 
               let isWorking = false
 
@@ -164,6 +169,10 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
         })
       }
     })
+
+    if (malformedScheduleCount > 0) {
+      console.warn(`TrainerCoverageHeatmap: ${malformedScheduleCount} malformed schedule time string(s) encountered and skipped`)
+    }
 
     return coverage
   }, [trainers])

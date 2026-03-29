@@ -197,6 +197,53 @@ describe('wellness-analytics', () => {
             expect(result.reasons).toEqual([])
         })
 
+        it('triggers recovery plan on declining wellness trend alone', () => {
+            // newest-first order matches how shouldTriggerRecoveryPlan receives check-ins
+            const result = shouldTriggerRecoveryPlan(
+                [
+                    createCheckIn({
+                        id: 'latest',
+                        timestamp: '2026-03-16T09:00:00.000Z',
+                        mood: 3,
+                        stress: 'moderate',
+                        energy: 'neutral',
+                        workloadSatisfaction: 3,
+                        sleepQuality: 2,
+                        physicalWellbeing: 2,
+                        mentalClarity: 2,
+                        followUpRequired: false,
+                    }),
+                    createCheckIn({
+                        id: 'prev-1',
+                        timestamp: '2026-03-15T09:00:00.000Z',
+                        mood: 3,
+                        stress: 'moderate',
+                        energy: 'neutral',
+                        workloadSatisfaction: 3,
+                        sleepQuality: 3,
+                        physicalWellbeing: 3,
+                        mentalClarity: 3,
+                    }),
+                    createCheckIn({
+                        id: 'prev-2',
+                        timestamp: '2026-03-14T09:00:00.000Z',
+                        mood: 4,
+                        stress: 'low',
+                        energy: 'excellent',
+                        workloadSatisfaction: 4,
+                        sleepQuality: 4,
+                        physicalWellbeing: 4,
+                        mentalClarity: 4,
+                    }),
+                ],
+                'trainer-1',
+                70
+            )
+
+            expect(result.shouldTrigger).toBe(true)
+            expect(result.reasons).toEqual(['Declining wellness trend detected'])
+        })
+
         it('triggers recovery plan when risk conditions are present', () => {
             const result = shouldTriggerRecoveryPlan(
                 [

@@ -9,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { User, ShiftSchedule, DayOfWeek, CertificationRecord } from '@/lib/types'
 import { Plus, Trash, Clock, Calendar, Certificate } from '@phosphor-icons/react'
-import { differenceInMonths, differenceInYears, format, parseISO } from 'date-fns'
+import { differenceInDays, differenceInMonths, differenceInYears, format, parseISO } from 'date-fns'
 import { ManageCertificationsDialog } from '@/components/ManageCertificationsDialog'
 import { calculateCertificationStatus } from '@/lib/certification-tracker'
 
@@ -522,9 +522,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                 <div className="space-y-2">
                   {editedUser.trainerProfile.certificationRecords.map((cert, index) => {
                     const status = calculateCertificationStatus(cert)
-                    const daysUntil = Math.floor(
-                      (parseISO(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-                    )
+                    const daysUntil = differenceInDays(parseISO(cert.expirationDate), new Date())
 
                     return (
                       <div

@@ -29,7 +29,7 @@ import { ScheduleTemplate, Course, Session } from '@/lib/types'
 import { ScheduleTemplateDialog } from '@/components/ScheduleTemplateDialog'
 import { ApplyTemplateDialog } from '@/components/ApplyTemplateDialog'
 import { toast } from 'sonner'
-import { format, parseISO } from 'date-fns'
+import { format, isValid, parseISO } from 'date-fns'
 
 /** Props for the ScheduleTemplates component. */
 interface ScheduleTemplatesProps {
@@ -215,94 +215,102 @@ export function ScheduleTemplates({ courses, onCreateSessions }: ScheduleTemplat
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTemplates.map((template) => (
-            <Card key={template.id} data-testid={`template-card-${template.id}`} className="p-4 hover:shadow-md transition-shadow">
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg">{template.name}</h3>
-                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{template.description}</p>
+          {filteredTemplates.map((template) => {
+            const lastUsedFormatted = template.lastUsed
+              ? (() => {
+                const date = parseISO(template.lastUsed)
+                return isValid(date) ? format(date, 'MMM d') : null
+              })()
+              : null
+            return (
+              <Card key={template.id} data-testid={`template-card-${template.id}`} className="p-4 hover:shadow-md transition-shadow">
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-lg">{template.name}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{template.description}</p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                          <DotsThree size={20} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleApplyTemplate(template)} data-testid="dropdown-apply-template">
+                          <Play size={16} className="mr-2" />
+                          Apply Template
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleEditTemplate(template)}>
+                          <PencilSimple size={16} className="mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDuplicateTemplate(template)}>
+                          <Copy size={16} className="mr-2" />
+                          Duplicate
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          className="text-destructive"
+                        >
+                          <Trash size={16} className="mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <DotsThree size={20} />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleApplyTemplate(template)} data-testid="dropdown-apply-template">
-                        <Play size={16} className="mr-2" />
-                        Apply Template
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleEditTemplate(template)}>
-                        <PencilSimple size={16} className="mr-2" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDuplicateTemplate(template)}>
-                        <Copy size={16} className="mr-2" />
-                        Duplicate
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleDeleteTemplate(template.id)}
-                        className="text-destructive"
-                      >
-                        <Trash size={16} className="mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{template.category}</Badge>
-                  <Badge variant="outline" className="gap-1">
-                    <Repeat size={12} />
-                    {template.recurrenceType}
-                  </Badge>
-                  <Badge variant="outline" className="gap-1">
-                    <Clock size={12} />
-                    {template.sessions.length} session{template.sessions.length !== 1 ? 's' : ''}
-                  </Badge>
-                </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary">{template.category}</Badge>
+                    <Badge variant="outline" className="gap-1">
+                      <Repeat size={12} />
+                      {template.recurrenceType}
+                    </Badge>
+                    <Badge variant="outline" className="gap-1">
+                      <Clock size={12} />
+                      {template.sessions.length} session{template.sessions.length !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
 
-                {template.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {template.tags.slice(0, 3).map((tag) => (
-                      <Badge key={tag} variant="outline" className="text-xs gap-1">
-                        <Tag size={10} />
-                        {tag}
-                      </Badge>
-                    ))}
-                    {template.tags.length > 3 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{template.tags.length - 3}
-                      </Badge>
+                  {template.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {template.tags.slice(0, 3).map((tag) => (
+                        <Badge key={tag} variant="outline" className="text-xs gap-1">
+                          <Tag size={10} />
+                          {tag}
+                        </Badge>
+                      ))}
+                      {template.tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{template.tags.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar size={12} />
+                      Used {template.usageCount} time{template.usageCount !== 1 ? 's' : ''}
+                    </div>
+                    {lastUsedFormatted && (
+                      <div>Last: {lastUsedFormatted}</div>
                     )}
                   </div>
-                )}
 
-                <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar size={12} />
-                    Used {template.usageCount} time{template.usageCount !== 1 ? 's' : ''}
-                  </div>
-                  {template.lastUsed && (
-                    <div>Last: {format(parseISO(template.lastUsed), 'MMM d')}</div>
-                  )}
+                  <Button
+                    data-testid={`apply-template-${template.id}`}
+                    onClick={() => handleApplyTemplate(template)}
+                    className="w-full mt-2"
+                  >
+                    <Play size={16} className="mr-2" />
+                    Apply Template
+                  </Button>
                 </div>
-
-                <Button
-                  data-testid={`apply-template-${template.id}`}
-                  onClick={() => handleApplyTemplate(template)}
-                  className="w-full mt-2"
-                >
-                  <Play size={16} className="mr-2" />
-                  Apply Template
-                </Button>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            )
+          })}
         </div>
       )}
 
