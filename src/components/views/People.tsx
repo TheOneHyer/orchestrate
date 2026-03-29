@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { MagnifyingGlass, Plus, UserCircle, ArrowLeft, WarningCircle } from '@phosphor-icons/react'
 import { User, Enrollment, Course, Session } from '@/lib/types'
@@ -14,7 +13,6 @@ import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
 import { AddPersonDialog } from '@/components/AddPersonDialog'
 import { DeletePersonDialog } from '@/components/DeletePersonDialog'
-import { format } from 'date-fns'
 
 /** Props for the People component. */
 interface PeopleProps {
@@ -33,7 +31,7 @@ interface PeopleProps {
    * @param view - Target view name.
    * @param data - Optional payload for the target view.
    */
-  onNavigate: (view: string, data?: any) => void
+  onNavigate: (view: string, data?: unknown) => void
   /** Optional callback invoked when a user profile is saved after editing. */
   onUpdateUser?: (user: User) => void
   /** Optional callback invoked when a new person is added. */
@@ -80,12 +78,19 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
   const processedUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (selectedUser) {
-      const updatedUser = users.find(u => u.id === selectedUser.id)
-      if (updatedUser && JSON.stringify(updatedUser) !== JSON.stringify(selectedUser)) {
-        setSelectedUser(updatedUser)
+    setSelectedUser((currentSelectedUser) => {
+      if (!currentSelectedUser) {
+        return currentSelectedUser
       }
-    }
+
+      const updatedUser = users.find((user) => user.id === currentSelectedUser.id)
+      if (!updatedUser) {
+        return null
+      }
+
+      // Always sync to the latest user object from `users` so all fields stay up to date.
+      return updatedUser
+    })
   }, [users])
 
   useEffect(() => {
@@ -256,7 +261,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
             </div>
           </div>
 
-          <Tabs value={roleFilter} onValueChange={(v) => setRoleFilter(v as any)}>
+          <Tabs value={roleFilter} onValueChange={(v) => setRoleFilter(v as 'all' | 'admin' | 'trainer' | 'employee')}>
             <TabsList>
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="employee">Employees</TabsTrigger>

@@ -9,7 +9,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Checkbox } from '@/components/ui/checkbox'
 import { MagnifyingGlass, Users as UsersIcon, Certificate, Clock, CalendarBlank, X, ChartBar, Scales, CalendarCheck, WarningCircle } from '@phosphor-icons/react'
 import { User, Session, Course, DayOfWeek } from '@/lib/types'
 import { format, startOfWeek, addDays, isSameDay, addWeeks, isWithinInterval, startOfDay, endOfDay } from 'date-fns'
@@ -18,6 +17,7 @@ import { WorkloadRecommendations } from '@/components/WorkloadRecommendations'
 import { UnconfiguredScheduleAlert } from '@/components/UnconfiguredScheduleAlert'
 import { TrainerCoverageHeatmap } from '@/components/TrainerCoverageHeatmap'
 import { RecommendationDetailsDialog } from '@/components/RecommendationDetailsDialog'
+import { Checkbox } from '@/components/ui/checkbox'
 
 /** Props for the TrainerAvailability component. */
 interface TrainerAvailabilityProps {
@@ -259,7 +259,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                 >
                   <div className="space-y-1">
                     {daySessions.map(session => {
-                      const course = courses.find(c => c.id === session.courseId)
                       const startTime = format(new Date(session.startTime), 'h:mm a')
                       const endTime = format(new Date(session.endTime), 'h:mm a')
 
@@ -455,7 +454,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
             <div className="space-y-2">
               {upcomingSessions.length > 0 ? (
                 upcomingSessions.map(session => {
-                  const course = courses.find(c => c.id === session.courseId)
                   return (
                     <button
                       key={session.id}
@@ -664,6 +662,20 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                     <X size={18} />
                   </Button>
                 )}
+
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="hide-unconfigured-availability"
+                    checked={hideUnconfigured}
+                    onCheckedChange={(checked) => setHideUnconfigured(checked === true)}
+                  />
+                  <label
+                    htmlFor="hide-unconfigured-availability"
+                    className="text-sm font-medium leading-none cursor-pointer"
+                  >
+                    Hide unconfigured
+                  </label>
+                </div>
               </div>
             </CardHeader>
           </Card>

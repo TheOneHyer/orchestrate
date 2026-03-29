@@ -179,4 +179,34 @@ describe('TrendChart', () => {
         expect(screen.getByTestId('trend-series-trainer-1')).toHaveTextContent(/average 68\.0%, trend up/i)
         expect(screen.getByTestId('trend-series-trainer-2')).toHaveTextContent(/latest 0\.0%, average 0\.0%, trend flat/i)
     })
+
+    it('falls back to empty data points for all-invalid-date series', () => {
+        render(
+            <TrendChart
+                timeRange="month"
+                showAll={true}
+                data={[
+                    {
+                        trainerId: 'trainer-1',
+                        trend: 'stable' as const,
+                        changeRate: 0,
+                        dataPoints: [
+                            { date: 'not-a-date', utilization: 70, hours: 28, sessions: 7 },
+                        ],
+                    },
+                    {
+                        trainerId: 'trainer-2',
+                        trend: 'stable' as const,
+                        changeRate: 0,
+                        dataPoints: [
+                            { date: 'also-invalid', utilization: 80, hours: 32, sessions: 8 },
+                        ],
+                    },
+                ]}
+            />
+        )
+
+        expect(screen.getByTestId('trend-chart-empty')).toBeInTheDocument()
+        expect(screen.getByText(/no trend data available/i)).toBeInTheDocument()
+    })
 })

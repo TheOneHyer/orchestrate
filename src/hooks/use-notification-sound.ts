@@ -88,7 +88,7 @@ export function useNotificationSound() {
     if (audioContextRef.current) return
 
     try {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+      audioContextRef.current = new (window.AudioContext || (window as Window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
       gainNodeRef.current = audioContextRef.current.createGain()
       gainNodeRef.current.connect(audioContextRef.current.destination)
     } catch (error) {
@@ -134,7 +134,7 @@ export function useNotificationSound() {
     const soundConfig = getSoundConfig(safeSettings.soundType, priority)
     gainNodeRef.current.gain.value = safeSettings.volume
 
-    soundConfig.tones.forEach((tone, index) => {
+    soundConfig.tones.forEach((tone) => {
       const delay = tone.delay || 0
       const startTime = now + delay / 1000
 

@@ -50,7 +50,6 @@ export default tseslint.config(
             'react-hooks/purity': 'off',
             'react-hooks/preserve-manual-memoization': 'off',
             'react/no-unescaped-entities': 'off',
-            '@typescript-eslint/no-explicit-any': 'off',
             '@typescript-eslint/no-unused-vars': ['warn', {
                 argsIgnorePattern: '^_',
                 varsIgnorePattern: '^_',
@@ -64,6 +63,13 @@ export default tseslint.config(
         files: ['**/*.test.{ts,tsx}', 'src/test/**/*.{ts,tsx}', 'src/lib/*-{generator,seed-data}.ts'],
         rules: {
             '@typescript-eslint/no-explicit-any': 'off',
+        },
+    },
+    {
+        // shadcn/ui files intentionally co-export component factories and helpers.
+        files: ['src/components/ui/**/*.{ts,tsx}'],
+        rules: {
+            'react-refresh/only-export-components': 'off',
         },
     },
 )

@@ -398,13 +398,13 @@ function App() {
         setUsers(updatedUsers)
       }
     }
-  }, [])
+  }, [users, setUsers])
 
-  const safeUsers = users || []
-  const safeSessions = sessions || []
-  const safeCourses = courses || []
-  const safeEnrollments = enrollments || []
-  const safeNotifications = notifications || []
+  const safeUsers = useMemo(() => users || [], [users])
+  const safeSessions = useMemo(() => sessions || [], [sessions])
+  const safeCourses = useMemo(() => courses || [], [courses])
+  const safeEnrollments = useMemo(() => enrollments || [], [enrollments])
+  const safeNotifications = useMemo(() => notifications || [], [notifications])
   const hasPersistedUsers = safeUsers.length > 0
 
   const fallbackUser = useMemo<User>(() => ({
@@ -503,7 +503,7 @@ function App() {
         duration: 8000
       })
     }
-  }, [activeUserId, safeUsers, sendNotification, setNotifications])
+  }, [activeUserId, fallbackUser.role, safeUsers, sendNotification, setNotifications])
 
   useUtilizationNotifications(safeUsers, safeSessions, handleCreateNotification)
 
@@ -511,7 +511,7 @@ function App() {
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 
-  const safeAttendanceRecords = attendanceRecords || []
+  const safeAttendanceRecords = useMemo(() => attendanceRecords || [], [attendanceRecords])
 
   const visibleCourses = useMemo(() => {
     if (currentUser.role === 'admin') {
@@ -1504,7 +1504,6 @@ function App() {
             users={safeUsers}
             sessions={visibleSessions}
             courses={visibleCourses}
-            onNavigate={handleNavigate}
           />
         )
       case 'certifications':

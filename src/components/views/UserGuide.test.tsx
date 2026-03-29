@@ -1,7 +1,8 @@
 import userEvent from '@testing-library/user-event'
 import { render, screen } from '@testing-library/react'
 
-import { getSectionOrFallback, UserGuide } from './UserGuide'
+import { UserGuide } from './UserGuide'
+import { getSectionOrFallback } from './user-guide-utils'
 
 describe('getSectionOrFallback', () => {
   type SectionList = Parameters<typeof getSectionOrFallback>[0]

@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { User, Session, Course, Enrollment, DayOfWeek, CertificationRecord } from '@/lib/types'
-import { Calendar, Clock, GraduationCap, MapPin, Briefcase, ChartBar, PencilSimple, Trash, Certificate } from '@phosphor-icons/react'
-import { differenceInYears, differenceInMonths, format, parseISO } from 'date-fns'
+import { User, Session, Course, Enrollment, DayOfWeek } from '@/lib/types'
+import { Calendar, Clock, MapPin, Briefcase, ChartBar, PencilSimple, Trash, Certificate } from '@phosphor-icons/react'
+import { differenceInDays, differenceInYears, differenceInMonths, format, parseISO } from 'date-fns'
 import { UnconfiguredScheduleAlert } from '@/components/UnconfiguredScheduleAlert'
 import { ManageCertificationsDialog } from '@/components/ManageCertificationsDialog'
 import { useState } from 'react'
@@ -36,6 +36,9 @@ interface TrainerProfileViewProps {
   onUpdateUser?: (user: User) => void
 }
 
+/** Number of hours assumed per training session when calculating trainer utilization. */
+const HOURS_PER_SESSION = 2
+
 /** Canonical sort order for days of the week, used when rendering shift schedule day chips. */
 const DAY_ORDER: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 /** Maps each {@link DayOfWeek} key to a three-character display abbreviation. */
@@ -59,11 +62,11 @@ const DAY_ABBREV: Record<DayOfWeek, string> = {
  * authorized roles are rendered for trainer users. An {@link UnconfiguredScheduleAlert} is
  * shown when a trainer has no configured shift schedule.
  */
-export function TrainerProfileView({ user, sessions, courses, enrollments, onEdit, onDelete, onUpdateUser }: TrainerProfileViewProps) {
+export function TrainerProfileView({ user, sessions, courses: _courses, enrollments: _enrollments, onEdit, onDelete, onUpdateUser }: TrainerProfileViewProps) {
   const [certDialogOpen, setCertDialogOpen] = useState(false)
-  
+
   const trainerSessions = sessions.filter(s => s.trainerId === user.id)
-  const upcomingSessions = trainerSessions.filter(s => new Date(s.startTime) > new Date())
+  const upcomingSessions = trainerSessions.filter(s => parseISO(s.startTime) > new Date())
   const completedSessions = trainerSessions.filter(s => s.status === 'completed')
 
   const totalWeeklyHours = user.trainerProfile?.shiftSchedules.reduce(
@@ -73,11 +76,11 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
 
   const uniqueCoursesTaught = new Set(trainerSessions.map(s => s.courseId)).size
 
-  const yearsOfService = differenceInYears(new Date(), new Date(user.hireDate))
-  const monthsOfService = differenceInMonths(new Date(), new Date(user.hireDate))
+  const yearsOfService = differenceInYears(new Date(), parseISO(user.hireDate))
+  const monthsOfService = differenceInMonths(new Date(), parseISO(user.hireDate))
 
-  const utilization = totalWeeklyHours > 0 
-    ? Math.min(100, Math.round((upcomingSessions.length * 2 / totalWeeklyHours) * 100))
+  const utilization = totalWeeklyHours > 0
+    ? Math.min(100, Math.round((upcomingSessions.length * HOURS_PER_SESSION / totalWeeklyHours) * 100))
     : 0
 
   return (
@@ -168,11 +171,7 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
               <div>
                 <p className="text-sm text-muted-foreground">Hire Date</p>
                 <p className="text-lg font-semibold">
-                  {new Date(user.hireDate).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric', 
-                    year: 'numeric' 
-                  })}
+                  {format(parseISO(user.hireDate), 'MMM d, yyyy')}
                 </p>
               </div>
               <div>
@@ -210,10 +209,8 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
               <div className="space-y-3">
                 {user.trainerProfile.certificationRecords.map((cert, idx) => {
                   const status = calculateCertificationStatus(cert)
-                  const daysUntil = Math.floor(
-                    (new Date(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-                  )
-                  
+                  const daysUntil = differenceInDays(parseISO(cert.expirationDate), new Date())
+
                   return (
                     <div key={idx} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                       <div className="flex-1">
@@ -230,8 +227,8 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
                         )}
                         <Badge className={
                           status === 'expired' ? 'bg-red-100 text-red-800 border-red-200' :
-                          status === 'expiring-soon' ? 'bg-amber-100 text-amber-800 border-amber-200' :
-                          'bg-green-100 text-green-800 border-green-200'
+                            status === 'expiring-soon' ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                              'bg-green-100 text-green-800 border-green-200'
                         }>
                           {status === 'expired' && 'Expired'}
                           {status === 'expiring-soon' && `${daysUntil}d left`}
@@ -295,11 +292,10 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
                             return (
                               <div
                                 key={day}
-                                className={`w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium ${
-                                  isWorked
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-muted text-muted-foreground'
-                                }`}
+                                className={`w-10 h-10 rounded-md flex items-center justify-center text-xs font-medium ${isWorked
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground'
+                                  }`}
                               >
                                 {DAY_ABBREV[day]}
                               </div>
@@ -412,7 +408,7 @@ export function TrainerProfileView({ user, sessions, courses, enrollments, onEdi
           )}
         </>
       )}
-      
+
       {user.role === 'trainer' && onUpdateUser && (
         <ManageCertificationsDialog
           open={certDialogOpen}

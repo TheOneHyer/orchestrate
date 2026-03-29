@@ -1,6 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AutoScheduler } from './AutoScheduler'
 import type { Course, User } from '@/lib/types'
@@ -304,6 +303,30 @@ describe('AutoScheduler', () => {
         )
 
         setDefaultUseKVMock()
+    })
+
+    it('renders unavailable trainer availability badge with outline variant', async () => {
+        findAvailableTrainersMock.mockReturnValueOnce([
+            {
+                trainer: { ...users[0], shifts: ['day'] },
+                score: 45,
+                matchReasons: [],
+                conflicts: ['Trainer is unavailable for the selected period'],
+                availability: 'unavailable',
+            },
+        ])
+
+        render(
+            <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
+        )
+
+        await selectCourseAndDate()
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+        })
+
+        expect(screen.getAllByText(/unavailable/i).length).toBeGreaterThan(0)
     })
 
     it('renders scheduling conflicts when auto-schedule fails', async () => {

@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
 pnpm install --frozen-lockfile
-pnpm exec eslint . --fix
+pnpm lint
 pnpm build
 pnpm test:coverage

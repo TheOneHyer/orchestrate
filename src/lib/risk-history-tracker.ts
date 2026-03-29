@@ -1,5 +1,5 @@
 import { User, Session, Course, WellnessCheckIn } from './types'
-import { calculateTrainerUtilization, TrainerUtilization } from './burnout-analytics'
+import { calculateTrainerUtilization } from './burnout-analytics'
 import { subDays, format } from 'date-fns'
 
 /**
@@ -275,7 +275,7 @@ export function aggregateSnapshotsByDay(
 
   const aggregated: RiskHistorySnapshot[] = []
 
-  snapshotsByDay.forEach((daySnapshots, day) => {
+  snapshotsByDay.forEach((daySnapshots) => {
     const latest = daySnapshots.reduce((latest, current) =>
       new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest
     )

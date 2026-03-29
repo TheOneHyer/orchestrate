@@ -420,7 +420,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
     }))
 
     const enrollments: Enrollment[] = slicedEnrollmentRows
-        .map(({ session, userId, sequence }, index) => {
+        .map(({ session, userId, sequence }) => {
             const sessionStart = new Date(session.startTime)
             const sessionEnd = new Date(session.endTime)
             const enrollmentWindowMs = Math.max(sessionEnd.getTime() - sessionStart.getTime(), 1)

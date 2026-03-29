@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { WellnessCheckInDialog } from './WellnessCheckInDialog'
-import { COMMON_CONCERNS } from './WellnessCheckInDialog'
+import { COMMON_CONCERNS } from '@/lib/wellness-concerns'
 
 let defaultProps!: {
   open: boolean

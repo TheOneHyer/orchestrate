@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { User, DayOfWeek } from '@/lib/types'
@@ -76,15 +75,16 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     })
   }, [allTrainers, certFilter])
 
-/**
- * Parses a time string in "HH:MM" or "h:mm AM/PM" format and returns a decimal hour.
- *
- * @param timeStr - Time string to parse (e.g., "09:30", "2:45 PM").
- * @returns The time expressed as a decimal hour (e.g., 9.5 for 09:30, 14.75 for 2:45 PM).
- */
+  /**
+   * Parses a time string in "HH:MM" or "h:mm AM/PM" format and returns a decimal hour.
+   *
+   * @param timeStr - Time string to parse (e.g., "09:30", "2:45 PM").
+   * @returns The time expressed as a decimal hour (e.g., 9.5 for 09:30, 14.75 for 2:45 PM).
+   */
   const parseTime = (timeStr: string): number => {
     const [time, period] = timeStr.split(' ')
-    let [hours, minutes] = time.split(':').map(Number)
+    const [parsedHours, minutes] = time.split(':').map(Number)
+    let hours = parsedHours
 
     if (period === 'PM' && hours !== 12) {
       hours += 12
@@ -145,13 +145,13 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     return coverage
   }, [trainers])
 
-/**
- * Returns the Tailwind CSS class string for a heatmap cell based on coverage ratio.
- *
- * @param count - Number of trainers working during the cell's time slot.
- * @param target - Target number of trainers required per hour.
- * @returns A space-separated string of Tailwind classes representing the cell's colour.
- */
+  /**
+   * Returns the Tailwind CSS class string for a heatmap cell based on coverage ratio.
+   *
+   * @param count - Number of trainers working during the cell's time slot.
+   * @param target - Target number of trainers required per hour.
+   * @returns A space-separated string of Tailwind classes representing the cell's colour.
+   */
   const getHeatmapColor = (count: number, target: number) => {
     const ratio = count / target
 
@@ -172,13 +172,13 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     return 'bg-gray-100 dark:bg-gray-900 border-gray-200 dark:border-gray-800'
   }
 
-/**
- * Returns a numeric coverage tier (0–4) used as a `data-coverage-tier` attribute for testing.
- *
- * @param count - Number of trainers working during the cell's time slot.
- * @param target - Target number of trainers required per hour.
- * @returns 0 = no coverage, 1 = below 50%, 2 = 50–74%, 3 = 75–99%, 4 = at/above target.
- */
+  /**
+   * Returns a numeric coverage tier (0–4) used as a `data-coverage-tier` attribute for testing.
+   *
+   * @param count - Number of trainers working during the cell's time slot.
+   * @param target - Target number of trainers required per hour.
+   * @returns 0 = no coverage, 1 = below 50%, 2 = 50–74%, 3 = 75–99%, 4 = at/above target.
+   */
   const getCoverageTier = (count: number, target: number) => {
     if (count === 0) return 0
 
@@ -191,12 +191,12 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     return 0
   }
 
-/**
- * Formats a 24-hour integer as a compact AM/PM label (e.g., 0 → "12a", 13 → "1p").
- *
- * @param hour - Hour value from 0 to 23.
- * @returns A short string suitable for the heatmap column header.
- */
+  /**
+   * Formats a 24-hour integer as a compact AM/PM label (e.g., 0 → "12a", 13 → "1p").
+   *
+   * @param hour - Hour value from 0 to 23.
+   * @returns A short string suitable for the heatmap column header.
+   */
   const formatHour = (hour: number) => {
     if (hour === 0) return '12a'
     if (hour === 12) return '12p'

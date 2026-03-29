@@ -96,7 +96,7 @@ export function usePushNotifications() {
       icon?: string
       badge?: string
       tag?: string
-      data?: any
+      data?: unknown
       priority?: 'low' | 'medium' | 'high' | 'critical'
       requireInteraction?: boolean
       silent?: boolean

@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Calendar, Users, Clock, MapPin } from '@phosphor-icons/react'
 import { ScheduleTemplate, Session } from '@/lib/types'
@@ -45,17 +44,17 @@ export function ApplyTemplateDialog({ open, onOpenChange, template, onApply }: A
   const [useAutoAssign, setUseAutoAssign] = useState(template?.autoAssignTrainers ?? true)
   const [sendNotifications, setSendNotifications] = useState(template?.notifyParticipants ?? true)
 
-/**
- * Generates an array of partial {@link Session} objects from a {@link ScheduleTemplate}.
- *
- * Iterates over the requested number of recurrence cycles starting from `startDate`,
- * computes the concrete date/time for each template session slot (respecting `dayOfWeek`
- * and the template's `recurrenceType`), and applies any user-supplied overrides for
- * course, location, and capacity.
- *
- * @returns An array of partial session objects, or an empty array when `template` is null
- *          or `startDate` is invalid.
- */
+  /**
+   * Generates an array of partial {@link Session} objects from a {@link ScheduleTemplate}.
+   *
+   * Iterates over the requested number of recurrence cycles starting from `startDate`,
+   * computes the concrete date/time for each template session slot (respecting `dayOfWeek`
+   * and the template's `recurrenceType`), and applies any user-supplied overrides for
+   * course, location, and capacity.
+   *
+   * @returns An array of partial session objects, or an empty array when `template` is null
+   *          or `startDate` is invalid.
+   */
   const generateSessions = (): Partial<Session>[] => {
     if (!template) return []
 

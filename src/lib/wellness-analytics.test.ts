@@ -255,7 +255,18 @@ describe('wellness-analytics', () => {
         it('calculates recovery progress from completed actions', () => {
             const result = calculateRecoveryProgress(createRecoveryPlan())
 
-            // 1 of 2 actions complete => 35 points, plus the current utilization formula contributes 30 points.
+            // 1 of 2 actions complete => 35 points, plus utilization progress (~25 points).
+            expect(result).toBe(60)
+        })
+
+        it('awards full utilization credit when current utilization is at or below target', () => {
+            const result = calculateRecoveryProgress(
+                createRecoveryPlan({
+                    currentUtilization: 75,
+                    targetUtilization: 80,
+                })
+            )
+
             expect(result).toBe(65)
         })
     })

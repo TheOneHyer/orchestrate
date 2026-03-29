@@ -52,7 +52,7 @@ interface ScheduleTemplatesProps {
  * @param onCreateSessions - Optional callback invoked with the concrete `Session` objects created when applying a template.
  * @returns A React element representing the schedule templates management UI.
  */
-export function ScheduleTemplates({ courses, onNavigate, onCreateSessions }: ScheduleTemplatesProps) {
+export function ScheduleTemplates({ courses, onNavigate: _onNavigate, onCreateSessions }: ScheduleTemplatesProps) {
   const [templates, setTemplates] = useKV<ScheduleTemplate[]>('schedule-templates', [])
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')

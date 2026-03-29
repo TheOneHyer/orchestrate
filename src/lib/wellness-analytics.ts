@@ -1,5 +1,5 @@
-import { WellnessCheckIn, StressLevel, EnergyLevel, RecoveryPlan, RecoveryPlanStatus, WellnessTrend, User } from './types'
-import { subDays, startOfWeek, endOfWeek, eachWeekOfInterval, isWithinInterval, format } from 'date-fns'
+import { WellnessCheckIn, StressLevel, EnergyLevel, RecoveryPlan, WellnessTrend } from './types'
+import { subDays, format } from 'date-fns'
 
 /**
  * Calculates a composite wellness score (0–100) for a single check-in by
@@ -83,8 +83,8 @@ export function analyzeWellnessTrend(
 
   const relevantCheckIns = checkIns.filter(
     c => c.trainerId === trainerId &&
-    new Date(c.timestamp) >= startDate &&
-    new Date(c.timestamp) <= now
+      new Date(c.timestamp) >= startDate &&
+      new Date(c.timestamp) <= now
   )
 
   if (relevantCheckIns.length === 0) {
@@ -189,7 +189,7 @@ export function shouldTriggerRecoveryPlan(
   if (recentCheckIns.length >= 2) {
     const scores = recentCheckIns.map(calculateWellnessScore)
     const declining = scores.every((score, idx) => idx === 0 || score < scores[idx - 1])
-    
+
     if (declining && scores[0] < scores[scores.length - 1] - 15) {
       shouldTrigger = true
       reasons.push('Declining wellness trend detected')
@@ -218,15 +218,14 @@ export function shouldTriggerRecoveryPlan(
  */
 export function calculateRecoveryProgress(plan: RecoveryPlan): number {
   if (plan.actions.length === 0) return 0
-  
+
   const completedActions = plan.actions.filter(a => a.completed).length
   const actionProgress = (completedActions / plan.actions.length) * 70
 
-  const utilizationImprovement = Math.max(
-    0,
-    Math.min(30, ((plan.currentUtilization - plan.targetUtilization) / 
-    (plan.currentUtilization - plan.targetUtilization)) * 30)
-  )
+  // Treat being at or below target utilization as full utilization-progress credit.
+  const utilizationImprovement = plan.currentUtilization <= plan.targetUtilization
+    ? 30
+    : Math.max(0, Math.min(30, (plan.targetUtilization / plan.currentUtilization) * 30))
 
   return Math.round(actionProgress + utilizationImprovement)
 }
@@ -350,7 +349,7 @@ export function getWellnessInsights(
   trainerId: string
 ): { insight: string; severity: 'info' | 'warning' | 'critical' }[] {
   const insights: { insight: string; severity: 'info' | 'warning' | 'critical' }[] = []
-  
+
   const trainerCheckIns = checkIns
     .filter(c => c.trainerId === trainerId)
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())

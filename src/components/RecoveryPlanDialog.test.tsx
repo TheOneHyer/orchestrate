@@ -1,14 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { parseNumericInput, RecoveryPlanDialog } from './RecoveryPlanDialog'
-import { calculateWellnessScore, getRecoveryPlanRecommendations } from '@/lib/wellness-analytics'
+import { RecoveryPlanDialog } from './RecoveryPlanDialog'
+import { parseNumericInput } from '@/lib/parse-numeric-input'
+import { calculateWellnessScore } from '@/lib/wellness-analytics'
 import type { User, WellnessCheckIn } from '@/lib/types'
 
 vi.mock('@/lib/wellness-analytics', () => ({
     calculateWellnessScore: vi.fn(() => 42),
-    getRecoveryPlanRecommendations: vi.fn(() => ['Reduce workload', 'Schedule support session']),
 }))
 
 const currentUser: User = {
@@ -83,7 +82,6 @@ describe('RecoveryPlanDialog', () => {
         expect(screen.getByText(/provide 3-5 consecutive days of paid time off/i)).toBeInTheDocument()
         expect(screen.getByText(/support session/i)).toBeInTheDocument()
         expect(vi.mocked(calculateWellnessScore)).toHaveBeenCalledWith(latestCheckIn)
-        expect(vi.mocked(getRecoveryPlanRecommendations)).toHaveBeenCalledWith(90, 42, 'high', 'tired')
     })
 
     it('submits plan payload with generated action ids when auto-filled data exists', async () => {
@@ -338,12 +336,10 @@ describe('RecoveryPlanDialog', () => {
         )
 
         expect(vi.mocked(calculateWellnessScore)).not.toHaveBeenCalled()
-        expect(vi.mocked(getRecoveryPlanRecommendations)).not.toHaveBeenCalled()
     })
 
     it('skips high-stress, concerns, and support-action prefill on low-risk check-ins', () => {
         vi.mocked(calculateWellnessScore).mockReturnValueOnce(68)
-        vi.mocked(getRecoveryPlanRecommendations).mockReturnValueOnce([])
 
         const lowRiskCheckIn: WellnessCheckIn = {
             ...latestCheckIn,

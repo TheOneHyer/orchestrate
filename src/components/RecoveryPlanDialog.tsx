@@ -5,13 +5,13 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Trash, FirstAid } from '@phosphor-icons/react'
 import { RecoveryPlan, RecoveryAction, RecoveryPlanAction, WellnessCheckIn, User } from '@/lib/types'
-import { getRecoveryPlanRecommendations, calculateWellnessScore } from '@/lib/wellness-analytics'
+import { calculateWellnessScore } from '@/lib/wellness-analytics'
+import { parseNumericInput } from '@/lib/parse-numeric-input'
 
 /**
  * Props for the {@link RecoveryPlanDialog} component.
@@ -55,36 +55,6 @@ const RECOVERY_ACTION_TEMPLATES: Record<RecoveryAction, string> = {
 const DEFAULT_TARGET_UTILIZATION = 70
 const DEFAULT_DURATION_WEEKS = 4
 
-/**
- * Parse a numeric string into an integer with optional min/max clamping.
- *
- * Empty, non-finite, or non-numeric values fall back to the provided default.
- *
- * @param value - Raw input value from form state.
- * @param fallbackValue - Value returned when parsing fails.
- * @param min - Optional minimum allowed value.
- * @param max - Optional maximum allowed value.
- * @returns A normalized integer suitable for plan numeric fields.
- */
-export function parseNumericInput(value: string, fallbackValue: number, min?: number, max?: number): number {
-  if (value.trim() === '') {
-    return fallbackValue
-  }
-
-  const parsedValue = Number(value)
-  if (!Number.isFinite(parsedValue)) {
-    return fallbackValue
-  }
-  let result = Math.trunc(parsedValue)
-  if (min !== undefined) {
-    result = Math.max(min, result)
-  }
-  if (max !== undefined) {
-    result = Math.min(max, result)
-  }
-  return result
-}
-
 type EditableRecoveryPlanActionField = keyof Pick<RecoveryPlanAction, 'description' | 'targetDate' | 'notes'>
 
 /**
@@ -122,12 +92,6 @@ export function RecoveryPlanDialog({
 
     if (latestCheckIn) {
       const wellnessScore = calculateWellnessScore(latestCheckIn)
-      const recommendations = getRecoveryPlanRecommendations(
-        currentUtilization,
-        wellnessScore,
-        latestCheckIn.stress,
-        latestCheckIn.energy
-      )
 
       let reason = `Wellness score: ${wellnessScore}/100. `
       if (latestCheckIn.stress === 'critical' || latestCheckIn.stress === 'high') {
