@@ -509,4 +509,107 @@ describe('TrainerProfileDialog', () => {
 
         expect(screen.getByText(/renewal in progress/i, { selector: 'span' })).toBeInTheDocument()
     })
+
+    it('uses existing trainerProfile as-is when user already has one on open', async () => {
+        const userWithProfile = makeTrainer({
+            trainerProfile: {
+                authorizedRoles: ['Existing Role'],
+                shiftSchedules: [],
+                tenure: {
+                    hireDate: '2024-01-01T00:00:00.000Z',
+                    yearsOfService: 1,
+                    monthsOfService: 12,
+                },
+                specializations: ['Existing Spec'],
+                certificationRecords: [],
+            },
+        })
+
+        render(
+            <TrainerProfileDialog
+                user={userWithProfile}
+                open
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+
+        expect(await screen.findByText('Existing Role')).toBeInTheDocument()
+        expect(screen.getByText('Existing Spec')).toBeInTheDocument()
+    })
+
+    it('preserves unsaved edits when user prop reference changes while dialog stays open', async () => {
+        const user = userEvent.setup()
+        const onSave = vi.fn()
+
+        const { rerender } = render(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+            />
+        )
+
+        // Add a new role while the dialog is open
+        const roleInput = await screen.findByPlaceholderText(/add authorized role/i)
+        await user.type(roleInput, 'New Role')
+        await user.click(screen.getByRole('button', { name: /add role/i }))
+        expect(screen.getByText('New Role')).toBeInTheDocument()
+
+        // Simulate a user prop reference change (e.g. parent re-renders) while dialog stays open
+        rerender(
+            <TrainerProfileDialog
+                user={{ ...makeTrainer(), department: 'Updated Department' }}
+                open
+                onOpenChange={vi.fn()}
+                onSave={onSave}
+            />
+        )
+
+        // The unsaved role should still be present (prevOpenRef prevents reset)
+        expect(screen.getByText('New Role')).toBeInTheDocument()
+    })
+
+    it('discards unsaved edits when dialog is closed and reopened', async () => {
+        const user = userEvent.setup()
+
+        const { rerender } = render(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+
+        // Add a new role while the dialog is open
+        const roleInput = await screen.findByPlaceholderText(/add authorized role/i)
+        await user.type(roleInput, 'Temporary Role')
+        await user.click(screen.getByRole('button', { name: /add role/i }))
+        expect(screen.getByText('Temporary Role')).toBeInTheDocument()
+
+        // Close the dialog
+        rerender(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open={false}
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+
+        // Reopen the dialog — unsaved edits should be discarded
+        rerender(
+            <TrainerProfileDialog
+                user={makeTrainer()}
+                open
+                onOpenChange={vi.fn()}
+                onSave={vi.fn()}
+            />
+        )
+
+        expect(await screen.findByPlaceholderText(/add authorized role/i)).toBeInTheDocument()
+        expect(screen.queryByText('Temporary Role')).not.toBeInTheDocument()
+    })
 })

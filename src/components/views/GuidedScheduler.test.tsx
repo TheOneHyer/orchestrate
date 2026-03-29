@@ -759,4 +759,60 @@ describe('GuidedScheduler', () => {
         expect(screen.getByText('22/100')).toBeInTheDocument()
         expect(screen.getByText('82/100')).toBeInTheDocument()
     })
+
+    it('does not show a Cancel button when onClose is not provided', () => {
+        renderGuidedScheduler({ onClose: undefined })
+
+        expect(screen.queryByRole('button', { name: /^cancel$/i })).not.toBeInTheDocument()
+    })
+
+    it('shows Cancel button in parameters step and calls onClose when clicked', async () => {
+        const user = userEvent.setup()
+        const onClose = vi.fn()
+
+        renderGuidedScheduler({ onClose })
+
+        const cancelButton = screen.getByRole('button', { name: /^cancel$/i })
+        expect(cancelButton).toBeInTheDocument()
+
+        await user.click(cancelButton)
+        expect(onClose).toHaveBeenCalledOnce()
+    })
+
+    it('shows Cancel button in trainer selection step and calls onClose when clicked', async () => {
+        const user = userEvent.setup()
+        const onClose = vi.fn()
+
+        renderGuidedScheduler({ onClose })
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        // Now in trainer selection step
+        expect(screen.getByText(/select trainer/i)).toBeInTheDocument()
+        const cancelButton = screen.getByRole('button', { name: /^cancel$/i })
+        expect(cancelButton).toBeInTheDocument()
+
+        await user.click(cancelButton)
+        expect(onClose).toHaveBeenCalledOnce()
+    })
+
+    it('shows Cancel button in confirmation step and calls onClose when clicked', async () => {
+        const user = userEvent.setup()
+        const onClose = vi.fn()
+
+        renderGuidedScheduler({ onClose })
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+        await user.click(screen.getByText(/1\. taylor trainer/i))
+
+        // Now in confirmation step
+        expect(screen.getByText(/confirm schedule/i)).toBeInTheDocument()
+        const cancelButton = screen.getByRole('button', { name: /^cancel$/i })
+        expect(cancelButton).toBeInTheDocument()
+
+        await user.click(cancelButton)
+        expect(onClose).toHaveBeenCalledOnce()
+    })
 })
