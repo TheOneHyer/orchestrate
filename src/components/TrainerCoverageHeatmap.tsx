@@ -93,11 +93,16 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     if (parts.length !== 1 && parts.length !== 2) return NaN
 
     const [time, period] = parts
-    if (!time.includes(':')) return NaN
+    const timeParts = time.split(':')
+    if (timeParts.length !== 2) return NaN
 
-    const [parsedHours, minutes] = time.split(':').map(Number)
-    if (!Number.isFinite(parsedHours) || !Number.isFinite(minutes)) return NaN
+    const parsedHours = Number(timeParts[0])
+    const minutes = Number(timeParts[1])
+    if (!Number.isInteger(parsedHours) || !Number.isInteger(minutes)) return NaN
+    if (minutes < 0 || minutes > 59) return NaN
     if (period !== undefined && period !== 'AM' && period !== 'PM') return NaN
+    if (period === undefined && (parsedHours < 0 || parsedHours > 23)) return NaN
+    if (period !== undefined && (parsedHours < 1 || parsedHours > 12)) return NaN
 
     let hours = parsedHours
 

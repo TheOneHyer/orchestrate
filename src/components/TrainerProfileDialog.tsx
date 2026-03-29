@@ -523,7 +523,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                   {editedUser.trainerProfile.certificationRecords.map((cert, index) => {
                     const status = calculateCertificationStatus(cert)
                     const daysUntil = Math.floor(
-                      (new Date(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                      (parseISO(cert.expirationDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
                     )
 
                     return (

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { AutoScheduler } from './AutoScheduler'
@@ -173,9 +173,7 @@ describe('AutoScheduler', () => {
 
         await selectCourseAndDate()
 
-        await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
-        })
+        await userEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
 
         expect(analyzeFeasibilityMock).toHaveBeenCalled()
         expect(findAvailableTrainersMock).toHaveBeenCalled()
@@ -202,9 +200,7 @@ describe('AutoScheduler', () => {
 
         await selectCourseAndDate()
 
-        await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
-        })
+        await userEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
 
         expect(screen.getByText(/partial/i)).toBeInTheDocument()
         expect(screen.getByText(/already assigned during selected time/i)).toBeInTheDocument()
@@ -220,9 +216,7 @@ describe('AutoScheduler', () => {
 
         await selectCourseAndDate()
 
-        await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
-        })
+        await userEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
 
         expect(screen.getByText(/no available trainers/i)).toBeInTheDocument()
         expect(toastWarning).toHaveBeenCalledWith('Some scheduling constraints detected')
@@ -239,9 +233,7 @@ describe('AutoScheduler', () => {
             <AutoScheduler users={users} courses={[]} onSessionsCreated={vi.fn()} />
         )
 
-        await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
-        })
+        await userEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
 
         expect(analyzeFeasibilityMock).not.toHaveBeenCalled()
         expect(findAvailableTrainersMock).not.toHaveBeenCalled()
@@ -259,9 +251,7 @@ describe('AutoScheduler', () => {
         await selectCourseAndDate()
         fireEvent.change(screen.getByLabelText(/^location$/i), { target: { value: 'Room A' } })
 
-        await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
-        })
+        await userEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
 
         expect(autoScheduleSessionsMock).toHaveBeenCalled()
         expect(onSessionsCreated).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ trainerId: 't1' })]))
@@ -282,14 +272,12 @@ describe('AutoScheduler', () => {
             <AutoScheduler users={users} courses={[]} onSessionsCreated={onSessionsCreated} />
         )
 
-        await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
-        })
+        await userEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
 
         expect(autoScheduleSessionsMock).not.toHaveBeenCalled()
         expect(onSessionsCreated).not.toHaveBeenCalled()
-        expect(toastSuccess).not.toHaveBeenCalledWith('Successfully scheduled 1 session(s)!')
-        expect(toastError).not.toHaveBeenCalledWith('Could not schedule sessions')
+        expect(toastSuccess).not.toHaveBeenCalled()
+        expect(toastError).not.toHaveBeenCalled()
     })
 
     it('includes recurrence and date-range constraints in auto-schedule payload and supports null sessions store', async () => {
@@ -327,9 +315,7 @@ describe('AutoScheduler', () => {
 
         fireEvent.change(screen.getByLabelText(/^location$/i), { target: { value: 'Room C' } })
 
-        await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
-        })
+        await userEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
 
         expect(autoScheduleSessionsMock).toHaveBeenCalledWith(
             expect.objectContaining({
@@ -365,11 +351,12 @@ describe('AutoScheduler', () => {
 
         await selectCourseAndDate()
 
-        await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
-        })
+        await userEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
 
-        expect(screen.getAllByText(/unavailable/i).length).toBeGreaterThan(0)
+        const availabilityBadge = screen.getByText(/^unavailable$/i).closest('[data-slot="badge"]')
+
+        expect(availabilityBadge).toBeInTheDocument()
+        expect(availabilityBadge).toHaveClass('text-foreground')
     })
 
     it('renders scheduling conflicts when auto-schedule fails', async () => {
@@ -388,9 +375,7 @@ describe('AutoScheduler', () => {
 
         await selectCourseAndDate()
 
-        await act(async () => {
-            fireEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
-        })
+        await userEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
 
         expect(screen.getByText(/scheduling issues detected/i)).toBeInTheDocument()
         expect(screen.getByText(/no trainer available for selected date/i)).toBeInTheDocument()

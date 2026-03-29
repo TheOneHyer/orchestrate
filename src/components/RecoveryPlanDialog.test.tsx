@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import { RecoveryPlanDialog } from './RecoveryPlanDialog'
 import { calculateWellnessScore } from '@/lib/wellness-analytics'
 import type { User, WellnessCheckIn } from '@/lib/types'
+import { RecoveryPlanDialog } from './RecoveryPlanDialog'
 
 vi.mock('@/lib/wellness-analytics', () => ({
     calculateWellnessScore: vi.fn(() => 42),

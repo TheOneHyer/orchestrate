@@ -29,7 +29,7 @@ import { ScheduleTemplate, Course, Session } from '@/lib/types'
 import { ScheduleTemplateDialog } from '@/components/ScheduleTemplateDialog'
 import { ApplyTemplateDialog } from '@/components/ApplyTemplateDialog'
 import { toast } from 'sonner'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 /** Props for the ScheduleTemplates component. */
 interface ScheduleTemplatesProps {
@@ -288,7 +288,7 @@ export function ScheduleTemplates({ courses, onCreateSessions }: ScheduleTemplat
                     Used {template.usageCount} time{template.usageCount !== 1 ? 's' : ''}
                   </div>
                   {template.lastUsed && (
-                    <div>Last: {format(new Date(template.lastUsed), 'MMM d')}</div>
+                    <div>Last: {format(parseISO(template.lastUsed), 'MMM d')}</div>
                   )}
                 </div>
 
