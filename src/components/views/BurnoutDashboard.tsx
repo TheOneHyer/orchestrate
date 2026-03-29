@@ -41,6 +41,8 @@ interface BurnoutDashboardProps {
   sessions: Session[]
   /** Courses associated with sessions, used for duration and workload calculations. */
   courses: Course[]
+  /** Optional callback invoked when the dashboard requests navigation to another view. */
+  onNavigate?: (...args: any[]) => void
 }
 
 /**
