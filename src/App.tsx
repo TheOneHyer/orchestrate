@@ -1445,7 +1445,6 @@ function App() {
         return (
           <ScheduleTemplates
             courses={visibleCourses}
-            onNavigate={handleNavigate}
             onCreateSessions={handleCreateMultipleSessions}
           />
         )
@@ -1471,7 +1470,6 @@ function App() {
             courses={visibleCourses}
             sessions={visibleSessions}
             currentUser={currentUser}
-            onNavigate={handleNavigate}
             onUpdateUser={handleUpdateUserFromProfile}
             onAddUser={handleAddUser}
             onDeleteUser={handleDeleteUser}

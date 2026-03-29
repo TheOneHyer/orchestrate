@@ -28,10 +28,10 @@ export function parseNumericInput(value: string, fallbackValue: number, min?: nu
 
     let result = Math.trunc(parsedValue)
     if (min !== undefined) {
-        result = Math.max(min, result)
+        result = Math.max(Math.trunc(min), result)
     }
     if (max !== undefined) {
-        result = Math.min(max, result)
+        result = Math.min(Math.trunc(max), result)
     }
 
     return result

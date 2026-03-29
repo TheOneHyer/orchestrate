@@ -223,6 +223,23 @@ describe('certification-tracker', () => {
         expect(notification.message).toContain('Please initiate your certification renewal process.')
     })
 
+    it('builds admin-facing 14-day renewal notice copy', () => {
+        const alert: CertificationAlert = {
+            userId: 'trainer-1',
+            userName: 'Taylor Trainer',
+            certification: createCertification({ certificationName: 'CPR', expirationDate: isoInDays(14) }),
+            daysUntilExpiration: 14,
+            urgency: 'high',
+        }
+
+        const notification = generateCertificationNotification(alert, true)
+
+        expect(notification.userId).toBe('admin')
+        expect(notification.priority).toBe('high')
+        expect(notification.title).toBe("Taylor Trainer's CPR Expires in 14 Days")
+        expect(notification.message).toContain('Contact Taylor Trainer to initiate the certification renewal process.')
+    })
+
     it('recomputes certification statuses when updating records', () => {
         const users: User[] = [
             createTrainerWithCerts('trainer-1', [

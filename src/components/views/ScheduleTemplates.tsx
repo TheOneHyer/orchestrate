@@ -35,8 +35,6 @@ import { format } from 'date-fns'
 interface ScheduleTemplatesProps {
   /** List of all available courses used when creating or editing a template. */
   courses: Course[]
-  /** Callback to navigate to another view. @param view - Target view name. */
-  onNavigate: (view: string) => void
   /** Optional callback invoked with the newly generated session stubs when a template is applied. */
   onCreateSessions?: (sessions: Partial<Session>[]) => void
 }
@@ -48,11 +46,10 @@ interface ScheduleTemplatesProps {
  * Templates are persisted to the Spark KV store and their usage metadata is updated when a template is applied.
  *
  * @param courses - Available course options used by the template editor.
- * @param onNavigate - Optional callback to handle navigation requests (e.g., opening course or session pages).
  * @param onCreateSessions - Optional callback invoked with the concrete `Session` objects created when applying a template.
  * @returns A React element representing the schedule templates management UI.
  */
-export function ScheduleTemplates({ courses, onNavigate: _onNavigate, onCreateSessions }: ScheduleTemplatesProps) {
+export function ScheduleTemplates({ courses, onCreateSessions }: ScheduleTemplatesProps) {
   const [templates, setTemplates] = useKV<ScheduleTemplate[]>('schedule-templates', [])
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')

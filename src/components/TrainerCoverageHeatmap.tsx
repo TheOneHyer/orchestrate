@@ -78,12 +78,27 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
   /**
    * Parses a time string in "HH:MM" or "h:mm AM/PM" format and returns a decimal hour.
    *
+   * Returns `NaN` when the input is malformed (non-string, missing colon, non-finite
+   * hours/minutes, or an unrecognised period token), so callers can safely skip invalid
+   * shift entries.
+   *
    * @param timeStr - Time string to parse (e.g., "09:30", "2:45 PM").
-   * @returns The time expressed as a decimal hour (e.g., 9.5 for 09:30, 14.75 for 2:45 PM).
+   * @returns The time expressed as a decimal hour (e.g., 9.5 for 09:30, 14.75 for 2:45 PM),
+   *   or `NaN` for malformed input.
    */
   const parseTime = (timeStr: string): number => {
-    const [time, period] = timeStr.split(' ')
+    if (typeof timeStr !== 'string' || timeStr.trim() === '') return NaN
+
+    const parts = timeStr.split(' ')
+    if (parts.length !== 1 && parts.length !== 2) return NaN
+
+    const [time, period] = parts
+    if (!time.includes(':')) return NaN
+
     const [parsedHours, minutes] = time.split(':').map(Number)
+    if (!Number.isFinite(parsedHours) || !Number.isFinite(minutes)) return NaN
+    if (period !== undefined && period !== 'AM' && period !== 'PM') return NaN
+
     let hours = parsedHours
 
     if (period === 'PM' && hours !== 12) {
@@ -92,7 +107,7 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
       hours = 0
     }
 
-    return hours + (minutes || 0) / 60
+    return hours + minutes / 60
   }
 
   const coverageByDayAndHour = useMemo(() => {
@@ -118,6 +133,9 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
             if (schedule.daysWorked.includes(day)) {
               const startHour = parseTime(schedule.startTime)
               const endHour = parseTime(schedule.endTime)
+
+              // Skip malformed time strings that parseTime could not parse
+              if (isNaN(startHour) || isNaN(endHour)) return
 
               let isWorking = false
 

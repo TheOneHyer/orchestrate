@@ -273,4 +273,67 @@ describe('TrainerCoverageHeatmap', () => {
         expect(getHeatmapCell('2')).toHaveAttribute('data-coverage-tier', '2')
         expect(getHeatmapCell('1')).toHaveAttribute('data-coverage-tier', '1')
     })
+
+    it.each<{
+        caseName: string
+        schedule: ShiftSchedule
+    }>([
+        {
+            caseName: 'malformed',
+            schedule: {
+                shiftCode: 'bad',
+                daysWorked: ['monday'],
+                startTime: 'notavalidtime',
+                endTime: 'alsoinvalid',
+                totalHoursPerWeek: 8,
+            },
+        },
+        {
+            caseName: 'empty',
+            schedule: {
+                shiftCode: 'empty',
+                daysWorked: ['monday'],
+                startTime: '',
+                endTime: '',
+                totalHoursPerWeek: 8,
+            },
+        },
+        {
+            caseName: 'too many parts',
+            schedule: {
+                shiftCode: 'weird',
+                daysWorked: ['monday'],
+                startTime: 'bad bad bad',
+                endTime: 'also bad here',
+                totalHoursPerWeek: 8,
+            },
+        },
+        {
+            caseName: 'non-numeric',
+            schedule: {
+                shiftCode: 'nonnum',
+                daysWorked: ['monday'],
+                startTime: 'abc:def PM',
+                endTime: 'xyz:uvw AM',
+                totalHoursPerWeek: 8,
+            },
+        },
+        {
+            caseName: 'bad period',
+            schedule: {
+                shiftCode: 'badperiod',
+                daysWorked: ['monday'],
+                startTime: '08:00 XX',
+                endTime: '12:00 XX',
+                totalHoursPerWeek: 4,
+            },
+        },
+    ])('skips schedules with $caseName time values', ({ schedule }) => {
+        mockUseKV(1)
+
+        const users: User[] = [makeTrainer('trainer-1', 'Alex Trainer', ['Safety'], [schedule])]
+        const { container } = render(<TrainerCoverageHeatmap users={users} />)
+
+        expect(container.querySelector('[data-day="monday"][data-hour="9"]')?.textContent).toBe('')
+    })
 })

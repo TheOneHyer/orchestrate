@@ -64,7 +64,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     if (!open || wasOpen) return
 
     const now = new Date()
-    const hireDate = new Date(user.hireDate)
+    const hireDate = parseISO(user.hireDate)
 
     if (user.trainerProfile) {
       setEditedUser(user)
@@ -296,7 +296,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                 <div>
                   <Label className="text-sm text-muted-foreground">Hire Date</Label>
                   <p className="text-base font-medium">
-                    {new Date(editedUser.trainerProfile.tenure.hireDate).toLocaleDateString()}
+                    {format(parseISO(editedUser.trainerProfile.tenure.hireDate), 'MMM d, yyyy')}
                   </p>
                 </div>
                 <div>

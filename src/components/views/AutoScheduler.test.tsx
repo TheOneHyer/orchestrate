@@ -228,6 +228,27 @@ describe('AutoScheduler', () => {
         expect(toastWarning).toHaveBeenCalledWith('Some scheduling constraints detected')
     })
 
+    it('returns early during feasibility analysis when selected course is no longer available', async () => {
+        const { rerender } = render(
+            <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
+        )
+
+        await selectCourseAndDate()
+
+        rerender(
+            <AutoScheduler users={users} courses={[]} onSessionsCreated={vi.fn()} />
+        )
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+        })
+
+        expect(analyzeFeasibilityMock).not.toHaveBeenCalled()
+        expect(findAvailableTrainersMock).not.toHaveBeenCalled()
+        expect(toastSuccess).not.toHaveBeenCalled()
+        expect(toastWarning).not.toHaveBeenCalled()
+    })
+
     it('auto-schedules sessions successfully and emits recommendations', async () => {
         const onSessionsCreated = vi.fn()
 
@@ -247,6 +268,28 @@ describe('AutoScheduler', () => {
         expect(screen.getByText(/sessions created successfully/i)).toBeInTheDocument()
         expect(toastSuccess).toHaveBeenCalledWith('Successfully scheduled 1 session(s)!')
         expect(toastInfo).toHaveBeenCalledWith('Balance workload next week', { duration: 5000 })
+    })
+
+    it('returns early during auto-schedule when selected course is no longer available', async () => {
+        const onSessionsCreated = vi.fn()
+        const { rerender } = render(
+            <AutoScheduler users={users} courses={courses} onSessionsCreated={onSessionsCreated} />
+        )
+
+        await selectCourseAndDate()
+
+        rerender(
+            <AutoScheduler users={users} courses={[]} onSessionsCreated={onSessionsCreated} />
+        )
+
+        await act(async () => {
+            fireEvent.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
+        })
+
+        expect(autoScheduleSessionsMock).not.toHaveBeenCalled()
+        expect(onSessionsCreated).not.toHaveBeenCalled()
+        expect(toastSuccess).not.toHaveBeenCalledWith('Successfully scheduled 1 session(s)!')
+        expect(toastError).not.toHaveBeenCalledWith('Could not schedule sessions')
     })
 
     it('includes recurrence and date-range constraints in auto-schedule payload and supports null sessions store', async () => {

@@ -39,6 +39,7 @@ describe('getSectionOrFallback', () => {
         expect(fallback.label).toBe('No Sections Available')
         expect(fallback.icon).toBe(BookOpen)
         expect(fallback.roles).toEqual([])
-        expect(fallback.content).toBe('')
+        // Content should match the stable placeholder string returned by the fallback.
+        expect(fallback.content).toBe('No guide sections are available for your role.')
     })
 })

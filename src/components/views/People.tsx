@@ -26,12 +26,6 @@ interface PeopleProps {
   sessions: Session[]
   /** The currently authenticated user; controls which admin actions are shown. */
   currentUser: User
-  /**
-   * Callback for navigating to a different view.
-   * @param view - Target view name.
-   * @param data - Optional payload for the target view.
-   */
-  onNavigate: (view: string, data?: unknown) => void
   /** Optional callback invoked when a user profile is saved after editing. */
   onUpdateUser?: (user: User) => void
   /** Optional callback invoked when a new person is added. */
@@ -67,7 +61,7 @@ function hasUserIdPayload(value: unknown): value is { userId: string } {
  * {@link TrainerProfileView}. Trainers without configured shift schedules are highlighted
  * with a warning icon.
  */
-export function People({ users, enrollments, courses, sessions, currentUser, onNavigate: _onNavigate, onUpdateUser, onAddUser, onDeleteUser, navigationPayload, onNavigationPayloadConsumed }: PeopleProps) {
+export function People({ users, enrollments, courses, sessions, currentUser, onUpdateUser, onAddUser, onDeleteUser, navigationPayload, onNavigationPayloadConsumed }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'trainer' | 'employee'>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -178,20 +172,16 @@ export function People({ users, enrollments, courses, sessions, currentUser, onN
   }
 
   /**
-   * Stores the user to delete and shows the delete confirmation dialog.
+   * Stores the selected user to delete and opens the delete confirmation dialog.
    *
    * @param user - The user targeted for deletion.
-   * @param e - Optional mouse event; when provided, propagation is stopped.
    */
-  const handleDeleteClick = (user: User, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation()
-    }
+  const handleDeleteClick = (user: User) => {
     setUserToDelete(user)
     setDeleteDialogOpen(true)
   }
 
-  /** Deletes the stored user, clears the selection if needed, and closes the confirmation dialog. */
+  /** Deletes the stored user and closes the confirmation dialog. */
   const handleConfirmDelete = () => {
     if (userToDelete && onDeleteUser) {
       onDeleteUser(userToDelete.id)

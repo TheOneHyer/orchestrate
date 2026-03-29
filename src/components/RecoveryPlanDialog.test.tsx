@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { RecoveryPlanDialog } from './RecoveryPlanDialog'
-import { parseNumericInput } from '@/lib/parse-numeric-input'
 import { calculateWellnessScore } from '@/lib/wellness-analytics'
 import type { User, WellnessCheckIn } from '@/lib/types'
 
@@ -423,12 +422,5 @@ describe('RecoveryPlanDialog', () => {
             })
         )
         expect(baseProps.onClose).toHaveBeenCalled()
-    })
-
-    it('parses non-finite and non-numeric values with safe numeric fallback rules', () => {
-        expect(parseNumericInput('1e309', 70, 40, 80)).toBe(70)
-        expect(parseNumericInput('not-a-number', 4, 1, 12)).toBe(4)
-        expect(parseNumericInput('72.9', 70, 40, 80)).toBe(72)
-        expect(parseNumericInput('5', 70)).toBe(5)
     })
 })

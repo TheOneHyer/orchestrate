@@ -92,7 +92,6 @@ function renderPeople(options?: {
     users?: User[]
     enrollments?: Enrollment[]
     currentUser?: User
-    onNavigate?: (view: string, data?: any) => void
     onUpdateUser?: (user: User) => void
     onAddUser?: (user: User) => void
     onDeleteUser?: (userId: string) => void
@@ -118,8 +117,6 @@ function renderPeople(options?: {
         createUser({ id: 'u-employee', name: 'Employee User', role: 'employee', email: 'employee@example.com', department: 'HR' }),
     ]
 
-    const onNavigate = options?.onNavigate ?? vi.fn()
-
     const renderResult = render(
         <People
             users={users}
@@ -130,7 +127,6 @@ function renderPeople(options?: {
             courses={[baseCourse]}
             sessions={[baseSession]}
             currentUser={options?.currentUser ?? createUser({ id: 'u-admin', role: 'admin', name: 'Admin User' })}
-            onNavigate={onNavigate}
             onUpdateUser={options?.onUpdateUser}
             onAddUser={options?.onAddUser}
             onDeleteUser={options?.onDeleteUser}
@@ -140,7 +136,6 @@ function renderPeople(options?: {
 
     return {
         ...renderResult,
-        onNavigate,
     }
 }
 
@@ -294,6 +289,30 @@ describe('People', () => {
         expect(onDeleteUser).toHaveBeenCalledWith('u-trainer')
     })
 
+    it('handles users prop update when no user is selected (null short-circuit)', () => {
+        // Exercises the early-return guard in the setSelectedUser callback when
+        // currentSelectedUser is already null and the users prop changes.
+        const adminUser = createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' })
+
+        const { rerender } = renderPeople({ users: [adminUser] })
+
+        // No user is selected — the people list should still be visible
+        expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
+
+        // Change users while no user is selected; component must not crash
+        rerender(
+            <People
+                users={[{ ...adminUser, department: 'Updated Dept' }]}
+                enrollments={[]}
+                courses={[baseCourse]}
+                sessions={[baseSession]}
+                currentUser={adminUser}
+            />
+        )
+
+        expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
+    })
+
     it('shows empty state when no users match filters', async () => {
         const user = userEvent.setup()
         renderPeople()
@@ -315,7 +334,6 @@ describe('People', () => {
                 courses={[baseCourse]}
                 sessions={[baseSession]}
                 currentUser={adminUser}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -330,7 +348,6 @@ describe('People', () => {
                 courses={[baseCourse]}
                 sessions={[baseSession]}
                 currentUser={adminUser}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -399,7 +416,6 @@ describe('People', () => {
                 courses={[]}
                 sessions={[]}
                 currentUser={createUser({ id: 'u-admin', role: 'admin' })}
-                onNavigate={vi.fn()}
                 navigationPayload={{ userId: 'u-admin' }}
                 onNavigationPayloadConsumed={onNavigationPayloadConsumed}
             />
@@ -418,7 +434,6 @@ describe('People', () => {
                 courses={[]}
                 sessions={[]}
                 currentUser={createUser({ id: 'u-admin', role: 'admin' })}
-                onNavigate={vi.fn()}
                 navigationPayload={{ userId: 'missing-user' }}
                 onNavigationPayloadConsumed={onNavigationPayloadConsumed}
             />
@@ -439,7 +454,6 @@ describe('People', () => {
                 courses={[]}
                 sessions={[]}
                 currentUser={createUser({ id: 'u-admin', role: 'admin' })}
-                onNavigate={vi.fn()}
                 navigationPayload={payload}
                 onNavigationPayloadConsumed={onNavigationPayloadConsumed}
             />
@@ -454,7 +468,6 @@ describe('People', () => {
                 courses={[]}
                 sessions={[]}
                 currentUser={createUser({ id: 'u-admin', role: 'admin' })}
-                onNavigate={vi.fn()}
                 navigationPayload={payload}
                 onNavigationPayloadConsumed={onNavigationPayloadConsumed}
             />
