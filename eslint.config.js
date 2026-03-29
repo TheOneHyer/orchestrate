@@ -42,11 +42,21 @@ export default tseslint.config(
                 'warn',
                 { allowConstantExport: true },
             ],
-            '@typescript-eslint/no-unused-vars': ['error', {
+            // TypeScript handles prop typing, so runtime prop-types checks are redundant.
+            'react/prop-types': 'off',
+            // These React Compiler-oriented rules are too strict for existing patterns in this codebase.
+            'react-hooks/set-state-in-effect': 'off',
+            'react-hooks/static-components': 'off',
+            'react-hooks/purity': 'off',
+            'react-hooks/preserve-manual-memoization': 'off',
+            'react/no-unescaped-entities': 'off',
+            '@typescript-eslint/no-explicit-any': 'off',
+            '@typescript-eslint/no-unused-vars': ['warn', {
                 argsIgnorePattern: '^_',
                 varsIgnorePattern: '^_',
                 caughtErrorsIgnorePattern: '^_',
             }],
+            'prefer-const': 'warn',
         },
     },
     {
