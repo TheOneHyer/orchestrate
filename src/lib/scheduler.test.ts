@@ -580,4 +580,44 @@ describe('scheduler', () => {
 
         expect(detailed.hasOverlap).toBe(true)
     })
+
+    it('analyzeSchedulingFeasibility accepts all certified trainers when constraints specify no required shifts', () => {
+        const dayTrainer = {
+            ...createTrainer('trainer-day', 'Avery', ['Forklift']),
+            shifts: ['day'] as User['shifts'],
+        }
+        const scheduler = new TrainerScheduler([dayTrainer], [], [createCourse()])
+
+        // Passing constraints with no `shifts` field triggers the
+        // `!constraints.shifts || constraints.shifts.length === 0 → return true`
+        // branch inside the shiftMatchedTrainers filter.
+        const feasibility = scheduler.analyzeSchedulingFeasibility(
+            createConstraints({ requiredCertifications: ['Forklift'], dates: ['2026-03-16T00:00:00.000Z'] })
+        )
+
+        expect(feasibility.feasible).toBe(true)
+        expect(feasibility.availableTrainerCount).toBe(1)
+        expect(feasibility.issues).toEqual([])
+    })
+
+    it('getTrainerWorkload handles sessions that have no shift property', () => {
+        const trainer = createTrainer('trainer-a', 'Avery', ['Forklift'])
+        // Session without a shift value — exercises the false branch of `if (session.shift)`.
+        const noShiftSession = createSession('s-no-shift', trainer.id, '2026-03-16T09:00:00.000Z', '2026-03-16T11:00:00.000Z')
+        const dayShiftSession = {
+            ...createSession('s-day', trainer.id, '2026-03-17T09:00:00.000Z', '2026-03-17T11:00:00.000Z'),
+            shift: 'day' as const,
+        }
+        const scheduler = new TrainerScheduler([trainer], [noShiftSession, dayShiftSession] as Session[], [createCourse()])
+
+        const workload = scheduler.getTrainerWorkload(
+            trainer.id,
+            new Date('2026-03-16T00:00:00.000Z'),
+            new Date('2026-03-31T23:59:59.000Z')
+        )
+
+        expect(workload.totalSessions).toBe(2)
+        // noShiftSession is not counted in any shift bucket
+        expect(workload.sessionsByShift).toEqual({ day: 1, evening: 0, night: 0 })
+    })
 })

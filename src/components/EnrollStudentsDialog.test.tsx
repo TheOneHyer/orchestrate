@@ -681,4 +681,5 @@ describe('EnrollStudentsDialog', () => {
         expect(onOpenChange).toHaveBeenCalledWith(false)
         expect(screen.queryByText(/added 1 student from bulk upload/i)).not.toBeInTheDocument()
     })
+
 })

@@ -476,4 +476,54 @@ describe('People', () => {
         expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
     })
 
+    it('clears selectedUser when that user is removed from the users prop', async () => {
+        const user = userEvent.setup()
+        const adminUser = createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', email: 'admin@example.com' })
+        const trainerUser = createUser({ id: 'u-trainer', name: 'Trainer User', role: 'trainer', email: 'trainer@example.com' })
+
+        const { rerender } = render(
+            <People
+                users={[adminUser, trainerUser]}
+                enrollments={[]}
+                courses={[baseCourse]}
+                sessions={[baseSession]}
+                currentUser={adminUser}
+            />
+        )
+
+        await user.click(screen.getByText('Trainer User'))
+        expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User')
+
+        // Re-render without trainerUser — triggers the `if (!updatedUser) return null` branch
+        rerender(
+            <People
+                users={[adminUser]}
+                enrollments={[]}
+                courses={[baseCourse]}
+                sessions={[baseSession]}
+                currentUser={adminUser}
+            />
+        )
+
+        expect(screen.queryByTestId('profile-name')).toBeNull()
+        expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
+    })
+
+    it('closes delete dialog without invoking onDeleteUser when prop is absent', async () => {
+        const user = userEvent.setup()
+
+        // Render WITHOUT onDeleteUser — exercises the false branch of `if (userToDelete && onDeleteUser)`.
+        renderPeople({ onDeleteUser: undefined })
+
+        await user.click(screen.getByText('Trainer User'))
+        await user.click(screen.getByRole('button', { name: /mock delete person/i }))
+        await user.click(screen.getByRole('button', { name: /back to people/i }))
+
+        // Delete dialog should be open; confirm it without an onDeleteUser handler
+        await user.click(screen.getByRole('button', { name: /mock confirm delete/i }))
+
+        // Component should not crash and dialog should close
+        expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
+    })
+
 })

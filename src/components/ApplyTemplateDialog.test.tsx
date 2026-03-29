@@ -290,4 +290,37 @@ describe('ApplyTemplateDialog', () => {
             expect(new Date(sessions[1].startTime).getTime()).toBe(expectedSecondStart.getTime())
         }
     )
+
+    it('uses a default cycle interval of 7 days when a custom template omits cycleDays', async () => {
+        const onApply = vi.fn()
+        const user = userEvent.setup()
+
+        // recurrenceType='custom' with no cycleDays triggers the `cycleDays || 7` fallback (line 110 arm 1).
+        const customTemplate = createTemplate({ recurrenceType: 'custom', cycleDays: undefined })
+
+        render(
+            <ApplyTemplateDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                template={customTemplate}
+                onApply={onApply}
+            />
+        )
+
+        fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: '2026-03-16' } })
+        fireEvent.change(screen.getByLabelText(/number of cycles/i), { target: { value: '2' } })
+
+        await user.click(getCreateButton())
+
+        expect(onApply).toHaveBeenCalledOnce()
+        const sessions = onApply.mock.calls[0][0]
+        // With cycleDays||7 = 7, cycle 2 starts 7 days after cycle 1.
+        expect(sessions.length).toBeGreaterThan(0)
+        // First session starts on 2026-03-16, second cycle starts on 2026-03-23 (7 days later).
+        const secondCycleStart = new Date(sessions[templateSessions.length].startTime)
+        const firstCycleStart = new Date(sessions[0].startTime)
+        const dayDiff = Math.round((secondCycleStart.getTime() - firstCycleStart.getTime()) / (1000 * 60 * 60 * 24))
+        expect(dayDiff).toBe(7)
+    })
+
 })
