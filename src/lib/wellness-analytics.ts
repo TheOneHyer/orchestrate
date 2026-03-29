@@ -188,12 +188,11 @@ export function shouldTriggerRecoveryPlan(
 
   if (recentCheckIns.length >= 2) {
     const scores = recentCheckIns.map(calculateWellnessScore)
-    // recentCheckIns is newest-first, so scores[0] is most recent.
-    // A declining trend means each older score (higher index) is greater than its
-    // successor, i.e. wellness was better in the past than it is now.
-    const declining = scores.every((score, idx) => idx === 0 || score > scores[idx - 1])
+    // recentCheckIns is newest-first, so each older score should be higher than
+    // the immediately newer one for a strictly declining trend.
+    const isStrictlyDeclining = scores.slice(1).every((olderScore, idx) => olderScore > scores[idx])
 
-    if (declining && scores[0] < scores[scores.length - 1] - 15) {
+    if (isStrictlyDeclining && scores[0] < scores[scores.length - 1] - 15) {
       shouldTrigger = true
       reasons.push('Declining wellness trend detected')
     }
