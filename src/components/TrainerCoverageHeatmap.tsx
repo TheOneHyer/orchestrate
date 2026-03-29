@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -115,7 +115,7 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
     return hours + minutes / 60
   }
 
-  const coverageByDayAndHour = useMemo(() => {
+  const { coverageByDayAndHour, malformedScheduleCount } = useMemo(() => {
     const daysOfWeek: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     const coverage: Record<DayOfWeek, HourCoverage[]> = {
       sunday: [],
@@ -126,41 +126,60 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
       friday: [],
       saturday: []
     }
+    const dailyScheduleWindows: Record<DayOfWeek, Array<{ trainerName: string; startHour: number; endHour: number }>> = {
+      sunday: [],
+      monday: [],
+      tuesday: [],
+      wednesday: [],
+      thursday: [],
+      friday: [],
+      saturday: []
+    }
 
-    let malformedScheduleCount = 0
+    const malformedScheduleKeys = new Set<string>()
 
     daysOfWeek.forEach(day => {
-      for (let hour = 0; hour < 24; hour++) {
-        const trainersWorking: string[] = []
+      trainers.forEach(trainer => {
+        const schedules = trainer.trainerProfile?.shiftSchedules || []
+        schedules.forEach(schedule => {
+          if (!schedule.daysWorked.includes(day)) {
+            return
+          }
 
-        trainers.forEach(trainer => {
-          const schedules = trainer.trainerProfile?.shiftSchedules || []
+          const startHour = parseTime(schedule.startTime)
+          const endHour = parseTime(schedule.endTime)
 
-          schedules.forEach(schedule => {
-            if (schedule.daysWorked.includes(day)) {
-              const startHour = parseTime(schedule.startTime)
-              const endHour = parseTime(schedule.endTime)
+          // Skip malformed time strings that parseTime could not parse.
+          if (isNaN(startHour) || isNaN(endHour)) {
+            const malformedKey = [
+              trainer.id,
+              trainer.name,
+              schedule.shiftCode,
+              schedule.startTime,
+              schedule.endTime,
+              schedule.daysWorked.join(',')
+            ].join('|')
+            malformedScheduleKeys.add(malformedKey)
+            return
+          }
 
-              // Skip malformed time strings that parseTime could not parse
-              if (isNaN(startHour) || isNaN(endHour)) {
-                malformedScheduleCount++
-                return
-              }
-
-              let isWorking = false
-
-              if (startHour < endHour) {
-                isWorking = hour >= Math.floor(startHour) && hour < Math.ceil(endHour)
-              } else {
-                isWorking = hour >= Math.floor(startHour) || hour < Math.ceil(endHour)
-              }
-
-              if (isWorking) {
-                trainersWorking.push(trainer.name)
-              }
-            }
+          dailyScheduleWindows[day].push({
+            trainerName: trainer.name,
+            startHour,
+            endHour
           })
         })
+      })
+
+      for (let hour = 0; hour < 24; hour++) {
+        const trainersWorking = dailyScheduleWindows[day]
+          .filter(({ startHour, endHour }) => {
+            if (startHour < endHour) {
+              return hour >= Math.floor(startHour) && hour < Math.ceil(endHour)
+            }
+            return hour >= Math.floor(startHour) || hour < Math.ceil(endHour)
+          })
+          .map(({ trainerName }) => trainerName)
 
         coverage[day].push({
           hour,
@@ -170,12 +189,17 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
       }
     })
 
+    return {
+      coverageByDayAndHour: coverage,
+      malformedScheduleCount: malformedScheduleKeys.size
+    }
+  }, [trainers])
+
+  useEffect(() => {
     if (malformedScheduleCount > 0) {
       console.warn(`TrainerCoverageHeatmap: ${malformedScheduleCount} malformed schedule time string(s) encountered and skipped`)
     }
-
-    return coverage
-  }, [trainers])
+  }, [malformedScheduleCount])
 
   /**
    * Returns the Tailwind CSS class string for a heatmap cell based on coverage ratio.
@@ -383,7 +407,7 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
                   ))}
 
                   {daysOfWeek.map(({ key, label }) => (
-                    <>
+                    <Fragment key={key}>
                       <div key={`${key}-label`} className="bg-muted/50 p-2 flex items-center">
                         <span className="text-xs font-medium text-muted-foreground">{label}</span>
                       </div>
@@ -423,7 +447,7 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
                           </Tooltip>
                         </TooltipProvider>
                       ))}
-                    </>
+                    </Fragment>
                   ))}
                 </div>
               </div>

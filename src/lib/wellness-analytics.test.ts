@@ -198,9 +198,20 @@ describe('wellness-analytics', () => {
         })
 
         it('triggers recovery plan on declining wellness trend alone', () => {
-            // newest-first order matches how shouldTriggerRecoveryPlan receives check-ins
+            // Intentionally unsorted order verifies shouldTriggerRecoveryPlan sorts by timestamp.
             const result = shouldTriggerRecoveryPlan(
                 [
+                    createCheckIn({
+                        id: 'prev-1',
+                        timestamp: '2026-03-15T09:00:00.000Z',
+                        mood: 3,
+                        stress: 'moderate',
+                        energy: 'neutral',
+                        workloadSatisfaction: 3,
+                        sleepQuality: 3,
+                        physicalWellbeing: 3,
+                        mentalClarity: 3,
+                    }),
                     createCheckIn({
                         id: 'latest',
                         timestamp: '2026-03-16T09:00:00.000Z',
@@ -212,17 +223,6 @@ describe('wellness-analytics', () => {
                         physicalWellbeing: 2,
                         mentalClarity: 2,
                         followUpRequired: false,
-                    }),
-                    createCheckIn({
-                        id: 'prev-1',
-                        timestamp: '2026-03-15T09:00:00.000Z',
-                        mood: 3,
-                        stress: 'moderate',
-                        energy: 'neutral',
-                        workloadSatisfaction: 3,
-                        sleepQuality: 3,
-                        physicalWellbeing: 3,
-                        mentalClarity: 3,
                     }),
                     createCheckIn({
                         id: 'prev-2',
@@ -355,7 +355,7 @@ describe('wellness-analytics', () => {
         it('awards full utilization credit when current utilization is at or below target', () => {
             const result = calculateRecoveryProgress(
                 createRecoveryPlan({
-                    currentUtilization: 75,
+                    currentUtilization: 80,
                     targetUtilization: 80,
                 })
             )

@@ -189,7 +189,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -209,7 +208,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -226,7 +224,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -249,7 +246,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -272,7 +268,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -301,7 +296,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -339,7 +333,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -365,7 +358,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -426,7 +418,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -446,7 +437,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -493,7 +483,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -520,7 +509,6 @@ describe('BurnoutDashboard', () => {
                 users={[createUser({ id: 'emp-1', role: 'employee', name: 'Employee One' })]}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -544,7 +532,6 @@ describe('BurnoutDashboard', () => {
                 users={users}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 
@@ -610,7 +597,6 @@ describe('BurnoutDashboard', () => {
                 users={usersWithoutSelectedTrainer}
                 sessions={sessions}
                 courses={courses}
-                onNavigate={vi.fn()}
             />
         )
 

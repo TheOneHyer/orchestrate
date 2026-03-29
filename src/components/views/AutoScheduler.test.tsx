@@ -236,7 +236,9 @@ describe('AutoScheduler', () => {
             <AutoScheduler users={users} courses={[]} onSessionsCreated={vi.fn()} />
         )
 
-        await user.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+        const analyzeButton = screen.getByRole('button', { name: /analyze feasibility/i })
+        expect(analyzeButton).toBeEnabled()
+        await user.click(analyzeButton)
 
         expect(analyzeFeasibilityMock).not.toHaveBeenCalled()
         expect(findAvailableTrainersMock).not.toHaveBeenCalled()
@@ -278,7 +280,9 @@ describe('AutoScheduler', () => {
             <AutoScheduler users={users} courses={[]} onSessionsCreated={onSessionsCreated} />
         )
 
-        await user.click(screen.getByRole('button', { name: /auto-schedule sessions/i }))
+        const autoScheduleButton = screen.getByRole('button', { name: /auto-schedule sessions/i })
+        expect(autoScheduleButton).toBeEnabled()
+        await user.click(autoScheduleButton)
 
         expect(autoScheduleSessionsMock).not.toHaveBeenCalled()
         expect(onSessionsCreated).not.toHaveBeenCalled()

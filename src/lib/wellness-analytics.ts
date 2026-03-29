@@ -1,5 +1,5 @@
 import { WellnessCheckIn, StressLevel, EnergyLevel, RecoveryPlan, WellnessTrend } from './types'
-import { subDays, format } from 'date-fns'
+import { compareDesc, format, isWithinInterval, parseISO, subDays } from 'date-fns'
 
 /**
  * Calculates a composite wellness score (0–100) for a single check-in by
@@ -77,14 +77,13 @@ export function analyzeWellnessTrend(
   trainerId: string,
   timeRange: 'week' | 'month' | 'quarter'
 ): WellnessTrend {
-  const now = new Date()
+  const now = parseISO(new Date().toISOString())
   const daysBack = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 90
   const startDate = subDays(now, daysBack)
 
   const relevantCheckIns = checkIns.filter(
     c => c.trainerId === trainerId &&
-      new Date(c.timestamp) >= startDate &&
-      new Date(c.timestamp) <= now
+      isWithinInterval(parseISO(c.timestamp), { start: startDate, end: now })
   )
 
   if (relevantCheckIns.length === 0) {
@@ -153,7 +152,7 @@ export function shouldTriggerRecoveryPlan(
 ): { shouldTrigger: boolean; reasons: string[] } {
   const recentCheckIns = checkIns
     .filter(c => c.trainerId === trainerId)
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .sort((a, b) => compareDesc(parseISO(a.timestamp), parseISO(b.timestamp)))
     .slice(0, 3)
 
   if (recentCheckIns.length === 0) {

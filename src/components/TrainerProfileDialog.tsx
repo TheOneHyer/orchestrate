@@ -64,6 +64,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     if (!open || wasOpen) return
 
     const now = new Date()
+    // TODO: Add isValid(parseISO(user.hireDate)) guard if hire dates can come from external/untrusted sources.
     const hireDate = parseISO(user.hireDate)
 
     if (user.trainerProfile) {
