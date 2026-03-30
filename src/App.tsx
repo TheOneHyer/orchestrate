@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useKV } from '@github/spark/hooks'
 import { useForm } from 'react-hook-form'
@@ -85,6 +85,7 @@ const KNOWN_NOTIFICATION_VIEWS = new Set<string>([
 const DEMO_MODE_ACTIVE_STORAGE_KEY = 'orchestrate-demo-mode-active'
 const DEMO_MODE_USER_ID_STORAGE_KEY = 'orchestrate-demo-mode-user-id'
 const DEMO_MODE_SEEDED_STORAGE_KEY = 'orchestrate-demo-mode-seeded'
+const SESSION_DEMO_MARKER_STORAGE_KEY = 'orchestrate-demo-seeded-in-tab'
 
 function readSessionStorageValue(key: string) {
   if (typeof window === 'undefined') {
@@ -143,6 +144,8 @@ function writeLocalStorageFlag(key: string, enabled: boolean) {
     // Ignore storage write failures; the current tab session still applies.
   }
 }
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 /**
  * Creates a namespaced unique identifier using the provided prefix.
@@ -280,8 +283,11 @@ function App() {
    *
    * @param seedMode - The preview seed mode to apply. One of the
    *   {@link PreviewSeedMode} values or `'manual'`.
-   * @param sessionMode - Whether to persist the signed-in user ID in KV storage
-   *   (`persisted`) or keep the session ID in transient in-memory state (`transient`).
+   * @param sessionMode - Controls how the active preview user ID is stored:
+   *   when set to `persisted`, the signed-in user ID is written to KV storage;
+   *   when set to `transient`, the active user is kept in demo session state
+   *   backed by tab-scoped `sessionStorage` and accompanied by a seeded marker
+   *   in `localStorage` so demo mode can be detected on reload.
    */
   const applyPreviewSeedData = useCallback((
     seedMode: PreviewSeedMode | 'manual' = 'manual',
@@ -313,9 +319,11 @@ function App() {
     if (sessionMode === 'transient') {
       setPersistedActiveUserId('')
       setDemoSessionState(true, defaultSessionUserId)
+      writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, 'true')
       writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, true)
     } else {
       setDemoSessionState(false, '')
+      writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, '')
       setPersistedActiveUserId(defaultSessionUserId)
     }
 
@@ -394,6 +402,7 @@ function App() {
     setPreviewSeedVersion('')
     setPersistedActiveUserId('')
     setDemoSessionState(false, '')
+    writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, '')
     writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, false)
 
     if (typeof window !== 'undefined') {
@@ -450,13 +459,19 @@ function App() {
     clearPreviewDataState,
   ])
 
-  useEffect(() => {
-    if (previewMode || demoModeEnabled || !readLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY)) {
+  const seededInThisTab = readSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY) === 'true'
+  const shouldClearStaleDemoData = !previewMode
+    && !demoModeEnabled
+    && seededInThisTab
+    && readLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY)
+
+  useIsomorphicLayoutEffect(() => {
+    if (!shouldClearStaleDemoData) {
       return
     }
 
     clearPreviewDataState(false)
-  }, [clearPreviewDataState, demoModeEnabled, previewMode])
+  }, [clearPreviewDataState, shouldClearStaleDemoData])
 
   useEffect(() => {
     if (!previewSeedEnabled) {
@@ -546,6 +561,8 @@ function App() {
   const safeCourses = useMemo(() => courses || [], [courses])
   const safeEnrollments = useMemo(() => enrollments || [], [enrollments])
   const safeNotifications = useMemo(() => notifications || [], [notifications])
+  const sideEffectUsers = shouldClearStaleDemoData ? [] : safeUsers
+  const sideEffectSessions = shouldClearStaleDemoData ? [] : safeSessions
   const hasPersistedUsers = safeUsers.length > 0
 
   const fallbackUser = useMemo<User>(() => ({
@@ -646,9 +663,9 @@ function App() {
     }
   }, [activeUserId, fallbackUser.role, safeUsers, sendNotification, setNotifications])
 
-  useUtilizationNotifications(safeUsers, safeSessions, handleCreateNotification)
+  useUtilizationNotifications(sideEffectUsers, sideEffectSessions, handleCreateNotification)
 
-  useCertificationNotifications(safeUsers, handleCreateNotification, setUsers)
+  useCertificationNotifications(sideEffectUsers, handleCreateNotification, setUsers)
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 

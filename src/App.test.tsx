@@ -2444,11 +2444,28 @@ describe('App', () => {
         expect(kvState['active-user-id']).toBe('')
     })
 
-    it('clears stale demo seed data when the demo session marker is missing', async () => {
+    it('does not clear stale demo seed data in tabs that did not seed demo mode', async () => {
         kvSeed['active-user-id'] = ''
         kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
         localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
+
+        render(<App />)
+
+        expect(await screen.findByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+
+        expect(kvState['users']).toEqual(kvSeed['users'])
+        expect(kvState['auth-passwords']).toEqual(kvSeed['auth-passwords'])
+        expect(kvState['preview-seed-version']).toBe('preview-seed-v1:manual')
+        expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBe('true')
+    })
+
+    it('clears stale demo seed data in the tab that seeded demo mode', async () => {
+        kvSeed['active-user-id'] = ''
+        kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+        localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
+        sessionStorage.setItem('orchestrate-demo-seeded-in-tab', 'true')
 
         render(<App />)
 
