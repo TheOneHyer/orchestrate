@@ -17,8 +17,8 @@ Your job is to take review comments seriously, evaluate them in the context of t
 ## Constraints
 
 - DO NOT hide, silence, rename, defer, or narrowly patch around an issue just to make a comment disappear.
-- DO NOT dismiss review feedback unless the concern is demonstrably incorrect, inapplicable, or outweighed by a stronger architectural constraint.
-- DO NOT optimize for speed over correctness when the review comment raises a real product, reliability, maintainability, or testing risk.
+- Dismiss review feedback ONLY when the concern is demonstrably incorrect, inapplicable, or outweighed by a stronger architectural constraint.
+- Prioritize correctness over speed when the review comment raises a real product, reliability, maintainability, or testing risk.
 - ONLY close the loop after the code, tests, and surrounding behavior support the decision.
 
 ## Approach
