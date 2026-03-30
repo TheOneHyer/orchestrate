@@ -2463,6 +2463,28 @@ describe('App', () => {
         }
     })
 
+    it('hides demo entry when the demoMode query param is absent', () => {
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`)
+
+        try {
+            render(<App />)
+
+            expect(screen.getByText(/setup required/i)).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /^enter demo mode$/i })).toBeNull()
+            expect(screen.getByText(/demo mode entry is disabled unless the demomode url flag is present/i)).toBeInTheDocument()
+            expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+            expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBeNull()
+            expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBeNull()
+        } finally {
+            window.history.replaceState({}, '', originalUrl)
+        }
+    })
+
     it('restores demo mode from session storage on a same-tab reload', async () => {
         kvSeed['active-user-id'] = ''
         kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
@@ -2478,7 +2500,7 @@ describe('App', () => {
         expect(kvState['active-user-id']).toBe('')
     })
 
-    it('does not clear stale demo seed data in tabs that did not seed demo mode', async () => {
+    it('preserves seeded demo data in tabs that did not seed demo mode', async () => {
         kvSeed['active-user-id'] = ''
         kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
@@ -2494,7 +2516,7 @@ describe('App', () => {
 
         render(<App />)
 
-        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(await screen.findByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
 
         expect(kvState['users']).toEqual(kvSeed['users'])
         expect(kvState['auth-passwords']).toEqual(kvSeed['auth-passwords'])

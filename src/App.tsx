@@ -290,19 +290,10 @@ function App() {
   const [activeView, setActiveView] = useState(runtimeEnv.initialActiveView ?? 'dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
   const [demoModeEnabled, setDemoModeEnabled] = useState(() => {
-    if (readSessionStorageValue(DEMO_MODE_ACTIVE_STORAGE_KEY) === 'true') {
-      return true
-    }
-
-    return readActiveDemoLease()?.demoModeEnabled === true
+    return readSessionStorageValue(DEMO_MODE_ACTIVE_STORAGE_KEY) === 'true'
   })
   const [demoSessionUserId, setDemoSessionUserId] = useState(() => {
-    const sessionUserId = readSessionStorageValue(DEMO_MODE_USER_ID_STORAGE_KEY)
-    if (sessionUserId) {
-      return sessionUserId
-    }
-
-    return readActiveDemoLease()?.demoSessionUserId || ''
+    return readSessionStorageValue(DEMO_MODE_USER_ID_STORAGE_KEY)
   })
 
   const signInForm = useForm<SignInFormValues>({
@@ -387,7 +378,7 @@ function App() {
    *
    * @param seedMode - The preview seed mode to apply. One of the
    *   {@link PreviewSeedMode} values or `'manual'`.
-    * @param sessionMode - Controls how the active preview user ID is stored:
+  * @param sessionMode - Controls how the active preview user ID is stored:
   *   when set to `persisted`, the default seeded user ID is written to KV storage;
    *   when set to `transient`, the active user is kept in demo session state
    *   backed by tab-scoped `sessionStorage` and accompanied by a seeded marker
