@@ -2582,6 +2582,9 @@ describe('App', () => {
     })
 
     it('renews the demo lease while demo mode remains active', async () => {
+        const baseNowMs = new Date('2026-01-01T00:00:00.000Z').getTime()
+        const renewalNowMs = baseNowMs + 45_000
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(baseNowMs)
         const user = userEvent.setup()
 
         kvSeed['users'] = []
@@ -2604,15 +2607,17 @@ describe('App', () => {
             })
 
             const initialExpiresAtMs = Number(initialLease.expiresAtMs)
+            const leaseDurationMs = initialExpiresAtMs - baseNowMs
 
-            await new Promise((resolve) => setTimeout(resolve, 1))
+            nowSpy.mockReturnValue(renewalNowMs)
             window.dispatchEvent(new Event('focus'))
 
             await waitFor(() => {
                 const renewedLease = JSON.parse(localStorage.getItem('orchestrate-demo-seed-lease') || '{}')
-                expect(Number(renewedLease.expiresAtMs)).toBeGreaterThan(initialExpiresAtMs)
+                expect(Number(renewedLease.expiresAtMs)).toBe(renewalNowMs + leaseDurationMs)
             })
         } finally {
+            nowSpy.mockRestore()
             window.history.replaceState({}, '', originalUrl)
         }
     })
