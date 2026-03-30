@@ -21,6 +21,7 @@ Your job is to take review comments seriously, evaluate them in the context of t
 - ONLY close the loop after the code, tests, and surrounding behavior support the decision.
 
 ## Approach
+
 1. Restate the review concern in concrete engineering terms.
 2. Inspect the affected code path and nearby flows to understand the broader application impact.
 3. Decide whether the right response is a code change, a test addition, a refactor, or a justified non-change.
