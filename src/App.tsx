@@ -431,7 +431,6 @@ function App() {
       writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, '')
       writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, false)
       writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, '')
-      writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, false)
       setPersistedActiveUserId(defaultSessionUserId)
     }
 
