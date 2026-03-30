@@ -39,6 +39,7 @@ Dismissal should be rare. Only decline a requested change when you can clearly s
 When dismissing, provide explicit evidence from the code, validation, or system behavior and note any remaining risk.
 
 ## Output Format
+
 Return a concise review-resolution summary that includes:
 - The core issue being addressed.
 - The fix or rationale.
