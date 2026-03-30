@@ -82,6 +82,68 @@ const KNOWN_NOTIFICATION_VIEWS = new Set<string>([
   'settings',
 ])
 
+const DEMO_MODE_ACTIVE_STORAGE_KEY = 'orchestrate-demo-mode-active'
+const DEMO_MODE_USER_ID_STORAGE_KEY = 'orchestrate-demo-mode-user-id'
+const DEMO_MODE_SEEDED_STORAGE_KEY = 'orchestrate-demo-mode-seeded'
+
+function readSessionStorageValue(key: string) {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  try {
+    return window.sessionStorage.getItem(key) || ''
+  } catch {
+    return ''
+  }
+}
+
+function readLocalStorageFlag(key: string) {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  try {
+    return window.localStorage.getItem(key) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function writeSessionStorageValue(key: string, value: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    if (value) {
+      window.sessionStorage.setItem(key, value)
+      return
+    }
+
+    window.sessionStorage.removeItem(key)
+  } catch {
+    // Ignore storage write failures; the in-memory session state still applies.
+  }
+}
+
+function writeLocalStorageFlag(key: string, enabled: boolean) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    if (enabled) {
+      window.localStorage.setItem(key, 'true')
+      return
+    }
+
+    window.localStorage.removeItem(key)
+  } catch {
+    // Ignore storage write failures; the current tab session still applies.
+  }
+}
+
 /**
  * Creates a namespaced unique identifier using the provided prefix.
  *
@@ -134,6 +196,8 @@ function App() {
   const runtimeEnv = getAppRuntimeEnv()
   const [activeView, setActiveView] = useState(runtimeEnv.initialActiveView ?? 'dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
+  const [demoModeEnabled, setDemoModeEnabled] = useState(() => readSessionStorageValue(DEMO_MODE_ACTIVE_STORAGE_KEY) === 'true')
+  const [demoSessionUserId, setDemoSessionUserId] = useState(() => readSessionStorageValue(DEMO_MODE_USER_ID_STORAGE_KEY))
 
   const signInForm = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -157,9 +221,10 @@ function App() {
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
   const { previewMode, useServerAuth } = runtimeEnv
+  const localPreviewMode = previewMode || demoModeEnabled
 
   const [users, setUsers] = useKV<User[]>('users', [])
-  const [activeUserId, setActiveUserId] = useKV<string>('active-user-id', '')
+  const [persistedActiveUserId, setPersistedActiveUserId] = useKV<string>('active-user-id', '')
   const [authPasswords, setAuthPasswords] = useKV<Record<string, string>>('auth-passwords', {})
   const [sessions, setSessions] = useKV<Session[]>('sessions', [])
   const [courses, setCourses] = useKV<Course[]>('courses', [])
@@ -173,6 +238,28 @@ function App() {
   const [, setRiskHistorySnapshots] = useKV<RiskHistorySnapshot[]>('risk-history-snapshots', [])
   const [, setTargetTrainerCoverage] = useKV<number>('target-trainer-coverage', 4)
   const [previewSeedVersion, setPreviewSeedVersion] = useKV<string>('preview-seed-version', '')
+
+  /**
+   * Computed active user identifier that switches between the demo session user ID
+   * and the persisted user ID, depending on whether demo mode is enabled.
+   */
+  const activeUserId = demoModeEnabled ? demoSessionUserId : persistedActiveUserId
+
+  const setDemoSessionState = useCallback((enabled: boolean, userId: string) => {
+    setDemoModeEnabled(enabled)
+    setDemoSessionUserId(userId)
+    writeSessionStorageValue(DEMO_MODE_ACTIVE_STORAGE_KEY, enabled ? 'true' : '')
+    writeSessionStorageValue(DEMO_MODE_USER_ID_STORAGE_KEY, enabled ? userId : '')
+  }, [])
+
+  const setSessionUserId = useCallback((userId: string) => {
+    if (demoModeEnabled) {
+      setDemoSessionState(true, userId)
+      return
+    }
+
+    setPersistedActiveUserId(userId)
+  }, [demoModeEnabled, setDemoSessionState, setPersistedActiveUserId])
 
   const { sendNotification } = usePushNotifications()
 
@@ -193,14 +280,20 @@ function App() {
    *
    * @param seedMode - The preview seed mode to apply. One of the
    *   {@link PreviewSeedMode} values or `'manual'`.
+   * @param sessionMode - Whether to persist the signed-in user ID in KV storage
+   *   (`persisted`) or keep the session ID in transient in-memory state (`transient`).
    */
-  const applyPreviewSeedData = useCallback((seedMode: PreviewSeedMode | 'manual' = 'manual') => {
+  const applyPreviewSeedData = useCallback((
+    seedMode: PreviewSeedMode | 'manual' = 'manual',
+    sessionMode: 'persisted' | 'transient' = 'persisted'
+  ) => {
     if (seedMode === 'off') {
       return
     }
 
     const seedData = createPreviewSeedData()
     const seedMarker = `${PREVIEW_SEED_VERSION}:${seedMode}`
+    const defaultSessionUserId = seedData.users.find((user) => user.role === 'admin')?.id || seedData.users[0]?.id || ''
 
     setUsers(seedData.users)
     setSessions(seedData.sessions)
@@ -215,8 +308,16 @@ function App() {
     setRiskHistorySnapshots(seedData.riskHistorySnapshots)
     setTargetTrainerCoverage(seedData.targetTrainerCoverage)
     setPreviewSeedVersion(seedMarker)
-    setActiveUserId(seedData.users[0]?.id || '')
     setAuthPasswords(buildPreviewAuthPasswords(seedData.users))
+
+    if (sessionMode === 'transient') {
+      setPersistedActiveUserId('')
+      setDemoSessionState(true, defaultSessionUserId)
+      writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, true)
+    } else {
+      setDemoSessionState(false, '')
+      setPersistedActiveUserId(defaultSessionUserId)
+    }
 
     toast.success('Preview test data loaded', {
       description: `Seeded ${seedData.users.length} users, ${seedData.sessions.length} sessions, and related edge-case data.`
@@ -236,7 +337,8 @@ function App() {
     setRiskHistorySnapshots,
     setTargetTrainerCoverage,
     setPreviewSeedVersion,
-    setActiveUserId,
+    setPersistedActiveUserId,
+    setDemoSessionState,
     buildPreviewAuthPasswords
   ])
 
@@ -268,8 +370,63 @@ function App() {
       }
     }
 
-    applyPreviewSeedData('manual')
-  }, [hasExistingCoreData, applyPreviewSeedData])
+    applyPreviewSeedData('manual', demoModeEnabled ? 'transient' : 'persisted')
+  }, [applyPreviewSeedData, demoModeEnabled, hasExistingCoreData])
+
+  const handleEnterDemoMode = useCallback(() => {
+    applyPreviewSeedData('manual', 'transient')
+  }, [applyPreviewSeedData])
+
+  const clearPreviewDataState = useCallback((showToast: boolean) => {
+    setUsers([])
+    setAuthPasswords({})
+    setSessions([])
+    setCourses([])
+    setEnrollments([])
+    setAttendanceRecords([])
+    setNotifications([])
+    setWellnessCheckIns([])
+    setRecoveryPlans([])
+    setCheckInSchedules([])
+    setScheduleTemplates([])
+    setRiskHistorySnapshots([])
+    setTargetTrainerCoverage(4)
+    setPreviewSeedVersion('')
+    setPersistedActiveUserId('')
+    setDemoSessionState(false, '')
+    writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, false)
+
+    if (typeof window !== 'undefined') {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('reminder-')) {
+          localStorage.removeItem(key)
+        }
+      })
+    }
+
+    if (showToast) {
+      toast.success('Preview data reset complete', {
+        description: 'All local preview records have been cleared.'
+      })
+    }
+  }, [
+    setUsers,
+    setAuthPasswords,
+    setSessions,
+    setCourses,
+    setEnrollments,
+    setAttendanceRecords,
+    setNotifications,
+    setWellnessCheckIns,
+    setRecoveryPlans,
+    setCheckInSchedules,
+    setScheduleTemplates,
+    setRiskHistorySnapshots,
+    setTargetTrainerCoverage,
+    setPreviewSeedVersion,
+    setPersistedActiveUserId,
+    setDemoSessionState,
+  ])
 
   /**
    * Handles a user-initiated request to wipe all preview data. Prompts the
@@ -288,50 +445,18 @@ function App() {
       return
     }
 
-    setUsers([])
-    setAuthPasswords({})
-    setSessions([])
-    setCourses([])
-    setEnrollments([])
-    setAttendanceRecords([])
-    setNotifications([])
-    setWellnessCheckIns([])
-    setRecoveryPlans([])
-    setCheckInSchedules([])
-    setScheduleTemplates([])
-    setRiskHistorySnapshots([])
-    setTargetTrainerCoverage(4)
-    setPreviewSeedVersion('')
-    setActiveUserId('')
+    clearPreviewDataState(true)
+  }, [
+    clearPreviewDataState,
+  ])
 
-    if (typeof window !== 'undefined') {
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith('reminder-')) {
-          localStorage.removeItem(key)
-        }
-      })
+  useEffect(() => {
+    if (previewMode || demoModeEnabled || !readLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY)) {
+      return
     }
 
-    toast.success('Preview data reset complete', {
-      description: 'All local preview records have been cleared.'
-    })
-  }, [
-    setUsers,
-    setAuthPasswords,
-    setSessions,
-    setCourses,
-    setEnrollments,
-    setAttendanceRecords,
-    setNotifications,
-    setWellnessCheckIns,
-    setRecoveryPlans,
-    setCheckInSchedules,
-    setScheduleTemplates,
-    setRiskHistorySnapshots,
-    setTargetTrainerCoverage,
-    setPreviewSeedVersion,
-    setActiveUserId
-  ])
+    clearPreviewDataState(false)
+  }, [clearPreviewDataState, demoModeEnabled, previewMode])
 
   useEffect(() => {
     if (!previewSeedEnabled) {
@@ -380,7 +505,7 @@ function App() {
   ])
 
   useEffect(() => {
-    if (!previewMode) {
+    if (!localPreviewMode) {
       return
     }
 
@@ -402,7 +527,7 @@ function App() {
 
       return changed ? next : existing
     })
-  }, [previewMode, users, setAuthPasswords])
+  }, [localPreviewMode, users, setAuthPasswords])
 
   useEffect(() => {
     if (users && users.length > 0) {
@@ -445,13 +570,13 @@ function App() {
     const hasActiveUser = safeUsers.some((user) => user.id === activeUserId)
     if (!hasActiveUser) {
       const nextUser = safeUsers[0]
-      setActiveUserId(nextUser.id)
+      setSessionUserId(nextUser.id)
       if (!VIEW_ACCESS[activeView]?.includes(nextUser.role)) {
         setActiveView('dashboard')
         setNavigationPayload(null)
       }
     }
-  }, [activeUserId, activeView, safeUsers, setActiveUserId])
+  }, [activeUserId, activeView, safeUsers, setSessionUserId])
 
   /**
    * Creates a new {@link Notification} record with a generated ID and
@@ -601,16 +726,16 @@ function App() {
   const unreadNotifications = visibleNotifications.filter(n => !n.read)
 
   const handleSwitchUser = useCallback((userId: string) => {
-    setActiveUserId(userId)
+    setSessionUserId(userId)
     setActiveView('dashboard')
     setNavigationPayload(null)
-  }, [setActiveUserId])
+  }, [setSessionUserId])
 
   const handleLogout = useCallback(() => {
-    setActiveUserId(safeUsers[0]?.id || '')
+    setSessionUserId(safeUsers[0]?.id || '')
     setActiveView('dashboard')
     setNavigationPayload(null)
-  }, [safeUsers, setActiveUserId])
+  }, [safeUsers, setSessionUserId])
 
   // SECURITY NOTE: `authPasswords` stores plaintext demo credentials for preview-only flows.
   // This is not production-safe; replace with server-side auth (hashed passwords over TLS,
@@ -643,7 +768,7 @@ function App() {
         return false
       }
 
-      setActiveUserId(matchedUser.id)
+      setSessionUserId(matchedUser.id)
       setActiveView('dashboard')
       setNavigationPayload(null)
       signInForm.setValue('password', '')
@@ -653,7 +778,7 @@ function App() {
       return true
     }
 
-    if (!previewMode && useServerAuth) {
+    if (!localPreviewMode && useServerAuth) {
       try {
         const response = await fetch('/api/auth/sign-in', {
           method: 'POST',
@@ -690,7 +815,7 @@ function App() {
           return
         }
 
-        setActiveUserId(authenticatedUserId)
+        setSessionUserId(authenticatedUserId)
         setActiveView('dashboard')
         setNavigationPayload(null)
         signInForm.setValue('password', '')
@@ -706,21 +831,21 @@ function App() {
     }
 
     authenticateLocally()
-  }, [authPasswords, previewMode, safeUsers, setActiveUserId, signInForm, useServerAuth])
+  }, [authPasswords, localPreviewMode, safeUsers, setSessionUserId, signInForm, useServerAuth])
 
   const handleSignOut = useCallback(() => {
-    setActiveUserId('')
+    setSessionUserId('')
     setActiveView('dashboard')
     setNavigationPayload(null)
     signInForm.setValue('password', '')
-  }, [setActiveUserId, signInForm])
+  }, [setSessionUserId, signInForm])
 
   const createFirstAdmin = useCallback((values: FirstAdminFormValues) => {
     if (hasPersistedUsers) {
       return
     }
 
-    if (!previewMode) {
+    if (!localPreviewMode) {
       toast.error('Setup unavailable', {
         description: 'Initial admin bootstrap in this client flow is preview-only.',
       })
@@ -753,7 +878,7 @@ function App() {
     setUsers([firstAdmin])
     setAuthPasswords({ [firstAdmin.id]: password })
 
-    setActiveUserId(firstAdmin.id)
+    setSessionUserId(firstAdmin.id)
     setActiveView('dashboard')
     setNavigationPayload(null)
     firstAdminForm.reset()
@@ -762,7 +887,7 @@ function App() {
     toast.success('First admin created', {
       description: `${name} can now manage the workspace.`,
     })
-  }, [firstAdminForm, hasPersistedUsers, previewMode, setActiveUserId, setAuthPasswords, setUsers, signInForm])
+  }, [firstAdminForm, hasPersistedUsers, localPreviewMode, setSessionUserId, setAuthPasswords, setUsers, signInForm])
 
   const handleAssignRole = useCallback((userId: string, role: User['role']) => {
     const targetUser = safeUsers.find((entry) => entry.id === userId)
@@ -1091,7 +1216,7 @@ function App() {
     const updatedAt = new Date().toISOString()
     setUsers((currentUsers) => [...(currentUsers || []), { ...newUser, updatedAt }])
 
-    if (previewMode) {
+    if (localPreviewMode) {
       setAuthPasswords((current) => ({
         ...(current || {}),
         [newUser.id]: current?.[newUser.id] ?? 'password123',
@@ -1168,7 +1293,7 @@ function App() {
     if (activeUserId === userId) {
       const nextUser = safeUsers.find((user) => user.id !== userId)
       const nextUserId = nextUser?.id || ''
-      setActiveUserId(nextUserId)
+      setSessionUserId(nextUserId)
 
       // Ensure the new active user can access the current view
       if (nextUser && !VIEW_ACCESS[activeView]?.includes(nextUser.role)) {
@@ -1243,7 +1368,7 @@ function App() {
     activeUserId,
     activeView,
     safeUsers,
-    setActiveUserId,
+    setSessionUserId,
     setActiveView,
     setAttendanceRecords,
     setAuthPasswords,
@@ -1614,7 +1739,7 @@ function App() {
               <p className="text-muted-foreground mt-1">Configure system settings</p>
             </div>
             <div className="max-w-4xl space-y-4">
-              {previewMode && (
+              {localPreviewMode && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Local Session</CardTitle>
@@ -1707,7 +1832,7 @@ function App() {
   }
 
   if (!activeUserId) {
-    if (!hasPersistedUsers && previewMode) {
+    if (!hasPersistedUsers && localPreviewMode) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
@@ -1766,7 +1891,7 @@ function App() {
       )
     }
 
-    if (!hasPersistedUsers && !previewMode) {
+    if (!hasPersistedUsers && !localPreviewMode) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
@@ -1781,6 +1906,9 @@ function App() {
                 <p className="text-sm text-muted-foreground">
                   User setup is only available during preview mode. Please configure users through your deployment or server setup process.
                 </p>
+                <Button className="mt-4 w-full" onClick={handleEnterDemoMode}>
+                  Enter Demo Mode
+                </Button>
               </CardContent>
             </Card>
           </div>
@@ -1827,7 +1955,7 @@ function App() {
                 <Button type="submit" className="w-full">
                   Sign In
                 </Button>
-                {previewMode && (
+                {localPreviewMode && (
                   <p className="text-xs text-muted-foreground">
                     Default password for seeded users is <strong>password123</strong>.
                   </p>
@@ -1849,9 +1977,9 @@ function App() {
         notificationCount={unreadNotifications.length}
         userRole={currentUser.role}
         currentUser={currentUser}
-        users={previewMode ? safeUsers : [currentUser]}
-        onSwitchUser={previewMode ? handleSwitchUser : undefined}
-        onLogout={previewMode ? handleLogout : undefined}
+        users={localPreviewMode ? safeUsers : [currentUser]}
+        onSwitchUser={localPreviewMode ? handleSwitchUser : undefined}
+        onLogout={localPreviewMode ? handleLogout : undefined}
       >
         {renderView()}
       </Layout>

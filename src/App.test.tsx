@@ -630,6 +630,7 @@ describe('App', () => {
         setAppRuntimeEnv(undefined)
         globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ = undefined
         localStorage.clear()
+        sessionStorage.clear()
     })
 
     it('renders dashboard by default and supports navigation across views', async () => {
@@ -2407,7 +2408,8 @@ describe('App', () => {
         expect(screen.getByText('Password is required')).toBeInTheDocument()
     })
 
-    it('shows the non-preview setup-required screen when no users exist', () => {
+    it('shows setup-required messaging and enters demo mode from non-preview runtime', async () => {
+        const user = userEvent.setup()
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
@@ -2417,6 +2419,48 @@ describe('App', () => {
         expect(screen.getByText(/setup required/i)).toBeInTheDocument()
         expect(screen.getByText(/no users have been created in this workspace yet/i)).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /^create first admin$/i })).toBeNull()
+
+        await user.click(screen.getByRole('button', { name: /^enter demo mode$/i }))
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(kvState['active-user-id']).toBe('')
+        expect(createPreviewSeedDataMock).toHaveBeenCalledTimes(1)
+        expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBe('true')
+        expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBe('true')
+    })
+
+    it('restores demo mode from session storage on a same-tab reload', async () => {
+        kvSeed['active-user-id'] = ''
+        kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+        sessionStorage.setItem('orchestrate-demo-mode-active', 'true')
+        sessionStorage.setItem('orchestrate-demo-mode-user-id', 'trainer-1')
+        localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
+
+        render(<App />)
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
+        expect(kvState['active-user-id']).toBe('')
+    })
+
+    it('clears stale demo seed data when the demo session marker is missing', async () => {
+        kvSeed['active-user-id'] = ''
+        kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+        localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
+
+        render(<App />)
+
+        expect(await screen.findByText(/setup required/i)).toBeInTheDocument()
+
+        await waitFor(() => {
+            expect(kvState['users']).toEqual([])
+            expect(kvState['auth-passwords']).toEqual({})
+            expect(kvState['preview-seed-version']).toBe('')
+        })
+
+        expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBeNull()
     })
 
     it('does not create a first admin through the test hook when users already exist', async () => {
