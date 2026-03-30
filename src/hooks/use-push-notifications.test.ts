@@ -599,7 +599,7 @@ describe('usePushNotifications', () => {
         expect(updated.permission).toBe('denied')
     })
 
-    it('calls onClisk and closes notification when clicked', async () => {
+    it('calls onClick and closes notification when clicked', async () => {
         vi.mocked(useKV).mockReturnValue([
             {
                 enabled: true,
