@@ -2,7 +2,7 @@
 description: "Resolve open review comments on the active pull request via agent with strict validation and a thread-by-thread fix report"
 name: "Resolve Open Comments"
 argument-hint: "Constraints and priority comments to handle first"
-agent: "agent"
+agent: "Resolver"
 ---
 Resolve Open Comments.
 
