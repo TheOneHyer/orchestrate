@@ -1273,7 +1273,7 @@ function App() {
   ])
 
   useEffect(() => {
-    if (import.meta.env.PROD) {
+    if (import.meta.env.PROD || !import.meta.env.VITEST) {
       return
     }
 
