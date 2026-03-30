@@ -276,8 +276,12 @@ describe('ApplyTemplateDialog', () => {
             )
 
             const startDateInput = screen.getByLabelText(/start date/i)
-            fireEvent.change(startDateInput, { target: { value: '2026-03-17' } })
-            fireEvent.change(screen.getByLabelText(/number of cycles/i), { target: { value: '2' } })
+            await user.clear(startDateInput)
+            await user.type(startDateInput, '2026-03-17')
+
+            const cyclesInput = screen.getByLabelText(/number of cycles/i)
+            await user.clear(cyclesInput)
+            await user.type(cyclesInput, '2')
 
             await user.click(getCreateButton())
 
@@ -295,7 +299,6 @@ describe('ApplyTemplateDialog', () => {
         const onApply = vi.fn()
         const user = userEvent.setup()
 
-        // recurrenceType='custom' with no cycleDays triggers the `cycleDays || 7` fallback (line 110 arm 1).
         const customTemplate = createTemplate({ recurrenceType: 'custom', cycleDays: undefined })
 
         render(
@@ -307,16 +310,19 @@ describe('ApplyTemplateDialog', () => {
             />
         )
 
-        fireEvent.change(screen.getByLabelText(/start date/i), { target: { value: '2026-03-16' } })
-        fireEvent.change(screen.getByLabelText(/number of cycles/i), { target: { value: '2' } })
+        const startDateInput = screen.getByLabelText(/start date/i)
+        await user.clear(startDateInput)
+        await user.type(startDateInput, '2026-03-16')
+
+        const cyclesInput = screen.getByLabelText(/number of cycles/i)
+        await user.clear(cyclesInput)
+        await user.type(cyclesInput, '2')
 
         await user.click(getCreateButton())
 
         expect(onApply).toHaveBeenCalledOnce()
         const sessions = onApply.mock.calls[0][0]
-        // With cycleDays||7 = 7, cycle 2 starts 7 days after cycle 1.
-        expect(sessions.length).toBeGreaterThan(0)
-        // First session starts on 2026-03-16, second cycle starts on 2026-03-23 (7 days later).
+        expect(sessions.length).toBeGreaterThan(templateSessions.length)
         const secondCycleStart = new Date(sessions[templateSessions.length].startTime)
         const firstCycleStart = new Date(sessions[0].startTime)
         const dayDiff = Math.round((secondCycleStart.getTime() - firstCycleStart.getTime()) / (1000 * 60 * 60 * 24))

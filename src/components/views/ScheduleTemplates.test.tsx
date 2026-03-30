@@ -557,8 +557,7 @@ describe('ScheduleTemplates', () => {
     })
 
     it('renders null for last-used date when lastUsed is an invalid date string', () => {
-        // Creates a template with an invalid lastUsed value so that `parseISO` returns
-        // an invalid Date and `isValid(date)` is false — covering the `null` arm (line 222 arm 1).
+        // Use an invalid lastUsed value so parseISO produces an invalid Date.
         const badDateTemplate = createTemplate({
             id: 'template-bad-date',
             name: 'Bad Date Template',
@@ -573,7 +572,7 @@ describe('ScheduleTemplates', () => {
         render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         expect(screen.getByText('Bad Date Template')).toBeInTheDocument()
-        // "Last:" badge should NOT appear because lastUsedFormatted resolved to null.
+        // Invalid lastUsed should suppress the rendered "Last:" metadata.
         expect(screen.queryByText(/last:/i)).not.toBeInTheDocument()
     })
 })

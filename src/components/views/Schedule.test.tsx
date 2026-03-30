@@ -586,10 +586,19 @@ describe('Schedule', () => {
     expect(screen.getByText(/evan employee/i)).toBeInTheDocument()
     expect(screen.getByText(/sam student/i)).toBeInTheDocument()
     expect(screen.getByText(/attendance:\s*absent/i)).toBeInTheDocument()
+    expect(screen.getByText(/attendance:\s*present/i)).toBeInTheDocument()
 
     const absentButton = screen.getByTestId('mark-absent-btn-u-employee')
     expect(absentButton).toBeDisabled()
     expect(absentButton).toHaveClass('opacity-100')
+
+    const presentButtonSecond = screen.getByTestId('mark-present-btn-u-second')
+    expect(presentButtonSecond).toBeDisabled()
+    expect(presentButtonSecond).toHaveClass('opacity-100')
+
+    const absentButtonSecond = screen.getByTestId('mark-absent-btn-u-second')
+    expect(absentButtonSecond).not.toBeDisabled()
+    expect(absentButtonSecond).not.toHaveClass('opacity-100')
   })
 
   it('opens guided scheduler from an empty day cell for schedule managers', async () => {

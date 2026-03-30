@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -215,6 +215,7 @@ describe('NotificationPermissionBanner', () => {
     })
 
     it('returns early when enable is triggered again while a request is already pending', async () => {
+        const user = userEvent.setup()
         const setDismissed = vi.fn()
         let resolvePermission!: (value: NotificationPermission) => void
         const requestPermission = vi.fn(
@@ -231,11 +232,11 @@ describe('NotificationPermissionBanner', () => {
         render(<NotificationPermissionBanner />)
 
         const enableButton = await screen.findByRole('button', { name: /enable/i })
-        fireEvent.click(enableButton)
+        await user.click(enableButton)
         expect(enableButton).toBeDisabled()
         // Re-enable the DOM node so we can invoke the click handler while state is still requesting.
         enableButton.removeAttribute('disabled')
-        fireEvent.click(enableButton)
+        await user.click(enableButton)
 
         expect(requestPermission).toHaveBeenCalledTimes(1)
 

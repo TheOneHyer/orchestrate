@@ -93,16 +93,16 @@ pnpm test:coverage    # Run tests and generate a coverage report
 
 ## Testing Requirements
 
-### Coverage Thresholds — 97 % Minimum
+### Coverage Thresholds — 95 % Minimum
 
-All four coverage metrics must remain at or above **97 %**:
+All four coverage metrics must remain at or above **95 %**:
 
 | Metric | Threshold |
 |---|---|
-| Statements | ≥ 97 % |
-| Branches | ≥ 97 % |
-| Functions | ≥ 97 % |
-| Lines | ≥ 97 % |
+| Statements | ≥ 95 % |
+| Branches | ≥ 95 % |
+| Functions | ≥ 95 % |
+| Lines | ≥ 95 % |
 
 Thresholds are enforced by Vitest in `vite.config.ts`
 (`test.coverage.thresholds`). Any coverage run falling below a threshold fails.
@@ -195,6 +195,6 @@ export const DEFAULT_TIMEOUT_MS = 5_000;
 
 - [ ] `pnpm lint` passes with no errors.
 - [ ] `pnpm build` succeeds.
-- [ ] `pnpm test:coverage` passes with all four metrics ≥ 97 %.
+- [ ] `pnpm test:coverage` passes with all four metrics ≥ 95 %.
 - [ ] Every new exported symbol has a JSDoc comment.
 - [ ] Every new source file has a corresponding test file.

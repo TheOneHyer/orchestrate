@@ -130,6 +130,6 @@ describe('BurnoutRiskGauge', () => {
 
         expect(screen.queryByText(/no data available/i)).not.toBeInTheDocument()
         expect(screen.getByTestId('burnout-risk-gauge')).toBeInTheDocument()
-        expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('Medium Risk')
+        expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('1 Medium Risk')
     })
 })

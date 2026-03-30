@@ -1348,6 +1348,10 @@ function App() {
   }, [setNotifications])
 
   useEffect(() => {
+    if (import.meta.env.PROD || !import.meta.env.VITEST) {
+      return
+    }
+
     const testHooks = globalThis.__ORCHESTRATE_APP_TEST_HOOKS__
     if (!testHooks) {
       return
@@ -1356,7 +1360,10 @@ function App() {
     testHooks.handleMarkNotificationAsRead = handleMarkNotificationAsRead
 
     return () => {
-      if (globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ === testHooks) {
+      if (
+        !(import.meta.env.PROD || !import.meta.env.VITEST)
+        && globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ === testHooks
+      ) {
         delete testHooks.handleMarkNotificationAsRead
       }
     }
