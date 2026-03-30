@@ -1923,9 +1923,12 @@ function App() {
                 <p className="text-sm text-muted-foreground">
                   User setup is only available during preview mode. Please configure users through your deployment or server setup process.
                 </p>
-                <Button className="mt-4 w-full" onClick={handleEnterDemoMode}>
-                  Enter Demo Mode
-                </Button>
+                {typeof window !== 'undefined' &&
+                  new URLSearchParams(window.location.search).has('demoMode') && (
+                    <Button className="mt-4 w-full" onClick={handleEnterDemoMode}>
+                      Enter Demo Mode
+                    </Button>
+                  )}
               </CardContent>
             </Card>
           </div>
