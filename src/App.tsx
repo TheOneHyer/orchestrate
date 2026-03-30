@@ -125,7 +125,7 @@ declare global {
 }
 
 function getAppRuntimeEnv() {
-  const overrides = globalThis.__ORCHESTRATE_APP_TEST_ENV__
+  const overrides = !import.meta.env.PROD ? globalThis.__ORCHESTRATE_APP_TEST_ENV__ : undefined
 
   return {
     initialActiveView: overrides?.initialActiveView,
@@ -1273,6 +1273,10 @@ function App() {
   ])
 
   useEffect(() => {
+    if (import.meta.env.PROD) {
+      return
+    }
+
     const testHooks = globalThis.__ORCHESTRATE_APP_TEST_HOOKS__
     if (!testHooks) {
       return
