@@ -214,6 +214,38 @@ describe('NotificationPermissionBanner', () => {
         })
     })
 
+    it('returns early when enable is triggered again while a request is already pending', async () => {
+        const user = userEvent.setup()
+        const setDismissed = vi.fn()
+        let resolvePermission!: (value: NotificationPermission) => void
+        const requestPermission = vi.fn(
+            () => new Promise<NotificationPermission>((resolve) => { resolvePermission = resolve })
+        )
+
+        mockUsePushNotifications.mockReturnValue({
+            isSupported: true,
+            settings: { permission: 'default' },
+            requestPermission,
+        })
+        mockUseKV.mockReturnValue([false, setDismissed])
+
+        render(<NotificationPermissionBanner />)
+
+        const enableButton = await screen.findByRole('button', { name: /enable/i })
+        await user.click(enableButton)
+        expect(enableButton).toBeDisabled()
+        // Re-enable the DOM node so we can invoke the click handler while state is still requesting.
+        enableButton.removeAttribute('disabled')
+        await user.click(enableButton)
+
+        expect(requestPermission).toHaveBeenCalledTimes(1)
+
+        resolvePermission('granted')
+        await waitFor(() => {
+            expect(setDismissed).toHaveBeenCalledWith(true)
+        })
+    })
+
     it('does not update banner state when permission resolves after unmount', async () => {
         const user = userEvent.setup()
         const setDismissed = vi.fn()

@@ -54,7 +54,7 @@ export default defineConfig({
         ...coverageConfigDefaults.exclude,
         'src/main.tsx',
         'src/vite-env.d.ts',
-        'src/components/ui/**'
+        'src/components/ui/**',
       ]
     }
   }

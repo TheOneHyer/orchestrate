@@ -217,4 +217,52 @@ describe('AddPersonDialog', () => {
         expect(onOpenChange).toHaveBeenCalledWith(false)
         expect(onSave).not.toHaveBeenCalled()
     })
+
+    it('ignores whitespace-only certification input', async () => {
+        render(<AddPersonDialog {...baseProps} />)
+
+        await userEvent.type(screen.getByLabelText(/certifications/i), '   ')
+        await userEvent.click(screen.getByRole('button', { name: /^add$/i }))
+
+        // No certification should be added
+        expect(screen.queryByText(/^\s+$/)).not.toBeInTheDocument()
+    })
+
+    it('clears all form state when dialog is closed', async () => {
+        const { rerender } = render(<AddPersonDialog {...baseProps} />)
+
+        await userEvent.type(screen.getByLabelText(/full name/i), 'Test Person')
+        await userEvent.type(screen.getByLabelText(/email address/i), 'test@example.com')
+        await userEvent.type(screen.getByLabelText(/department/i), 'Ops')
+        await userEvent.type(screen.getByLabelText(/certifications/i), 'CPR')
+        await userEvent.click(screen.getByRole('button', { name: /^add$/i }))
+
+        await userEvent.click(screen.getByRole('button', { name: /cancel/i }))
+
+        // Reopen dialog and verify state is cleared
+        baseProps.open = true
+        rerender(<AddPersonDialog {...baseProps} />)
+
+        expect((screen.getByLabelText(/full name/i) as HTMLInputElement).value).toBe('')
+        expect((screen.getByLabelText(/email address/i) as HTMLInputElement).value).toBe('')
+        expect((screen.getByLabelText(/department/i) as HTMLInputElement).value).toBe('')
+        expect((screen.getByLabelText(/certifications/i) as HTMLInputElement).value).toBe('')
+    })
+
+    it('creates user with role employee when role selection is not changed', async () => {
+        render(<AddPersonDialog {...baseProps} />)
+
+        await userEvent.type(screen.getByLabelText(/full name/i), 'Default Employee')
+        await userEvent.type(screen.getByLabelText(/email address/i), 'employee@example.com')
+        await userEvent.type(screen.getByLabelText(/department/i), 'Ops')
+        await userEvent.click(screen.getByRole('checkbox', { name: /day/i }))
+
+        await userEvent.click(screen.getByRole('button', { name: /add person/i }))
+
+        expect(baseProps.onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                role: 'employee',
+            })
+        )
+    })
 })

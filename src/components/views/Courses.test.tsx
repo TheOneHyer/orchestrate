@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -538,6 +538,36 @@ describe('Courses', () => {
             expect.objectContaining({ description: 'Service unavailable' })
         )
         expect(toastSuccess).not.toHaveBeenCalled()
+    })
+
+    it('shows saving state while create callback is pending', async () => {
+        const user = userEvent.setup()
+        let resolveCreate: (() => void) | undefined
+        const onCreateCourse = vi.fn(() => new Promise<void>((resolve) => {
+            resolveCreate = resolve
+        }))
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await fillValidCourseForm(user)
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(onCreateCourse).toHaveBeenCalledTimes(1)
+        expect(screen.getByRole('button', { name: /saving/i })).toBeDisabled()
+
+        resolveCreate?.()
+        await waitFor(() => {
+            expect(screen.queryByRole('heading', { name: /create course/i })).toBeNull()
+        })
     })
 
     it('shows a fallback error message when course creation fails without an Error object', async () => {
@@ -1120,6 +1150,52 @@ describe('Courses', () => {
         )
     })
 
+    it('shows fallback status error text when publish fails without an Error object', async () => {
+        const user = userEvent.setup()
+        const onUpdateCourse = vi.fn().mockRejectedValue('publish unavailable')
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onUpdateCourse={onUpdateCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /publish course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Status update failed',
+            expect.objectContaining({ description: 'Please try again after resolving the issue.' })
+        )
+    })
+
+    it('shows fallback delete error text when delete fails without an Error object', async () => {
+        const user = userEvent.setup()
+        const onDeleteCourse = vi.fn().mockRejectedValue('delete unavailable')
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onDeleteCourse={onDeleteCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /delete course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Delete failed',
+            expect.objectContaining({ description: 'Please try again after resolving the issue.' })
+        )
+    })
+
     it('supports video, slideshow, and quiz module content while creating a course', async () => {
         const user = userEvent.setup()
         const onCreateCourse = vi.fn()
@@ -1294,5 +1370,223 @@ describe('Courses', () => {
 
         await user.click(screen.getByRole('button', { name: /delete course/i }))
         expect(onDeleteCourse).not.toHaveBeenCalled()
+    })
+
+    it('keeps detail dialog state when selected course exists but courses list is temporarily empty', () => {
+        const payload = { courseId: 'c1' }
+        const onNavigate = vi.fn()
+        const { rerender } = render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations', description: 'Initial course' })]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={onNavigate}
+                navigationPayload={payload}
+            />
+        )
+
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+        rerender(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={onNavigate}
+                navigationPayload={payload}
+            />
+        )
+
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('closes detail dialog when selected course is removed after initial load', () => {
+        const payload = { courseId: 'c1' }
+        const onNavigate = vi.fn()
+        const { rerender } = render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations', description: 'Initial course' })]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={onNavigate}
+                navigationPayload={payload}
+            />
+        )
+
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+        rerender(
+            <Courses
+                courses={[createCourse({ id: 'c2', title: 'Different Course', description: 'Replacement data' })]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={onNavigate}
+                navigationPayload={payload}
+            />
+        )
+
+        expect(screen.queryByRole('dialog')).toBeNull()
+    })
+
+    it('syncs selected course details when matching course object changes', () => {
+        const payload = { courseId: 'c1' }
+        const onNavigate = vi.fn()
+        const { rerender } = render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations', description: 'Initial course' })]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={onNavigate}
+                navigationPayload={payload}
+            />
+        )
+
+        expect(screen.getByRole('heading', { name: /safety foundations/i })).toBeInTheDocument()
+
+        rerender(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Safety Foundations v2', description: 'Updated details' })]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={onNavigate}
+                navigationPayload={payload}
+            />
+        )
+
+        expect(screen.getByRole('heading', { name: /safety foundations v2/i })).toBeInTheDocument()
+    })
+
+    it('shows description validation message when title is present and description is blank', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'Description required test')
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Course validation failed',
+            expect.objectContaining({ description: expect.stringMatching(/title and description are required/i) })
+        )
+    })
+
+    it('shows module duration validation message when a module duration is invalid', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'Module duration validation test')
+        await user.type(screen.getByLabelText(/description/i), 'Description')
+        await user.click(screen.getByRole('button', { name: /add module/i }))
+
+        const durationInputs = screen.getAllByLabelText(/duration \(minutes\)/i)
+        const moduleDurationInput = durationInputs[durationInputs.length - 1]
+        await user.clear(moduleDurationInput)
+        await user.type(moduleDurationInput, '0')
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Course validation failed',
+            expect.objectContaining({ description: expect.stringMatching(/each module needs a title and positive duration/i) })
+        )
+    })
+
+    it('rejects quiz modules when no questions are defined', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'Quiz validation test')
+        await user.type(screen.getByLabelText(/description/i), 'Description')
+        await user.click(screen.getByRole('button', { name: /add module/i }))
+
+        const dialog = screen.getByRole('dialog')
+        await user.click(within(dialog).getAllByRole('combobox')[0])
+        await user.click(screen.getByRole('option', { name: 'Quiz' }))
+
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(onCreateCourse).not.toHaveBeenCalled()
+        expect(toastError).toHaveBeenCalledWith(
+            'Course validation failed',
+            expect.objectContaining({ description: expect.stringMatching(/module content must be filled for module type quiz/i) })
+        )
+    })
+
+    it('clears optional video duration seconds when the video duration input is emptied', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'Video duration clear test')
+        await user.type(screen.getByLabelText(/description/i), 'Description')
+        await user.click(screen.getByRole('button', { name: /add module/i }))
+
+        const dialog = screen.getByRole('dialog')
+        await user.clear(screen.getByDisplayValue('Module 1'))
+        await user.type(screen.getByPlaceholderText(/incident response overview/i), 'Video Module')
+        await user.click(within(dialog).getAllByRole('combobox')[0])
+        await user.click(screen.getByRole('option', { name: 'Video' }))
+        await user.type(screen.getByPlaceholderText(/https:\/\/example\.com\/video/i), 'https://example.com/video')
+
+        const durationSecondsInput = screen.getByLabelText(/duration \(seconds\)/i)
+        await user.type(durationSecondsInput, '120')
+        await user.clear(durationSecondsInput)
+
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(onCreateCourse).toHaveBeenCalledWith(
+            expect.objectContaining({
+                moduleDetails: [
+                    expect.objectContaining({
+                        contentType: 'video',
+                        content: expect.objectContaining({
+                            url: 'https://example.com/video',
+                            durationSeconds: undefined,
+                        }),
+                    }),
+                ],
+            })
+        )
     })
 })

@@ -500,4 +500,47 @@ describe('burnout-analytics', () => {
             recommendations: []
         })
     })
+
+    it('returns low risk when trainer is found but has no matching wellness check-ins', () => {
+        // Exercises the false branch of `if (recentCheckIns.length > 0)` (line 574)
+        // and the false branch of `else if (riskScore >= 40)` when riskScore is low (line 602).
+        const trainer = createTrainer()
+        const courses = [createCourse('course-1')]
+
+        const result = calculateBurnoutRisk(trainer.id, [], [], [trainer], courses)
+
+        expect(result.trainerId).toBe(trainer.id)
+        expect(result.risk).toBe('low')
+        expect(result.factors).toEqual([])
+    })
+
+    it('does not add Multiple concerns factor when fewer than 3 check-ins raise a concern', () => {
+        // Exercises the false branch of `if (concernsRaised >= 3)` (line 590).
+        const trainer = createTrainer()
+        const courses = [createCourse('course-1')]
+        const checkIns = [
+            createCheckIn('c-1', { concerns: ['Workload'], stress: 'low', mood: 4 }),
+            createCheckIn('c-2', { concerns: [], stress: 'low', mood: 4 }),
+            createCheckIn('c-3', { concerns: [], stress: 'low', mood: 4 }),
+        ]
+
+        const result = calculateBurnoutRisk(trainer.id, [], checkIns, [trainer], courses)
+
+        expect(result.factors).not.toContain('Multiple concerns raised')
+    })
+
+    it('flags consistent high stress when 3 or more recent check-ins report high/critical stress', () => {
+        // Exercises the true branch of `if (highStressCount >= 3)` (line 583).
+        const trainer = createTrainer()
+        const checkIns = [
+            createCheckIn('s-1', { stress: 'high', mood: 3 }),
+            createCheckIn('s-2', { timestamp: '2026-03-14T09:00:00.000Z', stress: 'high', mood: 3 }),
+            createCheckIn('s-3', { timestamp: '2026-03-13T09:00:00.000Z', stress: 'critical', mood: 3 }),
+        ]
+
+        const result = calculateBurnoutRisk(trainer.id, [], checkIns, [trainer], [])
+
+        expect(result.factors).toContain('Consistent high stress levels')
+        expect(result.recommendations).toContain('Schedule immediate wellness intervention')
+    })
 })

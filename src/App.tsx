@@ -46,6 +46,7 @@ import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
 import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
+import { AppRuntimeEnvOverrides, AppTestHooks } from '@/testSupport'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
   dashboard: ['admin', 'trainer', 'employee'],
@@ -105,6 +106,21 @@ const firstAdminSchema = z.object({
 type SignInFormValues = z.infer<typeof signInSchema>
 type FirstAdminFormValues = z.infer<typeof firstAdminSchema>
 
+declare global {
+  var __ORCHESTRATE_APP_TEST_ENV__: AppRuntimeEnvOverrides | undefined
+  var __ORCHESTRATE_APP_TEST_HOOKS__: AppTestHooks | undefined
+}
+
+function getAppRuntimeEnv() {
+  const overrides = !import.meta.env.PROD ? globalThis.__ORCHESTRATE_APP_TEST_ENV__ : undefined
+
+  return {
+    initialActiveView: overrides?.initialActiveView,
+    previewMode: overrides?.previewMode ?? !import.meta.env.PROD,
+    useServerAuth: overrides?.useServerAuth ?? import.meta.env.VITE_USE_SERVER_AUTH === 'true',
+  }
+}
+
 /**
  * Root application component that manages KV-backed application state and renders the active view inside the shared layout.
  *
@@ -115,7 +131,8 @@ type FirstAdminFormValues = z.infer<typeof firstAdminSchema>
  * @returns The full application shell containing the active view, the notification permission banner, and the toast container.
  */
 function App() {
-  const [activeView, setActiveView] = useState('dashboard')
+  const runtimeEnv = getAppRuntimeEnv()
+  const [activeView, setActiveView] = useState(runtimeEnv.initialActiveView ?? 'dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
 
   const signInForm = useForm<SignInFormValues>({
@@ -139,8 +156,7 @@ function App() {
 
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
-  const previewMode = !import.meta.env.PROD
-  const useServerAuth = import.meta.env.VITE_USE_SERVER_AUTH === 'true'
+  const { previewMode, useServerAuth } = runtimeEnv
 
   const [users, setUsers] = useKV<User[]>('users', [])
   const [activeUserId, setActiveUserId] = useKV<string>('active-user-id', '')
@@ -1243,6 +1259,31 @@ function App() {
     setWellnessCheckIns,
   ])
 
+  useEffect(() => {
+    if (import.meta.env.PROD || !import.meta.env.VITEST) {
+      return
+    }
+
+    const testHooks = globalThis.__ORCHESTRATE_APP_TEST_HOOKS__
+    if (!testHooks) {
+      return
+    }
+
+    testHooks.createFirstAdmin = createFirstAdmin
+    testHooks.handleSignIn = handleSignIn
+    testHooks.handleAssignRole = handleAssignRole
+    testHooks.handleDeleteUser = handleDeleteUser
+
+    return () => {
+      if (globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ === testHooks) {
+        delete testHooks.createFirstAdmin
+        delete testHooks.handleSignIn
+        delete testHooks.handleAssignRole
+        delete testHooks.handleDeleteUser
+      }
+    }
+  }, [createFirstAdmin, handleAssignRole, handleDeleteUser, handleSignIn])
+
   /**
    * Adds a new {@link CertificationRecord} to the `trainerProfile` of each
    * trainer listed in `trainerIds`. Non-trainer users and users not present in
@@ -1292,6 +1333,28 @@ function App() {
       )
     )
   }, [setNotifications])
+
+  useEffect(() => {
+    if (import.meta.env.PROD || !import.meta.env.VITEST) {
+      return
+    }
+
+    const testHooks = globalThis.__ORCHESTRATE_APP_TEST_HOOKS__
+    if (!testHooks) {
+      return
+    }
+
+    testHooks.handleMarkNotificationAsRead = handleMarkNotificationAsRead
+
+    return () => {
+      if (
+        !(import.meta.env.PROD || !import.meta.env.VITEST)
+        && globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ === testHooks
+      ) {
+        delete testHooks.handleMarkNotificationAsRead
+      }
+    }
+  }, [handleMarkNotificationAsRead])
 
   /**
    * Marks a single notification as unread by setting its `read` flag to

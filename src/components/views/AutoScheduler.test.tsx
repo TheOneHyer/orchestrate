@@ -369,6 +369,47 @@ describe('AutoScheduler', () => {
         expect(availabilityBadge).toHaveClass('text-foreground')
     })
 
+    it('passes an empty sessions array when sessions store is undefined during feasibility analysis', async () => {
+        const user = userEvent.setup()
+        useKVMock.mockImplementation((key: string, initialValue: unknown) => {
+            if (key === 'sessions') {
+                return [undefined, vi.fn()]
+            }
+            return [initialValue, vi.fn()]
+        })
+
+        render(
+            <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
+        )
+
+        await selectCourseAndDate(user)
+        await user.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+
+        expect(findAvailableTrainersMock).toHaveBeenCalled()
+    })
+
+    it('shows N/A when trainer shift labels are missing', async () => {
+        const user = userEvent.setup()
+        findAvailableTrainersMock.mockReturnValueOnce([
+            {
+                trainer: { ...users[0], shifts: undefined },
+                score: 81,
+                matchReasons: ['Has required certification'],
+                conflicts: [],
+                availability: 'available',
+            },
+        ])
+
+        render(
+            <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
+        )
+
+        await selectCourseAndDate(user)
+        await user.click(screen.getByRole('button', { name: /analyze feasibility/i }))
+
+        expect(screen.getByText(/works:\s*n\/a/i)).toBeInTheDocument()
+    })
+
     it('renders scheduling conflicts when auto-schedule fails', async () => {
         const user = userEvent.setup()
         autoScheduleSessionsMock.mockReturnValueOnce({

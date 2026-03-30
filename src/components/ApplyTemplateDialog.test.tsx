@@ -276,8 +276,12 @@ describe('ApplyTemplateDialog', () => {
             )
 
             const startDateInput = screen.getByLabelText(/start date/i)
-            fireEvent.change(startDateInput, { target: { value: '2026-03-17' } })
-            fireEvent.change(screen.getByLabelText(/number of cycles/i), { target: { value: '2' } })
+            await user.clear(startDateInput)
+            await user.type(startDateInput, '2026-03-17')
+
+            const cyclesInput = screen.getByLabelText(/number of cycles/i)
+            await user.clear(cyclesInput)
+            await user.type(cyclesInput, '2')
 
             await user.click(getCreateButton())
 
@@ -290,4 +294,39 @@ describe('ApplyTemplateDialog', () => {
             expect(new Date(sessions[1].startTime).getTime()).toBe(expectedSecondStart.getTime())
         }
     )
+
+    it('uses a default cycle interval of 7 days when a custom template omits cycleDays', async () => {
+        const onApply = vi.fn()
+        const user = userEvent.setup()
+
+        const customTemplate = createTemplate({ recurrenceType: 'custom', cycleDays: undefined })
+
+        render(
+            <ApplyTemplateDialog
+                open={true}
+                onOpenChange={vi.fn()}
+                template={customTemplate}
+                onApply={onApply}
+            />
+        )
+
+        const startDateInput = screen.getByLabelText(/start date/i)
+        await user.clear(startDateInput)
+        await user.type(startDateInput, '2026-03-16')
+
+        const cyclesInput = screen.getByLabelText(/number of cycles/i)
+        await user.clear(cyclesInput)
+        await user.type(cyclesInput, '2')
+
+        await user.click(getCreateButton())
+
+        expect(onApply).toHaveBeenCalledOnce()
+        const sessions = onApply.mock.calls[0][0]
+        expect(sessions.length).toBeGreaterThan(templateSessions.length)
+        const secondCycleStart = new Date(sessions[templateSessions.length].startTime)
+        const firstCycleStart = new Date(sessions[0].startTime)
+        const dayDiff = Math.round((secondCycleStart.getTime() - firstCycleStart.getTime()) / (1000 * 60 * 60 * 24))
+        expect(dayDiff).toBe(7)
+    })
+
 })

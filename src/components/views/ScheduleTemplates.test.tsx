@@ -51,6 +51,7 @@ vi.mock('@/components/ScheduleTemplateDialog', () => ({
         return (
             <div>
                 <p>{template ? `Editing ${template.name}` : 'Creating Template'}</p>
+                <button onClick={() => onOpenChange(true)}>Mock Keep Template Dialog Open</button>
                 <button onClick={() => onOpenChange(false)}>Mock Close Template Dialog</button>
                 <button
                     onClick={() =>
@@ -285,6 +286,19 @@ describe('ScheduleTemplates', () => {
         render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 
         await user.click(screen.getByRole('button', { name: /create template/i }))
+        expect(screen.getByText(/creating template/i)).toBeInTheDocument()
+    })
+
+    it('keeps the template dialog open when onOpenChange(true) is emitted', async () => {
+        const user = userEvent.setup()
+
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
+
+        await user.click(screen.getByRole('button', { name: /new template/i }))
+        expect(screen.getByText(/creating template/i)).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: /mock keep template dialog open/i }))
+
         expect(screen.getByText(/creating template/i)).toBeInTheDocument()
     })
 
@@ -540,5 +554,25 @@ describe('ScheduleTemplates', () => {
         await user.click(screen.getByRole('button', { name: /^mock confirm apply$/i }))
         const applyUpdater = getUpdater(4)
         expect(applyUpdater(undefined as unknown as ScheduleTemplate[])).toEqual([])
+    })
+
+    it('renders null for last-used date when lastUsed is an invalid date string', () => {
+        // Use an invalid lastUsed value so parseISO produces an invalid Date.
+        const badDateTemplate = createTemplate({
+            id: 'template-bad-date',
+            name: 'Bad Date Template',
+            lastUsed: 'not-a-real-date',
+        })
+
+        useKVMock.mockImplementation((key: string, initial: unknown[]) => {
+            if (key === 'schedule-templates') return [[badDateTemplate], setTemplatesMock]
+            return [initial, vi.fn()]
+        })
+
+        render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
+
+        expect(screen.getByText('Bad Date Template')).toBeInTheDocument()
+        // Invalid lastUsed should suppress the rendered "Last:" metadata.
+        expect(screen.queryByText(/last:/i)).not.toBeInTheDocument()
     })
 })

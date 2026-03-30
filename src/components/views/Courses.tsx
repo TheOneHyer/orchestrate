@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Clock, GraduationCap, MagnifyingGlass, PencilSimple, Plus, Trash } from '@phosphor-icons/react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { FieldErrors, useFieldArray, useForm } from 'react-hook-form'
+import { useFieldArray, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { getFirstValidationErrorMessage } from '@/components/views/courses-utils'
 import { createDefaultModuleContent, normalizeCourseModules, summarizeModuleTitles } from '@/lib/course-modules'
 import { formatDuration } from '@/lib/helpers'
 import { Course, Enrollment, Module, User } from '@/lib/types'
@@ -53,49 +54,6 @@ const courseEditorSchema = z.object({
     order: z.number().int(),
   })).min(1, 'At least one module is required.'),
 })
-
-/**
- * Get the first human-readable validation message from the form errors.
- *
- * @param errors - React Hook Form `FieldErrors` for the course editor form
- * @returns The first found validation message string, or `Please review the course details and try again.` as a fallback
- */
-function getFirstValidationErrorMessage(errors: FieldErrors<CourseEditorState>): string {
-  if (typeof errors.title?.message === 'string') {
-    return errors.title.message
-  }
-
-  if (typeof errors.description?.message === 'string') {
-    return errors.description.message
-  }
-
-  if (typeof errors.duration?.message === 'string') {
-    return errors.duration.message
-  }
-
-  if (typeof errors.passScore?.message === 'string') {
-    return errors.passScore.message
-  }
-
-  if (typeof errors.moduleDetails?.message === 'string') {
-    return errors.moduleDetails.message
-  }
-
-  const moduleErrors = Array.isArray(errors.moduleDetails) ? errors.moduleDetails : []
-  const firstModuleError = moduleErrors.find((moduleError) => {
-    return typeof moduleError?.title?.message === 'string' || typeof moduleError?.duration?.message === 'string'
-  })
-
-  if (typeof firstModuleError?.title?.message === 'string') {
-    return firstModuleError.title.message
-  }
-
-  if (typeof firstModuleError?.duration?.message === 'string') {
-    return firstModuleError.duration.message
-  }
-
-  return 'Please review the course details and try again.'
-}
 
 const initialEditorState: CourseEditorState = {
   title: '',

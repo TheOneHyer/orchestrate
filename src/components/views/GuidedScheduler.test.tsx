@@ -759,4 +759,68 @@ describe('GuidedScheduler', () => {
         expect(screen.getByText('22/100')).toBeInTheDocument()
         expect(screen.getByText('82/100')).toBeInTheDocument()
     })
+
+    it('renders and triggers optional cancel actions across all wizard steps when onClose is provided', async () => {
+        const user = userEvent.setup()
+        const onClose = vi.fn()
+
+        renderGuidedScheduler({ onClose })
+
+        await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+        expect(onClose).toHaveBeenCalledTimes(1)
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+        expect(onClose).toHaveBeenCalledTimes(2)
+
+        await user.click(screen.getByText(/1\. taylor trainer/i))
+        await user.click(screen.getByRole('button', { name: /^cancel$/i }))
+
+        expect(onClose).toHaveBeenCalledTimes(3)
+    })
+
+    it('uses undefined KV fallbacks when building trainer insights', async () => {
+        const user = userEvent.setup()
+
+        useKVMock.mockImplementation((key: string, initialValue: unknown) => {
+            if (key === 'sessions') return [undefined, vi.fn()]
+            if (key === 'wellness-check-ins') return [undefined, vi.fn()]
+            if (key === 'recovery-plans') return [undefined, vi.fn()]
+            return [initialValue, vi.fn()]
+        })
+
+        findAvailableTrainersMock.mockReturnValue([
+            {
+                trainer: users[0],
+                score: 41,
+                matchReasons: [],
+                conflicts: [],
+                availability: 'available',
+            },
+        ])
+
+        renderGuidedScheduler()
+
+        await fillParameters(user)
+        await user.click(screen.getByRole('button', { name: /find & compare trainers/i }))
+
+        expect(screen.getByText(/1\. taylor trainer/i)).toBeInTheDocument()
+
+        expect(calculateTrainerWorkloadMock).toHaveBeenCalledWith(
+            expect.objectContaining({ id: 't1' }),
+            [],
+            expect.any(Date),
+            expect.any(Date)
+        )
+        expect(calculateBurnoutRiskMock).toHaveBeenCalledWith(
+            't1',
+            [],
+            [],
+            users,
+            courses
+        )
+        expect(toastInfo).toHaveBeenCalledWith('Review trainer recommendations carefully')
+    })
 })

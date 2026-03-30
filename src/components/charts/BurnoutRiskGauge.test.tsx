@@ -108,4 +108,28 @@ describe('BurnoutRiskGauge', () => {
         expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('1 High Risk')
         expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('1 Low Risk')
     })
+
+    it('renders chart with only moderate risk level trainers', () => {
+        render(
+            <BurnoutRiskGauge
+                data={[
+                    {
+                        trainerId: 't5',
+                        utilizationRate: 71,
+                        hoursScheduled: 29,
+                        sessionCount: 7,
+                        consecutiveDays: 5,
+                        riskScore: 35,
+                        riskLevel: 'moderate',
+                        factors: ['Increased workload'],
+                        recommendations: ['Monitor closely'],
+                    },
+                ]}
+            />
+        )
+
+        expect(screen.queryByText(/no data available/i)).not.toBeInTheDocument()
+        expect(screen.getByTestId('burnout-risk-gauge')).toBeInTheDocument()
+        expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('1 Medium Risk')
+    })
 })

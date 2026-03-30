@@ -3,6 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useKV } from '@github/spark/hooks'
 import { usePushNotifications } from './use-push-notifications'
 
+type PushNotificationSettings = ReturnType<typeof usePushNotifications>['settings']
+type PushSettingsTuple = [PushNotificationSettings, ReturnType<typeof vi.fn>]
+type MutableNotificationConstructor = typeof Notification & {
+    permission: NotificationPermission
+    requestPermission: () => Promise<NotificationPermission>
+}
+
 vi.mock('@github/spark/hooks', async () => {
     return {
         useKV: vi.fn()
@@ -446,7 +453,7 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
             vi.fn()
-        ] as any)
+        ] as PushSettingsTuple)
 
         const { result } = renderHook(() => usePushNotifications())
         const notif = result.current.sendNotification('message with default priority')
@@ -462,5 +469,111 @@ describe('usePushNotifications', () => {
                 silent: false,
             })
         )
+    })
+
+    it('syncs browser permission denied state to settings on mount', () => {
+        const setter = vi.fn()
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            setter,
+        ] as PushSettingsTuple)
+
+        const NotificationMock = globalThis.Notification as unknown as MutableNotificationConstructor
+        NotificationMock.permission = 'denied'
+
+        renderHook(() => usePushNotifications())
+
+        expect(setter).toHaveBeenCalledWith(expect.any(Function))
+        const calls = setter.mock.calls
+        const permissionUpdater = calls[calls.length - 1][0] as (prev: PushNotificationSettings) => PushNotificationSettings
+        const updated = permissionUpdater({
+            enabled: true,
+            permission: 'granted',
+            showForPriorities: { low: false, medium: true, high: true, critical: true },
+        })
+        expect(updated.permission).toBe('denied')
+    })
+
+    it('returns null from sendNotification when permission is denied', () => {
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                permission: 'denied',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            vi.fn(),
+        ] as PushSettingsTuple)
+
+        const NotificationMock = globalThis.Notification as unknown as MutableNotificationConstructor
+        NotificationMock.permission = 'denied'
+
+        const { result } = renderHook(() => usePushNotifications())
+        const notif = result.current.sendNotification('Should not send')
+
+        expect(notif).toBeNull()
+    })
+
+    it('handles notification error event listener', () => {
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            vi.fn(),
+        ] as PushSettingsTuple)
+
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+        const { result } = renderHook(() => usePushNotifications())
+        const notification = result.current.sendNotification('Test')
+
+        expect(notification).not.toBeNull()
+
+        if (notification?.onerror) {
+            notification.onerror(new Event('error'))
+        }
+
+        expect(errorSpy).toHaveBeenCalledWith('Notification error:', expect.any(Event))
+
+        errorSpy.mockRestore()
+    })
+
+    it('handles errors when notification creation fails', () => {
+        vi.mocked(useKV).mockReturnValue([
+            {
+                enabled: true,
+                permission: 'granted',
+                showForPriorities: { low: false, medium: true, high: true, critical: true },
+            },
+            vi.fn(),
+        ] as PushSettingsTuple)
+
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+        // Store original Notification
+        const OriginalNotification = globalThis.Notification
+
+        try {
+            const ThrowingNotification = vi.fn().mockImplementation(() => {
+                throw new Error('Notification creation failed')
+            }) as unknown as MutableNotificationConstructor
+            ThrowingNotification.permission = 'granted'
+            ThrowingNotification.requestPermission = vi.fn(async () => 'granted' as NotificationPermission)
+            vi.stubGlobal('Notification', ThrowingNotification)
+
+            const { result } = renderHook(() => usePushNotifications())
+            const notification = result.current.sendNotification('Will fail')
+
+            expect(notification).toBeNull()
+            expect(errorSpy).toHaveBeenCalledWith('Failed to send notification:', expect.any(Error))
+        } finally {
+            errorSpy.mockRestore()
+            vi.stubGlobal('Notification', OriginalNotification)
+        }
     })
 })
