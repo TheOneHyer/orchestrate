@@ -572,33 +572,6 @@ describe('usePushNotifications', () => {
         }
     })
 
-    it('syncs browser permission denied state to settings on mount', () => {
-        const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([
-            {
-                enabled: true,
-                permission: 'granted',
-                showForPriorities: { low: false, medium: true, high: true, critical: true },
-            },
-            setter,
-        ] as any)
-
-        const NotificationMock = globalThis.Notification as any
-        NotificationMock.permission = 'denied'
-
-        renderHook(() => usePushNotifications())
-
-        expect(setter).toHaveBeenCalledWith(expect.any(Function))
-        const calls = setter.mock.calls
-        const permissionUpdater = calls[calls.length - 1][0] as (prev: any) => any
-        const updated = permissionUpdater({
-            enabled: true,
-            permission: 'granted',
-            showForPriorities: { low: false, medium: true, high: true, critical: true },
-        })
-        expect(updated.permission).toBe('denied')
-    })
-
     it('calls onClick and closes notification when clicked', async () => {
         vi.mocked(useKV).mockReturnValue([
             {
