@@ -112,6 +112,8 @@ type AppRuntimeEnvOverrides = {
 }
 
 type AppTestHooks = {
+  handleSignIn?: (values: SignInFormValues) => Promise<void>
+  handleMarkNotificationAsRead?: (id: string) => void
   createFirstAdmin?: (values: FirstAdminFormValues) => void
   handleAssignRole?: (userId: string, role: User['role']) => void
   handleDeleteUser?: (userId: string) => void
@@ -1277,17 +1279,19 @@ function App() {
     }
 
     testHooks.createFirstAdmin = createFirstAdmin
+    testHooks.handleSignIn = handleSignIn
     testHooks.handleAssignRole = handleAssignRole
     testHooks.handleDeleteUser = handleDeleteUser
 
     return () => {
       if (globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ === testHooks) {
         delete testHooks.createFirstAdmin
+        delete testHooks.handleSignIn
         delete testHooks.handleAssignRole
         delete testHooks.handleDeleteUser
       }
     }
-  }, [createFirstAdmin, handleAssignRole, handleDeleteUser])
+  }, [createFirstAdmin, handleAssignRole, handleDeleteUser, handleSignIn])
 
   /**
    * Adds a new {@link CertificationRecord} to the `trainerProfile` of each
@@ -1338,6 +1342,21 @@ function App() {
       )
     )
   }, [setNotifications])
+
+  useEffect(() => {
+    const testHooks = globalThis.__ORCHESTRATE_APP_TEST_HOOKS__
+    if (!testHooks) {
+      return
+    }
+
+    testHooks.handleMarkNotificationAsRead = handleMarkNotificationAsRead
+
+    return () => {
+      if (globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ === testHooks) {
+        delete testHooks.handleMarkNotificationAsRead
+      }
+    }
+  }, [handleMarkNotificationAsRead])
 
   /**
    * Marks a single notification as unread by setting its `read` flag to

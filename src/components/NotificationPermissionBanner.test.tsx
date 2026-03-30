@@ -232,6 +232,9 @@ describe('NotificationPermissionBanner', () => {
 
         const enableButton = await screen.findByRole('button', { name: /enable/i })
         fireEvent.click(enableButton)
+        expect(enableButton).toBeDisabled()
+        // Re-enable the DOM node so we can invoke the click handler while state is still requesting.
+        enableButton.removeAttribute('disabled')
         fireEvent.click(enableButton)
 
         expect(requestPermission).toHaveBeenCalledTimes(1)

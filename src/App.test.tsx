@@ -104,6 +104,8 @@ function setAppRuntimeEnv(overrides?: { initialActiveView?: string; previewMode?
 
 function installAppTestHooks() {
     const hooks: {
+        handleSignIn?: (values: { email: string; password: string }) => Promise<void>
+        handleMarkNotificationAsRead?: (id: string) => void
         createFirstAdmin?: (values: { name: string; email: string; password: string }) => void
         handleAssignRole?: (userId: string, role: 'admin' | 'trainer' | 'employee') => void
         handleDeleteUser?: (userId: string) => void
@@ -1989,6 +1991,25 @@ describe('App', () => {
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
     })
 
+    it('ignores notification deep-link clicks when the active trainer cannot access the destination view', () => {
+        kvSeed['active-user-id'] = 'trainer-1'
+        utilizationNotificationPayload = createUtilizationNotificationPayload({
+            title: 'Restricted Destination From Trainer Context',
+            link: '/settings',
+            priority: 'high',
+        })
+
+        render(<App />)
+
+        const sendCall = sendNotificationMock.mock.calls.at(-1)
+        const options = sendCall?.[1]
+        act(() => {
+            options.onClick()
+        })
+
+        expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
+    })
+
     it('includes enrollments visible via session visibility even when course visibility is restricted', async () => {
         const user = userEvent.setup()
         kvSeed['users'] = [
@@ -2453,6 +2474,101 @@ describe('App', () => {
         )
     })
 
+    it('shows setup incomplete when the first-admin hook is invoked with blank fields', async () => {
+        const hooks = installAppTestHooks()
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: true, useServerAuth: false })
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.createFirstAdmin).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.createFirstAdmin?.({
+                name: '   ',
+                email: '   ',
+                password: '',
+            })
+        })
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Setup incomplete',
+            expect.objectContaining({ description: 'Enter name, email, and password to create the first admin.' }),
+        )
+    })
+
+    it('shows sign-in failed when the sign-in hook is invoked with blank credentials', async () => {
+        const hooks = installAppTestHooks()
+        kvSeed['active-user-id'] = ''
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.handleSignIn).toBeTypeOf('function')
+        })
+
+        await act(async () => {
+            await hooks.handleSignIn?.({
+                email: '   ',
+                password: '',
+            })
+        })
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Sign-in failed',
+            expect.objectContaining({ description: 'Enter an email and password to continue.' }),
+        )
+    })
+
+    it('marks a notification as read through the test hook', async () => {
+        const hooks = installAppTestHooks()
+        kvSeed['notifications'] = [
+            {
+                id: 'hook-notification',
+                userId: 'admin-1',
+                type: 'system',
+                title: 'Hook Notification',
+                message: 'mark me as read',
+                read: false,
+                priority: 'medium',
+            },
+        ]
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.handleMarkNotificationAsRead).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.handleMarkNotificationAsRead?.('hook-notification')
+        })
+
+        const notifications = kvState['notifications'] as Array<{ id: string; read: boolean }>
+        expect(notifications.find((notification) => notification.id === 'hook-notification')?.read).toBe(true)
+    })
+
+    it('handles mark-as-read hook calls when notifications are undefined', async () => {
+        const hooks = installAppTestHooks()
+        kvSeed['notifications'] = undefined
+        utilizationNotified = true
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.handleMarkNotificationAsRead).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.handleMarkNotificationAsRead?.('missing-notification')
+        })
+
+        expect(kvState['notifications']).toEqual([])
+    })
+
     it('ignores role assignment for a missing user through the test hook', async () => {
         const hooks = installAppTestHooks()
 
@@ -2467,6 +2583,25 @@ describe('App', () => {
         })
 
         expect(kvState['users']).toEqual(kvSeed['users'])
+    })
+
+    it('no-ops role assignment when the user disappears before state update applies', async () => {
+        const hooks = installAppTestHooks()
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.handleAssignRole).toBeTypeOf('function')
+            expect(hooks.handleDeleteUser).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.handleDeleteUser?.('trainer-1')
+            hooks.handleAssignRole?.('trainer-1', 'employee')
+        })
+
+        const persistedUsers = kvState['users'] as Array<{ id: string }>
+        expect(persistedUsers.find((user) => user.id === 'trainer-1')).toBeUndefined()
     })
 
     it('falls back to dashboard when deleting the active user from an inaccessible hooked view', async () => {
@@ -2515,6 +2650,111 @@ describe('App', () => {
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
         expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
+    })
+
+    it('removes risk-history snapshots for a deleted trainer through the test hook', async () => {
+        const hooks = installAppTestHooks()
+        kvSeed['risk-history-snapshots'] = [
+            { trainerId: 'trainer-1', timestamp: '2024-01-01T00:00:00.000Z', riskScore: 80 },
+            { trainerId: 'admin-1', timestamp: '2024-01-02T00:00:00.000Z', riskScore: 20 },
+        ]
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.handleDeleteUser).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.handleDeleteUser?.('trainer-1')
+        })
+
+        expect(kvState['risk-history-snapshots']).toEqual([
+            { trainerId: 'admin-1', timestamp: '2024-01-02T00:00:00.000Z', riskScore: 20 },
+        ])
+    })
+
+    it('handles deleting a user when risk-history snapshots are undefined', async () => {
+        const hooks = installAppTestHooks()
+        kvSeed['risk-history-snapshots'] = undefined
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.handleDeleteUser).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.handleDeleteUser?.('trainer-1')
+        })
+
+        expect(kvState['risk-history-snapshots']).toEqual([])
+    })
+
+    it('removes deleted creators and preferred trainers from schedule templates', async () => {
+        const hooks = installAppTestHooks()
+        kvSeed['schedule-templates'] = [
+            {
+                id: 'template-1',
+                createdBy: 'trainer-1',
+                sessions: [
+                    {
+                        id: 'template-session-1',
+                        preferredTrainers: ['trainer-1', 'admin-1'],
+                    },
+                ],
+            },
+            {
+                id: 'template-2',
+                createdBy: 'admin-1',
+                sessions: [
+                    {
+                        id: 'template-session-2',
+                        preferredTrainers: ['trainer-1'],
+                    },
+                ],
+            },
+        ]
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.handleDeleteUser).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.handleDeleteUser?.('trainer-1')
+        })
+
+        expect(kvState['schedule-templates']).toEqual([
+            {
+                id: 'template-2',
+                createdBy: 'admin-1',
+                sessions: [
+                    {
+                        id: 'template-session-2',
+                        preferredTrainers: [],
+                    },
+                ],
+            },
+        ])
+    })
+
+    it('handles deleting a user when schedule templates are undefined', async () => {
+        const hooks = installAppTestHooks()
+        kvSeed['schedule-templates'] = undefined
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(hooks.handleDeleteUser).toBeTypeOf('function')
+        })
+
+        act(() => {
+            hooks.handleDeleteUser?.('trainer-1')
+        })
+
+        expect(kvState['schedule-templates']).toEqual([])
     })
 
     it('shows a server-auth credential error when the server rejects sign-in', async () => {

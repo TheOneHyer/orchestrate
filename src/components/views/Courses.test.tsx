@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { Courses } from './Courses'
+import { Courses, getFirstValidationErrorMessage } from './Courses'
 import type { Course, Enrollment, User } from '@/lib/types'
 
 const toastError = vi.fn()
@@ -74,6 +74,42 @@ async function fillValidCourseForm(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('Courses', () => {
+    it('returns the pass score validation message when present', () => {
+        const message = getFirstValidationErrorMessage({
+            passScore: { message: 'Pass score must be between 0 and 100.' },
+        } as never)
+
+        expect(message).toBe('Pass score must be between 0 and 100.')
+    })
+
+    it('returns nested module title validation message when available', () => {
+        const message = getFirstValidationErrorMessage({
+            moduleDetails: [
+                {
+                    title: { message: 'Each module needs a title and positive duration.' },
+                },
+            ],
+        } as never)
+
+        expect(message).toBe('Each module needs a title and positive duration.')
+    })
+
+    it('returns module-level validation messages before scanning nested module errors', () => {
+        const message = getFirstValidationErrorMessage({
+            moduleDetails: {
+                message: 'At least one module is required.',
+            },
+        } as never)
+
+        expect(message).toBe('At least one module is required.')
+    })
+
+    it('falls back to the generic validation message when no known errors exist', () => {
+        const message = getFirstValidationErrorMessage({} as never)
+
+        expect(message).toBe('Please review the course details and try again.')
+    })
+
     it('shows an error when navigation payload references a missing course id', () => {
         render(
             <Courses
