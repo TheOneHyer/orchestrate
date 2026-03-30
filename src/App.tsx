@@ -88,6 +88,13 @@ const DEMO_MODE_SEEDED_STORAGE_KEY = 'orchestrate-demo-mode-seeded'
 const SESSION_DEMO_MARKER_STORAGE_KEY = 'orchestrate-demo-seeded-in-tab'
 const DEMO_MODE_LEASE_STORAGE_KEY = 'orchestrate-demo-seed-lease'
 const DEMO_MODE_LEASE_DURATION_MS = 30 * 60 * 1000
+const DEMO_MODE_LEASE_RENEW_INTERVAL_MS = 60 * 1000
+
+type DemoModeLease = {
+  expiresAtMs: number
+  demoModeEnabled: true
+  demoSessionUserId: string
+}
 
 function readSessionStorageValue(key: string) {
   if (typeof window === 'undefined') {
@@ -176,19 +183,53 @@ function writeLocalStorageValue(key: string, value: string) {
   }
 }
 
-function createDemoLease(expiresAtMs = Date.now() + DEMO_MODE_LEASE_DURATION_MS) {
-  return JSON.stringify({ expiresAtMs })
+function createDemoLease(userId: string, expiresAtMs = Date.now() + DEMO_MODE_LEASE_DURATION_MS) {
+  return JSON.stringify({
+    expiresAtMs,
+    demoModeEnabled: true,
+    demoSessionUserId: userId,
+  })
+}
+
+function readActiveDemoLease() {
+  const rawLease = readLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY)
+  if (!rawLease) {
+    return null
+  }
+
+  try {
+    const lease = JSON.parse(rawLease) as Partial<DemoModeLease>
+    if (typeof lease.expiresAtMs !== 'number' || lease.expiresAtMs <= Date.now()) {
+      return null
+    }
+
+    if (lease.demoModeEnabled !== true || typeof lease.demoSessionUserId !== 'string' || !lease.demoSessionUserId) {
+      return null
+    }
+
+    return lease as DemoModeLease
+  } catch {
+    return null
+  }
 }
 
 function hasActiveDemoLease() {
-  const rawLease = readLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY)
-  if (!rawLease) {
+  return readActiveDemoLease() !== null
+}
+
+function isDemoModeQueryEnabled() {
+  if (typeof window === 'undefined') {
     return false
   }
 
   try {
-    const lease = JSON.parse(rawLease) as { expiresAtMs?: unknown }
-    return typeof lease.expiresAtMs === 'number' && lease.expiresAtMs > Date.now()
+    const value = new URLSearchParams(window.location.search).get('demoMode')
+    if (value === null) {
+      return false
+    }
+
+    const normalizedValue = value.trim().toLowerCase()
+    return normalizedValue === '' || normalizedValue === '1' || normalizedValue === 'true'
   } catch {
     return false
   }
@@ -248,8 +289,21 @@ function App() {
   const runtimeEnv = getAppRuntimeEnv()
   const [activeView, setActiveView] = useState(runtimeEnv.initialActiveView ?? 'dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
-  const [demoModeEnabled, setDemoModeEnabled] = useState(() => readSessionStorageValue(DEMO_MODE_ACTIVE_STORAGE_KEY) === 'true')
-  const [demoSessionUserId, setDemoSessionUserId] = useState(() => readSessionStorageValue(DEMO_MODE_USER_ID_STORAGE_KEY))
+  const [demoModeEnabled, setDemoModeEnabled] = useState(() => {
+    if (readSessionStorageValue(DEMO_MODE_ACTIVE_STORAGE_KEY) === 'true') {
+      return true
+    }
+
+    return readActiveDemoLease()?.demoModeEnabled === true
+  })
+  const [demoSessionUserId, setDemoSessionUserId] = useState(() => {
+    const sessionUserId = readSessionStorageValue(DEMO_MODE_USER_ID_STORAGE_KEY)
+    if (sessionUserId) {
+      return sessionUserId
+    }
+
+    return readActiveDemoLease()?.demoSessionUserId || ''
+  })
 
   const signInForm = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -274,6 +328,7 @@ function App() {
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
   const { previewMode, useServerAuth } = runtimeEnv
   const localPreviewMode = previewMode || demoModeEnabled
+  const canEnterDemoMode = isDemoModeQueryEnabled()
 
   const [users, setUsers] = useKV<User[]>('users', [])
   const [persistedActiveUserId, setPersistedActiveUserId] = useKV<string>('active-user-id', '')
@@ -332,8 +387,8 @@ function App() {
    *
    * @param seedMode - The preview seed mode to apply. One of the
    *   {@link PreviewSeedMode} values or `'manual'`.
-   * @param sessionMode - Controls how the active preview user ID is stored:
-   *   when set to `persisted`, the signed-in user ID is written to KV storage;
+    * @param sessionMode - Controls how the active preview user ID is stored:
+  *   when set to `persisted`, the default seeded user ID is written to KV storage;
    *   when set to `transient`, the active user is kept in demo session state
    *   backed by tab-scoped `sessionStorage` and accompanied by a seeded marker
    *   in `localStorage` so demo mode can be detected on reload.
@@ -370,10 +425,11 @@ function App() {
       setDemoSessionState(true, defaultSessionUserId)
       writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, 'true')
       writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, true)
-      writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, createDemoLease())
+      writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, createDemoLease(defaultSessionUserId))
     } else {
       setDemoSessionState(false, '')
       writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, '')
+      writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, false)
       writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, '')
       setPersistedActiveUserId(defaultSessionUserId)
     }
@@ -433,8 +489,22 @@ function App() {
   }, [applyPreviewSeedData, demoModeEnabled, hasExistingCoreData])
 
   const handleEnterDemoMode = useCallback(() => {
+    if (!canEnterDemoMode) {
+      return
+    }
+
+    if (hasExistingCoreData) {
+      const shouldOverwrite = window.confirm(
+        'This will overwrite existing local data in preview storage. Continue?'
+      )
+
+      if (!shouldOverwrite) {
+        return
+      }
+    }
+
     applyPreviewSeedData('manual', 'transient')
-  }, [applyPreviewSeedData])
+  }, [applyPreviewSeedData, canEnterDemoMode, hasExistingCoreData])
 
   const clearPreviewDataState = useCallback((showToast: boolean) => {
     setUsers([])
@@ -458,11 +528,15 @@ function App() {
     writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, '')
 
     if (typeof window !== 'undefined') {
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith('reminder-')) {
-          localStorage.removeItem(key)
-        }
-      })
+      try {
+        Object.keys(window.localStorage).forEach((key) => {
+          if (key.startsWith('reminder-')) {
+            window.localStorage.removeItem(key)
+          }
+        })
+      } catch {
+        // Ignore storage cleanup failures; KV reset has already completed.
+      }
     }
 
     if (showToast) {
@@ -525,6 +599,34 @@ function App() {
 
     clearPreviewDataState(false)
   }, [clearPreviewDataState, shouldClearStaleDemoData])
+
+  useEffect(() => {
+    if (!demoModeEnabled || !demoSessionUserId) {
+      return
+    }
+
+    const renewDemoLease = () => {
+      writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, createDemoLease(demoSessionUserId))
+    }
+
+    renewDemoLease()
+
+    const intervalId = window.setInterval(renewDemoLease, DEMO_MODE_LEASE_RENEW_INTERVAL_MS)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        renewDemoLease()
+      }
+    }
+
+    window.addEventListener('focus', renewDemoLease)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', renewDemoLease)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [demoModeEnabled, demoSessionUserId])
 
   useEffect(() => {
     if (!previewSeedEnabled) {
@@ -1983,9 +2085,15 @@ function App() {
                 <p className="text-sm text-muted-foreground">
                   User setup is only available during preview mode. Please configure users through your deployment or server setup process.
                 </p>
-                <Button className="mt-4 w-full" onClick={handleEnterDemoMode}>
-                  Enter Demo Mode
-                </Button>
+                {canEnterDemoMode ? (
+                  <Button className="mt-4 w-full" onClick={handleEnterDemoMode}>
+                    Enter Demo Mode
+                  </Button>
+                ) : (
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Demo mode entry is disabled unless the demoMode URL flag is present.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

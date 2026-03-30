@@ -2414,19 +2414,53 @@ describe('App', () => {
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
 
-        render(<App />)
+        const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
 
-        expect(screen.getByText(/setup required/i)).toBeInTheDocument()
-        expect(screen.getByText(/no users have been created in this workspace yet/i)).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: /^create first admin$/i })).toBeNull()
+        try {
+            render(<App />)
 
-        await user.click(screen.getByRole('button', { name: /^enter demo mode$/i }))
+            expect(screen.getByText(/setup required/i)).toBeInTheDocument()
+            expect(screen.getByText(/no users have been created in this workspace yet/i)).toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /^create first admin$/i })).toBeNull()
 
-        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
-        expect(kvState['active-user-id']).toBe('')
-        expect(createPreviewSeedDataMock).toHaveBeenCalledTimes(1)
-        expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBe('true')
-        expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBe('true')
+            await user.click(screen.getByRole('button', { name: /^enter demo mode$/i }))
+
+            expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+            expect(kvState['active-user-id']).toBe('')
+            expect(window.confirm).toHaveBeenCalledWith(
+                'This will overwrite existing local data in preview storage. Continue?'
+            )
+            expect(createPreviewSeedDataMock).toHaveBeenCalledTimes(1)
+            expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBe('true')
+            expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBe('true')
+        } finally {
+            window.history.replaceState({}, '', originalUrl)
+        }
+    })
+
+    it('does not enter demo mode when overwrite confirmation is cancelled', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        vi.stubGlobal('confirm', vi.fn(() => false))
+
+        const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
+
+        try {
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^enter demo mode$/i }))
+
+            expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+            expect(screen.getByText(/setup required/i)).toBeInTheDocument()
+            expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBeNull()
+        } finally {
+            window.history.replaceState({}, '', originalUrl)
+        }
     })
 
     it('restores demo mode from session storage on a same-tab reload', async () => {
@@ -2451,12 +2485,16 @@ describe('App', () => {
         localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
         localStorage.setItem(
             'orchestrate-demo-seed-lease',
-            JSON.stringify({ expiresAtMs: Date.now() + 60_000 }),
+            JSON.stringify({
+                expiresAtMs: Date.now() + 60_000,
+                demoModeEnabled: true,
+                demoSessionUserId: 'admin-1',
+            }),
         )
 
         render(<App />)
 
-        expect(await screen.findByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
 
         expect(kvState['users']).toEqual(kvSeed['users'])
         expect(kvState['auth-passwords']).toEqual(kvSeed['auth-passwords'])
@@ -2471,7 +2509,11 @@ describe('App', () => {
         localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
         localStorage.setItem(
             'orchestrate-demo-seed-lease',
-            JSON.stringify({ expiresAtMs: Date.now() - 60_000 }),
+            JSON.stringify({
+                expiresAtMs: Date.now() - 60_000,
+                demoModeEnabled: true,
+                demoSessionUserId: 'admin-1',
+            }),
         )
 
         render(<App />)
@@ -2495,7 +2537,11 @@ describe('App', () => {
         localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
         localStorage.setItem(
             'orchestrate-demo-seed-lease',
-            JSON.stringify({ expiresAtMs: Date.now() + 60_000 }),
+            JSON.stringify({
+                expiresAtMs: Date.now() - 60_000,
+                demoModeEnabled: true,
+                demoSessionUserId: 'admin-1',
+            }),
         )
         sessionStorage.setItem('orchestrate-demo-seeded-in-tab', 'true')
 
@@ -2511,6 +2557,42 @@ describe('App', () => {
 
         expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBeNull()
         expect(localStorage.getItem('orchestrate-demo-seed-lease')).toBeNull()
+    })
+
+    it('renews the demo lease while demo mode remains active', async () => {
+        const user = userEvent.setup()
+
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
+
+        try {
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^enter demo mode$/i }))
+            await screen.findByText(/dashboard view/i)
+
+            const initialLease = JSON.parse(localStorage.getItem('orchestrate-demo-seed-lease') || '{}')
+            expect(initialLease).toMatchObject({
+                demoModeEnabled: true,
+                demoSessionUserId: 'admin-1',
+            })
+
+            const initialExpiresAtMs = Number(initialLease.expiresAtMs)
+
+            await new Promise((resolve) => setTimeout(resolve, 1))
+            window.dispatchEvent(new Event('focus'))
+
+            await waitFor(() => {
+                const renewedLease = JSON.parse(localStorage.getItem('orchestrate-demo-seed-lease') || '{}')
+                expect(Number(renewedLease.expiresAtMs)).toBeGreaterThan(initialExpiresAtMs)
+            })
+        } finally {
+            window.history.replaceState({}, '', originalUrl)
+        }
     })
 
     it('keeps transient demo session state when auto-seeding runs in demo mode', async () => {

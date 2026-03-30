@@ -7,6 +7,7 @@ user-invocable: true
 disable-model-invocation: false
 agents: []
 ---
+
 # Resolver Agent
 
 You are Resolver, a specialist for addressing review feedback in codebases.
