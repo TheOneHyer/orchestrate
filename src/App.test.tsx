@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AppRuntimeEnvOverrides, AppTestHooks } from '@/testSupport'
 
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
@@ -98,18 +99,12 @@ const isPreviewSeedEnabledMock = vi.fn(() => false)
 const kvSeed: Record<string, unknown> = {}
 const kvState: Record<string, unknown> = {}
 
-function setAppRuntimeEnv(overrides?: { initialActiveView?: string; previewMode?: boolean; useServerAuth?: boolean }) {
+function setAppRuntimeEnv(overrides?: AppRuntimeEnvOverrides) {
     globalThis.__ORCHESTRATE_APP_TEST_ENV__ = overrides
 }
 
 function installAppTestHooks() {
-    const hooks: {
-        handleSignIn?: (values: { email: string; password: string }) => Promise<void>
-        handleMarkNotificationAsRead?: (id: string) => void
-        createFirstAdmin?: (values: { name: string; email: string; password: string }) => void
-        handleAssignRole?: (userId: string, role: 'admin' | 'trainer' | 'employee') => void
-        handleDeleteUser?: (userId: string) => void
-    } = {}
+    const hooks: AppTestHooks = {}
     globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ = hooks
     return hooks
 }

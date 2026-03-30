@@ -46,6 +46,7 @@ import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
 import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
+import { AppRuntimeEnvOverrides, AppTestHooks } from '@/testSupport'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
   dashboard: ['admin', 'trainer', 'employee'],
@@ -104,20 +105,6 @@ const firstAdminSchema = z.object({
 
 type SignInFormValues = z.infer<typeof signInSchema>
 type FirstAdminFormValues = z.infer<typeof firstAdminSchema>
-
-type AppRuntimeEnvOverrides = {
-  initialActiveView?: string
-  previewMode?: boolean
-  useServerAuth?: boolean
-}
-
-type AppTestHooks = {
-  handleSignIn?: (values: SignInFormValues) => Promise<void>
-  handleMarkNotificationAsRead?: (id: string) => void
-  createFirstAdmin?: (values: FirstAdminFormValues) => void
-  handleAssignRole?: (userId: string, role: User['role']) => void
-  handleDeleteUser?: (userId: string) => void
-}
 
 declare global {
   var __ORCHESTRATE_APP_TEST_ENV__: AppRuntimeEnvOverrides | undefined
