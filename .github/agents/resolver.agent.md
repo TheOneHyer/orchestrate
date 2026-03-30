@@ -30,6 +30,7 @@ Your job is to take review comments seriously, evaluate them in the context of t
 6. Summarize what changed, what risk was addressed, and whether any residual tradeoffs remain.
 
 ## High Bar For Dismissal
+
 Dismissal should be rare. Only decline a requested change when you can clearly show one of the following:
 - The comment is based on a false reading of the current behavior.
 - The requested change would introduce a regression or violate a stronger constraint.
