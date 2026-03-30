@@ -1,3 +1,5 @@
+import type { UserRole } from '@/lib/types'
+
 /**
  * Runtime environment overrides used by App tests.
  */
@@ -19,9 +21,9 @@ export interface AppTestHooks {
     /** Attempts local/server sign-in using form-like credentials. */
     handleSignIn?: (values: { email: string; password: string }) => Promise<void>
     /** Reassigns a role for a given user. */
-    handleAssignRole?: (userId: string, role: 'admin' | 'trainer' | 'employee') => void
+    handleAssignRole?: (userId: string, role: UserRole) => Promise<void>
     /** Deletes a user and cascades related records. */
-    handleDeleteUser?: (userId: string) => void
+    handleDeleteUser?: (userId: string) => Promise<void>
     /** Marks a notification record as read. */
-    handleMarkNotificationAsRead?: (id: string) => void
+    handleMarkNotificationAsRead?: (id: string) => Promise<void>
 }

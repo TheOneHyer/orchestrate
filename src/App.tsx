@@ -46,7 +46,7 @@ import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
 import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
-import { AppRuntimeEnvOverrides, AppTestHooks } from '@/testSupport'
+import { AppRuntimeEnvOverrides, AppTestHooks } from '@/test-support'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
   dashboard: ['admin', 'trainer', 'employee'],
@@ -86,6 +86,8 @@ const DEMO_MODE_ACTIVE_STORAGE_KEY = 'orchestrate-demo-mode-active'
 const DEMO_MODE_USER_ID_STORAGE_KEY = 'orchestrate-demo-mode-user-id'
 const DEMO_MODE_SEEDED_STORAGE_KEY = 'orchestrate-demo-mode-seeded'
 const SESSION_DEMO_MARKER_STORAGE_KEY = 'orchestrate-demo-seeded-in-tab'
+const DEMO_MODE_LEASE_STORAGE_KEY = 'orchestrate-demo-seed-lease'
+const DEMO_MODE_LEASE_DURATION_MS = 30 * 60 * 1000
 
 function readSessionStorageValue(key: string) {
   if (typeof window === 'undefined') {
@@ -142,6 +144,53 @@ function writeLocalStorageFlag(key: string, enabled: boolean) {
     window.localStorage.removeItem(key)
   } catch {
     // Ignore storage write failures; the current tab session still applies.
+  }
+}
+
+function readLocalStorageValue(key: string) {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  try {
+    return window.localStorage.getItem(key) || ''
+  } catch {
+    return ''
+  }
+}
+
+function writeLocalStorageValue(key: string, value: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    if (value) {
+      window.localStorage.setItem(key, value)
+      return
+    }
+
+    window.localStorage.removeItem(key)
+  } catch {
+    // Ignore storage write failures; the current tab session still applies.
+  }
+}
+
+function createDemoLease(expiresAtMs = Date.now() + DEMO_MODE_LEASE_DURATION_MS) {
+  return JSON.stringify({ expiresAtMs })
+}
+
+function hasActiveDemoLease() {
+  const rawLease = readLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY)
+  if (!rawLease) {
+    return false
+  }
+
+  try {
+    const lease = JSON.parse(rawLease) as { expiresAtMs?: unknown }
+    return typeof lease.expiresAtMs === 'number' && lease.expiresAtMs > Date.now()
+  } catch {
+    return false
   }
 }
 
@@ -321,9 +370,11 @@ function App() {
       setDemoSessionState(true, defaultSessionUserId)
       writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, 'true')
       writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, true)
+      writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, createDemoLease())
     } else {
       setDemoSessionState(false, '')
       writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, '')
+      writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, '')
       setPersistedActiveUserId(defaultSessionUserId)
     }
 
@@ -404,6 +455,7 @@ function App() {
     setDemoSessionState(false, '')
     writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, '')
     writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, false)
+    writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, '')
 
     if (typeof window !== 'undefined') {
       Object.keys(localStorage).forEach((key) => {
@@ -460,9 +512,10 @@ function App() {
   ])
 
   const seededInThisTab = readSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY) === 'true'
+  const hasLiveDemoLease = hasActiveDemoLease()
   const shouldClearStaleDemoData = !previewMode
     && !demoModeEnabled
-    && seededInThisTab
+    && (seededInThisTab || !hasLiveDemoLease)
     && readLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY)
 
   useIsomorphicLayoutEffect(() => {
@@ -494,8 +547,9 @@ function App() {
       return
     }
 
-    applyPreviewSeedData(previewSeedMode)
+    applyPreviewSeedData(previewSeedMode, demoModeEnabled ? 'transient' : 'persisted')
   }, [
+    demoModeEnabled,
     previewSeedEnabled,
     previewSeedMode,
     previewSeedVersion,
@@ -1413,8 +1467,12 @@ function App() {
 
     testHooks.createFirstAdmin = createFirstAdmin
     testHooks.handleSignIn = handleSignIn
-    testHooks.handleAssignRole = handleAssignRole
-    testHooks.handleDeleteUser = handleDeleteUser
+    testHooks.handleAssignRole = async (userId, role) => {
+      handleAssignRole(userId, role)
+    }
+    testHooks.handleDeleteUser = async (userId) => {
+      handleDeleteUser(userId)
+    }
 
     return () => {
       if (globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ === testHooks) {
@@ -1486,7 +1544,9 @@ function App() {
       return
     }
 
-    testHooks.handleMarkNotificationAsRead = handleMarkNotificationAsRead
+    testHooks.handleMarkNotificationAsRead = async (id) => {
+      handleMarkNotificationAsRead(id)
+    }
 
     return () => {
       if (

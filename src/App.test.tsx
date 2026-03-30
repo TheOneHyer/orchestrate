@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AppRuntimeEnvOverrides, AppTestHooks } from '@/testSupport'
+import { AppRuntimeEnvOverrides, AppTestHooks } from '@/test-support'
 
 const toastSuccess = vi.fn()
 const toastError = vi.fn()
@@ -2449,6 +2449,10 @@ describe('App', () => {
         kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
         localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
+        localStorage.setItem(
+            'orchestrate-demo-seed-lease',
+            JSON.stringify({ expiresAtMs: Date.now() + 60_000 }),
+        )
 
         render(<App />)
 
@@ -2460,11 +2464,39 @@ describe('App', () => {
         expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBe('true')
     })
 
+    it('clears stale demo seed data when the lease expires after tab close', async () => {
+        kvSeed['active-user-id'] = ''
+        kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+        localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
+        localStorage.setItem(
+            'orchestrate-demo-seed-lease',
+            JSON.stringify({ expiresAtMs: Date.now() - 60_000 }),
+        )
+
+        render(<App />)
+
+        expect(await screen.findByText(/setup required/i)).toBeInTheDocument()
+
+        await waitFor(() => {
+            expect(kvState['users']).toEqual([])
+            expect(kvState['auth-passwords']).toEqual({})
+            expect(kvState['preview-seed-version']).toBe('')
+        })
+
+        expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBeNull()
+        expect(localStorage.getItem('orchestrate-demo-seed-lease')).toBeNull()
+    })
+
     it('clears stale demo seed data in the tab that seeded demo mode', async () => {
         kvSeed['active-user-id'] = ''
         kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
         localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
+        localStorage.setItem(
+            'orchestrate-demo-seed-lease',
+            JSON.stringify({ expiresAtMs: Date.now() + 60_000 }),
+        )
         sessionStorage.setItem('orchestrate-demo-seeded-in-tab', 'true')
 
         render(<App />)
@@ -2478,6 +2510,25 @@ describe('App', () => {
         })
 
         expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBeNull()
+        expect(localStorage.getItem('orchestrate-demo-seed-lease')).toBeNull()
+    })
+
+    it('keeps transient demo session state when auto-seeding runs in demo mode', async () => {
+        kvSeed['active-user-id'] = ''
+        kvSeed['preview-seed-version'] = ''
+        kvSeed['users'] = []
+        kvSeed['auth-passwords'] = {}
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+        getPreviewSeedModeMock.mockReturnValue('empty')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        sessionStorage.setItem('orchestrate-demo-mode-active', 'true')
+
+        render(<App />)
+
+        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+        expect(kvState['active-user-id']).toBe('')
+        expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBe('true')
+        expect(sessionStorage.getItem('orchestrate-demo-mode-user-id')).toBe('admin-1')
     })
 
     it('does not create a first admin through the test hook when users already exist', async () => {
@@ -2599,8 +2650,8 @@ describe('App', () => {
             expect(hooks.handleMarkNotificationAsRead).toBeTypeOf('function')
         })
 
-        act(() => {
-            hooks.handleMarkNotificationAsRead?.('hook-notification')
+        await act(async () => {
+            await hooks.handleMarkNotificationAsRead?.('hook-notification')
         })
 
         const notifications = kvState['notifications'] as Array<{ id: string; read: boolean }>
@@ -2618,8 +2669,8 @@ describe('App', () => {
             expect(hooks.handleMarkNotificationAsRead).toBeTypeOf('function')
         })
 
-        act(() => {
-            hooks.handleMarkNotificationAsRead?.('missing-notification')
+        await act(async () => {
+            await hooks.handleMarkNotificationAsRead?.('missing-notification')
         })
 
         expect(kvState['notifications']).toEqual([])
@@ -2634,8 +2685,8 @@ describe('App', () => {
             expect(hooks.handleAssignRole).toBeTypeOf('function')
         })
 
-        act(() => {
-            hooks.handleAssignRole?.('missing-user', 'trainer')
+        await act(async () => {
+            await hooks.handleAssignRole?.('missing-user', 'trainer')
         })
 
         expect(kvState['users']).toEqual(kvSeed['users'])
@@ -2651,9 +2702,9 @@ describe('App', () => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
         })
 
-        act(() => {
-            hooks.handleDeleteUser?.('trainer-1')
-            hooks.handleAssignRole?.('trainer-1', 'employee')
+        await act(async () => {
+            await hooks.handleDeleteUser?.('trainer-1')
+            await hooks.handleAssignRole?.('trainer-1', 'employee')
         })
 
         const persistedUsers = kvState['users'] as Array<{ id: string }>
@@ -2700,8 +2751,8 @@ describe('App', () => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
         })
 
-        act(() => {
-            hooks.handleDeleteUser?.('admin-1')
+        await act(async () => {
+            await hooks.handleDeleteUser?.('admin-1')
         })
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
@@ -2721,8 +2772,8 @@ describe('App', () => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
         })
 
-        act(() => {
-            hooks.handleDeleteUser?.('trainer-1')
+        await act(async () => {
+            await hooks.handleDeleteUser?.('trainer-1')
         })
 
         expect(kvState['risk-history-snapshots']).toEqual([
@@ -2740,8 +2791,8 @@ describe('App', () => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
         })
 
-        act(() => {
-            hooks.handleDeleteUser?.('trainer-1')
+        await act(async () => {
+            await hooks.handleDeleteUser?.('trainer-1')
         })
 
         expect(kvState['risk-history-snapshots']).toEqual([])
@@ -2778,8 +2829,8 @@ describe('App', () => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
         })
 
-        act(() => {
-            hooks.handleDeleteUser?.('trainer-1')
+        await act(async () => {
+            await hooks.handleDeleteUser?.('trainer-1')
         })
 
         expect(kvState['schedule-templates']).toEqual([
@@ -2806,8 +2857,8 @@ describe('App', () => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
         })
 
-        act(() => {
-            hooks.handleDeleteUser?.('trainer-1')
+        await act(async () => {
+            await hooks.handleDeleteUser?.('trainer-1')
         })
 
         expect(kvState['schedule-templates']).toEqual([])
