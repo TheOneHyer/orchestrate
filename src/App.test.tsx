@@ -2417,6 +2417,71 @@ describe('App', () => {
         expect(screen.getByText(/setup required/i)).toBeInTheDocument()
         expect(screen.getByText(/no users have been created in this workspace yet/i)).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /^create first admin$/i })).toBeNull()
+        expect(screen.getByRole('button', { name: /enter demo mode/i })).toBeInTheDocument()
+    })
+
+    it('navigates to demo mode when the Enter Demo Mode button is clicked', async () => {
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        const originalLocation = window.location
+        const mockHref = vi.fn()
+        Object.defineProperty(window, 'location', {
+            value: { ...originalLocation, href: 'http://localhost/' },
+            writable: true,
+            configurable: true,
+        })
+        Object.defineProperty(window.location, 'href', {
+            set: mockHref,
+            get: () => 'http://localhost/',
+            configurable: true,
+        })
+
+        render(<App />)
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: /enter demo mode/i }))
+
+        expect(mockHref).toHaveBeenCalledWith('http://localhost/?previewSeed=full')
+
+        Object.defineProperty(window, 'location', {
+            value: originalLocation,
+            writable: true,
+            configurable: true,
+        })
+    })
+
+    it('preserves existing query parameters when entering demo mode', async () => {
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        const originalLocation = window.location
+        const mockHref = vi.fn()
+        Object.defineProperty(window, 'location', {
+            value: { ...originalLocation, href: 'http://localhost/?existing=value' },
+            writable: true,
+            configurable: true,
+        })
+        Object.defineProperty(window.location, 'href', {
+            set: mockHref,
+            get: () => 'http://localhost/?existing=value',
+            configurable: true,
+        })
+
+        render(<App />)
+
+        const user = userEvent.setup()
+        await user.click(screen.getByRole('button', { name: /enter demo mode/i }))
+
+        expect(mockHref).toHaveBeenCalledWith('http://localhost/?existing=value&previewSeed=full')
+
+        Object.defineProperty(window, 'location', {
+            value: originalLocation,
+            writable: true,
+            configurable: true,
+        })
     })
 
     it('does not create a first admin through the test hook when users already exist', async () => {

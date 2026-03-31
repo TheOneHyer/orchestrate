@@ -1777,10 +1777,20 @@ function App() {
                   No users have been created in this workspace yet.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground">
                   User setup is only available during preview mode. Please configure users through your deployment or server setup process.
                 </p>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    const url = new URL(window.location.href)
+                    url.searchParams.set('previewSeed', 'full')
+                    window.location.href = url.toString()
+                  }}
+                >
+                  Enter Demo Mode
+                </Button>
               </CardContent>
             </Card>
           </div>
