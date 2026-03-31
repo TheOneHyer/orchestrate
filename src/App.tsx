@@ -46,7 +46,8 @@ import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
 import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
-import { AppRuntimeEnvOverrides, AppTestHooks } from '@/test-support'
+import { hashPassword, verifyPassword } from '@/lib/auth-utils'
+import { AppRuntimeEnvOverrides, AppTestHooks } from '@/testSupport'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
   dashboard: ['admin', 'trainer', 'employee'],
@@ -361,9 +362,13 @@ function App() {
 
   const { sendNotification } = usePushNotifications()
 
-  const buildPreviewAuthPasswords = useCallback((seedUsers: User[]) => {
+  // DEMO ONLY: Produces hashed credentials for preview seeding. All demo users
+  // receive the same default password ('password123') stored as a SHA-256 hash
+  // so that plain-text passwords are never persisted, even in preview mode.
+  const buildPreviewAuthPasswords = useCallback(async (seedUsers: User[]) => {
+    const hash = await hashPassword('password123')
     return seedUsers.reduce<Record<string, string>>((acc, user) => {
-      acc[user.id] = 'password123'
+      acc[user.id] = hash
       return acc
     }, {})
   }, [])
@@ -384,10 +389,7 @@ function App() {
    *   backed by tab-scoped `sessionStorage` and accompanied by a seeded marker
    *   in `localStorage` so demo mode can be detected on reload.
    */
-  const applyPreviewSeedData = useCallback((
-    seedMode: PreviewSeedMode | 'manual' = 'manual',
-    sessionMode: 'persisted' | 'transient' = 'persisted'
-  ) => {
+  const applyPreviewSeedData = useCallback(async (seedMode: PreviewSeedMode | 'manual' = 'manual') => {
     if (seedMode === 'off') {
       return
     }
@@ -409,7 +411,7 @@ function App() {
     setRiskHistorySnapshots(seedData.riskHistorySnapshots)
     setTargetTrainerCoverage(seedData.targetTrainerCoverage)
     setPreviewSeedVersion(seedMarker)
-    setAuthPasswords(buildPreviewAuthPasswords(seedData.users))
+    setActiveUserId(seedData.users[0]?.id || '')
 
     if (sessionMode === 'transient') {
       setPersistedActiveUserId('')
@@ -428,6 +430,9 @@ function App() {
     toast.success('Preview test data loaded', {
       description: `Seeded ${seedData.users.length} users, ${seedData.sessions.length} sessions, and related edge-case data.`
     })
+
+    // DEMO ONLY: Hash the default preview password before persisting credentials.
+    setAuthPasswords(await buildPreviewAuthPasswords(seedData.users))
   }, [
     setUsers,
     setAttendanceRecords,
@@ -640,7 +645,15 @@ function App() {
       return
     }
 
-    applyPreviewSeedData(previewSeedMode, demoModeEnabled ? 'transient' : 'persisted')
+    void applyPreviewSeedData(previewSeedMode).catch((error: unknown) => {
+      console.error('Failed to apply preview seed data', error)
+      toast('Failed to load preview data', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while seeding preview data.',
+      })
+    })
   }, [
     demoModeEnabled,
     previewSeedEnabled,
@@ -675,19 +688,34 @@ function App() {
       return
     }
 
-    setAuthPasswords((current) => {
-      const existing = current || {}
-      let changed = false
-      const next = { ...existing }
+    // DEMO ONLY: Seeds hashed 'password123' for any preview user that does not
+    // yet have a stored credential, so plain-text passwords are never persisted.
+    const seedMissingPasswords = async () => {
+      const hash = await hashPassword('password123')
+      setAuthPasswords((current) => {
+        const existing = current || {}
+        let changed = false
+        const next = { ...existing }
 
-      users.forEach((user) => {
-        if (!(user.id in next)) {
-          next[user.id] = 'password123'
-          changed = true
-        }
+        users.forEach((user) => {
+          if (!(user.id in next)) {
+            next[user.id] = hash
+            changed = true
+          }
+        })
+
+        return changed ? next : existing
       })
+    }
 
-      return changed ? next : existing
+    void seedMissingPasswords().catch((error: unknown) => {
+      console.error('Failed to seed missing preview passwords', error)
+      toast.error('Failed to set up preview credentials', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while setting up preview passwords.',
+      })
     })
   }, [localPreviewMode, users, setAuthPasswords])
 
@@ -901,9 +929,11 @@ function App() {
     setNavigationPayload(null)
   }, [safeUsers, setSessionUserId])
 
-  // SECURITY NOTE: `authPasswords` stores plaintext demo credentials for preview-only flows.
-  // This is not production-safe; replace with server-side auth (hashed passwords over TLS,
-  // and token-based sessions or OAuth) before shipping.
+  // DEMO ONLY: `authPasswords` stores SHA-256-hashed credentials for the
+  // preview/demo sign-in flow only. In production, authentication must be
+  // delegated to a server-side auth service (bcrypt/Argon2 over TLS, with
+  // token-based sessions or OAuth). Credentials must never travel as plain
+  // text and must never be stored without server-side hashing.
   const handleSignIn = useCallback(async (values: SignInFormValues) => {
     const email = values.email.trim().toLowerCase()
     const password = values.password
@@ -915,7 +945,10 @@ function App() {
       return
     }
 
-    const authenticateLocally = (): boolean => {
+    // DEMO ONLY: Verifies the entered password against its stored SHA-256 hash
+    // in the local KV store. This path is only reachable in preview/demo mode
+    // or when server auth is explicitly disabled.
+    const authenticateLocally = async (): Promise<boolean> => {
       const matchedUser = safeUsers.find((user) => user.email.trim().toLowerCase() === email)
       if (!matchedUser) {
         toast.error('Sign-in failed', {
@@ -924,8 +957,9 @@ function App() {
         return false
       }
 
-      const expectedPassword = authPasswords?.[matchedUser.id]
-      if (!expectedPassword || expectedPassword !== password) {
+      const storedHash = authPasswords?.[matchedUser.id]
+      const passwordValid = storedHash ? await verifyPassword(password, storedHash) : false
+      if (!passwordValid) {
         toast.error('Sign-in failed', {
           description: 'Incorrect password.',
         })
@@ -994,8 +1028,8 @@ function App() {
       return
     }
 
-    authenticateLocally()
-  }, [authPasswords, localPreviewMode, safeUsers, setSessionUserId, signInForm, useServerAuth])
+    await authenticateLocally()
+  }, [authPasswords, previewMode, safeUsers, setActiveUserId, signInForm, useServerAuth])
 
   const handleSignOut = useCallback(() => {
     setSessionUserId('')
@@ -1004,7 +1038,10 @@ function App() {
     signInForm.setValue('password', '')
   }, [setSessionUserId, signInForm])
 
-  const createFirstAdmin = useCallback((values: FirstAdminFormValues) => {
+  // DEMO ONLY: createFirstAdmin is a preview-only bootstrap flow. Passwords are
+  // hashed with SHA-256 before being stored in the local KV store. In production,
+  // first-user provisioning and credential storage must happen server-side.
+  const createFirstAdmin = useCallback(async (values: FirstAdminFormValues) => {
     if (hasPersistedUsers) {
       return
     }
@@ -1039,8 +1076,11 @@ function App() {
       updatedAt: now,
     }
 
+    // DEMO ONLY: Hash the password before storing — never persist plain text.
+    const passwordHash = await hashPassword(password)
+
     setUsers([firstAdmin])
-    setAuthPasswords({ [firstAdmin.id]: password })
+    setAuthPasswords({ [firstAdmin.id]: passwordHash })
 
     setSessionUserId(firstAdmin.id)
     setActiveView('dashboard')
@@ -1380,11 +1420,20 @@ function App() {
     const updatedAt = new Date().toISOString()
     setUsers((currentUsers) => [...(currentUsers || []), { ...newUser, updatedAt }])
 
-    if (localPreviewMode) {
-      setAuthPasswords((current) => ({
-        ...(current || {}),
-        [newUser.id]: current?.[newUser.id] ?? 'password123',
-      }))
+    if (previewMode) {
+      // DEMO ONLY: Assigns a hashed default credential for new preview-mode users
+      // so that no plain-text password is ever written to the KV store.
+      void hashPassword('password123')
+        .then((hash) => {
+          setAuthPasswords((current) => ({
+            ...(current || {}),
+            [newUser.id]: current?.[newUser.id] ?? hash,
+          }))
+        })
+        .catch((error) => {
+          console.error('Failed to hash default preview password for new user', error)
+          toast.error('Unable to set up a default password for the new preview user.')
+        })
     }
   }
 
