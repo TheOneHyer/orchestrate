@@ -19,10 +19,10 @@ interface CourseValidationErrorShape {
 }
 
 /**
- * Returns the first human-readable course editor validation message.
+ * Selects the highest-priority human-readable validation message from course editor errors.
  *
- * @param errors - Validation errors produced by the course editor form.
- * @returns The first matching message, or a generic fallback when none are found.
+ * @param errors - Validation errors produced by the course editor form
+ * @returns The first matching message found, or the fallback "Please review the course details and try again."
  */
 export function getFirstValidationErrorMessage(errors: CourseValidationErrorShape): string {
     if (typeof errors.title?.message === 'string') {

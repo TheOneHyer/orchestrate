@@ -97,6 +97,12 @@ type DemoModeLease = {
   demoSessionUserId: string
 }
 
+/**
+ * Read a value from window.sessionStorage, returning an empty string when unavailable.
+ *
+ * @param key - The sessionStorage key to read
+ * @returns The stored string value for `key`, or an empty string if sessionStorage is unavailable or an error occurs
+ */
 function readSessionStorageValue(key: string) {
   if (typeof window === 'undefined') {
     return ''
@@ -109,6 +115,12 @@ function readSessionStorageValue(key: string) {
   }
 }
 
+/**
+ * Checks whether a boolean flag stored in localStorage is set to `'true'`.
+ *
+ * @param key - The localStorage key to read
+ * @returns `true` if the item value equals `'true'`, `false` otherwise (also returns `false` on server-side execution or when access to localStorage fails)
+ */
 function readLocalStorageFlag(key: string) {
   if (typeof window === 'undefined') {
     return false
@@ -121,6 +133,14 @@ function readLocalStorageFlag(key: string) {
   }
 }
 
+/**
+ * Persist a string value to window.sessionStorage for the current browsing session, or remove the key when given an empty string.
+ *
+ * This function is a no-op outside the browser (when `window` is undefined) and suppresses any storage write errors.
+ *
+ * @param key - The sessionStorage key to set or remove
+ * @param value - The string value to store; if empty, the key will be removed from sessionStorage
+ */
 function writeSessionStorageValue(key: string, value: string) {
   if (typeof window === 'undefined') {
     return
@@ -138,6 +158,15 @@ function writeSessionStorageValue(key: string, value: string) {
   }
 }
 
+/**
+ * Set or clear a boolean flag in localStorage, stored as the string `"true"`.
+ *
+ * Writes the flag when `enabled` is `true`; removes the key when `enabled` is `false`.
+ * This function no-ops on the server (when `window` is undefined) and silently ignores storage write errors.
+ *
+ * @param key - The localStorage key to set or remove
+ * @param enabled - If `true`, store `"true"` under `key`; if `false`, remove `key`
+ */
 function writeLocalStorageFlag(key: string, enabled: boolean) {
   if (typeof window === 'undefined') {
     return
@@ -155,6 +184,12 @@ function writeLocalStorageFlag(key: string, enabled: boolean) {
   }
 }
 
+/**
+ * Read a string value from localStorage in a safe, isomorphic manner.
+ *
+ * @param key - The localStorage key to read
+ * @returns The stored string for `key`, or an empty string if not present or if access is unavailable or fails
+ */
 function readLocalStorageValue(key: string) {
   if (typeof window === 'undefined') {
     return ''
@@ -167,6 +202,14 @@ function readLocalStorageValue(key: string) {
   }
 }
 
+/**
+ * Writes `value` to `window.localStorage` under `key`, or removes `key` when `value` is an empty string.
+ *
+ * This function is a no-op when `window` is unavailable (server-side) and silently ignores storage write errors.
+ *
+ * @param key - The localStorage key to set or remove
+ * @param value - The string value to store; if empty, the key will be removed
+ */
 function writeLocalStorageValue(key: string, value: string) {
   if (typeof window === 'undefined') {
     return
@@ -184,6 +227,13 @@ function writeLocalStorageValue(key: string, value: string) {
   }
 }
 
+/**
+ * Creates a JSON lease string representing an active demo session for a user.
+ *
+ * @param userId - The user id to store in the lease; will be base64-encoded when possible.
+ * @param expiresAtMs - Milliseconds-since-epoch when the lease expires (defaults to Date.now() + DEMO_MODE_LEASE_DURATION_MS).
+ * @returns A JSON string with the properties `expiresAtMs` (number), `demoModeEnabled` (`true`), and `demoSessionUserId` (base64-encoded `userId` when encoding is available, otherwise the raw `userId`).
+ */
 function createDemoLease(userId: string, expiresAtMs = Date.now() + DEMO_MODE_LEASE_DURATION_MS) {
   let encodedUserId = userId
   try {
@@ -202,6 +252,14 @@ function createDemoLease(userId: string, expiresAtMs = Date.now() + DEMO_MODE_LE
   })
 }
 
+/**
+ * Reads and validates the active demo-mode lease stored in localStorage.
+ *
+ * If a valid, unexpired lease exists and `demoModeEnabled` is `true`, returns the parsed lease.
+ * When present, attempts to base64-decode `demoSessionUserId` so callers receive the original user id.
+ *
+ * @returns A `DemoModeLease` object if a valid active lease is found, `null` otherwise.
+ */
 function readActiveDemoLease() {
   const rawLease = readLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY)
   if (!rawLease) {
@@ -233,10 +291,20 @@ function readActiveDemoLease() {
   }
 }
 
+/**
+ * Checks whether a valid, unexpired demo-mode lease exists in localStorage.
+ *
+ * @returns `true` if an active demo lease is present, `false` otherwise.
+ */
 function hasActiveDemoLease() {
   return readActiveDemoLease() !== null
 }
 
+/**
+ * Determines whether demo mode is enabled based on the URL query parameter `demoMode`.
+ *
+ * @returns `true` if the `demoMode` query parameter is present and, after trimming and lowercasing, is an empty string, `"1"`, or `"true"`; `false` otherwise or when run on the server or if parsing fails.
+ */
 function isDemoModeQueryEnabled() {
   if (typeof window === 'undefined') {
     return false
