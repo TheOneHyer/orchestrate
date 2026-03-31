@@ -361,7 +361,17 @@ function App() {
       return
     }
 
-    void applyPreviewSeedData(previewSeedMode)
+    void applyPreviewSeedData(previewSeedMode).catch((error: unknown) => {
+      // Log for debugging and surface a user-facing error message.
+      // eslint-disable-next-line no-console
+      console.error('Failed to apply preview seed data', error)
+      toast('Failed to load preview data', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while seeding preview data.',
+      })
+    })
   }, [
     previewSeedEnabled,
     previewSeedMode,
