@@ -2703,71 +2703,50 @@ describe('App', () => {
     })
 
     it('navigates to demo mode when the Enter Demo Mode button is clicked', async () => {
+        const user = userEvent.setup()
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
 
-        const originalLocation = window.location
-        const mockHref = vi.fn()
-        Object.defineProperty(window, 'location', {
-            value: { ...originalLocation, href: 'http://localhost/' },
-            writable: true,
-            configurable: true,
-        })
-        Object.defineProperty(window.location, 'href', {
-            set: mockHref,
-            get: () => 'http://localhost/',
-            configurable: true,
-        })
+        const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
 
-        render(<App />)
+        try {
+            render(<App />)
 
-        const user = userEvent.setup()
-        await user.click(screen.getByRole('button', { name: /enter demo mode/i }))
+            expect(screen.getByRole('button', { name: /enter demo mode/i })).toBeInTheDocument()
 
-        expect(mockHref).toHaveBeenCalledWith('http://localhost/?previewSeed=full')
+            await user.click(screen.getByRole('button', { name: /enter demo mode/i }))
 
-        Object.defineProperty(window, 'location', {
-            value: originalLocation,
-            writable: true,
-            configurable: true,
-        })
+            expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+            expect(createPreviewSeedDataMock).toHaveBeenCalledOnce()
+        } finally {
+            window.history.replaceState({}, '', originalUrl)
+        }
     })
 
     it('preserves existing query parameters when entering demo mode', async () => {
+        const user = userEvent.setup()
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
 
-        const originalLocation = window.location
-        const mockHref = vi.fn()
-        Object.defineProperty(window, 'location', {
-            value: { ...originalLocation, href: 'http://localhost/?existing=value' },
-            writable: true,
-            configurable: true,
-        })
-        Object.defineProperty(window.location, 'href', {
-            set: mockHref,
-            get: () => 'http://localhost/?existing=value',
-            configurable: true,
-        })
+        const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        window.history.replaceState({}, '', `${window.location.pathname}?existing=value&demoMode=true${window.location.hash}`)
 
-        render(<App />)
+        try {
+            render(<App />)
 
-        const user = userEvent.setup()
-        await user.click(screen.getByRole('button', { name: /enter demo mode/i }))
+            await user.click(screen.getByRole('button', { name: /enter demo mode/i }))
 
-        expect(mockHref).toHaveBeenCalledWith('http://localhost/?existing=value&previewSeed=full')
-
-        Object.defineProperty(window, 'location', {
-            value: originalLocation,
-            writable: true,
-            configurable: true,
-        })
-        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
-        expect(kvState['active-user-id']).toBe('')
-        expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBe('true')
-        expect(sessionStorage.getItem('orchestrate-demo-mode-user-id')).toBe('admin-1')
+            expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+            expect(kvState['active-user-id']).toBe('')
+            expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBe('true')
+            expect(sessionStorage.getItem('orchestrate-demo-mode-user-id')).toBe('admin-1')
+            expect(window.location.search).toContain('existing=value')
+        } finally {
+            window.history.replaceState({}, '', originalUrl)
+        }
     })
 
     it('does not create a first admin through the test hook when users already exist', async () => {

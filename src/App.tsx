@@ -580,10 +580,6 @@ function App() {
   }, [applyPreviewSeedData, demoModeEnabled, hasExistingCoreData])
 
   const handleEnterDemoMode = useCallback(() => {
-    if (!canEnterDemoMode) {
-      return
-    }
-
     if (hasExistingCoreData) {
       const shouldOverwrite = window.confirm(
         'This will overwrite existing local data in preview storage. Continue?'
@@ -603,7 +599,7 @@ function App() {
             : 'An unexpected error occurred while loading demo data.',
       })
     })
-  }, [applyPreviewSeedData, canEnterDemoMode, hasExistingCoreData])
+  }, [applyPreviewSeedData, hasExistingCoreData])
 
   const clearPreviewDataState = useCallback((showToast: boolean) => {
     setUsers([])
@@ -2161,7 +2157,7 @@ function App() {
   }
 
   if (!activeUserId) {
-    if (!hasPersistedUsers && localPreviewMode) {
+    if (!hasPersistedUsers && previewMode) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
@@ -2220,7 +2216,7 @@ function App() {
       )
     }
 
-    if (!hasPersistedUsers && !localPreviewMode) {
+    if (!hasPersistedUsers && !previewMode) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
@@ -2235,16 +2231,18 @@ function App() {
                 <p className="text-sm text-muted-foreground">
                   User setup is only available during preview mode. Please configure users through your deployment or server setup process.
                 </p>
-                <Button
-                  className="w-full"
-                  onClick={() => {
-                    const url = new URL(window.location.href)
-                    url.searchParams.set('previewSeed', 'full')
-                    window.location.href = url.toString()
-                  }}
-                >
-                  Enter Demo Mode
-                </Button>
+                {(canEnterDemoMode || demoModeEnabled) ? (
+                  <Button
+                    className="w-full"
+                    onClick={handleEnterDemoMode}
+                  >
+                    Enter Demo Mode
+                  </Button>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Demo mode entry is disabled unless the demoMode URL flag is present.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>
