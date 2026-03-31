@@ -21,27 +21,26 @@ import { createDefaultModuleContent, normalizeCourseModules, summarizeModuleTitl
 import { formatDuration } from '@/lib/helpers'
 import { Course, Enrollment, Module, User } from '@/lib/types'
 
-/** Form state shape used by the course editor dialog. */
-interface CourseEditorState {
-  title: string
-  description: string
-  duration: string
-  passScore: string
-  certifications: string
-  published: boolean
-  moduleDetails: Module[]
-}
-
 const courseEditorSchema = z.object({
   title: z.string().trim().min(1, 'Title and description are required.'),
   description: z.string().trim().min(1, 'Title and description are required.'),
-  duration: z.coerce.number().int().positive('Duration must be a positive whole number in minutes.'),
-  passScore: z.string().trim()
-    .min(1, 'Pass score must be between 0 and 100.')
-    .refine((value) => {
-      const parsedValue = Number(value)
-      return Number.isInteger(parsedValue) && parsedValue >= 0 && parsedValue <= 100
-    }, 'Pass score must be between 0 and 100.'),
+  duration: z.coerce.number<string | number>()
+    .int('Duration must be a positive whole number in minutes.')
+    .gt(0, 'Duration must be a positive whole number in minutes.'),
+  passScore: z.preprocess(
+    (value) => {
+      if (typeof value !== 'string') {
+        return value
+      }
+
+      const trimmedValue = value.trim()
+      return trimmedValue === '' ? -1 : trimmedValue
+    },
+    z.coerce.number<string | number>()
+      .int('Pass score must be between 0 and 100.')
+      .min(0, 'Pass score must be between 0 and 100.')
+      .max(100, 'Pass score must be between 0 and 100.')
+  ),
   certifications: z.string(),
   published: z.boolean(),
   moduleDetails: z.array(z.object({
@@ -50,16 +49,23 @@ const courseEditorSchema = z.object({
     description: z.string(),
     contentType: z.enum(['text', 'video', 'slideshow', 'quiz']),
     content: z.custom<Module['content']>(),
-    duration: z.coerce.number().int().positive('Each module needs a title and positive duration.'),
+    duration: z.coerce.number<string | number>()
+      .int('Each module needs a title and positive duration.')
+      .gt(0, 'Each module needs a title and positive duration.'),
     order: z.number().int(),
   })).min(1, 'At least one module is required.'),
 })
 
+/** Form input type for the course editor, matching the Zod schema input (allows loose types during editing). */
+type CourseEditorState = z.input<typeof courseEditorSchema>
+/** Inferred output type of the course editor Zod schema after coercions are applied. */
+type CourseEditorOutput = z.infer<typeof courseEditorSchema>
+
 const initialEditorState: CourseEditorState = {
   title: '',
   description: '',
-  duration: '60',
-  passScore: '80',
+  duration: 60,
+  passScore: 80,
   certifications: '',
   published: false,
   moduleDetails: [],
@@ -115,8 +121,8 @@ function createEditorStateFromCourse(course: Course): CourseEditorState {
   return {
     title: course.title,
     description: course.description,
-    duration: String(course.duration),
-    passScore: String(course.passScore),
+    duration: course.duration,
+    passScore: course.passScore,
     certifications: course.certifications.join(', '),
     published: course.published,
     moduleDetails: normalizeCourseModules(course),
@@ -206,7 +212,7 @@ export function Courses({
     setValue,
     reset,
     getValues,
-  } = useForm<CourseEditorState>({
+  } = useForm<CourseEditorState, unknown, CourseEditorOutput>({
     resolver: zodResolver(courseEditorSchema),
     defaultValues: initialEditorState,
     mode: 'onSubmit',
@@ -411,12 +417,11 @@ export function Courses({
    * @param values - Validated `CourseEditorState` form values.
    * @returns An object containing all normalized course fields.
    */
-  const buildCoursePayload = (values: CourseEditorState) => {
+  const buildCoursePayload = (values: CourseEditorOutput) => {
     const title = values.title.trim()
     const description = values.description.trim()
     const duration = Number(values.duration)
-    const passScoreRaw = values.passScore.trim()
-    const passScore = Number(passScoreRaw)
+    const passScore = Number(values.passScore)
     const certifications = values.certifications.split(',').map((value) => value.trim()).filter(Boolean)
     const moduleDetails = values.moduleDetails.map((moduleItem, order) => ({
       ...moduleItem,
@@ -496,12 +501,12 @@ export function Courses({
 
     try {
       if (editingCourse) {
-        await Promise.resolve(onUpdateCourse(editingCourse.id, { ...coursePayload, updatedAt: editingCourse.updatedAt }))
+        await Promise.resolve(onUpdateCourse?.(editingCourse.id, { ...coursePayload, updatedAt: editingCourse.updatedAt }))
         toast.success('Course updated', {
           description: `${coursePayload.title} has been saved.`,
         })
       } else {
-        await Promise.resolve(onCreateCourse(coursePayload as Omit<Course, 'id'>))
+        await Promise.resolve(onCreateCourse?.(coursePayload as Omit<Course, 'id'>))
         toast.success('Course created', {
           description: `${coursePayload.title} has been added to the catalog.`,
         })

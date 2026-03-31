@@ -418,7 +418,7 @@ function App() {
     const defaultSessionUserId = seedData.users.find((user) => user.role === 'admin')?.id || seedData.users[0]?.id || ''
 
     // DEMO ONLY: Build auth passwords first so a rejection leaves the app un-mutated.
-    const authPasswords = await buildPreviewAuthPasswords(seedData.users)
+    const seededAuthPasswords = await buildPreviewAuthPasswords(seedData.users)
 
     setUsers(seedData.users)
     setSessions(seedData.sessions)
@@ -433,7 +433,7 @@ function App() {
     setRiskHistorySnapshots(seedData.riskHistorySnapshots)
     setTargetTrainerCoverage(seedData.targetTrainerCoverage)
     setPreviewSeedVersion(seedMarker)
-    setAuthPasswords(authPasswords)
+    setAuthPasswords(seededAuthPasswords)
 
     if (sessionMode === 'transient') {
       setPersistedActiveUserId('')

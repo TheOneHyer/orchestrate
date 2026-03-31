@@ -17,7 +17,7 @@ export interface AppRuntimeEnvOverrides {
  */
 export interface AppTestHooks {
     /** Creates the first admin account in preview mode. */
-    createFirstAdmin?: (values: { name: string; email: string; password: string }) => void
+    createFirstAdmin?: (values: { name: string; email: string; password: string }) => Promise<void>
     /** Attempts local/server sign-in using form-like credentials. */
     handleSignIn?: (values: { email: string; password: string }) => Promise<void>
     /** Reassigns a role for a given user. */

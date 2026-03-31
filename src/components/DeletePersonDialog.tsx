@@ -1,3 +1,5 @@
+import type { ComponentPropsWithoutRef } from 'react'
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +39,7 @@ export function DeletePersonDialog({ user, open, onOpenChange, onConfirm }: Dele
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent overlayProps={{ 'data-testid': 'dialog-overlay' }}>
+      <AlertDialogContent overlayProps={{ 'data-testid': 'dialog-overlay' } as ComponentPropsWithoutRef<'div'>}>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {user.name}?</AlertDialogTitle>
           <AlertDialogDescription>

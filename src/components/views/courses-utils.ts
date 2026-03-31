@@ -41,7 +41,7 @@ export function getFirstValidationErrorMessage(errors: CourseValidationErrorShap
         return errors.passScore.message
     }
 
-    if (typeof errors.moduleDetails?.message === 'string') {
+    if (!Array.isArray(errors.moduleDetails) && typeof errors.moduleDetails?.message === 'string') {
         return errors.moduleDetails.message
     }
 
