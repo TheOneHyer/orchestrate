@@ -579,6 +579,13 @@ function App() {
     })
   }, [applyPreviewSeedData, demoModeEnabled, hasExistingCoreData])
 
+  /**
+   * Handles a user-initiated request to enter demo mode from the Setup Required screen.
+   *
+   * Seeds the KV store with preview data as a transient (non-persisted) demo session.
+   * If core data already exists, prompts for confirmation before overwriting.
+   * Shows an error toast if seeding fails.
+   */
   const handleEnterDemoMode = useCallback(() => {
     if (hasExistingCoreData) {
       const shouldOverwrite = window.confirm(
