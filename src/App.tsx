@@ -47,7 +47,7 @@ import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
 import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
 import { hashPassword, verifyPassword } from '@/lib/auth-utils'
-import { AppRuntimeEnvOverrides, AppTestHooks } from '@/testSupport'
+import { AppRuntimeEnvOverrides, AppTestHooks } from '@/test-support'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
   dashboard: ['admin', 'trainer', 'employee'],
@@ -383,8 +383,8 @@ function App() {
    *
    * @param seedMode - The preview seed mode to apply. One of the
    *   {@link PreviewSeedMode} values or `'manual'`.
-  * @param sessionMode - Controls how the active preview user ID is stored:
-  *   when set to `persisted`, the default seeded user ID is written to KV storage;
+   * @param sessionMode - Controls how the active preview user ID is stored:
+   *   when set to `persisted`, the default seeded user ID is written to KV storage;
    *   when set to `transient`, the active user is kept in demo session state
    *   backed by tab-scoped `sessionStorage` and accompanied by a seeded marker
    *   in `localStorage` so demo mode can be detected on reload.
