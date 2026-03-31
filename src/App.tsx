@@ -300,29 +300,6 @@ function hasActiveDemoLease() {
   return readActiveDemoLease() !== null
 }
 
-/**
- * Determines whether demo mode is enabled based on the URL query parameter `demoMode`.
- *
- * @returns `true` if the `demoMode` query parameter is present and, after trimming and lowercasing, is an empty string, `"1"`, or `"true"`; `false` otherwise or when run on the server or if parsing fails.
- */
-function isDemoModeQueryEnabled() {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  try {
-    const value = new URLSearchParams(window.location.search).get('demoMode')
-    if (value === null) {
-      return false
-    }
-
-    const normalizedValue = value.trim().toLowerCase()
-    return normalizedValue === '' || normalizedValue === '1' || normalizedValue === 'true'
-  } catch {
-    return false
-  }
-}
-
 const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 /**
@@ -407,7 +384,6 @@ function App() {
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
   const { previewMode, useServerAuth } = runtimeEnv
   const localPreviewMode = previewMode || demoModeEnabled
-  const canEnterDemoMode = isDemoModeQueryEnabled()
 
   const [users, setUsers] = useKV<User[]>('users', [])
   const [persistedActiveUserId, setPersistedActiveUserId] = useKV<string>('active-user-id', '')
@@ -2238,18 +2214,12 @@ function App() {
                 <p className="text-sm text-muted-foreground">
                   User setup is only available during preview mode. Please configure users through your deployment or server setup process.
                 </p>
-                {(canEnterDemoMode || demoModeEnabled) ? (
-                  <Button
-                    className="w-full"
-                    onClick={handleEnterDemoMode}
-                  >
-                    Enter Demo Mode
-                  </Button>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Demo mode entry is disabled unless the demoMode URL flag is present.
-                  </p>
-                )}
+                <Button
+                  className="w-full"
+                  onClick={handleEnterDemoMode}
+                >
+                  Enter Demo Mode
+                </Button>
               </CardContent>
             </Card>
           </div>

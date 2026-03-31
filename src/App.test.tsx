@@ -2525,7 +2525,7 @@ describe('App', () => {
         }
     })
 
-    it('hides demo entry when the demoMode query param is absent', () => {
+    it('shows demo entry when the demoMode query param is absent', () => {
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
@@ -2537,8 +2537,7 @@ describe('App', () => {
             render(<App />)
 
             expect(screen.getByText(/setup required/i)).toBeInTheDocument()
-            expect(screen.queryByRole('button', { name: /^enter demo mode$/i })).toBeNull()
-            expect(screen.getByText(/demo mode entry is disabled unless the demomode url flag is present/i)).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /^enter demo mode$/i })).toBeInTheDocument()
             expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
             expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBeNull()
             expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBeNull()
