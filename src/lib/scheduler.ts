@@ -768,8 +768,9 @@ export class TrainerScheduler {
     const shiftMatchedTrainers = certifiedTrainers.filter(trainer => {
       if (!constraints.shifts || constraints.shifts.length === 0) return true
       // Check trainer.shifts first (directly assigned shift periods)
-      if (trainer.shifts && trainer.shifts.length > 0) {
-        return constraints.shifts.some(shift => trainer.shifts.includes(shift))
+      const trainerShifts = trainer.shifts
+      if (trainerShifts && trainerShifts.length > 0) {
+        return constraints.shifts.some(shift => trainerShifts.includes(shift))
       }
       // Fall back to trainerProfile.shiftSchedules for seeded/persisted trainers
       // that omit User.shifts but carry shift type info in their schedule entries

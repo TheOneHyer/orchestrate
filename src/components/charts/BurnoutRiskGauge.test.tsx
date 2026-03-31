@@ -33,7 +33,7 @@ describe('BurnoutRiskGauge', () => {
                         sessionCount: 8,
                         consecutiveDays: 5,
                         riskScore: 40,
-                        riskLevel: 'moderate',
+                        riskLevel: 'medium',
                         factors: [],
                         recommendations: [],
                     },
@@ -109,7 +109,7 @@ describe('BurnoutRiskGauge', () => {
         expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('1 Low Risk')
     })
 
-    it('renders chart with only moderate risk level trainers', () => {
+    it('renders chart with only medium risk level trainers', () => {
         render(
             <BurnoutRiskGauge
                 data={[
@@ -120,7 +120,7 @@ describe('BurnoutRiskGauge', () => {
                         sessionCount: 7,
                         consecutiveDays: 5,
                         riskScore: 35,
-                        riskLevel: 'moderate',
+                        riskLevel: 'medium',
                         factors: ['Increased workload'],
                         recommendations: ['Monitor closely'],
                     },

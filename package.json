@@ -10,6 +10,7 @@
         "kill:unix": "fuser -k 5173/tcp",
         "kill:win": "powershell -Command \"Get-NetTCPConnection -LocalPort 5173 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }\"",
         "build": "tsc -b --noCheck && vite build",
+        "typecheck": "tsc -b --noEmit",
         "lint": "eslint .",
         "optimize": "vite optimize",
         "preview": "vite preview",

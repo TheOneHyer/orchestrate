@@ -397,6 +397,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
 
   /** Populates the edit form with the selected session's values and opens the edit dialog. */
   const handleEditClick = () => {
+    if (!selectedSession) return
 
     setEditingSession(selectedSession)
     setEditForm({
@@ -413,6 +414,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
 
   /** Validates and persists the current edit form values for the selected session. */
   const handleSaveSessionEdit = () => {
+    if (!editingSession) return
 
     const trimmedTitle = editForm.title.trim()
     const trimmedLocation = editForm.location.trim()
@@ -482,12 +484,6 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
     const tentativeSession: Session = {
       ...editingSession,
       ...updates,
-      startTime: parsedStartTime.toISOString(),
-      endTime: parsedEndTime.toISOString(),
-      capacity: parsedCapacity,
-      status: editForm.status,
-      title: trimmedTitle,
-      location: trimmedLocation,
     }
 
     // checkSessionConflicts ignores matching ids, so the edited session won't conflict with itself.

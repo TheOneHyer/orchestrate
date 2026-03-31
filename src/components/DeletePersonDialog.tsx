@@ -1,3 +1,5 @@
+import type { ComponentPropsWithoutRef } from 'react'
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,19 +27,20 @@ interface DeletePersonDialogProps {
 }
 
 /**
- * Confirmation dialog shown before permanently deleting a user.
+ * Renders a confirmation dialog for permanently deleting a user.
  *
- * Renders an accessible {@link AlertDialog} that displays the user's name and a
- * role-specific warning (trainers are removed from sessions, employees from enrolled
- * courses). Returns `null` when `user` is `null`. The delete action is only executed
- * when the user explicitly clicks "Delete".
+ * When `user` is `null`, nothing is rendered. The dialog shows the user's name and a role-specific
+ * warning: trainers will be removed from assigned training sessions; employees will be removed from
+ * enrolled courses. The provided `onConfirm` callback is invoked only when the user clicks "Delete".
+ *
+ * @returns A React element representing the dialog, or `null` when `user` is `null`.
  */
 export function DeletePersonDialog({ user, open, onOpenChange, onConfirm }: DeletePersonDialogProps) {
   if (!user) return null
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent overlayProps={{ 'data-testid': 'dialog-overlay' }}>
+      <AlertDialogContent overlayProps={{ 'data-testid': 'dialog-overlay' } as ComponentPropsWithoutRef<'div'>}>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete {user.name}?</AlertDialogTitle>
           <AlertDialogDescription>

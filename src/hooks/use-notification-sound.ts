@@ -88,7 +88,7 @@ export function useNotificationSound() {
     if (audioContextRef.current) return
 
     try {
-      audioContextRef.current = new (window.AudioContext || (window as Window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+      audioContextRef.current = new (window.AudioContext || (window as unknown as Window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
       gainNodeRef.current = audioContextRef.current.createGain()
       gainNodeRef.current.connect(audioContextRef.current.destination)
     } catch (error) {
