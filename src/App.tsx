@@ -517,7 +517,15 @@ function App() {
       }
     }
 
-    applyPreviewSeedData('manual', 'transient')
+    void applyPreviewSeedData('manual', 'transient').catch((error: unknown) => {
+      console.error('Failed to enter demo mode', error)
+      toast.error('Failed to enter demo mode', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while loading demo data.',
+      })
+    })
   }, [applyPreviewSeedData, canEnterDemoMode, hasExistingCoreData])
 
   const clearPreviewDataState = useCallback((showToast: boolean) => {

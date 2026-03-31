@@ -1679,12 +1679,12 @@ describe('App', () => {
         })
     })
 
-    it('calls auto-seed path with off mode and exits before creating preview seed data', () => {
+    it('calls auto-seed path with off mode and exits before creating preview seed data', async () => {
         getPreviewSeedModeMock.mockReturnValue('off')
         isPreviewSeedEnabledMock.mockReturnValue(true)
         kvSeed['preview-seed-version'] = ''
 
-        render(<App />)
+        await act(async () => { render(<App />) })
 
         // applyPreviewSeedData runs with mode "off" and returns early.
         expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
@@ -1694,7 +1694,7 @@ describe('App', () => {
         )
     })
 
-    it('initializes missing trainer profiles during startup', () => {
+    it('initializes missing trainer profiles during startup', async () => {
         kvSeed['users'] = [
             {
                 id: 'admin-1',
@@ -1716,7 +1716,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => { render(<App />) })
 
         expect(ensureProfilesMock).toHaveBeenCalled()
     })
@@ -1984,19 +1984,19 @@ describe('App', () => {
             priority: 'high',
         })
 
-        render(<App />)
+        await act(async () => { render(<App />) })
         await user.click(screen.getByRole('button', { name: /^switch to trainer$/i }))
 
         const sendCall = sendNotificationMock.mock.calls[0]
         const options = sendCall?.[1]
-        act(() => {
+        await act(async () => {
             options.onClick()
         })
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
     })
 
-    it('ignores notification deep-link clicks when the active trainer cannot access the destination view', () => {
+    it('ignores notification deep-link clicks when the active trainer cannot access the destination view', async () => {
         kvSeed['active-user-id'] = 'trainer-1'
         utilizationNotificationPayload = createUtilizationNotificationPayload({
             title: 'Restricted Destination From Trainer Context',
@@ -2004,11 +2004,11 @@ describe('App', () => {
             priority: 'high',
         })
 
-        render(<App />)
+        await act(async () => { render(<App />) })
 
         const sendCall = sendNotificationMock.mock.calls.at(-1)
         const options = sendCall?.[1]
-        act(() => {
+        await act(async () => {
             options.onClick()
         })
 
@@ -2472,6 +2472,38 @@ describe('App', () => {
         }
     })
 
+    it('shows a failure toast when applyPreviewSeedData rejects during demo mode entry', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        createPreviewSeedDataMock.mockImplementationOnce(() => {
+            throw new Error('Seed storage failure')
+        })
+
+        const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
+
+        try {
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /^enter demo mode$/i }))
+
+            await waitFor(() => {
+                expect(toastError).toHaveBeenCalledWith(
+                    'Failed to enter demo mode',
+                    expect.objectContaining({ description: 'Seed storage failure' })
+                )
+            })
+
+            expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBeNull()
+            expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBeNull()
+        } finally {
+            window.history.replaceState({}, '', originalUrl)
+        }
+    })
+
     it('hides demo entry when the demoMode query param is absent', () => {
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
@@ -2612,7 +2644,7 @@ describe('App', () => {
             const initialLease = JSON.parse(localStorage.getItem('orchestrate-demo-seed-lease') || '{}')
             expect(initialLease).toMatchObject({
                 demoModeEnabled: true,
-                demoSessionUserId: 'admin-1',
+                demoSessionUserId: 'YWRtaW4tMQ==',
             })
 
             const initialExpiresAtMs = Number(initialLease.expiresAtMs)
@@ -3082,16 +3114,16 @@ describe('App', () => {
         )
     })
 
-    it('renders the dashboard fallback when the initial active view is unknown', () => {
+    it('renders the dashboard fallback when the initial active view is unknown', async () => {
         setAppRuntimeEnv({ initialActiveView: 'unrecognized-view' })
 
-        render(<App />)
+        await act(async () => { render(<App />) })
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
         expect(screen.getByText(/active view:\s*unrecognized-view/i)).toBeInTheDocument()
     })
 
-    it('falls back to dashboard when an invalid active user is restored into an inaccessible initial view', () => {
+    it('falls back to dashboard when an invalid active user is restored into an inaccessible initial view', async () => {
         kvSeed['users'] = [
             {
                 id: 'trainer-1',
@@ -3116,13 +3148,13 @@ describe('App', () => {
         kvSeed['active-user-id'] = 'missing-user'
         setAppRuntimeEnv({ initialActiveView: 'settings' })
 
-        render(<App />)
+        await act(async () => { render(<App />) })
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
         expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
     })
 
-    it('restores the first available user without changing an already accessible view', () => {
+    it('restores the first available user without changing an already accessible view', async () => {
         kvSeed['users'] = [
             {
                 id: 'admin-1',
@@ -3137,7 +3169,7 @@ describe('App', () => {
         kvSeed['active-user-id'] = 'missing-user'
         setAppRuntimeEnv({ initialActiveView: 'dashboard' })
 
-        render(<App />)
+        await act(async () => { render(<App />) })
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
         expect(screen.getByText(/active view:\s*dashboard/i)).toBeInTheDocument()
