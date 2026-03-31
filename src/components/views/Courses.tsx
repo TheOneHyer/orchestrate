@@ -414,7 +414,7 @@ export function Courses({
   /**
    * Transforms the validated editor form values into a course data payload ready for persistence.
    *
-   * @param values - Validated `CourseEditorState` form values.
+   * @param values - Validated `CourseEditorOutput` form values.
    * @returns An object containing all normalized course fields.
    */
   const buildCoursePayload = (values: CourseEditorOutput) => {

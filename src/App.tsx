@@ -777,8 +777,9 @@ function App() {
   const safeCourses = useMemo(() => courses || [], [courses])
   const safeEnrollments = useMemo(() => enrollments || [], [enrollments])
   const safeNotifications = useMemo(() => notifications || [], [notifications])
-  const sideEffectUsers = shouldClearStaleDemoData ? [] : safeUsers
-  const sideEffectSessions = shouldClearStaleDemoData ? [] : safeSessions
+  const sideEffectsEnabled = !shouldClearStaleDemoData && (localPreviewMode || Boolean(activeUserId))
+  const sideEffectUsers = sideEffectsEnabled ? safeUsers : []
+  const sideEffectSessions = sideEffectsEnabled ? safeSessions : []
   const hasPersistedUsers = safeUsers.length > 0
 
   const fallbackUser = useMemo<User>(() => ({
@@ -2245,7 +2246,7 @@ function App() {
         currentUser={currentUser}
         users={localPreviewMode ? safeUsers : [currentUser]}
         onSwitchUser={localPreviewMode ? handleSwitchUser : undefined}
-        onLogout={localPreviewMode ? handleLogout : undefined}
+        onLogout={localPreviewMode ? (demoModeEnabled ? handleSignOut : handleLogout) : undefined}
       >
         {renderView()}
       </Layout>

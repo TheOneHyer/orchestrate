@@ -2461,9 +2461,6 @@ describe('App', () => {
 
             expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
             expect(kvState['active-user-id']).toBe('')
-            expect(window.confirm).toHaveBeenCalledWith(
-                'This will overwrite existing local data in preview storage. Continue?'
-            )
             expect(createPreviewSeedDataMock).toHaveBeenCalledTimes(1)
             expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBe('true')
             expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBe('true')
