@@ -1130,12 +1130,17 @@ function App() {
     if (previewMode) {
       // DEMO ONLY: Assigns a hashed default credential for new preview-mode users
       // so that no plain-text password is ever written to the KV store.
-      void hashPassword('password123').then((hash) => {
-        setAuthPasswords((current) => ({
-          ...(current || {}),
-          [newUser.id]: current?.[newUser.id] ?? hash,
-        }))
-      })
+      void hashPassword('password123')
+        .then((hash) => {
+          setAuthPasswords((current) => ({
+            ...(current || {}),
+            [newUser.id]: current?.[newUser.id] ?? hash,
+          }))
+        })
+        .catch((error) => {
+          console.error('Failed to hash default preview password for new user', error)
+          toast.error('Unable to set up a default password for the new preview user.')
+        })
     }
   }
 
