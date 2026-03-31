@@ -4,7 +4,7 @@ name: "Resolve Open Comments"
 argument-hint: "Constraints and priority comments to handle first"
 agent: "Resolver"
 ---
-Resolve Open Comments.
+# Resolve Open Comments
 
 Objective:
 - Invoke the agent.
