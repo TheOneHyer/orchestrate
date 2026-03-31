@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -499,7 +499,7 @@ describe('RecordScoreDialog', () => {
             )
 
             const form = document.querySelector('form')!
-            form.requestSubmit()
+            await act(async () => { form.requestSubmit() })
 
             expect(onSubmit).not.toHaveBeenCalled()
         })

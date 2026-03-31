@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useKV } from '@github/spark/hooks'
 import { useForm } from 'react-hook-form'
@@ -46,7 +46,8 @@ import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
 import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
 import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
-import { AppRuntimeEnvOverrides, AppTestHooks } from '@/testSupport'
+import { hashPassword, verifyPassword } from '@/lib/auth-utils'
+import { AppRuntimeEnvOverrides, AppTestHooks } from '@/test-support'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
   dashboard: ['admin', 'trainer', 'employee'],
@@ -81,6 +82,248 @@ const KNOWN_NOTIFICATION_VIEWS = new Set<string>([
   'user-guide',
   'settings',
 ])
+
+const DEMO_MODE_ACTIVE_STORAGE_KEY = 'orchestrate-demo-mode-active'
+const DEMO_MODE_USER_ID_STORAGE_KEY = 'orchestrate-demo-mode-user-id'
+const DEMO_MODE_SEEDED_STORAGE_KEY = 'orchestrate-demo-mode-seeded'
+const SESSION_DEMO_MARKER_STORAGE_KEY = 'orchestrate-demo-seeded-in-tab'
+const DEMO_MODE_LEASE_STORAGE_KEY = 'orchestrate-demo-seed-lease'
+const DEMO_MODE_LEASE_DURATION_MS = 30 * 60 * 1000
+const DEMO_MODE_LEASE_RENEW_INTERVAL_MS = 60 * 1000
+
+type DemoModeLease = {
+  expiresAtMs: number
+  demoModeEnabled: true
+  demoSessionUserId: string
+}
+
+/**
+ * Read a value from window.sessionStorage, returning an empty string when unavailable.
+ *
+ * @param key - The sessionStorage key to read
+ * @returns The stored string value for `key`, or an empty string if sessionStorage is unavailable or an error occurs
+ */
+function readSessionStorageValue(key: string) {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  try {
+    return window.sessionStorage.getItem(key) || ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Checks whether a boolean flag stored in localStorage is set to `'true'`.
+ *
+ * @param key - The localStorage key to read
+ * @returns `true` if the item value equals `'true'`, `false` otherwise (also returns `false` on server-side execution or when access to localStorage fails)
+ */
+function readLocalStorageFlag(key: string) {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  try {
+    return window.localStorage.getItem(key) === 'true'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Persist a string value to window.sessionStorage for the current browsing session, or remove the key when given an empty string.
+ *
+ * This function is a no-op outside the browser (when `window` is undefined) and suppresses any storage write errors.
+ *
+ * @param key - The sessionStorage key to set or remove
+ * @param value - The string value to store; if empty, the key will be removed from sessionStorage
+ */
+function writeSessionStorageValue(key: string, value: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    if (value) {
+      window.sessionStorage.setItem(key, value)
+      return
+    }
+
+    window.sessionStorage.removeItem(key)
+  } catch {
+    // Ignore storage write failures; the in-memory session state still applies.
+  }
+}
+
+/**
+ * Set or clear a boolean flag in localStorage, stored as the string `"true"`.
+ *
+ * Writes the flag when `enabled` is `true`; removes the key when `enabled` is `false`.
+ * This function no-ops on the server (when `window` is undefined) and silently ignores storage write errors.
+ *
+ * @param key - The localStorage key to set or remove
+ * @param enabled - If `true`, store `"true"` under `key`; if `false`, remove `key`
+ */
+function writeLocalStorageFlag(key: string, enabled: boolean) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    if (enabled) {
+      window.localStorage.setItem(key, 'true')
+      return
+    }
+
+    window.localStorage.removeItem(key)
+  } catch {
+    // Ignore storage write failures; the current tab session still applies.
+  }
+}
+
+/**
+ * Read a string value from localStorage in a safe, isomorphic manner.
+ *
+ * @param key - The localStorage key to read
+ * @returns The stored string for `key`, or an empty string if not present or if access is unavailable or fails
+ */
+function readLocalStorageValue(key: string) {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  try {
+    return window.localStorage.getItem(key) || ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Writes `value` to `window.localStorage` under `key`, or removes `key` when `value` is an empty string.
+ *
+ * This function is a no-op when `window` is unavailable (server-side) and silently ignores storage write errors.
+ *
+ * @param key - The localStorage key to set or remove
+ * @param value - The string value to store; if empty, the key will be removed
+ */
+function writeLocalStorageValue(key: string, value: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    if (value) {
+      window.localStorage.setItem(key, value)
+      return
+    }
+
+    window.localStorage.removeItem(key)
+  } catch {
+    // Ignore storage write failures; the current tab session still applies.
+  }
+}
+
+/**
+ * Creates a JSON lease string representing an active demo session for a user.
+ *
+ * @param userId - The user id to store in the lease; will be base64-encoded when possible.
+ * @param expiresAtMs - Milliseconds-since-epoch when the lease expires (defaults to Date.now() + DEMO_MODE_LEASE_DURATION_MS).
+ * @returns A JSON string with the properties `expiresAtMs` (number), `demoModeEnabled` (`true`), and `demoSessionUserId` (base64-encoded `userId` when encoding is available, otherwise the raw `userId`).
+ */
+function createDemoLease(userId: string, expiresAtMs = Date.now() + DEMO_MODE_LEASE_DURATION_MS) {
+  let encodedUserId = userId
+  try {
+    if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
+      encodedUserId = window.btoa(userId)
+    }
+  } catch {
+    // If encoding fails, fall back to the raw userId to avoid breaking demo behavior.
+    encodedUserId = userId
+  }
+
+  return JSON.stringify({
+    expiresAtMs,
+    demoModeEnabled: true,
+    demoSessionUserId: encodedUserId,
+  })
+}
+
+/**
+ * Reads and validates the active demo-mode lease stored in localStorage.
+ *
+ * If a valid, unexpired lease exists and `demoModeEnabled` is `true`, returns the parsed lease.
+ * When present, attempts to base64-decode `demoSessionUserId` so callers receive the original user id.
+ *
+ * @returns A `DemoModeLease` object if a valid active lease is found, `null` otherwise.
+ */
+function readActiveDemoLease() {
+  const rawLease = readLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY)
+  if (!rawLease) {
+    return null
+  }
+
+  try {
+    const lease = JSON.parse(rawLease) as Partial<DemoModeLease>
+    if (typeof lease.expiresAtMs !== 'number' || lease.expiresAtMs <= Date.now()) {
+      return null
+    }
+
+    if (lease.demoModeEnabled !== true || typeof lease.demoSessionUserId !== 'string' || !lease.demoSessionUserId) {
+      return null
+    }
+
+    // Decode the demoSessionUserId so callers continue to receive the original userId.
+    try {
+      if (typeof window !== 'undefined' && typeof window.atob === 'function') {
+        lease.demoSessionUserId = window.atob(lease.demoSessionUserId)
+      }
+    } catch {
+      // If decoding fails, keep the stored value as-is.
+    }
+
+    return lease as DemoModeLease
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Checks whether a valid, unexpired demo-mode lease exists in localStorage.
+ *
+ * @returns `true` if an active demo lease is present, `false` otherwise.
+ */
+function hasActiveDemoLease() {
+  return readActiveDemoLease() !== null
+}
+
+/**
+ * Determines whether demo mode is enabled based on the URL query parameter `demoMode`.
+ *
+ * @returns `true` if the `demoMode` query parameter is present and, after trimming and lowercasing, is an empty string, `"1"`, or `"true"`; `false` otherwise or when run on the server or if parsing fails.
+ */
+function isDemoModeQueryEnabled() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  try {
+    const value = new URLSearchParams(window.location.search).get('demoMode')
+    if (value === null) {
+      return false
+    }
+
+    const normalizedValue = value.trim().toLowerCase()
+    return normalizedValue === '' || normalizedValue === '1' || normalizedValue === 'true'
+  } catch {
+    return false
+  }
+}
+
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 /**
  * Creates a namespaced unique identifier using the provided prefix.
@@ -134,6 +377,12 @@ function App() {
   const runtimeEnv = getAppRuntimeEnv()
   const [activeView, setActiveView] = useState(runtimeEnv.initialActiveView ?? 'dashboard')
   const [navigationPayload, setNavigationPayload] = useState<unknown>(null)
+  const [demoModeEnabled, setDemoModeEnabled] = useState(() => {
+    return readSessionStorageValue(DEMO_MODE_ACTIVE_STORAGE_KEY) === 'true'
+  })
+  const [demoSessionUserId, setDemoSessionUserId] = useState(() => {
+    return readSessionStorageValue(DEMO_MODE_USER_ID_STORAGE_KEY)
+  })
 
   const signInForm = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -157,9 +406,11 @@ function App() {
   const previewSeedMode = getPreviewSeedMode()
   const previewSeedEnabled = isPreviewSeedEnabled(previewSeedMode)
   const { previewMode, useServerAuth } = runtimeEnv
+  const localPreviewMode = previewMode || demoModeEnabled
+  const canEnterDemoMode = isDemoModeQueryEnabled()
 
   const [users, setUsers] = useKV<User[]>('users', [])
-  const [activeUserId, setActiveUserId] = useKV<string>('active-user-id', '')
+  const [persistedActiveUserId, setPersistedActiveUserId] = useKV<string>('active-user-id', '')
   const [authPasswords, setAuthPasswords] = useKV<Record<string, string>>('auth-passwords', {})
   const [sessions, setSessions] = useKV<Session[]>('sessions', [])
   const [courses, setCourses] = useKV<Course[]>('courses', [])
@@ -174,11 +425,37 @@ function App() {
   const [, setTargetTrainerCoverage] = useKV<number>('target-trainer-coverage', 4)
   const [previewSeedVersion, setPreviewSeedVersion] = useKV<string>('preview-seed-version', '')
 
+  /**
+   * Computed active user identifier that switches between the demo session user ID
+   * and the persisted user ID, depending on whether demo mode is enabled.
+   */
+  const activeUserId = demoModeEnabled ? demoSessionUserId : persistedActiveUserId
+
+  const setDemoSessionState = useCallback((enabled: boolean, userId: string) => {
+    setDemoModeEnabled(enabled)
+    setDemoSessionUserId(userId)
+    writeSessionStorageValue(DEMO_MODE_ACTIVE_STORAGE_KEY, enabled ? 'true' : '')
+    writeSessionStorageValue(DEMO_MODE_USER_ID_STORAGE_KEY, enabled ? userId : '')
+  }, [])
+
+  const setSessionUserId = useCallback((userId: string) => {
+    if (demoModeEnabled) {
+      setDemoSessionState(true, userId)
+      return
+    }
+
+    setPersistedActiveUserId(userId)
+  }, [demoModeEnabled, setDemoSessionState, setPersistedActiveUserId])
+
   const { sendNotification } = usePushNotifications()
 
-  const buildPreviewAuthPasswords = useCallback((seedUsers: User[]) => {
+  // DEMO ONLY: Produces hashed credentials for preview seeding. All demo users
+  // receive the same default password ('password123') stored as a SHA-256 hash
+  // so that plain-text passwords are never persisted, even in preview mode.
+  const buildPreviewAuthPasswords = useCallback(async (seedUsers: User[]) => {
+    const hash = await hashPassword('password123')
     return seedUsers.reduce<Record<string, string>>((acc, user) => {
-      acc[user.id] = 'password123'
+      acc[user.id] = hash
       return acc
     }, {})
   }, [])
@@ -193,14 +470,23 @@ function App() {
    *
    * @param seedMode - The preview seed mode to apply. One of the
    *   {@link PreviewSeedMode} values or `'manual'`.
+   * @param sessionMode - Controls how the active preview user ID is stored:
+   *   when set to `persisted`, the default seeded user ID is written to KV storage;
+   *   when set to `transient`, the active user is kept in demo session state
+   *   backed by tab-scoped `sessionStorage` and accompanied by a seeded marker
+   *   in `localStorage` so demo mode can be detected on reload.
    */
-  const applyPreviewSeedData = useCallback((seedMode: PreviewSeedMode | 'manual' = 'manual') => {
+  const applyPreviewSeedData = useCallback(async (seedMode: PreviewSeedMode | 'manual' = 'manual', sessionMode: 'persisted' | 'transient' = 'persisted') => {
     if (seedMode === 'off') {
       return
     }
 
     const seedData = createPreviewSeedData()
     const seedMarker = `${PREVIEW_SEED_VERSION}:${seedMode}`
+    const defaultSessionUserId = seedData.users.find((user) => user.role === 'admin')?.id || seedData.users[0]?.id || ''
+
+    // DEMO ONLY: Build auth passwords first so a rejection leaves the app un-mutated.
+    const seededAuthPasswords = await buildPreviewAuthPasswords(seedData.users)
 
     setUsers(seedData.users)
     setSessions(seedData.sessions)
@@ -215,8 +501,21 @@ function App() {
     setRiskHistorySnapshots(seedData.riskHistorySnapshots)
     setTargetTrainerCoverage(seedData.targetTrainerCoverage)
     setPreviewSeedVersion(seedMarker)
-    setActiveUserId(seedData.users[0]?.id || '')
-    setAuthPasswords(buildPreviewAuthPasswords(seedData.users))
+    setAuthPasswords(seededAuthPasswords)
+
+    if (sessionMode === 'transient') {
+      setPersistedActiveUserId('')
+      setDemoSessionState(true, defaultSessionUserId)
+      writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, 'true')
+      writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, true)
+      writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, createDemoLease(defaultSessionUserId))
+    } else {
+      setDemoSessionState(false, '')
+      writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, '')
+      writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, false)
+      writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, '')
+      setPersistedActiveUserId(defaultSessionUserId)
+    }
 
     toast.success('Preview test data loaded', {
       description: `Seeded ${seedData.users.length} users, ${seedData.sessions.length} sessions, and related edge-case data.`
@@ -236,7 +535,8 @@ function App() {
     setRiskHistorySnapshots,
     setTargetTrainerCoverage,
     setPreviewSeedVersion,
-    setActiveUserId,
+    setPersistedActiveUserId,
+    setDemoSessionState,
     buildPreviewAuthPasswords
   ])
 
@@ -268,8 +568,99 @@ function App() {
       }
     }
 
-    applyPreviewSeedData('manual')
-  }, [hasExistingCoreData, applyPreviewSeedData])
+    void applyPreviewSeedData('manual', demoModeEnabled ? 'transient' : 'persisted').catch((error: unknown) => {
+      console.error('Failed to load preview seed data', error)
+      toast.error('Failed to load preview seed data', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while loading seed data.',
+      })
+    })
+  }, [applyPreviewSeedData, demoModeEnabled, hasExistingCoreData])
+
+  const handleEnterDemoMode = useCallback(() => {
+    if (!canEnterDemoMode) {
+      return
+    }
+
+    if (hasExistingCoreData) {
+      const shouldOverwrite = window.confirm(
+        'This will overwrite existing local data in preview storage. Continue?'
+      )
+
+      if (!shouldOverwrite) {
+        return
+      }
+    }
+
+    void applyPreviewSeedData('manual', 'transient').catch((error: unknown) => {
+      console.error('Failed to enter demo mode', error)
+      toast.error('Failed to enter demo mode', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while loading demo data.',
+      })
+    })
+  }, [applyPreviewSeedData, canEnterDemoMode, hasExistingCoreData])
+
+  const clearPreviewDataState = useCallback((showToast: boolean) => {
+    setUsers([])
+    setAuthPasswords({})
+    setSessions([])
+    setCourses([])
+    setEnrollments([])
+    setAttendanceRecords([])
+    setNotifications([])
+    setWellnessCheckIns([])
+    setRecoveryPlans([])
+    setCheckInSchedules([])
+    setScheduleTemplates([])
+    setRiskHistorySnapshots([])
+    setTargetTrainerCoverage(4)
+    setPreviewSeedVersion('')
+    setPersistedActiveUserId('')
+    setDemoSessionState(false, '')
+    writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, '')
+    writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, false)
+    writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, '')
+
+    if (typeof window !== 'undefined') {
+      try {
+        Object.keys(window.localStorage).forEach((key) => {
+          if (key.startsWith('reminder-')) {
+            window.localStorage.removeItem(key)
+          }
+        })
+      } catch {
+        // Ignore storage cleanup failures; KV reset has already completed.
+      }
+    }
+
+    if (showToast) {
+      toast.success('Preview data reset complete', {
+        description: 'All local preview records have been cleared.'
+      })
+    }
+  }, [
+    setUsers,
+    setAuthPasswords,
+    setSessions,
+    setCourses,
+    setEnrollments,
+    setAttendanceRecords,
+    setNotifications,
+    setWellnessCheckIns,
+    setRecoveryPlans,
+    setCheckInSchedules,
+    setScheduleTemplates,
+    setRiskHistorySnapshots,
+    setTargetTrainerCoverage,
+    setPreviewSeedVersion,
+    setPersistedActiveUserId,
+    setDemoSessionState,
+  ])
 
   /**
    * Handles a user-initiated request to wipe all preview data. Prompts the
@@ -288,50 +679,59 @@ function App() {
       return
     }
 
-    setUsers([])
-    setAuthPasswords({})
-    setSessions([])
-    setCourses([])
-    setEnrollments([])
-    setAttendanceRecords([])
-    setNotifications([])
-    setWellnessCheckIns([])
-    setRecoveryPlans([])
-    setCheckInSchedules([])
-    setScheduleTemplates([])
-    setRiskHistorySnapshots([])
-    setTargetTrainerCoverage(4)
-    setPreviewSeedVersion('')
-    setActiveUserId('')
+    clearPreviewDataState(true)
+  }, [
+    clearPreviewDataState,
+  ])
 
-    if (typeof window !== 'undefined') {
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith('reminder-')) {
-          localStorage.removeItem(key)
-        }
-      })
+  const seededInThisTab = readSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY) === 'true'
+  const hasLiveDemoLease = hasActiveDemoLease()
+  const shouldClearStaleDemoData = !previewMode
+    && !demoModeEnabled
+    && (seededInThisTab || !hasLiveDemoLease)
+    && readLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY)
+
+  useIsomorphicLayoutEffect(() => {
+    if (!shouldClearStaleDemoData) {
+      return
     }
 
-    toast.success('Preview data reset complete', {
-      description: 'All local preview records have been cleared.'
-    })
-  }, [
-    setUsers,
-    setAuthPasswords,
-    setSessions,
-    setCourses,
-    setEnrollments,
-    setAttendanceRecords,
-    setNotifications,
-    setWellnessCheckIns,
-    setRecoveryPlans,
-    setCheckInSchedules,
-    setScheduleTemplates,
-    setRiskHistorySnapshots,
-    setTargetTrainerCoverage,
-    setPreviewSeedVersion,
-    setActiveUserId
-  ])
+    clearPreviewDataState(false)
+  }, [clearPreviewDataState, shouldClearStaleDemoData])
+
+  useEffect(() => {
+    if (!demoModeEnabled) {
+      return
+    }
+
+    const leaseOwnerId = demoSessionUserId
+
+    const renewDemoLease = () => {
+      writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, createDemoLease(leaseOwnerId))
+    }
+
+    renewDemoLease()
+
+    const intervalId = window.setInterval(renewDemoLease, DEMO_MODE_LEASE_RENEW_INTERVAL_MS)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        renewDemoLease()
+      }
+    }
+
+    window.addEventListener('focus', renewDemoLease)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', renewDemoLease)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+    // demoSessionUserId is intentionally captured as a stable snapshot (leaseOwnerId)
+    // at effect-run time so the interval keeps renewing even if the session user ID
+    // later becomes empty while demoModeEnabled remains true.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoModeEnabled])
 
   useEffect(() => {
     if (!previewSeedEnabled) {
@@ -354,8 +754,17 @@ function App() {
       return
     }
 
-    applyPreviewSeedData(previewSeedMode)
+    void applyPreviewSeedData(previewSeedMode, demoModeEnabled ? 'transient' : 'persisted').catch((error: unknown) => {
+      console.error('Failed to apply preview seed data', error)
+      toast('Failed to load preview data', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while seeding preview data.',
+      })
+    })
   }, [
+    demoModeEnabled,
     previewSeedEnabled,
     previewSeedMode,
     previewSeedVersion,
@@ -380,7 +789,7 @@ function App() {
   ])
 
   useEffect(() => {
-    if (!previewMode) {
+    if (!localPreviewMode) {
       return
     }
 
@@ -388,21 +797,36 @@ function App() {
       return
     }
 
-    setAuthPasswords((current) => {
-      const existing = current || {}
-      let changed = false
-      const next = { ...existing }
+    // DEMO ONLY: Seeds hashed 'password123' for any preview user that does not
+    // yet have a stored credential, so plain-text passwords are never persisted.
+    const seedMissingPasswords = async () => {
+      const hash = await hashPassword('password123')
+      setAuthPasswords((current) => {
+        const existing = current || {}
+        let changed = false
+        const next = { ...existing }
 
-      users.forEach((user) => {
-        if (!(user.id in next)) {
-          next[user.id] = 'password123'
-          changed = true
-        }
+        users.forEach((user) => {
+          if (!(user.id in next)) {
+            next[user.id] = hash
+            changed = true
+          }
+        })
+
+        return changed ? next : existing
       })
+    }
 
-      return changed ? next : existing
+    void seedMissingPasswords().catch((error: unknown) => {
+      console.error('Failed to seed missing preview passwords', error)
+      toast.error('Failed to set up preview credentials', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while setting up preview passwords.',
+      })
     })
-  }, [previewMode, users, setAuthPasswords])
+  }, [localPreviewMode, users, setAuthPasswords])
 
   useEffect(() => {
     if (users && users.length > 0) {
@@ -421,6 +845,9 @@ function App() {
   const safeCourses = useMemo(() => courses || [], [courses])
   const safeEnrollments = useMemo(() => enrollments || [], [enrollments])
   const safeNotifications = useMemo(() => notifications || [], [notifications])
+  const sideEffectsEnabled = !shouldClearStaleDemoData && (localPreviewMode || Boolean(activeUserId))
+  const sideEffectUsers = sideEffectsEnabled ? safeUsers : []
+  const sideEffectSessions = sideEffectsEnabled ? safeSessions : []
   const hasPersistedUsers = safeUsers.length > 0
 
   const fallbackUser = useMemo<User>(() => ({
@@ -445,13 +872,13 @@ function App() {
     const hasActiveUser = safeUsers.some((user) => user.id === activeUserId)
     if (!hasActiveUser) {
       const nextUser = safeUsers[0]
-      setActiveUserId(nextUser.id)
+      setSessionUserId(nextUser.id)
       if (!VIEW_ACCESS[activeView]?.includes(nextUser.role)) {
         setActiveView('dashboard')
         setNavigationPayload(null)
       }
     }
-  }, [activeUserId, activeView, safeUsers, setActiveUserId])
+  }, [activeUserId, activeView, safeUsers, setSessionUserId])
 
   /**
    * Creates a new {@link Notification} record with a generated ID and
@@ -521,9 +948,9 @@ function App() {
     }
   }, [activeUserId, fallbackUser.role, safeUsers, sendNotification, setNotifications])
 
-  useUtilizationNotifications(safeUsers, safeSessions, handleCreateNotification)
+  useUtilizationNotifications(sideEffectUsers, sideEffectSessions, handleCreateNotification)
 
-  useCertificationNotifications(safeUsers, handleCreateNotification, setUsers)
+  useCertificationNotifications(sideEffectUsers, handleCreateNotification, setUsers)
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 
@@ -601,20 +1028,22 @@ function App() {
   const unreadNotifications = visibleNotifications.filter(n => !n.read)
 
   const handleSwitchUser = useCallback((userId: string) => {
-    setActiveUserId(userId)
+    setSessionUserId(userId)
     setActiveView('dashboard')
     setNavigationPayload(null)
-  }, [setActiveUserId])
+  }, [setSessionUserId])
 
   const handleLogout = useCallback(() => {
-    setActiveUserId(safeUsers[0]?.id || '')
+    setSessionUserId(safeUsers[0]?.id || '')
     setActiveView('dashboard')
     setNavigationPayload(null)
-  }, [safeUsers, setActiveUserId])
+  }, [safeUsers, setSessionUserId])
 
-  // SECURITY NOTE: `authPasswords` stores plaintext demo credentials for preview-only flows.
-  // This is not production-safe; replace with server-side auth (hashed passwords over TLS,
-  // and token-based sessions or OAuth) before shipping.
+  // DEMO ONLY: `authPasswords` stores SHA-256-hashed credentials for the
+  // preview/demo sign-in flow only. In production, authentication must be
+  // delegated to a server-side auth service (bcrypt/Argon2 over TLS, with
+  // token-based sessions or OAuth). Credentials must never travel as plain
+  // text and must never be stored without server-side hashing.
   const handleSignIn = useCallback(async (values: SignInFormValues) => {
     const email = values.email.trim().toLowerCase()
     const password = values.password
@@ -626,7 +1055,10 @@ function App() {
       return
     }
 
-    const authenticateLocally = (): boolean => {
+    // DEMO ONLY: Verifies the entered password against its stored SHA-256 hash
+    // in the local KV store. This path is only reachable in preview/demo mode
+    // or when server auth is explicitly disabled.
+    const authenticateLocally = async (): Promise<boolean> => {
       const matchedUser = safeUsers.find((user) => user.email.trim().toLowerCase() === email)
       if (!matchedUser) {
         toast.error('Sign-in failed', {
@@ -635,15 +1067,16 @@ function App() {
         return false
       }
 
-      const expectedPassword = authPasswords?.[matchedUser.id]
-      if (!expectedPassword || expectedPassword !== password) {
+      const storedHash = authPasswords?.[matchedUser.id]
+      const passwordValid = storedHash ? await verifyPassword(password, storedHash) : false
+      if (!passwordValid) {
         toast.error('Sign-in failed', {
           description: 'Incorrect password.',
         })
         return false
       }
 
-      setActiveUserId(matchedUser.id)
+      setSessionUserId(matchedUser.id)
       setActiveView('dashboard')
       setNavigationPayload(null)
       signInForm.setValue('password', '')
@@ -653,7 +1086,7 @@ function App() {
       return true
     }
 
-    if (!previewMode && useServerAuth) {
+    if (!localPreviewMode && useServerAuth) {
       try {
         const response = await fetch('/api/auth/sign-in', {
           method: 'POST',
@@ -690,7 +1123,7 @@ function App() {
           return
         }
 
-        setActiveUserId(authenticatedUserId)
+        setSessionUserId(authenticatedUserId)
         setActiveView('dashboard')
         setNavigationPayload(null)
         signInForm.setValue('password', '')
@@ -705,22 +1138,25 @@ function App() {
       return
     }
 
-    authenticateLocally()
-  }, [authPasswords, previewMode, safeUsers, setActiveUserId, signInForm, useServerAuth])
+    await authenticateLocally()
+  }, [authPasswords, localPreviewMode, safeUsers, setSessionUserId, signInForm, useServerAuth])
 
   const handleSignOut = useCallback(() => {
-    setActiveUserId('')
+    setSessionUserId('')
     setActiveView('dashboard')
     setNavigationPayload(null)
     signInForm.setValue('password', '')
-  }, [setActiveUserId, signInForm])
+  }, [setSessionUserId, signInForm])
 
-  const createFirstAdmin = useCallback((values: FirstAdminFormValues) => {
+  // DEMO ONLY: createFirstAdmin is a preview-only bootstrap flow. Passwords are
+  // hashed with SHA-256 before being stored in the local KV store. In production,
+  // first-user provisioning and credential storage must happen server-side.
+  const createFirstAdmin = useCallback(async (values: FirstAdminFormValues) => {
     if (hasPersistedUsers) {
       return
     }
 
-    if (!previewMode) {
+    if (!localPreviewMode) {
       toast.error('Setup unavailable', {
         description: 'Initial admin bootstrap in this client flow is preview-only.',
       })
@@ -750,10 +1186,13 @@ function App() {
       updatedAt: now,
     }
 
-    setUsers([firstAdmin])
-    setAuthPasswords({ [firstAdmin.id]: password })
+    // DEMO ONLY: Hash the password before storing — never persist plain text.
+    const passwordHash = await hashPassword(password)
 
-    setActiveUserId(firstAdmin.id)
+    setUsers([firstAdmin])
+    setAuthPasswords({ [firstAdmin.id]: passwordHash })
+
+    setSessionUserId(firstAdmin.id)
     setActiveView('dashboard')
     setNavigationPayload(null)
     firstAdminForm.reset()
@@ -762,7 +1201,7 @@ function App() {
     toast.success('First admin created', {
       description: `${name} can now manage the workspace.`,
     })
-  }, [firstAdminForm, hasPersistedUsers, previewMode, setActiveUserId, setAuthPasswords, setUsers, signInForm])
+  }, [firstAdminForm, hasPersistedUsers, localPreviewMode, setSessionUserId, setAuthPasswords, setUsers, signInForm])
 
   const handleAssignRole = useCallback((userId: string, role: User['role']) => {
     const targetUser = safeUsers.find((entry) => entry.id === userId)
@@ -1092,10 +1531,19 @@ function App() {
     setUsers((currentUsers) => [...(currentUsers || []), { ...newUser, updatedAt }])
 
     if (previewMode) {
-      setAuthPasswords((current) => ({
-        ...(current || {}),
-        [newUser.id]: current?.[newUser.id] ?? 'password123',
-      }))
+      // DEMO ONLY: Assigns a hashed default credential for new preview-mode users
+      // so that no plain-text password is ever written to the KV store.
+      void hashPassword('password123')
+        .then((hash) => {
+          setAuthPasswords((current) => ({
+            ...(current || {}),
+            [newUser.id]: current?.[newUser.id] ?? hash,
+          }))
+        })
+        .catch((error) => {
+          console.error('Failed to hash default preview password for new user', error)
+          toast.error('Unable to set up a default password for the new preview user.')
+        })
     }
   }
 
@@ -1168,7 +1616,7 @@ function App() {
     if (activeUserId === userId) {
       const nextUser = safeUsers.find((user) => user.id !== userId)
       const nextUserId = nextUser?.id || ''
-      setActiveUserId(nextUserId)
+      setSessionUserId(nextUserId)
 
       // Ensure the new active user can access the current view
       if (nextUser && !VIEW_ACCESS[activeView]?.includes(nextUser.role)) {
@@ -1243,7 +1691,7 @@ function App() {
     activeUserId,
     activeView,
     safeUsers,
-    setActiveUserId,
+    setSessionUserId,
     setActiveView,
     setAttendanceRecords,
     setAuthPasswords,
@@ -1271,8 +1719,12 @@ function App() {
 
     testHooks.createFirstAdmin = createFirstAdmin
     testHooks.handleSignIn = handleSignIn
-    testHooks.handleAssignRole = handleAssignRole
-    testHooks.handleDeleteUser = handleDeleteUser
+    testHooks.handleAssignRole = async (userId, role) => {
+      handleAssignRole(userId, role)
+    }
+    testHooks.handleDeleteUser = async (userId) => {
+      handleDeleteUser(userId)
+    }
 
     return () => {
       if (globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ === testHooks) {
@@ -1344,7 +1796,9 @@ function App() {
       return
     }
 
-    testHooks.handleMarkNotificationAsRead = handleMarkNotificationAsRead
+    testHooks.handleMarkNotificationAsRead = async (id) => {
+      handleMarkNotificationAsRead(id)
+    }
 
     return () => {
       if (
@@ -1614,7 +2068,7 @@ function App() {
               <p className="text-muted-foreground mt-1">Configure system settings</p>
             </div>
             <div className="max-w-4xl space-y-4">
-              {previewMode && (
+              {localPreviewMode && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Local Session</CardTitle>
@@ -1707,7 +2161,7 @@ function App() {
   }
 
   if (!activeUserId) {
-    if (!hasPersistedUsers && previewMode) {
+    if (!hasPersistedUsers && localPreviewMode) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
@@ -1766,7 +2220,7 @@ function App() {
       )
     }
 
-    if (!hasPersistedUsers && !previewMode) {
+    if (!hasPersistedUsers && !localPreviewMode) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
@@ -1837,7 +2291,7 @@ function App() {
                 <Button type="submit" className="w-full">
                   Sign In
                 </Button>
-                {previewMode && (
+                {localPreviewMode && (
                   <p className="text-xs text-muted-foreground">
                     Default password for seeded users is <strong>password123</strong>.
                   </p>
@@ -1859,9 +2313,9 @@ function App() {
         notificationCount={unreadNotifications.length}
         userRole={currentUser.role}
         currentUser={currentUser}
-        users={previewMode ? safeUsers : [currentUser]}
-        onSwitchUser={previewMode ? handleSwitchUser : undefined}
-        onLogout={previewMode ? handleLogout : undefined}
+        users={localPreviewMode ? safeUsers : [currentUser]}
+        onSwitchUser={localPreviewMode ? handleSwitchUser : undefined}
+        onLogout={localPreviewMode ? (demoModeEnabled ? handleSignOut : handleLogout) : undefined}
       >
         {renderView()}
       </Layout>
