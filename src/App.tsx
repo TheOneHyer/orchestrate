@@ -389,7 +389,7 @@ function App() {
    *   backed by tab-scoped `sessionStorage` and accompanied by a seeded marker
    *   in `localStorage` so demo mode can be detected on reload.
    */
-  const applyPreviewSeedData = useCallback(async (seedMode: PreviewSeedMode | 'manual' = 'manual') => {
+  const applyPreviewSeedData = useCallback(async (seedMode: PreviewSeedMode | 'manual' = 'manual', sessionMode: 'persisted' | 'transient' = 'persisted') => {
     if (seedMode === 'off') {
       return
     }
@@ -411,7 +411,6 @@ function App() {
     setRiskHistorySnapshots(seedData.riskHistorySnapshots)
     setTargetTrainerCoverage(seedData.targetTrainerCoverage)
     setPreviewSeedVersion(seedMarker)
-    setActiveUserId(seedData.users[0]?.id || '')
 
     if (sessionMode === 'transient') {
       setPersistedActiveUserId('')
@@ -645,7 +644,7 @@ function App() {
       return
     }
 
-    void applyPreviewSeedData(previewSeedMode).catch((error: unknown) => {
+    void applyPreviewSeedData(previewSeedMode, demoModeEnabled ? 'transient' : 'persisted').catch((error: unknown) => {
       console.error('Failed to apply preview seed data', error)
       toast('Failed to load preview data', {
         description:
@@ -1029,7 +1028,7 @@ function App() {
     }
 
     await authenticateLocally()
-  }, [authPasswords, previewMode, safeUsers, setActiveUserId, signInForm, useServerAuth])
+  }, [authPasswords, localPreviewMode, safeUsers, setSessionUserId, signInForm, useServerAuth])
 
   const handleSignOut = useCallback(() => {
     setSessionUserId('')
