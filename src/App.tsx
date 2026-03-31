@@ -632,12 +632,14 @@ function App() {
   }, [clearPreviewDataState, shouldClearStaleDemoData])
 
   useEffect(() => {
-    if (!demoModeEnabled || !demoSessionUserId) {
+    if (!demoModeEnabled) {
       return
     }
 
+    const leaseOwnerId = demoSessionUserId
+
     const renewDemoLease = () => {
-      writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, createDemoLease(demoSessionUserId))
+      writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, createDemoLease(leaseOwnerId))
     }
 
     renewDemoLease()
@@ -657,7 +659,11 @@ function App() {
       window.removeEventListener('focus', renewDemoLease)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [demoModeEnabled, demoSessionUserId])
+    // demoSessionUserId is intentionally captured as a stable snapshot (leaseOwnerId)
+    // at effect-run time so the interval keeps renewing even if the session user ID
+    // later becomes empty while demoModeEnabled remains true.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demoModeEnabled])
 
   useEffect(() => {
     if (!previewSeedEnabled) {
