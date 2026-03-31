@@ -1615,6 +1615,30 @@ describe('App', () => {
         expect(createPreviewSeedDataMock).toHaveBeenCalledOnce()
     })
 
+    it('shows a failure toast when applyPreviewSeedData rejects during manual seed load', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = []
+        kvSeed['sessions'] = []
+        kvSeed['courses'] = []
+        kvSeed['enrollments'] = []
+
+        createPreviewSeedDataMock.mockImplementationOnce(() => {
+            throw new Error('Storage quota exceeded')
+        })
+
+        render(<App />)
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        await user.click(screen.getByRole('button', { name: /load seed data/i }))
+
+        await waitFor(() => {
+            expect(toastError).toHaveBeenCalledWith(
+                'Failed to load preview seed data',
+                expect.objectContaining({ description: 'Storage quota exceeded' })
+            )
+        })
+    })
+
     it('does not reset preview data when confirmation is cancelled', async () => {
         const user = userEvent.setup()
         vi.stubGlobal('confirm', vi.fn(() => false))

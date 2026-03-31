@@ -417,6 +417,9 @@ function App() {
     const seedMarker = `${PREVIEW_SEED_VERSION}:${seedMode}`
     const defaultSessionUserId = seedData.users.find((user) => user.role === 'admin')?.id || seedData.users[0]?.id || ''
 
+    // DEMO ONLY: Build auth passwords first so a rejection leaves the app un-mutated.
+    const authPasswords = await buildPreviewAuthPasswords(seedData.users)
+
     setUsers(seedData.users)
     setSessions(seedData.sessions)
     setCourses(seedData.courses)
@@ -430,6 +433,7 @@ function App() {
     setRiskHistorySnapshots(seedData.riskHistorySnapshots)
     setTargetTrainerCoverage(seedData.targetTrainerCoverage)
     setPreviewSeedVersion(seedMarker)
+    setAuthPasswords(authPasswords)
 
     if (sessionMode === 'transient') {
       setPersistedActiveUserId('')
@@ -448,9 +452,6 @@ function App() {
     toast.success('Preview test data loaded', {
       description: `Seeded ${seedData.users.length} users, ${seedData.sessions.length} sessions, and related edge-case data.`
     })
-
-    // DEMO ONLY: Hash the default preview password before persisting credentials.
-    setAuthPasswords(await buildPreviewAuthPasswords(seedData.users))
   }, [
     setUsers,
     setAttendanceRecords,
@@ -499,7 +500,15 @@ function App() {
       }
     }
 
-    applyPreviewSeedData('manual', demoModeEnabled ? 'transient' : 'persisted')
+    void applyPreviewSeedData('manual', demoModeEnabled ? 'transient' : 'persisted').catch((error: unknown) => {
+      console.error('Failed to load preview seed data', error)
+      toast.error('Failed to load preview seed data', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while loading seed data.',
+      })
+    })
   }, [applyPreviewSeedData, demoModeEnabled, hasExistingCoreData])
 
   const handleEnterDemoMode = useCallback(() => {
