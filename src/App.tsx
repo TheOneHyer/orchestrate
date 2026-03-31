@@ -185,10 +185,20 @@ function writeLocalStorageValue(key: string, value: string) {
 }
 
 function createDemoLease(userId: string, expiresAtMs = Date.now() + DEMO_MODE_LEASE_DURATION_MS) {
+  let encodedUserId = userId
+  try {
+    if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
+      encodedUserId = window.btoa(userId)
+    }
+  } catch {
+    // If encoding fails, fall back to the raw userId to avoid breaking demo behavior.
+    encodedUserId = userId
+  }
+
   return JSON.stringify({
     expiresAtMs,
     demoModeEnabled: true,
-    demoSessionUserId: userId,
+    demoSessionUserId: encodedUserId,
   })
 }
 
@@ -206,6 +216,15 @@ function readActiveDemoLease() {
 
     if (lease.demoModeEnabled !== true || typeof lease.demoSessionUserId !== 'string' || !lease.demoSessionUserId) {
       return null
+    }
+
+    // Decode the demoSessionUserId so callers continue to receive the original userId.
+    try {
+      if (typeof window !== 'undefined' && typeof window.atob === 'function') {
+        lease.demoSessionUserId = window.atob(lease.demoSessionUserId)
+      }
+    } catch {
+      // If decoding fails, keep the stored value as-is.
     }
 
     return lease as DemoModeLease
