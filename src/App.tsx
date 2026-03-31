@@ -579,11 +579,14 @@ function App() {
     })
   }, [applyPreviewSeedData, demoModeEnabled, hasExistingCoreData])
 
+  /**
+   * Handles a user-initiated request to enter demo mode from the Setup Required screen.
+   *
+   * Seeds the KV store with preview data as a transient (non-persisted) demo session.
+   * If core data already exists, prompts for confirmation before overwriting.
+   * Shows an error toast if seeding fails.
+   */
   const handleEnterDemoMode = useCallback(() => {
-    if (!canEnterDemoMode) {
-      return
-    }
-
     if (hasExistingCoreData) {
       const shouldOverwrite = window.confirm(
         'This will overwrite existing local data in preview storage. Continue?'
@@ -603,7 +606,7 @@ function App() {
             : 'An unexpected error occurred while loading demo data.',
       })
     })
-  }, [applyPreviewSeedData, canEnterDemoMode, hasExistingCoreData])
+  }, [applyPreviewSeedData, hasExistingCoreData])
 
   const clearPreviewDataState = useCallback((showToast: boolean) => {
     setUsers([])
@@ -2161,7 +2164,7 @@ function App() {
   }
 
   if (!activeUserId) {
-    if (!hasPersistedUsers && localPreviewMode) {
+    if (!hasPersistedUsers && previewMode) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
@@ -2220,7 +2223,7 @@ function App() {
       )
     }
 
-    if (!hasPersistedUsers && !localPreviewMode) {
+    if (!hasPersistedUsers && !previewMode) {
       return (
         <div className="min-h-screen bg-muted/20 p-6">
           <div className="mx-auto w-full max-w-md pt-16">
@@ -2231,16 +2234,19 @@ function App() {
                   No users have been created in this workspace yet.
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <p className="text-sm text-muted-foreground">
                   User setup is only available during preview mode. Please configure users through your deployment or server setup process.
                 </p>
-                {canEnterDemoMode ? (
-                  <Button className="mt-4 w-full" onClick={handleEnterDemoMode}>
+                {(canEnterDemoMode || demoModeEnabled) ? (
+                  <Button
+                    className="w-full"
+                    onClick={handleEnterDemoMode}
+                  >
                     Enter Demo Mode
                   </Button>
                 ) : (
-                  <p className="mt-4 text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Demo mode entry is disabled unless the demoMode URL flag is present.
                   </p>
                 )}

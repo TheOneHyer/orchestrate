@@ -2696,10 +2696,57 @@ describe('App', () => {
 
         render(<App />)
 
-        expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
-        expect(kvState['active-user-id']).toBe('')
-        expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBe('true')
-        expect(sessionStorage.getItem('orchestrate-demo-mode-user-id')).toBe('admin-1')
+        expect(screen.getByText(/setup required/i)).toBeInTheDocument()
+        expect(screen.getByText(/no users have been created in this workspace yet/i)).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /^create first admin$/i })).toBeNull()
+        expect(screen.getByRole('button', { name: /enter demo mode/i })).toBeInTheDocument()
+    })
+
+    it('navigates to demo mode when the Enter Demo Mode button is clicked', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
+
+        try {
+            render(<App />)
+
+            expect(screen.getByRole('button', { name: /enter demo mode/i })).toBeInTheDocument()
+
+            await user.click(screen.getByRole('button', { name: /enter demo mode/i }))
+
+            expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+            expect(createPreviewSeedDataMock).toHaveBeenCalledOnce()
+        } finally {
+            window.history.replaceState({}, '', originalUrl)
+        }
+    })
+
+    it('preserves existing query parameters when entering demo mode', async () => {
+        const user = userEvent.setup()
+        kvSeed['users'] = []
+        kvSeed['active-user-id'] = ''
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+
+        const originalUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        window.history.replaceState({}, '', `${window.location.pathname}?existing=value&demoMode=true${window.location.hash}`)
+
+        try {
+            render(<App />)
+
+            await user.click(screen.getByRole('button', { name: /enter demo mode/i }))
+
+            expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
+            expect(kvState['active-user-id']).toBe('')
+            expect(sessionStorage.getItem('orchestrate-demo-mode-active')).toBe('true')
+            expect(sessionStorage.getItem('orchestrate-demo-mode-user-id')).toBe('admin-1')
+            expect(window.location.search).toContain('existing=value')
+        } finally {
+            window.history.replaceState({}, '', originalUrl)
+        }
     })
 
     it('does not create a first admin through the test hook when users already exist', async () => {
