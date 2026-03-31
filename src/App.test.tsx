@@ -116,6 +116,15 @@ vi.mock('sonner', () => ({
     },
 }))
 
+// DEMO-ONLY test mock: replaces the real SHA-256 hash with a deterministic
+// prefix so tests can use predictable password values without real crypto.
+vi.mock('@/lib/auth-utils', () => ({
+    hashPassword: vi.fn((password: string) => Promise.resolve(`__hash__${password}`)),
+    verifyPassword: vi.fn((password: string, storedHash: string) =>
+        Promise.resolve(storedHash === `__hash__${password}`)
+    ),
+}))
+
 vi.mock('@github/spark/hooks', async () => {
     const React = await import('react')
 
@@ -619,8 +628,8 @@ describe('App', () => {
         ]
         kvSeed['active-user-id'] = 'admin-1'
         kvSeed['auth-passwords'] = {
-            'admin-1': 'password123',
-            'trainer-1': 'password123',
+            'admin-1': '__hash__password123',
+            'trainer-1': '__hash__password123',
         }
         vi.stubGlobal('confirm', vi.fn(() => true))
     })
@@ -2924,8 +2933,8 @@ describe('App', () => {
         await user.click(screen.getByRole('button', { name: /add user/i }))
 
         expect(kvState['auth-passwords']).toEqual({
-            'admin-1': 'password123',
-            'trainer-1': 'password123',
+            'admin-1': '__hash__password123',
+            'trainer-1': '__hash__password123',
         })
     })
 
