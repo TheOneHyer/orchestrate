@@ -16,8 +16,8 @@ Execution requirements:
 1. Always target the active pull request and gather all currently open comments, grouped by file/symbol.
 2. Invoke the agent with the grouped comments and any user-provided constraints from this prompt invocation.
 3. Apply fixes for each valid comment.
-4. Run strict validation after fixes: `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm test:coverage`; if any command fails, abort and report the exact failing command and errors back to the reviewer.
-5. If validation fails, attempt at most one deterministic safe fix (for example, a lint autofix or a clearly flaky build/test retry) and rerun the failed command once; report both the attempted fix and rerun result. If a safe fix is not possible, do not continue silently: keep current changes, explain required manual steps/context, and optionally include rollback instructions for reverting partial changes.
+4. Run strict validation after fixes: `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm test:coverage`.
+5. If any validation command fails, attempt at most one deterministic safe fix (for example, a lint autofix or a clearly flaky build/test retry) and rerun only the failed command once. If the rerun still fails (or a safe fix is not possible), abort and report the exact failing command, errors, attempted recovery, and required manual steps/context (optionally including rollback instructions).
 6. If any comment is not actionable or cannot be fixed safely, explain why and what is needed.
 
 Output format:
