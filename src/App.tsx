@@ -362,8 +362,6 @@ function App() {
     }
 
     void applyPreviewSeedData(previewSeedMode).catch((error: unknown) => {
-      // Log for debugging and surface a user-facing error message.
-      // eslint-disable-next-line no-console
       console.error('Failed to apply preview seed data', error)
       toast('Failed to load preview data', {
         description:
@@ -425,7 +423,15 @@ function App() {
       })
     }
 
-    void seedMissingPasswords()
+    void seedMissingPasswords().catch((error: unknown) => {
+      console.error('Failed to seed missing preview passwords', error)
+      toast.error('Failed to set up preview credentials', {
+        description:
+          error instanceof Error
+            ? error.message
+            : 'An unexpected error occurred while setting up preview passwords.',
+      })
+    })
   }, [previewMode, users, setAuthPasswords])
 
   useEffect(() => {
