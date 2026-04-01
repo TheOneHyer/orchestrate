@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useLayoutEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useKV } from '@github/spark/hooks'
 import { useForm } from 'react-hook-form'
@@ -400,6 +400,8 @@ function App() {
   const [, setRiskHistorySnapshots] = useKV<RiskHistorySnapshot[]>('risk-history-snapshots', [])
   const [, setTargetTrainerCoverage] = useKV<number>('target-trainer-coverage', 4)
   const [previewSeedVersion, setPreviewSeedVersion] = useKV<string>('preview-seed-version', '')
+  const [suppressAutoSeedAfterReset, setSuppressAutoSeedAfterReset] = useState(false)
+  const previewSeedResetGenerationRef = useRef(0)
 
   /**
    * Computed active user identifier that switches between the demo session user ID
@@ -457,12 +459,19 @@ function App() {
       return
     }
 
+    const seedRunResetGeneration = previewSeedResetGenerationRef.current
+
     const seedData = createPreviewSeedData()
     const seedMarker = `${PREVIEW_SEED_VERSION}:${seedMode}`
     const defaultSessionUserId = seedData.users.find((user) => user.role === 'admin')?.id || seedData.users[0]?.id || ''
 
     // DEMO ONLY: Build auth passwords first so a rejection leaves the app un-mutated.
     const seededAuthPasswords = await buildPreviewAuthPasswords(seedData.users)
+
+    // Check if reset was invoked mid-flight; abort to prevent overwriting a user-initiated clear.
+    if (seedRunResetGeneration !== previewSeedResetGenerationRef.current) {
+      return
+    }
 
     setUsers(seedData.users)
     setSessions(seedData.sessions)
@@ -527,33 +536,6 @@ function App() {
       (courses?.length || 0) > 0 ||
       (enrollments?.length || 0) > 0
   }, [users?.length, sessions?.length, courses?.length, enrollments?.length])
-
-  /**
-   * Handles a user-initiated request to load preview seed data from the
-   * Settings page. If core data already exists, shows a confirmation dialog
-   * before overwriting it. Delegates to {@link applyPreviewSeedData}.
-   */
-  const handleLoadPreviewSeedData = useCallback(() => {
-    if (hasExistingCoreData) {
-      const shouldOverwrite = window.confirm(
-        'This will overwrite existing local data in preview storage. Continue?'
-      )
-
-      if (!shouldOverwrite) {
-        return
-      }
-    }
-
-    void applyPreviewSeedData('manual', demoModeEnabled ? 'transient' : 'persisted').catch((error: unknown) => {
-      console.error('Failed to load preview seed data', error)
-      toast.error('Failed to load preview seed data', {
-        description:
-          error instanceof Error
-            ? error.message
-            : 'An unexpected error occurred while loading seed data.',
-      })
-    })
-  }, [applyPreviewSeedData, demoModeEnabled, hasExistingCoreData])
 
   /**
    * Handles a user-initiated request to enter demo mode from the Setup Required screen.
@@ -658,6 +640,8 @@ function App() {
       return
     }
 
+    previewSeedResetGenerationRef.current += 1
+    setSuppressAutoSeedAfterReset(true)
     clearPreviewDataState(true)
   }, [
     clearPreviewDataState,
@@ -675,6 +659,8 @@ function App() {
       return
     }
 
+    previewSeedResetGenerationRef.current += 1
+    setSuppressAutoSeedAfterReset(true)
     clearPreviewDataState(false)
   }, [clearPreviewDataState, shouldClearStaleDemoData])
 
@@ -713,7 +699,7 @@ function App() {
   }, [demoModeEnabled])
 
   useEffect(() => {
-    if (!previewSeedEnabled) {
+    if (!previewSeedEnabled || suppressAutoSeedAfterReset) {
       return
     }
 
@@ -764,6 +750,8 @@ function App() {
     setRiskHistorySnapshots,
     setTargetTrainerCoverage,
     setPreviewSeedVersion,
+    // This flag gates auto-seeding after a reset, so changes must re-run this effect to re-evaluate seeding logic.
+    suppressAutoSeedAfterReset,
     applyPreviewSeedData
   ])
 
@@ -2106,7 +2094,7 @@ function App() {
                 <CardHeader>
                   <CardTitle>Preview Test Data</CardTitle>
                   <CardDescription>
-                    Load a deterministic fake dataset for testing all major workflows and edge cases.
+                    Reset the local preview dataset and pause automatic reseeding for this tab.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -2114,11 +2102,10 @@ function App() {
                     Current preview mode: <span className="font-medium text-foreground">{previewSeedMode}</span>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <Button onClick={handleLoadPreviewSeedData}>Load Seed Data</Button>
                     <Button variant="destructive" onClick={handleResetPreviewData}>Reset Preview Data</Button>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Load will overwrite existing local data after confirmation. Reset clears all local preview records.
+                    Reset clears all local preview records{previewSeedEnabled ? ' and keeps preview auto-seeding paused until reload.' : '.'}
                   </div>
                 </CardContent>
               </Card>

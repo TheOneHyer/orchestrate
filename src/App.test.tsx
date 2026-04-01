@@ -18,6 +18,10 @@ const sendNotificationMock = vi.fn()
 const scoringControls = vi.hoisted(() => ({
     applyScoreImpl: null as null | ((score: number, passScore: number, enrollment: unknown) => Record<string, unknown>),
     shouldNotifyCompletionImpl: null as null | ((status: unknown, score: number, passScore: number) => boolean),
+    hashPasswordMock: vi.fn((password: string) => Promise.resolve(`__hash__${password}`)),
+    verifyPasswordMock: vi.fn((password: string, storedHash: string) =>
+        Promise.resolve(storedHash === `__hash__${password}`)
+    ),
 }))
 let utilizationNotified = false
 function createUtilizationNotificationPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -119,10 +123,8 @@ vi.mock('sonner', () => ({
 // DEMO-ONLY test mock: replaces the real SHA-256 hash with a deterministic
 // prefix so tests can use predictable password values without real crypto.
 vi.mock('@/lib/auth-utils', () => ({
-    hashPassword: vi.fn((password: string) => Promise.resolve(`__hash__${password}`)),
-    verifyPassword: vi.fn((password: string, storedHash: string) =>
-        Promise.resolve(storedHash === `__hash__${password}`)
-    ),
+    hashPassword: scoringControls.hashPasswordMock,
+    verifyPassword: scoringControls.verifyPasswordMock,
 }))
 
 vi.mock('@github/spark/hooks', async () => {
@@ -755,7 +757,7 @@ describe('App', () => {
         expect(await screen.findByText(/trainer wellness view/i)).toBeInTheDocument()
     })
 
-    it('loads and resets preview data from settings actions', async () => {
+    it('resets preview data from settings actions', async () => {
         const user = userEvent.setup()
         kvSeed['users'] = [
             {
@@ -773,19 +775,18 @@ describe('App', () => {
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
 
-        await user.click(screen.getByRole('button', { name: /load seed data/i }))
-        expect(globalThis.confirm).toHaveBeenCalled()
-        expect(createPreviewSeedDataMock).toHaveBeenCalled()
-        expect(toastSuccess).toHaveBeenCalledWith(
-            'Preview test data loaded',
-            expect.objectContaining({ description: expect.stringMatching(/seeded/i) })
-        )
+        expect(screen.queryByRole('button', { name: /load seed data/i })).not.toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: /reset preview data/i }))
+        expect(globalThis.confirm).toHaveBeenCalled()
         expect(toastSuccess).toHaveBeenCalledWith(
             'Preview data reset complete',
             expect.objectContaining({ description: expect.stringMatching(/cleared/i) })
         )
+        expect(kvState['users']).toEqual([])
+        expect(kvState['sessions']).toEqual([])
+        expect(kvState['courses']).toEqual([])
+        expect(kvState['enrollments']).toEqual([])
     })
 
     it('requires sign in when there is no active session and allows valid login', async () => {
@@ -1584,74 +1585,117 @@ describe('App', () => {
         expect(screen.queryByText(/enrollment:\s*enrollment-hidden-no-session/i)).not.toBeInTheDocument()
     })
 
-    it('does not load preview seed data when overwrite is cancelled', async () => {
-        const user = userEvent.setup()
-        vi.stubGlobal('confirm', vi.fn(() => false))
-
-        render(<App />)
-
-        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
-        await user.click(screen.getByRole('button', { name: /load seed data/i }))
-
-        expect(globalThis.confirm).toHaveBeenCalled()
-        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
-    })
-
-    it('loads preview seed data without overwrite confirmation when no core data exists', async () => {
-        const user = userEvent.setup()
-        const confirmSpy = vi.fn(() => true)
-        vi.stubGlobal('confirm', confirmSpy)
-        kvSeed['users'] = []
-        kvSeed['sessions'] = []
-        kvSeed['courses'] = []
-        kvSeed['enrollments'] = []
-
-        render(<App />)
-
-        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
-        await user.click(screen.getByRole('button', { name: /load seed data/i }))
-
-        expect(confirmSpy).not.toHaveBeenCalled()
-        expect(createPreviewSeedDataMock).toHaveBeenCalledOnce()
-    })
-
-    it('shows a failure toast when applyPreviewSeedData rejects during manual seed load', async () => {
-        const user = userEvent.setup()
-        kvSeed['users'] = []
-        kvSeed['sessions'] = []
-        kvSeed['courses'] = []
-        kvSeed['enrollments'] = []
-
-        createPreviewSeedDataMock.mockImplementationOnce(() => {
-            throw new Error('Storage quota exceeded')
-        })
-
-        render(<App />)
-
-        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
-        await user.click(screen.getByRole('button', { name: /load seed data/i }))
-
-        await waitFor(() => {
-            expect(toastError).toHaveBeenCalledWith(
-                'Failed to load preview seed data',
-                expect.objectContaining({ description: 'Storage quota exceeded' })
-            )
-        })
-    })
-
     it('does not reset preview data when confirmation is cancelled', async () => {
         const user = userEvent.setup()
         vi.stubGlobal('confirm', vi.fn(() => false))
 
         render(<App />)
 
+        await waitFor(() => {
+            expect(kvState['users']).toBeDefined()
+            expect(kvState['sessions']).toBeDefined()
+            expect(kvState['courses']).toBeDefined()
+            expect(kvState['enrollments']).toBeDefined()
+        })
+
+        const usersBeforeReset = structuredClone(kvState['users'])
+        const sessionsBeforeReset = structuredClone(kvState['sessions'])
+        const coursesBeforeReset = structuredClone(kvState['courses'])
+        const enrollmentsBeforeReset = structuredClone(kvState['enrollments'])
+
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         await user.click(screen.getByRole('button', { name: /reset preview data/i }))
 
         expect(globalThis.confirm).toHaveBeenCalled()
+        expect(kvState['users']).toEqual(usersBeforeReset)
+        expect(kvState['sessions']).toEqual(sessionsBeforeReset)
+        expect(kvState['courses']).toEqual(coursesBeforeReset)
+        expect(kvState['enrollments']).toEqual(enrollmentsBeforeReset)
         expect(toastSuccess).not.toHaveBeenCalledWith(
             'Preview data reset complete',
             expect.objectContaining({ description: expect.stringMatching(/cleared/i) })
+        )
+    })
+
+    it('does not auto-reseed after an explicit preview reset in empty mode', async () => {
+        const user = userEvent.setup()
+
+        getPreviewSeedModeMock.mockReturnValue('empty')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        kvSeed['users'] = []
+        kvSeed['sessions'] = []
+        kvSeed['courses'] = []
+        kvSeed['enrollments'] = []
+        kvSeed['preview-seed-version'] = ''
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(createPreviewSeedDataMock).toHaveBeenCalled()
+        })
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+
+        createPreviewSeedDataMock.mockClear()
+
+        await user.click(screen.getByRole('button', { name: /reset preview data/i }))
+
+        await waitFor(() => {
+            expect(kvState['users']).toEqual([])
+            expect(kvState['sessions']).toEqual([])
+            expect(kvState['courses']).toEqual([])
+            expect(kvState['enrollments']).toEqual([])
+        })
+
+        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+    })
+
+    it('prevents seed data write when reset is triggered during seed flow', async () => {
+        const user = userEvent.setup()
+        let resolveSeedHash: ((hash: string) => void) | undefined
+
+        getPreviewSeedModeMock.mockReturnValue('empty')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        kvSeed['users'] = []
+        kvSeed['sessions'] = []
+        kvSeed['courses'] = []
+        kvSeed['enrollments'] = []
+        kvSeed['preview-seed-version'] = ''
+        scoringControls.hashPasswordMock.mockImplementationOnce(() => {
+            return new Promise<string>((resolve) => {
+                resolveSeedHash = resolve
+            })
+        })
+
+        render(<App />)
+
+        // Wait for seed to start and suspend at async password hashing.
+        await waitFor(() => {
+            expect(scoringControls.hashPasswordMock).toHaveBeenCalledWith('password123')
+        })
+
+        // Navigate to settings and reset while the seed run is still awaiting.
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        toastSuccess.mockClear()
+        await user.click(screen.getByRole('button', { name: /reset preview data/i }))
+
+        // Resolve the suspended seed step after reset to verify stale run cancellation.
+        await act(async () => {
+            resolveSeedHash?.('__hash__password123')
+            await Promise.resolve()
+        })
+
+        // Verify data remains empty after reset.
+        expect(kvState['users']).toEqual([])
+        expect(kvState['sessions']).toEqual([])
+        expect(kvState['courses']).toEqual([])
+        expect(kvState['enrollments']).toEqual([])
+        expect(kvState['preview-seed-version']).toBe('')
+
+        // Verify no seed success toast was shown.
+        expect(toastSuccess).not.toHaveBeenCalledWith(
+            'Preview test data loaded',
+            expect.anything()
         )
     })
 
@@ -2027,10 +2071,9 @@ describe('App', () => {
             link: '/settings',
             priority: 'high',
         })
-
         await act(async () => { render(<App />) })
 
-        const sendCall = sendNotificationMock.mock.calls.at(-1)
+        const sendCall = sendNotificationMock.mock.calls[sendNotificationMock.mock.calls.length - 1]
         const options = sendCall?.[1]
         await act(async () => {
             options.onClick()
@@ -2638,6 +2681,39 @@ describe('App', () => {
             expect(kvState['preview-seed-version']).toBe('')
         })
 
+        expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBeNull()
+        expect(localStorage.getItem('orchestrate-demo-seed-lease')).toBeNull()
+    })
+
+    it('does not auto-seed immediately after stale demo cleanup when preview seeding is enabled', async () => {
+        kvSeed['active-user-id'] = ''
+        kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+        getPreviewSeedModeMock.mockReturnValue('full')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
+        localStorage.setItem(
+            'orchestrate-demo-seed-lease',
+            JSON.stringify({
+                expiresAtMs: Date.now() - 60_000,
+                demoModeEnabled: true,
+                demoSessionUserId: 'admin-1',
+            }),
+        )
+
+        createPreviewSeedDataMock.mockClear()
+
+        render(<App />)
+
+        expect(await screen.findByText(/setup required/i)).toBeInTheDocument()
+
+        await waitFor(() => {
+            expect(kvState['users']).toEqual([])
+            expect(kvState['auth-passwords']).toEqual({})
+            expect(kvState['preview-seed-version']).toBe('')
+        })
+
+        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
         expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBeNull()
         expect(localStorage.getItem('orchestrate-demo-seed-lease')).toBeNull()
     })
@@ -3256,30 +3332,6 @@ describe('App', () => {
             'admin-1': '__hash__password123',
             'trainer-1': '__hash__password123',
         })
-    })
-
-    it('loads seed data with an empty user list and clears the active user id', async () => {
-        const user = userEvent.setup()
-        createPreviewSeedDataMock.mockReturnValueOnce({
-            users: [],
-            sessions: [],
-            courses: [],
-            enrollments: [],
-            notifications: [],
-            wellnessCheckIns: [],
-            recoveryPlans: [],
-            checkInSchedules: [],
-            scheduleTemplates: [],
-            riskHistorySnapshots: [],
-            targetTrainerCoverage: 4,
-        })
-
-        render(<App />)
-
-        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
-        await user.click(screen.getByRole('button', { name: /load seed data/i }))
-
-        expect(kvState['active-user-id']).toBe('')
     })
 
     it('demotes the active admin into an inaccessible role and returns to dashboard', async () => {

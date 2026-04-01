@@ -2,18 +2,21 @@ import { addDays, addHours, subDays } from 'date-fns'
 import {
     CheckInSchedule,
     Course,
+    EnergyLevel,
     Enrollment,
     Notification,
     RecoveryPlan,
     ScheduleTemplate,
     Session,
+    StressLevel,
     User,
     WellnessCheckIn,
 } from '@/lib/types'
 import { RiskHistorySnapshot } from '@/lib/risk-history-tracker'
+import { COMMON_CONCERNS } from '@/lib/wellness-concerns'
 
 /** Unique version tag for the preview seed data schema, used to detect stale cached seeds. */
-export const PREVIEW_SEED_VERSION = 'preview-seed-v2'
+export const PREVIEW_SEED_VERSION = 'preview-seed-v3'
 
 /**
  * The complete set of demo entities injected into the application store when
@@ -149,6 +152,40 @@ const LAST_NAMES = [
 ] as const
 
 /**
+ * Canonical free-text comments used in seeded wellness check-ins.
+ */
+const WELLNESS_COMMENT_CATALOG = [
+    'Need short-term schedule relief to recover energy.',
+    'This week felt manageable and structured.',
+    'Would like clearer expectations before night sessions.',
+    'After peer support, stress has started to improve.',
+    'Requesting more prep time before the next certification block.',
+] as const
+
+const ENERGY_COVERAGE = ['exhausted', 'tired', 'neutral', 'energized', 'excellent'] as const
+
+type RiskProfile = 'critical' | 'high' | 'medium' | 'low'
+
+/**
+ * Returns a normalized risk level from a seeded burnout score.
+ *
+ * @param score - Numeric burnout-risk score on a 0-100 scale.
+ * @returns Categorical risk level.
+ */
+export function getRiskLevelFromScore(score: number): RiskHistorySnapshot['riskLevel'] {
+    if (score >= 85) {
+        return 'critical'
+    }
+    if (score >= 65) {
+        return 'high'
+    }
+    if (score >= 40) {
+        return 'medium'
+    }
+    return 'low'
+}
+
+/**
  * Builds a deterministic employee name pair.
  *
  * @param index - Zero-based employee index.
@@ -167,7 +204,7 @@ function buildName(index: number): { first: string; last: string } {
  * @param riskBand - Seeded risk-band value.
  * @returns The derived risk profile.
  */
-function getRiskProfile(riskBand: number): 'critical' | 'high' | 'medium' | 'low' {
+function getRiskProfile(riskBand: number): RiskProfile {
     if (riskBand === 2 || riskBand === 5) {
         return 'critical'
     }
@@ -178,6 +215,35 @@ function getRiskProfile(riskBand: number): 'critical' | 'high' | 'medium' | 'low
         return 'medium'
     }
     return 'low'
+}
+
+/**
+ * Selects a deterministic energy level for a wellness check-in.
+ *
+ * Check-ins 1-5 intentionally cover every energy bucket exactly once. After
+ * that, energy values cycle based on the trainer risk profile.
+ *
+ * @param checkInNumber - One-based check-in sequence number.
+ * @param riskProfile - The trainer risk profile for the check-in.
+ * @returns The seeded energy level.
+ */
+function getEnergyLevel(checkInNumber: number, riskProfile: RiskProfile): EnergyLevel {
+    if (checkInNumber <= ENERGY_COVERAGE.length) {
+        return ENERGY_COVERAGE[checkInNumber - 1]
+    }
+
+    const cycleIndex = checkInNumber - ENERGY_COVERAGE.length - 1
+
+    if (riskProfile === 'critical') {
+        return cycle(['exhausted', 'tired'] as const, cycleIndex)
+    }
+    if (riskProfile === 'high') {
+        return cycle(['tired', 'neutral'] as const, cycleIndex)
+    }
+    if (riskProfile === 'medium') {
+        return cycle(['neutral', 'energized'] as const, cycleIndex)
+    }
+    return cycle(['energized', 'excellent'] as const, cycleIndex)
 }
 
 /**
@@ -482,6 +548,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         const isCritical = index % 6 === 0
         const isHigh = index % 4 === 0 && !isCritical
         const priority = isCritical ? 'critical' : isHigh ? 'high' : index % 2 === 0 ? 'medium' : 'low'
+        const notificationType = cycle(['workload', 'reminder', 'session', 'system', 'assignment', 'completion'] as const, index)
         const targetTrainerId = isCritical
             ? criticalTrainerIds[index % criticalTrainerIds.length]
             : highRiskTrainerIds[index % highRiskTrainerIds.length]
@@ -490,7 +557,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         return {
             id: `notif-${notificationNumber}`,
             userId: index % 7 === 0 ? targetTrainerId : 'admin-1',
-            type: isCritical ? 'workload' : index % 3 === 0 ? 'reminder' : index % 2 === 0 ? 'session' : 'system',
+            type: isCritical ? 'workload' : notificationType,
             title: isCritical ? 'Critical Burnout Risk Detected' : isHigh ? 'Certification Remediation Needed' : `Operations Notice ${notificationNumber}`,
             message: isCritical
                 ? `${targetTrainerName} has entered critical risk and needs immediate load rebalancing.`
@@ -510,29 +577,48 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
         const trainerIndex = index % trainerIds.length
         const riskProfile = getRiskProfile(trainerIndex % 6)
 
-        const values = riskProfile === 'critical'
-            ? { mood: 1 as const, stress: 'critical' as const, energy: 'exhausted' as const, sat: 1 as const, sleep: 1 as const, physical: 2 as const, clarity: 1 as const, util: 97 }
+        const stress: StressLevel = riskProfile === 'critical'
+            ? cycle(['critical', 'high'] as const, index)
             : riskProfile === 'high'
-                ? { mood: 2 as const, stress: 'high' as const, energy: 'tired' as const, sat: 2 as const, sleep: 2 as const, physical: 3 as const, clarity: 2 as const, util: 91 }
+                ? cycle(['high', 'moderate'] as const, index)
                 : riskProfile === 'medium'
-                    ? { mood: 3 as const, stress: 'moderate' as const, energy: 'neutral' as const, sat: 3 as const, sleep: 3 as const, physical: 3 as const, clarity: 3 as const, util: 78 }
-                    : { mood: 4 as const, stress: 'low' as const, energy: 'energized' as const, sat: 4 as const, sleep: 4 as const, physical: 4 as const, clarity: 4 as const, util: 68 }
+                    ? cycle(['moderate', 'low'] as const, index)
+                    : cycle(['low', 'moderate'] as const, index)
+
+        const energy = getEnergyLevel(checkInNumber, riskProfile)
+
+        const values = stress === 'critical'
+            ? { mood: 1 as const, sat: 1 as const, sleep: 1 as const, physical: 2 as const, clarity: 1 as const, util: 97 }
+            : stress === 'high'
+                ? { mood: 2 as const, sat: 2 as const, sleep: 2 as const, physical: 3 as const, clarity: 2 as const, util: 91 }
+                : stress === 'moderate'
+                    ? { mood: 3 as const, sat: 3 as const, sleep: 3 as const, physical: 3 as const, clarity: 3 as const, util: 80 }
+                    : { mood: 4 as const, sat: 4 as const, sleep: 4 as const, physical: 4 as const, clarity: 4 as const, util: 68 }
+
+        const concernCount = stress === 'critical' ? 3 : stress === 'high' ? 2 : stress === 'moderate' && index % 3 === 0 ? 1 : 0
+        const concerns = concernCount > 0
+            ? Array.from({ length: concernCount }, (_, concernIndex) => cycle(COMMON_CONCERNS, index + concernIndex * 2))
+            : undefined
+
+        const followUpRequired = stress === 'critical' || stress === 'high' || (stress === 'moderate' && index % 4 === 0)
+        const followUpCompleted = followUpRequired ? index % 5 === 0 : undefined
 
         return {
             id: `checkin-${checkInNumber}`,
             trainerId,
             timestamp: iso(subDays(now, (index % 10) + 1)),
             mood: values.mood,
-            stress: values.stress,
-            energy: values.energy,
+            stress,
+            energy,
             workloadSatisfaction: values.sat,
             sleepQuality: values.sleep,
             physicalWellbeing: values.physical,
             mentalClarity: values.clarity,
-            comments: riskProfile === 'critical' ? 'Need immediate load reduction and rest days.' : riskProfile === 'high' ? 'Workload pressure remains elevated.' : undefined,
-            concerns: riskProfile === 'critical' ? ['burnout-signals', 'fatigue'] : riskProfile === 'high' ? ['workload-spike'] : undefined,
-            followUpRequired: riskProfile === 'critical' || riskProfile === 'high',
-            followUpCompleted: riskProfile === 'low',
+            comments: cycle(WELLNESS_COMMENT_CATALOG, index),
+            concerns,
+            adminNotes: followUpCompleted ? 'Follow-up completed with reduced workload and mentor support.' : undefined,
+            followUpRequired,
+            followUpCompleted,
             utilizationAtCheckIn: values.util + (index % 3),
         }
     })
@@ -558,7 +644,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
             trainerId,
             createdBy: 'admin-1',
             createdAt: iso(subDays(now, 3 + index)),
-            status: index % 5 === 0 ? 'in-progress' : 'active',
+            status: cycle(['in-progress', 'active', 'active', 'completed', 'cancelled', 'active'] as const, index),
             triggerReason: isCriticalPlan
                 ? 'Critical stress and sustained high utilization'
                 : 'Elevated stress trend and workload imbalance',
@@ -566,13 +652,17 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
             currentUtilization: isCriticalPlan ? 95 + (index % 3) : 88 + (index % 4),
             startDate: iso(subDays(now, 3 + index)),
             targetCompletionDate: iso(addDays(now, 18 + index * 2)),
+            actualCompletionDate: index === 3 ? iso(subDays(now, 1)) : undefined,
             actions: [
                 {
                     id: `action-${planNumber}-1`,
                     type: 'workload-reduction',
                     description: 'Reassign two upcoming sessions to lower weekly hours.',
                     targetDate: iso(addDays(now, 2 + index)),
-                    completed: false,
+                    completed: index === 3,
+                    completedDate: index === 3 ? iso(subDays(now, 2)) : undefined,
+                    completedBy: index === 3 ? 'admin-1' : undefined,
+                    impact: index === 3 ? 'Weekly utilization reduced by 11%.' : undefined,
                 },
                 {
                     id: `action-${planNumber}-2`,
@@ -583,9 +673,28 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
                     completedDate: iso(subDays(now, index % 2)),
                     completedBy: 'admin-1',
                 },
+                {
+                    id: `action-${planNumber}-3`,
+                    type: index % 2 === 0 ? 'schedule-adjustment' : 'time-off',
+                    description: index % 2 === 0 ? 'Move one night shift to daytime shadowing.' : 'Schedule a restorative day off after heavy blocks.',
+                    targetDate: iso(addDays(now, 4 + index)),
+                    completed: index % 3 === 0,
+                    completedDate: index % 3 === 0 ? iso(subDays(now, 1)) : undefined,
+                    completedBy: index % 3 === 0 ? 'admin-1' : undefined,
+                },
+                {
+                    id: `action-${planNumber}-4`,
+                    type: 'training',
+                    description: 'Enroll in resilience and recovery workshop.',
+                    targetDate: iso(addDays(now, 7 + index)),
+                    completed: index === 3,
+                    completedDate: index === 3 ? iso(subDays(now, 1)) : undefined,
+                    completedBy: index === 3 ? 'admin-1' : undefined,
+                },
             ],
             checkIns: linkedCheckIns,
             notes: isCriticalPlan ? 'High-priority recovery case.' : 'Monitor for sustained improvement over two weeks.',
+            outcomes: index === 3 ? 'Trainer returned to stable utilization and reports energized check-ins.' : undefined,
         }
     })
 
@@ -649,9 +758,13 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
 
     const riskHistorySnapshots: RiskHistorySnapshot[] = trainers.flatMap((trainer, index) => {
         const riskProfile = getRiskProfile(index % 6)
-
-        const olderScore = riskProfile === 'critical' ? 82 : riskProfile === 'high' ? 64 : riskProfile === 'medium' ? 42 : 24
-        const recentScore = riskProfile === 'critical' ? 90 : riskProfile === 'high' ? 74 : riskProfile === 'medium' ? 46 : 20
+        // Use a different index offset for trendPattern so it varies independently from risk profile
+        const trendPattern = cycle(['worsening', 'improving', 'stable'] as const, index + 5)
+        const baseline = riskProfile === 'critical' ? 88 : riskProfile === 'high' ? 71 : riskProfile === 'medium' ? 46 : 24
+        const olderScore = trendPattern === 'worsening' ? baseline - 6 : trendPattern === 'improving' ? baseline + 5 : baseline
+        const recentScore = trendPattern === 'worsening' ? baseline + 4 : trendPattern === 'improving' ? baseline - 6 : baseline
+        const olderRiskLevel = getRiskLevelFromScore(olderScore)
+        const recentRiskLevel = getRiskLevelFromScore(recentScore)
 
         return [
             {
@@ -659,7 +772,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
                 trainerId: trainer.id,
                 timestamp: iso(subDays(now, 7)),
                 riskScore: olderScore,
-                riskLevel: riskProfile === 'critical' ? 'critical' : riskProfile === 'high' ? 'high' : riskProfile === 'medium' ? 'medium' : 'low',
+                riskLevel: olderRiskLevel,
                 utilizationRate: riskProfile === 'critical' ? 95 : riskProfile === 'high' ? 88 : riskProfile === 'medium' ? 77 : 68,
                 hoursScheduled: riskProfile === 'critical' ? 43 : riskProfile === 'high' ? 39 : riskProfile === 'medium' ? 34 : 28,
                 sessionCount: riskProfile === 'critical' ? 9 : riskProfile === 'high' ? 8 : riskProfile === 'medium' ? 6 : 5,
@@ -671,7 +784,7 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
                 trainerId: trainer.id,
                 timestamp: iso(subDays(now, 1)),
                 riskScore: recentScore,
-                riskLevel: riskProfile === 'critical' ? 'critical' : riskProfile === 'high' ? 'high' : riskProfile === 'medium' ? 'medium' : 'low',
+                riskLevel: recentRiskLevel,
                 utilizationRate: riskProfile === 'critical' ? 98 : riskProfile === 'high' ? 92 : riskProfile === 'medium' ? 79 : 64,
                 hoursScheduled: riskProfile === 'critical' ? 45 : riskProfile === 'high' ? 41 : riskProfile === 'medium' ? 35 : 27,
                 sessionCount: riskProfile === 'critical' ? 10 : riskProfile === 'high' ? 8 : riskProfile === 'medium' ? 6 : 5,
