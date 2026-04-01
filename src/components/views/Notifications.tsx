@@ -58,6 +58,7 @@ type NotificationsTab =
   | 'assignment'
   | 'reminder'
   | 'learning-reminders'
+  | 'engagement-reminders'
   | 'system'
   | 'workload'
   | 'high-priority'
@@ -77,6 +78,7 @@ function isNotificationsTab(value: unknown): value is NotificationsTab {
     'assignment',
     'reminder',
     'learning-reminders',
+    'engagement-reminders',
     'system',
     'workload',
     'high-priority',
@@ -135,6 +137,9 @@ export function Notifications({
   const learningReminderNotifications = notifications.filter((notification) =>
     typeof notification.metadata?.learningReminderKey === 'string'
   )
+  const engagementReminderNotifications = notifications.filter((notification) =>
+    typeof notification.metadata?.engagementReminderKey === 'string'
+  )
 
   useEffect(() => {
     const nextTab = getTabFromPayload(navigationPayload)
@@ -173,6 +178,9 @@ export function Notifications({
         break
       case 'learning-reminders':
         filtered = learningReminderNotifications
+        break
+      case 'engagement-reminders':
+        filtered = engagementReminderNotifications
         break
       case 'high-priority':
         filtered = notifications.filter(n =>
@@ -372,7 +380,7 @@ export function Notifications({
         <Card>
           <CardHeader>
             <Tabs value={activeTab} onValueChange={handleTabChange}>
-              <TabsList className="grid grid-cols-4 lg:grid-cols-10 gap-2 h-auto">
+              <TabsList className="grid grid-cols-4 lg:grid-cols-11 gap-2 h-auto">
                 <TabsTrigger value="all" className="text-xs">
                   All
                   <Badge variant="secondary" className="ml-2">
@@ -410,6 +418,14 @@ export function Notifications({
                   {learningReminderNotifications.length > 0 && (
                     <Badge variant="secondary" className="ml-2">
                       {learningReminderNotifications.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="engagement-reminders" className="text-xs">
+                  Engagement
+                  {engagementReminderNotifications.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {engagementReminderNotifications.length}
                     </Badge>
                   )}
                 </TabsTrigger>

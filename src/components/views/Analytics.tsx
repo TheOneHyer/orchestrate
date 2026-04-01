@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
-import { AttendanceRecord, User, Enrollment, Session, Course } from '@/lib/types'
+import { format } from 'date-fns'
+import { AttendanceRecord, User, Enrollment, Session, Course, Notification } from '@/lib/types'
 import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
 import { getMissingCertificationsForUser } from '@/lib/competency-insights'
 import { buildLearningEngagementItems } from '@/lib/learning-engagement'
@@ -20,6 +21,10 @@ interface AnalyticsProps {
   courses: Course[]
   /** First-class attendance records used to compute attendance metrics. */
   attendanceRecords?: AttendanceRecord[]
+  /** Notifications used to derive intervention reminder SLA metadata. */
+  notifications?: Notification[]
+  /** Optional navigation callback for action links in queue cards. */
+  onNavigate?: (view: string, data?: unknown) => void
 }
 
 /**
@@ -51,7 +56,7 @@ function trainerLabel(count: number): string {
  * @param attendanceRecords - Optional attendance marks used to compute attendance KPIs; filtered to the currently visible sessions. Defaults to an empty array.
  * @returns A React element representing the Analytics page UI.
  */
-export function Analytics({ users, enrollments, sessions, courses, attendanceRecords = [] }: AnalyticsProps) {
+export function Analytics({ users, enrollments, sessions, courses, attendanceRecords = [], notifications = [], onNavigate }: AnalyticsProps) {
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
   const [courseFilter, setCourseFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -175,11 +180,49 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
     return top ? `${top[0]} (${top[1]})` : 'None'
   })()
   const userById = new Map(filteredUsers.map((user) => [user.id, user]))
+  const engagementRemindersByEnrollment = notifications
+    .filter((notification) => typeof notification.metadata?.engagementReminderKey === 'string')
+    .reduce((map, notification) => {
+      const enrollmentId = notification.metadata?.enrollmentId
+      if (typeof enrollmentId !== 'string') {
+        return map
+      }
+
+      const list = map.get(enrollmentId) || []
+      list.push(notification)
+      map.set(enrollmentId, list)
+      return map
+    }, new Map<string, Notification[]>())
+
   const interventionQueue = engagementInsights
     .slice(0, 5)
     .map((insight) => ({
       ...insight,
       learnerName: userById.get(insight.userId)?.name ?? 'Unknown learner',
+      ownerName: (() => {
+        const reminderOwnerId = engagementRemindersByEnrollment
+          .get(insight.enrollmentId)
+          ?.map((notification) => notification.metadata?.ownerUserId)
+          .find((ownerId): ownerId is string => typeof ownerId === 'string')
+
+        if (!reminderOwnerId) {
+          return 'Unassigned'
+        }
+
+        return userById.get(reminderOwnerId)?.name ?? 'Unassigned'
+      })(),
+      firstNudgeAt: (() => {
+        const reminders = engagementRemindersByEnrollment.get(insight.enrollmentId) || []
+        if (reminders.length === 0) {
+          return null
+        }
+
+        const first = reminders
+          .map((notification) => notification.createdAt)
+          .sort((left, right) => new Date(left).getTime() - new Date(right).getTime())[0]
+
+        return first || null
+      })(),
     }))
 
   return (
@@ -404,6 +447,37 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
                   </div>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">{item.recommendedAction}</p>
+                <div className="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
+                  <div>
+                    <span className="font-medium">Owner:</span> {item.ownerName}
+                  </div>
+                  <div>
+                    <span className="font-medium">First nudge:</span>{' '}
+                    {item.firstNudgeAt ? format(new Date(item.firstNudgeAt), 'MMM d, yyyy') : 'None'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Escalation age:</span>{' '}
+                    {item.firstNudgeAt
+                      ? `${Math.max(0, Math.floor((Date.now() - new Date(item.firstNudgeAt).getTime()) / (1000 * 60 * 60 * 24)))}d`
+                      : '0d'}
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-secondary"
+                    onClick={() => onNavigate?.('courses', { courseId: item.courseId })}
+                  >
+                    Open Course
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-secondary"
+                    onClick={() => onNavigate?.('people', { userId: item.userId })}
+                  >
+                    Open Learner
+                  </button>
+                </div>
               </div>
             ))
           )}

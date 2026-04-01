@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import { Analytics } from './Analytics'
 import type { User, Course, Session, Enrollment } from '@/lib/types'
@@ -583,6 +583,68 @@ describe('Analytics', () => {
     expect(screen.getByText(/intervention queue/i)).toBeInTheDocument()
     expect(screen.getByTestId('intervention-e-critical-stall')).toHaveTextContent('Learner One')
     expect(screen.getByTestId('intervention-e-critical-stall')).toHaveTextContent('Critical stall')
+  })
+
+  it('shows intervention SLA fields and triggers playbook navigation actions', async () => {
+    const user = userEvent.setup()
+    const onNavigate = vi.fn()
+    const users: User[] = [
+      createUser({ id: 'u1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+      createUser({ id: 'manager-1', name: 'Manager One', role: 'admin', department: 'Ops' }),
+    ]
+
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-critical-stall',
+        userId: 'u1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Analytics
+        users={users}
+        courses={courses}
+        sessions={[]}
+        enrollments={enrollments}
+        notifications={[
+          {
+            id: 'n-engagement-1',
+            userId: 'u1',
+            type: 'reminder',
+            title: 'Critical Learning Stall — Safety',
+            message: 'Reminder sent',
+            read: false,
+            createdAt: '2026-03-15T00:00:00.000Z',
+            metadata: {
+              engagementReminderKey: 'e-critical-stall:critical-stall',
+              enrollmentId: 'e-critical-stall',
+              ownerUserId: 'manager-1',
+            },
+          },
+        ]}
+        onNavigate={onNavigate}
+      />,
+    )
+
+    const card = screen.getByTestId('intervention-e-critical-stall')
+    expect(card).toHaveTextContent(/owner:\s*manager one/i)
+    expect(card).toHaveTextContent(/first nudge:/i)
+    expect(card).toHaveTextContent(/escalation age:/i)
+
+    await user.click(screen.getByRole('button', { name: /open course/i }))
+    await user.click(screen.getByRole('button', { name: /open learner/i }))
+
+    expect(onNavigate).toHaveBeenNthCalledWith(1, 'courses', { courseId: 'c1' })
+    expect(onNavigate).toHaveBeenNthCalledWith(2, 'people', { userId: 'u1' })
   })
 
   it('shows an empty intervention queue message when no stalled learners exist', () => {

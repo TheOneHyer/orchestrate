@@ -391,6 +391,43 @@ describe('Notifications', () => {
     expect(screen.queryByText('System Item')).not.toBeInTheDocument()
   })
 
+  it('filters notifications by engagement reminder tab using metadata keys', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <Notifications
+        notifications={[
+          {
+            ...baseNotification,
+            id: 'n-engagement',
+            title: 'Engagement Reminder Item',
+            type: 'reminder',
+            metadata: { engagementReminderKey: 'enrollment-1:stalled' },
+          },
+          {
+            ...baseNotification,
+            id: 'n-learning',
+            title: 'Learning Reminder Item',
+            type: 'reminder',
+            read: true,
+            metadata: { learningReminderKey: 'enrollment-1:due-soon' },
+          },
+        ]}
+        onMarkAsRead={vi.fn()}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('tab', { name: /^engagement/i }))
+
+    expect(screen.getByText('Engagement Reminder Item')).toBeInTheDocument()
+    expect(screen.queryByText('Learning Reminder Item')).not.toBeInTheDocument()
+  })
+
   it('opens a target tab from navigation payload and consumes the payload', async () => {
     const onNavigationPayloadConsumed = vi.fn()
 
@@ -426,6 +463,39 @@ describe('Notifications', () => {
     expect(screen.getByText('Learning Reminder Item')).toBeInTheDocument()
     expect(screen.queryByText('Standard Reminder Item')).not.toBeInTheDocument()
     expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens engagement reminders tab from navigation payload', async () => {
+    render(
+      <Notifications
+        notifications={[
+          {
+            ...baseNotification,
+            id: 'n-engagement',
+            title: 'Engagement Reminder Item',
+            type: 'reminder',
+            metadata: { engagementReminderKey: 'enrollment-1:critical-stall' },
+          },
+          {
+            ...baseNotification,
+            id: 'n-standard',
+            title: 'Standard Reminder Item',
+            type: 'reminder',
+            read: true,
+          },
+        ]}
+        onMarkAsRead={vi.fn()}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={vi.fn()}
+        navigationPayload={{ tab: 'engagement-reminders' }}
+      />
+    )
+
+    expect(screen.getByText('Engagement Reminder Item')).toBeInTheDocument()
+    expect(screen.queryByText('Standard Reminder Item')).not.toBeInTheDocument()
   })
 
   it('handles notifications with different priority levels', () => {

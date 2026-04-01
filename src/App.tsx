@@ -49,6 +49,7 @@ import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
 import { hashPassword, verifyPassword } from '@/lib/auth-utils'
 import { reconcileSessionEnrollments } from '@/lib/enrollment-sync'
 import { buildLearningReminderCandidates } from '@/lib/learning-reminders'
+import { buildLearningEngagementReminderCandidates } from '@/lib/learning-engagement-reminders'
 import { AppRuntimeEnvOverrides, AppTestHooks } from '@/test-support'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
@@ -943,6 +944,31 @@ function App() {
       })
     })
   }, [handleCreateNotification, safeCourses, safeEnrollments, safeNotifications])
+
+  useEffect(() => {
+    const reminders = buildLearningEngagementReminderCandidates(safeEnrollments, safeCourses, safeNotifications)
+    if (reminders.length === 0) {
+      return
+    }
+
+    reminders.forEach((reminder) => {
+      handleCreateNotification({
+        userId: reminder.userId,
+        type: 'reminder',
+        title: reminder.title,
+        message: reminder.message,
+        link: 'courses',
+        priority: reminder.priority,
+        read: false,
+        metadata: {
+          engagementReminderKey: reminder.reminderKey,
+          enrollmentId: reminder.enrollmentId,
+          courseId: reminder.courseId,
+          ownerUserId: activeUserId,
+        },
+      })
+    })
+  }, [activeUserId, handleCreateNotification, safeCourses, safeEnrollments, safeNotifications])
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 
@@ -2010,6 +2036,8 @@ function App() {
             sessions={visibleSessions}
             courses={visibleCourses}
             attendanceRecords={visibleAttendanceRecords}
+            notifications={visibleNotifications}
+            onNavigate={handleNavigate}
           />
         )
       case 'trainer-availability':
