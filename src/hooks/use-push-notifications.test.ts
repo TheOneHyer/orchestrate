@@ -4,11 +4,14 @@ import { useKV } from '@github/spark/hooks'
 import { usePushNotifications } from './use-push-notifications'
 
 type PushNotificationSettings = ReturnType<typeof usePushNotifications>['settings']
-type PushSettingsTuple = [PushNotificationSettings, ReturnType<typeof vi.fn>]
+type PushSettingsUpdater = PushNotificationSettings | ((current: PushNotificationSettings) => PushNotificationSettings)
+type PushSettingsSetter = (newValue: PushSettingsUpdater) => void
 type MutableNotificationConstructor = typeof Notification & {
     permission: NotificationPermission
     requestPermission: () => Promise<NotificationPermission>
 }
+
+const createSettingsSetter = (): PushSettingsSetter => vi.fn<PushSettingsSetter>() as unknown as PushSettingsSetter
 
 vi.mock('@github/spark/hooks', async () => {
     return {
@@ -17,7 +20,7 @@ vi.mock('@github/spark/hooks', async () => {
 })
 
 beforeEach(() => {
-    vi.mocked(useKV).mockImplementation((_key, defaultValue) => [defaultValue as any, vi.fn()] as any)
+    vi.mocked(useKV).mockImplementation((_key, defaultValue) => [defaultValue as any, vi.fn(), vi.fn()] as any)
     const NotificationCtor = vi.fn().mockImplementation(function (this: any, title: string, options?: NotificationOptions) {
         this.title = title
         this.options = options
@@ -452,8 +455,9 @@ describe('usePushNotifications', () => {
                 enabled: true, permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
+            createSettingsSetter(),
             vi.fn()
-        ] as PushSettingsTuple)
+        ] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
         const notif = result.current.sendNotification('message with default priority')
@@ -472,15 +476,16 @@ describe('usePushNotifications', () => {
     })
 
     it('syncs browser permission denied state to settings on mount', () => {
-        const setter = vi.fn()
+        const setter = createSettingsSetter() as unknown as ReturnType<typeof vi.fn>
         vi.mocked(useKV).mockReturnValue([
             {
                 enabled: true,
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
-            setter,
-        ] as PushSettingsTuple)
+            setter as unknown as PushSettingsSetter,
+            vi.fn(),
+        ] as unknown as ReturnType<typeof useKV>)
 
         const NotificationMock = globalThis.Notification as unknown as MutableNotificationConstructor
         NotificationMock.permission = 'denied'
@@ -505,8 +510,9 @@ describe('usePushNotifications', () => {
                 permission: 'denied',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
+            createSettingsSetter(),
             vi.fn(),
-        ] as PushSettingsTuple)
+        ] as unknown as ReturnType<typeof useKV>)
 
         const NotificationMock = globalThis.Notification as unknown as MutableNotificationConstructor
         NotificationMock.permission = 'denied'
@@ -524,8 +530,9 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
+            createSettingsSetter(),
             vi.fn(),
-        ] as PushSettingsTuple)
+        ] as unknown as ReturnType<typeof useKV>)
 
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 
@@ -550,8 +557,9 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
+            createSettingsSetter(),
             vi.fn(),
-        ] as PushSettingsTuple)
+        ] as unknown as ReturnType<typeof useKV>)
 
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
 

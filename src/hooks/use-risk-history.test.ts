@@ -27,6 +27,8 @@ vi.mock('@github/spark/hooks', async () => {
 
 import { useRiskHistory } from './use-risk-history'
 
+const mockedUseKV = useKV as unknown as ReturnType<typeof vi.fn>
+
 function createSnapshot(id: string, trainerId: string, riskScore: number, timestamp: string): RiskHistorySnapshot {
     return {
         id,
@@ -56,7 +58,7 @@ describe('use-risk-history (unit)', () => {
     const emptyWellnessCheckIns: WellnessCheckIn[] = []
 
     beforeEach(() => {
-        vi.mocked(useKV).mockImplementation(<T,>(_key: string, defaultValue: T) => createKVMockTuple(defaultValue))
+        mockedUseKV.mockImplementation(<T,>(_key: string, defaultValue: T) => createKVMockTuple(defaultValue))
     })
 
     afterEach(() => {
@@ -127,7 +129,7 @@ describe('use-risk-history (unit)', () => {
     })
 
     it('clearHistory calls the setter with an empty array', () => {
-        const setter = vi.fn() as unknown as (newValue: RiskHistorySnapshot[] | ((current: RiskHistorySnapshot[]) => RiskHistorySnapshot[])) => void
+        const setter = vi.fn<(newValue: RiskHistorySnapshot[] | ((current: RiskHistorySnapshot[]) => RiskHistorySnapshot[])) => void>()
         vi.mocked(useKV).mockReturnValue([SNAPSHOTS, setter, vi.fn()] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => useRiskHistory(emptyUsers, emptySessions, emptyCourses, emptyWellnessCheckIns))
@@ -146,7 +148,7 @@ describe('use-risk-history (unit)', () => {
     })
 
     it('treats undefined current history as an empty array when taking snapshots', () => {
-        const setter = vi.fn() as unknown as (newValue: RiskHistorySnapshot[] | ((current: RiskHistorySnapshot[]) => RiskHistorySnapshot[])) => void
+        const setter = vi.fn<(newValue: RiskHistorySnapshot[] | ((current: RiskHistorySnapshot[]) => RiskHistorySnapshot[])) => void>()
         vi.mocked(useKV).mockReturnValue([undefined, setter, vi.fn()] as unknown as ReturnType<typeof useKV>)
 
         const trainer: User = {

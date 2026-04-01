@@ -390,7 +390,7 @@ describe('use-certification-notifications', () => {
         const missingRemindersSentRecord = {
             ...createExactCertRecord(5, 0),
             remindersSent: undefined,
-        } as CertificationRecord
+        } as unknown as CertificationRecord
         const trainer = createTrainer('trainer-undefined-reminders', missingRemindersSentRecord)
         const onCreateNotification = vi.fn()
         const onUpdateUsers = vi.fn()
