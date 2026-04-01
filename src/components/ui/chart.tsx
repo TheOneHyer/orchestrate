@@ -29,6 +29,12 @@ import { cn } from "@/lib/utils"
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
 
+/**
+ * Configuration map for chart series, defining labels, icons, and colors.
+ *
+ * Each key represents a data series identifier, and the value specifies display properties.
+ * Colors can be static (via `color`) or theme-dependent (via `theme` mapping to light/dark selectors).
+ */
 export type ChartConfig = {
   [k in string]: {
     label?: React.ReactNode
@@ -61,6 +67,17 @@ function useChart() {
   return context
 }
 
+/**
+ * Container component for Recharts visualizations with theming and context.
+ *
+ * Wraps ResponsiveContainer and provides chart configuration via context.
+ * Renders scoped CSS variables for theme-aware colors.
+ *
+ * @param config - Chart configuration mapping series data to display properties.
+ * @param children - Recharts chart components (e.g., LineChart, BarChart).
+ * @param id - Optional chart identifier for CSS scoping; auto-generated if omitted.
+ * @returns A div containing the themed, responsive chart.
+ */
 const ChartContainer = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -136,6 +153,19 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip
 
+/**
+ * Tooltip content component for Recharts charts with theming support.
+ *
+ * Displays formatted data series information with icons and theme-aware colors.
+ *
+ * @param hideLabel - Hide the tooltip header label.
+ * @param hideIndicator - Hide the color indicator dot/line.
+ * @param indicator - Indicator style: "dot", "line", or "dashed".
+ * @param nameKey - Key to look up series names in the payload.
+ * @param labelFormatter - Custom function to format the label.
+ * @param formatter - Custom function to format series values.
+ * @returns A styled tooltip container.
+ */
 const ChartTooltipContent = React.forwardRef<
   HTMLDivElement,
   RechartsPrimitive.TooltipContentProps &
@@ -295,6 +325,17 @@ ChartTooltipContent.displayName = "ChartTooltip"
 
 const ChartLegend = RechartsPrimitive.Legend
 
+/**
+ * Legend content component for Recharts charts with theming support.
+ *
+ * Displays series items with icons, labels, and theme-aware colors.
+ *
+ * @param payload - Array of series data from Recharts legend.
+ * @param verticalAlign - Vertical alignment: "top" or "bottom".
+ * @param hideIcon - Hide series color indicators.
+ * @param nameKey - Key to look up series names in the config.
+ * @returns A flex container with legend items.
+ */
 const ChartLegendContent = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> &
