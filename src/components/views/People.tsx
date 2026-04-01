@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { MagnifyingGlass, Plus, UserCircle, ArrowLeft, WarningCircle } from '@phosphor-icons/react'
 import { User, Enrollment, Course, Session } from '@/lib/types'
+import { getMissingCertificationsForUser } from '@/lib/competency-insights'
 import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
 import { AddPersonDialog } from '@/components/AddPersonDialog'
@@ -129,6 +130,20 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
       total: userEnrollments.length,
       completed: userEnrollments.filter(e => e.status === 'completed').length,
       inProgress: userEnrollments.filter(e => e.status === 'in-progress').length,
+    }
+  }
+
+  /**
+   * Returns certification coverage summary for the given user.
+   *
+   * @param user - User whose certification gaps are being evaluated.
+   * @returns Existing certification count and missing certification count.
+   */
+  const getUserCertificationGapStats = (user: User) => {
+    const missingCertifications = getMissingCertificationsForUser(user, courses)
+    return {
+      certificationCount: user.certifications.length,
+      missingCount: missingCertifications.length,
     }
   }
 
@@ -277,6 +292,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                     <TableBody>
                       {filteredUsers.map(user => {
                         const stats = getUserEnrollmentStats(user.id)
+                        const certificationGapStats = getUserCertificationGapStats(user)
                         const isTrainerWithoutSchedule = user.role === 'trainer' &&
                           (!user.trainerProfile?.shiftSchedules || user.trainerProfile.shiftSchedules.length === 0)
 
@@ -339,8 +355,11 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="text-sm text-muted-foreground">
-                                {user.certifications.length} certs
+                              <div className="text-sm text-muted-foreground space-y-1">
+                                <div>{certificationGapStats.certificationCount} certs</div>
+                                <div className={certificationGapStats.missingCount > 0 ? 'text-amber-700 dark:text-amber-400' : ''}>
+                                  {certificationGapStats.missingCount} gaps
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell>

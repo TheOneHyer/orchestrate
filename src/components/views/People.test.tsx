@@ -150,6 +150,38 @@ describe('People', () => {
         expect(screen.getByText('1 in progress')).toBeInTheDocument()
     })
 
+    it('shows certification gap counts for users', () => {
+        const users: User[] = [
+            createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', certifications: ['Safety', 'Leadership'] }),
+            createUser({ id: 'u-employee', name: 'Employee User', role: 'employee', certifications: ['Safety'] }),
+        ]
+
+        const courses: Course[] = [
+            { ...baseCourse, id: 'c1', certifications: ['Safety'] },
+            { ...baseCourse, id: 'c2', certifications: ['Leadership'] },
+            { ...baseCourse, id: 'c3', certifications: ['Quality'] },
+        ]
+
+        render(
+            <People
+                users={users}
+                enrollments={[]}
+                courses={courses}
+                sessions={[baseSession]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+            />
+        )
+
+        const employeeRow = screen.getByText('Employee User').closest('tr')
+        expect(employeeRow).not.toBeNull()
+        if (!employeeRow) {
+            throw new Error('Expected employee row to exist')
+        }
+
+        expect(employeeRow).toHaveTextContent('1 certs')
+        expect(employeeRow).toHaveTextContent('2 gaps')
+    })
+
     it('filters people by search query across name, email, and department', async () => {
         const user = userEvent.setup()
         renderPeople()
