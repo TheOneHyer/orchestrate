@@ -232,16 +232,18 @@ function getEnergyLevel(checkInNumber: number, riskProfile: RiskProfile): Energy
         return ENERGY_COVERAGE[checkInNumber - 1]
     }
 
+    const cycleIndex = checkInNumber - ENERGY_COVERAGE.length - 1
+
     if (riskProfile === 'critical') {
-        return cycle(['exhausted', 'tired'] as const, checkInNumber)
+        return cycle(['exhausted', 'tired'] as const, cycleIndex)
     }
     if (riskProfile === 'high') {
-        return cycle(['tired', 'neutral'] as const, checkInNumber)
+        return cycle(['tired', 'neutral'] as const, cycleIndex)
     }
     if (riskProfile === 'medium') {
-        return cycle(['neutral', 'energized'] as const, checkInNumber)
+        return cycle(['neutral', 'energized'] as const, cycleIndex)
     }
-    return cycle(['energized', 'excellent'] as const, checkInNumber)
+    return cycle(['energized', 'excellent'] as const, cycleIndex)
 }
 
 /**
