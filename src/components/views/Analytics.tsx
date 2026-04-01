@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
 import { AttendanceRecord, User, Enrollment, Session, Course } from '@/lib/types'
 import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
+import { getMissingCertificationsForUser } from '@/lib/competency-insights'
 
 /** Props for the Analytics view component. */
 interface AnalyticsProps {
@@ -145,6 +146,30 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
   const deadlineInsights = buildLearningDeadlineInsights(filteredEnrollments, filteredCourses)
   const overdueEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'overdue').length
   const dueSoonEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'due-soon').length
+  const employeesWithGaps = filteredUsers
+    .filter((user) => user.role === 'employee')
+    .filter((employee) => getMissingCertificationsForUser(employee, filteredCourses).length > 0).length
+  const topMissingCertification = (() => {
+    const counts = new Map<string, number>()
+    filteredUsers
+      .filter((user) => user.role === 'employee')
+      .forEach((employee) => {
+        getMissingCertificationsForUser(employee, filteredCourses).forEach((certification) => {
+          counts.set(certification, (counts.get(certification) || 0) + 1)
+        })
+      })
+
+    const top = Array.from(counts.entries()).sort((left, right) => {
+      const countDiff = right[1] - left[1]
+      if (countDiff !== 0) {
+        return countDiff
+      }
+
+      return left[0].localeCompare(right[0])
+    })[0]
+
+    return top ? `${top[0]} (${top[1]})` : 'None'
+  })()
 
   return (
     <div className="p-6 space-y-6">
@@ -276,7 +301,7 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
           <CardTitle>Operational Highlights</CardTitle>
           <CardDescription>Focus areas based on the current filters</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <CardContent className="grid gap-4 md:grid-cols-3 lg:grid-cols-7">
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Filtered enrollments</div>
             <div data-testid="filtered-enrollments-value" className="mt-1 text-2xl font-semibold">{totalEnrollments}</div>
@@ -296,6 +321,14 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Overdue enrollments</div>
             <div data-testid="overdue-enrollments-value" className="mt-1 text-2xl font-semibold">{overdueEnrollments}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Learners with skill gaps</div>
+            <div data-testid="learners-with-gaps-value" className="mt-1 text-2xl font-semibold">{employeesWithGaps}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Top missing certification</div>
+            <div data-testid="top-missing-certification-value" className="mt-1 text-sm font-semibold">{topMissingCertification}</div>
           </div>
         </CardContent>
       </Card>

@@ -526,4 +526,22 @@ describe('Analytics', () => {
     expect(screen.getByTestId('due-soon-enrollments-value')).toHaveTextContent('1')
     expect(screen.getByTestId('overdue-enrollments-value')).toHaveTextContent('1')
   })
+
+  it('shows learner skill-gap metrics in operational highlights', () => {
+    const users: User[] = [
+      createUser({ id: 'u1', role: 'employee', certifications: ['Safety'], department: 'Ops' }),
+      createUser({ id: 'u2', role: 'employee', certifications: ['Safety', 'Leadership'], department: 'Ops' }),
+      createUser({ id: 'u3', role: 'employee', certifications: ['Safety'], department: 'Ops' }),
+    ]
+
+    const courses: Course[] = [
+      { id: 'c1', title: 'Leadership Path', description: 'Desc', modules: [], duration: 60, certifications: ['Leadership'], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+      { id: 'c2', title: 'Quality Path', description: 'Desc', modules: [], duration: 60, certifications: ['Quality'], createdBy: 't1', createdAt: '2026-01-02', published: true, passScore: 80 },
+    ]
+
+    render(<Analytics users={users} courses={courses} sessions={[]} enrollments={[]} />)
+
+    expect(screen.getByTestId('learners-with-gaps-value')).toHaveTextContent('3')
+    expect(screen.getByTestId('top-missing-certification-value')).toHaveTextContent('Quality (3)')
+  })
 })
