@@ -21,10 +21,6 @@
     /* Linting */
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "types": [
-      "vitest/globals",
-      "@testing-library/jest-dom"
-    ],
     "paths": {
       "@/*": [
         "./src/*"
@@ -34,5 +30,9 @@
   "include": [
     "src",
     "vite.config.ts"
+  ],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }
