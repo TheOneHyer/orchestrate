@@ -96,6 +96,13 @@ const ChartContainer = React.forwardRef<
 })
 ChartContainer.displayName = "Chart"
 
+/**
+ * Generates scoped CSS custom properties for chart color theming.
+ *
+ * @param id - The chart ID used as the CSS selector scope.
+ * @param config - The chart configuration containing color and theme definitions.
+ * @returns A React style element with chart CSS variables, or `null` when no colors are configured.
+ */
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(
     ([, config]) => config.theme || config.color
