@@ -197,29 +197,33 @@ const ChartTooltipContent = React.forwardRef<
     ref
   ) => {
     const { config } = useChart()
+    const filteredPayload = React.useMemo(
+      () => payload?.filter((item) => item.type !== "none") ?? [],
+      [payload]
+    )
 
     const tooltipLabel = React.useMemo(() => {
-      if (hideLabel || !payload?.length) {
+      if (hideLabel || !filteredPayload.length) {
         return null
       }
 
-      const [item] = payload
+      const [item] = filteredPayload
       const key = `${labelKey || item?.dataKey || item?.name || "value"}`
       const itemConfig = getPayloadConfigFromPayload(config, item, key)
       const value =
         !labelKey && typeof label === "string"
-          ? config[label as keyof typeof config]?.label || label
+          ? (config[label as keyof typeof config]?.label ?? label)
           : itemConfig?.label
 
       if (labelFormatter) {
         return (
           <div className={cn("font-medium", labelClassName)}>
-            {labelFormatter(value, payload)}
+            {labelFormatter(value, filteredPayload)}
           </div>
         )
       }
 
-      if (!value) {
+      if (value === null || value === undefined) {
         return null
       }
 
@@ -227,18 +231,18 @@ const ChartTooltipContent = React.forwardRef<
     }, [
       label,
       labelFormatter,
-      payload,
+      filteredPayload,
       hideLabel,
       labelClassName,
       config,
       labelKey,
     ])
 
-    if (!active || !payload?.length) {
+    if (!active || !filteredPayload.length) {
       return null
     }
 
-    const nestLabel = payload.length === 1 && indicator !== "dot"
+    const nestLabel = filteredPayload.length === 1 && indicator !== "dot"
 
     return (
       <div
@@ -250,73 +254,71 @@ const ChartTooltipContent = React.forwardRef<
       >
         {!nestLabel ? tooltipLabel : null}
         <div className="grid gap-1.5">
-          {payload
-            .filter((item) => item.type !== "none")
-            .map((item, index) => {
-              const key = `${nameKey || item.name || item.dataKey || "value"}`
-              const itemConfig = getPayloadConfigFromPayload(config, item, key)
-              const indicatorColor = color || item.payload.fill || item.color
-              const itemKey = `${String(item.dataKey ?? item.name ?? "value")}-${index}`
+          {filteredPayload.map((item, index) => {
+            const key = `${nameKey || item.name || item.dataKey || "value"}`
+            const itemConfig = getPayloadConfigFromPayload(config, item, key)
+            const indicatorColor = color || item.payload.fill || item.color
+            const itemKey = `${String(item.dataKey ?? item.name ?? "value")}-${index}`
 
-              return (
-                <div
-                  key={itemKey}
-                  className={cn(
-                    "flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
-                    indicator === "dot" && "items-center"
-                  )}
-                >
-                  {formatter && item?.value !== undefined && item.name ? (
-                    formatter(item.value, item.name, item, index, item.payload)
-                  ) : (
-                    <>
-                      {itemConfig?.icon ? (
-                        <itemConfig.icon />
-                      ) : (
-                        !hideIndicator && (
-                          <div
-                            className={cn(
-                              "shrink-0 rounded-[2px] border-[--color-border] bg-[--color-bg]",
-                              {
-                                "h-2.5 w-2.5": indicator === "dot",
-                                "w-1": indicator === "line",
-                                "w-0 border-[1.5px] border-dashed bg-transparent":
-                                  indicator === "dashed",
-                                "my-0.5": nestLabel && indicator === "dashed",
-                              }
-                            )}
-                            style={
-                              {
-                                "--color-bg": indicatorColor,
-                                "--color-border": indicatorColor,
-                              } as React.CSSProperties
+            return (
+              <div
+                key={itemKey}
+                className={cn(
+                  "flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5 [&>svg]:text-muted-foreground",
+                  indicator === "dot" && "items-center"
+                )}
+              >
+                {formatter && item.value !== undefined && item.name != null ? (
+                  formatter(item.value, item.name, item, index, filteredPayload)
+                ) : (
+                  <>
+                    {itemConfig?.icon ? (
+                      <itemConfig.icon />
+                    ) : (
+                      !hideIndicator && (
+                        <div
+                          className={cn(
+                            "shrink-0 rounded-[2px] border-[--color-border] bg-[--color-bg]",
+                            {
+                              "h-2.5 w-2.5": indicator === "dot",
+                              "w-1": indicator === "line",
+                              "w-0 border-[1.5px] border-dashed bg-transparent":
+                                indicator === "dashed",
+                              "my-0.5": nestLabel && indicator === "dashed",
                             }
-                          />
-                        )
+                          )}
+                          style={
+                            {
+                              "--color-bg": indicatorColor,
+                              "--color-border": indicatorColor,
+                            } as React.CSSProperties
+                          }
+                        />
+                      )
+                    )}
+                    <div
+                      className={cn(
+                        "flex flex-1 justify-between leading-none",
+                        nestLabel ? "items-end" : "items-center"
                       )}
-                      <div
-                        className={cn(
-                          "flex flex-1 justify-between leading-none",
-                          nestLabel ? "items-end" : "items-center"
-                        )}
-                      >
-                        <div className="grid gap-1.5">
-                          {nestLabel ? tooltipLabel : null}
-                          <span className="text-muted-foreground">
-                            {itemConfig?.label || item.name}
-                          </span>
-                        </div>
-                        {item.value !== undefined && item.value !== null && (
-                          <span className="font-mono font-medium tabular-nums text-foreground">
-                            {item.value.toLocaleString()}
-                          </span>
-                        )}
+                    >
+                      <div className="grid gap-1.5">
+                        {nestLabel ? tooltipLabel : null}
+                        <span className="text-muted-foreground">
+                          {itemConfig?.label ?? item.name}
+                        </span>
                       </div>
-                    </>
-                  )}
-                </div>
-              )
-            })}
+                      {item.value !== undefined && item.value !== null && (
+                        <span className="font-mono font-medium tabular-nums text-foreground">
+                          {item.value.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
     )
@@ -388,12 +390,14 @@ const ChartLegendContent = React.forwardRef<
                 {itemConfig?.icon && !hideIcon ? (
                   <itemConfig.icon />
                 ) : (
-                  <div
-                    className="h-2 w-2 shrink-0 rounded-[2px]"
-                    style={{
-                      backgroundColor: item.color,
-                    }}
-                  />
+                  !hideIcon && (
+                    <div
+                      className="h-2 w-2 shrink-0 rounded-[2px]"
+                      style={{
+                        backgroundColor: item.color,
+                      }}
+                    />
+                  )
                 )}
                 {legendLabel}
               </div>

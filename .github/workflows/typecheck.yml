@@ -63,31 +63,15 @@ jobs:
           github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository
         continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-          COMMENT_MARKER: <!-- orchestrate-typecheck-failure -->
-        run: |
-          set -euo pipefail
-
-          api_path="repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments"
-          comment_body=$(printf '%s\n%s\n\n%s' \
-            "${COMMENT_MARKER}" \
-            '## ❌ Typecheck Failed' \
-            'One or more TypeScript type errors were found on this PR. Review the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.')
-
-          existing_comment_id=$(gh api "$api_path" --paginate | jq -r --arg marker "$COMMENT_MARKER" '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | contains($marker))) | .id' | head -n 1)
-
-          if [ -n "$existing_comment_id" ]; then
-            gh api "repos/${{ github.repository }}/issues/comments/$existing_comment_id" \
-              --method PATCH \
-              -f body="$comment_body" \
-              >/dev/null
-          else
-            gh api "$api_path" \
-              --method POST \
-              -f body="$comment_body" \
-              >/dev/null
-          fi
+        uses: ./.github/actions/upsert-pr-status-comment
+        with:
+          gh_token: ${{ github.token }}
+          repo: ${{ github.repository }}
+          pr_number: ${{ github.event.pull_request.number }}
+          marker: <!-- orchestrate-typecheck-failure -->
+          title: ❌ Typecheck Failed
+          message: One or more TypeScript type errors were found on this PR.
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
       - name: Fail if typecheck failed
         if: steps.typecheck.outcome == 'failure'

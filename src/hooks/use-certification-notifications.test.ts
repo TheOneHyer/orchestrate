@@ -387,9 +387,9 @@ describe('use-certification-notifications', () => {
     })
 
     it('defaults missing remindersSent to zero when calculating the next reminder count', () => {
+        const { remindersSent: _unusedRemindersSent, ...recordWithoutRemindersSent } = createExactCertRecord(5, 0)
         const missingRemindersSentRecord: CertificationRecord = {
-            ...createExactCertRecord(5, 0),
-            remindersSent: undefined,
+            ...recordWithoutRemindersSent,
         }
         const trainer = createTrainer('trainer-undefined-reminders', missingRemindersSentRecord)
         const onCreateNotification = vi.fn()
