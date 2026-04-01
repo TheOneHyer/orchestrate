@@ -1,8 +1,7 @@
+import type { FallbackProps } from "react-error-boundary";
+import { AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
-import type { FallbackProps } from "react-error-boundary";
-
-import { AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
 
 /**
  * Fallback UI rendered by the top-level React {@link ErrorBoundary} when an

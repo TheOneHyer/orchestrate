@@ -188,17 +188,23 @@ describe('scheduler', () => {
     })
 
     it('excludes trainers when session day is outside their worked days', () => {
-        const trainer = createTrainer('trainer-weekday', 'Weekday Only', ['Forklift'])
-        trainer.trainerProfile!.shiftSchedules = [
-            {
-                shiftCode: 'WEEKDAY',
-                shiftType: 'day',
-                daysWorked: ['monday'],
-                startTime: '08:00',
-                endTime: '17:00',
-                totalHoursPerWeek: 40,
+        const baseTrainer = createTrainer('trainer-weekday', 'Weekday Only', ['Forklift'])
+        const trainer: User = {
+            ...baseTrainer,
+            trainerProfile: {
+                ...baseTrainer.trainerProfile!,
+                shiftSchedules: [
+                    {
+                        shiftCode: 'WEEKDAY',
+                        shiftType: 'day',
+                        daysWorked: ['monday'],
+                        startTime: '08:00',
+                        endTime: '17:00',
+                        totalHoursPerWeek: 40,
+                    },
+                ],
             },
-        ]
+        }
         const scheduler = new TrainerScheduler([trainer], [], [createCourse()])
 
         // Target date is Sunday; schedule only works Monday.
@@ -551,15 +557,21 @@ describe('scheduler', () => {
     })
 
     it('handles overnight shift windows when checking detailed shift overlap', () => {
-        const overnightTrainer = createTrainer('trainer-overnight', 'Night Owl', ['Forklift'])
-        overnightTrainer.trainerProfile!.shiftSchedules = [{
-            shiftCode: 'NIGHT',
-            shiftType: 'night',
-            daysWorked: ['monday'],
-            startTime: '22:00',
-            endTime: '06:00',
-            totalHoursPerWeek: 40,
-        }]
+        const baseTrainer = createTrainer('trainer-overnight', 'Night Owl', ['Forklift'])
+        const overnightTrainer: User = {
+            ...baseTrainer,
+            trainerProfile: {
+                ...baseTrainer.trainerProfile!,
+                shiftSchedules: [{
+                    shiftCode: 'NIGHT',
+                    shiftType: 'night',
+                    daysWorked: ['monday'],
+                    startTime: '22:00',
+                    endTime: '06:00',
+                    totalHoursPerWeek: 40,
+                }],
+            },
+        }
         const scheduler = new TrainerScheduler([overnightTrainer], [], [createCourse()])
 
         // Test private method to verify overnight shift overlap detection

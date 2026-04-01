@@ -11,7 +11,7 @@ type MutableNotificationConstructor = typeof Notification & {
     requestPermission: () => Promise<NotificationPermission>
 }
 
-const createSettingsSetter = (): PushSettingsSetter => vi.fn<PushSettingsSetter>() as unknown as PushSettingsSetter
+const createSettingsSetter = () => vi.fn<PushSettingsSetter>()
 
 vi.mock('@github/spark/hooks', async () => {
     return {
@@ -43,7 +43,7 @@ afterEach(() => {
 describe('usePushNotifications', () => {
     it('falls back to default settings when persisted settings are undefined', () => {
         const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([undefined, setter] as any)
+        vi.mocked(useKV).mockReturnValue([undefined, setter, vi.fn()] as any)
 
         const NotificationMock = globalThis.Notification as any
         NotificationMock.permission = 'granted'
@@ -77,6 +77,7 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
             setter,
+            vi.fn(),
         ] as any)
 
         const NotificationMock = globalThis.Notification as any
@@ -134,7 +135,8 @@ describe('usePushNotifications', () => {
                 enabled: false, permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
-            setter
+            setter,
+            vi.fn(),
         ] as any)
 
         const { result } = renderHook(() => usePushNotifications())
@@ -156,7 +158,7 @@ describe('usePushNotifications', () => {
 
     it('requestPermission merges from DEFAULT_SETTINGS when current settings are undefined', async () => {
         const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([undefined, setter] as any)
+        vi.mocked(useKV).mockReturnValue([undefined, setter, vi.fn()] as any)
 
         const { result } = renderHook(() => usePushNotifications())
         await act(async () => {
@@ -180,6 +182,7 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
             setter,
+            vi.fn(),
         ] as any)
 
         const NotificationMock = globalThis.Notification as any
@@ -209,6 +212,7 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
             setter,
+            vi.fn(),
         ] as any)
 
         const NotificationMock = globalThis.Notification as any
@@ -245,7 +249,8 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
-            vi.fn()
+            vi.fn(),
+            vi.fn(),
         ] as any)
 
         const { result } = renderHook(() => usePushNotifications())
@@ -258,7 +263,8 @@ describe('usePushNotifications', () => {
                 enabled: true, permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
-            vi.fn()
+            vi.fn(),
+            vi.fn(),
         ] as any)
 
         const { result } = renderHook(() => usePushNotifications())
@@ -271,7 +277,8 @@ describe('usePushNotifications', () => {
                 enabled: true, permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
-            vi.fn()
+            vi.fn(),
+            vi.fn(),
         ] as any)
 
         const { result } = renderHook(() => usePushNotifications())
@@ -298,6 +305,7 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
             vi.fn(),
+            vi.fn(),
         ] as any)
 
         const onClick = vi.fn()
@@ -319,6 +327,7 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
+            vi.fn(),
             vi.fn(),
         ] as any)
 
@@ -342,6 +351,7 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
+            vi.fn(),
             vi.fn(),
         ] as any)
 
@@ -368,6 +378,7 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: true, medium: true, high: true, critical: true },
             },
             vi.fn(),
+            vi.fn(),
         ] as any)
 
         const { result } = renderHook(() => usePushNotifications())
@@ -392,6 +403,7 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
             setter,
+            vi.fn(),
         ] as any)
 
         const { result } = renderHook(() => usePushNotifications())
@@ -409,7 +421,7 @@ describe('usePushNotifications', () => {
 
     it('updateSettings merges with default settings when current is undefined', () => {
         const setter = vi.fn()
-        vi.mocked(useKV).mockReturnValue([undefined, setter] as any)
+        vi.mocked(useKV).mockReturnValue([undefined, setter, vi.fn()] as any)
 
         const { result } = renderHook(() => usePushNotifications())
 
@@ -431,6 +443,7 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
+            vi.fn(),
             vi.fn(),
         ] as any)
 
@@ -476,14 +489,14 @@ describe('usePushNotifications', () => {
     })
 
     it('syncs browser permission denied state to settings on mount', () => {
-        const setter = createSettingsSetter() as unknown as ReturnType<typeof vi.fn>
+        const setter = createSettingsSetter()
         vi.mocked(useKV).mockReturnValue([
             {
                 enabled: true,
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
-            setter as unknown as PushSettingsSetter,
+            setter,
             vi.fn(),
         ] as unknown as ReturnType<typeof useKV>)
 

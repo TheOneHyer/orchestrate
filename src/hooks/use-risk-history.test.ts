@@ -27,7 +27,7 @@ vi.mock('@github/spark/hooks', async () => {
 
 import { useRiskHistory } from './use-risk-history'
 
-const mockedUseKV = useKV as unknown as ReturnType<typeof vi.fn>
+const mockedUseKV = vi.mocked(useKV)
 
 function createSnapshot(id: string, trainerId: string, riskScore: number, timestamp: string): RiskHistorySnapshot {
     return {
@@ -58,7 +58,7 @@ describe('use-risk-history (unit)', () => {
     const emptyWellnessCheckIns: WellnessCheckIn[] = []
 
     beforeEach(() => {
-        mockedUseKV.mockImplementation(<T,>(_key: string, defaultValue: T) => createKVMockTuple(defaultValue))
+        mockedUseKV.mockImplementation(((_key: string, defaultValue: unknown) => createKVMockTuple(defaultValue)) as typeof useKV)
     })
 
     afterEach(() => {
