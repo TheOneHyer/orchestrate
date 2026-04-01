@@ -321,7 +321,7 @@ describe('helpers', () => {
                 role: 'trainer',
                 trainerProfile: {
                     authorizedRoles: [],
-                    shiftSchedules: [{ shiftCode: 'DAY', daysWorked: [], startTime: '08:00', endTime: '17:00', totalHoursPerWeek: 40 }],
+                    shiftSchedules: [{ shiftCode: 'DAY', shiftType: 'day', daysWorked: [], startTime: '08:00', endTime: '17:00', totalHoursPerWeek: 40 }],
                     tenure: { hireDate: '2020-01-01T00:00:00.000Z', yearsOfService: 6, monthsOfService: 72 },
                     specializations: []
                 }
@@ -338,7 +338,7 @@ describe('helpers', () => {
             const configured = createUser({
                 id: 't-configured', role: 'trainer', trainerProfile: {
                     authorizedRoles: [],
-                    shiftSchedules: [{ shiftCode: 'DAY', daysWorked: [], startTime: '08:00', endTime: '17:00', totalHoursPerWeek: 40 }],
+                    shiftSchedules: [{ shiftCode: 'DAY', shiftType: 'day', daysWorked: [], startTime: '08:00', endTime: '17:00', totalHoursPerWeek: 40 }],
                     tenure: { hireDate: '2020-01-01T00:00:00.000Z', yearsOfService: 6, monthsOfService: 72 },
                     specializations: []
                 }

@@ -188,13 +188,15 @@ describe('scheduler', () => {
     })
 
     it('excludes trainers when session day is outside their worked days', () => {
-        const trainer = {
-            ...createTrainer('trainer-weekday', 'Weekday Only', ['Forklift']),
+        const baseTrainer = createTrainer('trainer-weekday', 'Weekday Only', ['Forklift'])
+        const trainer: User = {
+            ...baseTrainer,
             trainerProfile: {
-                ...createTrainer('trainer-weekday', 'Weekday Only', ['Forklift']).trainerProfile,
+                ...baseTrainer.trainerProfile!,
                 shiftSchedules: [
                     {
                         shiftCode: 'WEEKDAY',
+                        shiftType: 'day',
                         daysWorked: ['monday'],
                         startTime: '08:00',
                         endTime: '17:00',
@@ -555,12 +557,14 @@ describe('scheduler', () => {
     })
 
     it('handles overnight shift windows when checking detailed shift overlap', () => {
-        const overnightTrainer = {
-            ...createTrainer('trainer-overnight', 'Night Owl', ['Forklift']),
+        const baseTrainer = createTrainer('trainer-overnight', 'Night Owl', ['Forklift'])
+        const overnightTrainer: User = {
+            ...baseTrainer,
             trainerProfile: {
-                ...createTrainer('trainer-overnight', 'Night Owl', ['Forklift']).trainerProfile,
+                ...baseTrainer.trainerProfile!,
                 shiftSchedules: [{
                     shiftCode: 'NIGHT',
+                    shiftType: 'night',
                     daysWorked: ['monday'],
                     startTime: '22:00',
                     endTime: '06:00',

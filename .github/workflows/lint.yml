@@ -1,0 +1,94 @@
+name: Lint
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: ESLint — Lint Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 10.32.1
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        shell: bash
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-node-${{ hashFiles('.node-version') }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ hashFiles('.node-version') }}-pnpm-store-
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run lint
+        id: lint
+        run: pnpm lint --max-warnings=0
+        continue-on-error: true
+
+      - name: Write lint summary
+        if: always()
+        run: |
+          LINT_OUTCOME="${{ steps.lint.outcome }}"
+          {
+            if [ "$LINT_OUTCOME" = "success" ]; then
+              echo "## ✅ Lint Passed"
+              echo ""
+              echo "No ESLint errors or warnings found."
+            else
+              echo "## ❌ Lint Failed"
+              echo ""
+              echo "One or more ESLint errors or warnings were found. Review the job logs above for details."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Post PR comment on failure
+        if: >-
+          always() &&
+          steps.lint.outcome == 'failure' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
+        uses: ./.github/actions/upsert-pr-status-comment
+        with:
+          gh_token: ${{ github.token }}
+          repo: ${{ github.repository }}
+          pr_number: ${{ github.event.pull_request.number }}
+          marker: <!-- lint-status-comment -->
+          title: ❌ Lint Failed
+          message: One or more ESLint errors or warnings were found on this PR.
+          run_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Fail if lint failed
+        if: steps.lint.outcome == 'failure'
+        run: |
+          echo "::error::ESLint found errors or warnings. Fix all lint issues before merging."
+          exit 1

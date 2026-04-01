@@ -26,6 +26,7 @@ function makeTrainer(id: string, name: string, certs: string[], shiftSchedules?:
             shiftSchedules: shiftSchedules || [
                 {
                     shiftCode: `${id}-day`,
+                    shiftType: 'day',
                     daysWorked: ['monday', 'tuesday'],
                     startTime: '08:00 AM',
                     endTime: '12:00 PM',
@@ -238,6 +239,7 @@ describe('TrainerCoverageHeatmap', () => {
         const users: User[] = [
             makeTrainer('trainer-1', 'A Trainer', ['Safety'], [{
                 shiftCode: 's1',
+                shiftType: 'day',
                 daysWorked: ['monday'],
                 startTime: '08:00 AM',
                 endTime: '12:00 PM',
@@ -245,6 +247,7 @@ describe('TrainerCoverageHeatmap', () => {
             }]),
             makeTrainer('trainer-2', 'B Trainer', ['Safety'], [{
                 shiftCode: 's2',
+                shiftType: 'day',
                 daysWorked: ['monday'],
                 startTime: '08:00 AM',
                 endTime: '11:00 AM',
@@ -252,6 +255,7 @@ describe('TrainerCoverageHeatmap', () => {
             }]),
             makeTrainer('trainer-3', 'C Trainer', ['Safety'], [{
                 shiftCode: 's3',
+                shiftType: 'day',
                 daysWorked: ['monday'],
                 startTime: '08:00 AM',
                 endTime: '10:00 AM',
@@ -259,6 +263,7 @@ describe('TrainerCoverageHeatmap', () => {
             }]),
             makeTrainer('trainer-4', 'D Trainer', ['Safety'], [{
                 shiftCode: 's4',
+                shiftType: 'day',
                 daysWorked: ['monday'],
                 startTime: '08:00 AM',
                 endTime: '09:00 AM',
@@ -282,6 +287,7 @@ describe('TrainerCoverageHeatmap', () => {
             caseName: 'malformed',
             schedule: {
                 shiftCode: 'bad',
+                shiftType: 'day',
                 daysWorked: ['monday'],
                 startTime: 'notavalidtime',
                 endTime: 'alsoinvalid',
@@ -292,6 +298,7 @@ describe('TrainerCoverageHeatmap', () => {
             caseName: 'empty',
             schedule: {
                 shiftCode: 'empty',
+                shiftType: 'day',
                 daysWorked: ['monday'],
                 startTime: '',
                 endTime: '',
@@ -302,6 +309,7 @@ describe('TrainerCoverageHeatmap', () => {
             caseName: 'too many parts',
             schedule: {
                 shiftCode: 'weird',
+                shiftType: 'day',
                 daysWorked: ['monday'],
                 startTime: 'bad bad bad',
                 endTime: 'also bad here',
@@ -312,6 +320,7 @@ describe('TrainerCoverageHeatmap', () => {
             caseName: 'non-numeric',
             schedule: {
                 shiftCode: 'nonnum',
+                shiftType: 'day',
                 daysWorked: ['monday'],
                 startTime: 'abc:def PM',
                 endTime: 'xyz:uvw AM',
@@ -322,6 +331,7 @@ describe('TrainerCoverageHeatmap', () => {
             caseName: 'bad period',
             schedule: {
                 shiftCode: 'badperiod',
+                shiftType: 'day',
                 daysWorked: ['monday'],
                 startTime: '08:00 XX',
                 endTime: '12:00 XX',

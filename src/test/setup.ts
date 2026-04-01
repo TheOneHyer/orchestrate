@@ -193,7 +193,7 @@ class NotificationMock {
         this.badge = options?.badge
         this.data = options?.data
         this.requireInteraction = options?.requireInteraction
-        this.silent = options?.silent
+        this.silent = options?.silent ?? undefined
     }
 
     /** Closes the notification (no-op in the mock). */

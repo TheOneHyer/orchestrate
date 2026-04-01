@@ -6,15 +6,23 @@ import { useKV } from '@github/spark/hooks'
 vi.mock('@github/spark/hooks', async () => {
     const { useState } = await import('react')
     return {
-        useKV: vi.fn((_key: string, defaultValue: unknown) => useState(defaultValue))
+        useKV: vi.fn((_key: string, defaultValue: unknown) => {
+            const [value, setValue] = useState(defaultValue)
+            return [value, setValue, vi.fn()] as const
+        })
     }
 })
 
 import { useTheme, type Theme } from './use-theme'
 
 describe('use-theme', () => {
+    const mockedUseKV = vi.mocked(useKV)
+
     beforeEach(() => {
-        vi.mocked(useKV).mockImplementation((_key, defaultValue) => useState(defaultValue as Theme))
+        mockedUseKV.mockImplementation((_key: string, defaultValue: Theme) => {
+            const [value, setValue] = useState(defaultValue)
+            return [value, setValue, vi.fn()] as unknown as ReturnType<typeof useKV>
+        })
     })
 
     afterEach(() => {
@@ -39,7 +47,10 @@ describe('use-theme', () => {
     })
 
     it('toggleTheme switches from dark to light', () => {
-        vi.mocked(useKV).mockImplementation((_key, _defaultValue) => useState<Theme>('dark'))
+        mockedUseKV.mockImplementation((_key: string, _defaultValue: Theme) => {
+            const [value, setValue] = useState<Theme>('dark')
+            return [value, setValue, vi.fn()] as unknown as ReturnType<typeof useKV>
+        })
         const { result } = renderHook(() => useTheme())
         expect(result.current.theme).toBe('dark')
         expect(document.documentElement.classList.contains('dark')).toBe(true)
@@ -51,7 +62,10 @@ describe('use-theme', () => {
     })
 
     it('falls back to "light" when the stored theme is null', () => {
-        vi.mocked(useKV).mockImplementation((_key, _initial) => useState<Theme>(null as unknown as Theme))
+        mockedUseKV.mockImplementation((_key: string, _initial: Theme) => {
+            const [value, setValue] = useState<Theme>(null as unknown as Theme)
+            return [value, setValue, vi.fn()] as unknown as ReturnType<typeof useKV>
+        })
         const { result } = renderHook(() => useTheme())
         expect(result.current.theme).toBe('light')
         expect(document.documentElement.classList.contains('light')).toBe(true)

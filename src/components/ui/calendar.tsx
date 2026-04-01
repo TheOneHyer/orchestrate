@@ -1,10 +1,18 @@
 import { ComponentProps } from "react"
-import ChevronLeft from "lucide-react/dist/esm/icons/chevron-left"
-import ChevronRight from "lucide-react/dist/esm/icons/chevron-right"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+
+/**
+ * Deliberate, controlled deviation from the shadcn-managed `calendar` component.
+ *
+ * This file must stay aligned with the upstream shadcn/ui template, with only the
+ * app-specific navigation button patch reapplied after regeneration. The local patch
+ * preserves Orchestrate's custom nav icon markup while ensuring the buttons keep an
+ * explicit `type="button"` so the calendar cannot accidentally submit a parent form.
+ */
 
 function Calendar({
   className,
@@ -59,11 +67,25 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        PreviousMonthButton: ({ className, ...props }) => (
-          <ChevronLeft className={cn("size-4", className)} {...props} />
+        PreviousMonthButton: ({ className, ...buttonProps }) => (
+          <button
+            type="button"
+            className={cn(className)}
+            {...buttonProps}
+          >
+            <ChevronLeft className="size-4" />
+            <span className="sr-only">Previous month</span>
+          </button>
         ),
-        NextMonthButton: ({ className, ...props }) => (
-          <ChevronRight className={cn("size-4", className)} {...props} />
+        NextMonthButton: ({ className, ...buttonProps }) => (
+          <button
+            type="button"
+            className={cn(className)}
+            {...buttonProps}
+          >
+            <ChevronRight className="size-4" />
+            <span className="sr-only">Next month</span>
+          </button>
         ),
       }}
       {...props}

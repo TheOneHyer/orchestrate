@@ -1,5 +1,11 @@
 #!/usr/bin/env sh
-pnpm install --frozen-lockfile
+hook_dir="$(dirname -- "$0")"
+if [ -f "$hook_dir/_/husky.sh" ]; then
+  . "$hook_dir/_/husky.sh"
+fi
+set -e
+
 pnpm lint
+pnpm typecheck
 pnpm build
 pnpm test:coverage

@@ -41,8 +41,8 @@ export interface CertificationRecord {
   status: 'active' | 'expiring-soon' | 'expired'
   /** Whether a formal renewal process is required. */
   renewalRequired: boolean
-  /** Number of automated renewal reminder notifications sent so far. */
-  remindersSent: number
+  /** Number of automated renewal reminder notifications sent so far. May be missing in older persisted records. */
+  remindersSent?: number
   /** ISO 8601 date string of the most recent reminder sent, if any. */
   lastReminderDate?: string
   /** Whether a renewal is already in progress. */

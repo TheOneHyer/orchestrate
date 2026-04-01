@@ -19,6 +19,7 @@ function createTrainer(id: string): User {
             authorizedRoles: ['trainer'],
             shiftSchedules: [{
                 shiftCode: 'DAY',
+                shiftType: 'day',
                 daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
                 startTime: '08:00',
                 endTime: '17:00',

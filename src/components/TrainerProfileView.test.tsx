@@ -53,6 +53,7 @@ const trainerUser: User = {
     shiftSchedules: [
       {
         shiftCode: 'DAY',
+        shiftType: 'day',
         daysWorked: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
         startTime: '08:00',
         endTime: '16:00',

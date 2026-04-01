@@ -81,7 +81,7 @@ describe('WorkloadDistribution', () => {
                         trainerId: 'trainer-2',
                         utilizationRate: 72,
                         hoursScheduled: 31,
-                        riskLevel: 'moderate',
+                        riskLevel: 'medium',
                     },
                 ]}
             />
@@ -135,7 +135,7 @@ describe('WorkloadDistribution', () => {
                 trainers={[mockTrainer, trainerTwo, trainerThree, trainerFour]}
                 data={[
                     { ...mockWorkloadData, trainerId: 'trainer-1', utilizationRate: 60, riskLevel: 'low' },
-                    { ...mockWorkloadData, trainerId: 'trainer-2', utilizationRate: 75, riskLevel: 'moderate' },
+                    { ...mockWorkloadData, trainerId: 'trainer-2', utilizationRate: 75, riskLevel: 'medium' },
                     { ...mockWorkloadData, trainerId: 'trainer-3', utilizationRate: 90, riskLevel: 'high' },
                     { ...mockWorkloadData, trainerId: 'trainer-4', utilizationRate: 99, riskLevel: 'critical' },
                 ]}

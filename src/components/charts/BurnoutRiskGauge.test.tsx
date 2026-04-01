@@ -84,7 +84,10 @@ describe('BurnoutRiskGauge', () => {
                         consecutiveDays: 7,
                         riskScore: 75,
                         riskLevel: 'high',
-                        factors: ['High session frequency', 'Extended consecutive days'],
+                        factors: [
+                            { factor: 'session-frequency', description: 'High session frequency', impact: 'high' },
+                            { factor: 'consecutive-days', description: 'Extended consecutive days', impact: 'medium' },
+                        ],
                         recommendations: ['Consider schedule reduction', 'Provide additional support'],
                     },
                     {
@@ -95,7 +98,9 @@ describe('BurnoutRiskGauge', () => {
                         consecutiveDays: 4,
                         riskScore: 22,
                         riskLevel: 'low',
-                        factors: ['Moderate workload'],
+                        factors: [
+                            { factor: 'workload', description: 'Moderate workload', impact: 'low' },
+                        ],
                         recommendations: ['Continue current schedule'],
                     },
                 ]}
@@ -121,7 +126,9 @@ describe('BurnoutRiskGauge', () => {
                         consecutiveDays: 5,
                         riskScore: 35,
                         riskLevel: 'medium',
-                        factors: ['Increased workload'],
+                        factors: [
+                            { factor: 'workload', description: 'Increased workload', impact: 'medium' },
+                        ],
                         recommendations: ['Monitor closely'],
                     },
                 ]}
@@ -130,6 +137,26 @@ describe('BurnoutRiskGauge', () => {
 
         expect(screen.queryByText(/no data available/i)).not.toBeInTheDocument()
         expect(screen.getByTestId('burnout-risk-gauge')).toBeInTheDocument()
+        expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('1 Medium Risk')
+    })
+
+    it('counts legacy moderate risk records in the medium bucket', () => {
+        const legacyRiskData = [
+            {
+                trainerId: 't6',
+                utilizationRate: 74,
+                hoursScheduled: 30,
+                sessionCount: 7,
+                consecutiveDays: 5,
+                riskScore: 42,
+                riskLevel: 'moderate',
+                factors: [],
+                recommendations: [],
+            },
+        ] as unknown as Parameters<typeof BurnoutRiskGauge>[0]['data']
+
+        render(<BurnoutRiskGauge data={legacyRiskData} />)
+
         expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('1 Medium Risk')
     })
 })

@@ -105,11 +105,14 @@ export function WorkloadDistribution({ data, trainers }: WorkloadDistributionPro
               borderRadius: '8px'
             }}
             labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
-            formatter={(value: number, name: string) => {
-              if (name === 'utilization') return [`${value}%`, 'Utilization']
-              if (name === 'hours') return [`${value}h`, 'Hours']
-              if (name === 'sessions') return [value, 'Sessions']
-              return [value, name]
+            formatter={(value, name) => {
+              const numericValue = typeof value === 'number' ? value : Number(value ?? 0)
+              const seriesName = String(name)
+
+              if (seriesName === 'utilization') return [`${numericValue}%`, 'Utilization']
+              if (seriesName === 'hours') return [`${numericValue}h`, 'Hours']
+              if (seriesName === 'sessions') return [numericValue, 'Sessions']
+              return [numericValue, seriesName]
             }}
           />
           <ReferenceLine

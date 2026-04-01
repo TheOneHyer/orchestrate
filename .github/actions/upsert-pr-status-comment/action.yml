@@ -1,0 +1,67 @@
+name: Upsert PR Status Comment
+description: Upsert a marker-identified bot comment on a pull request.
+
+inputs:
+  gh_token:
+    description: GitHub token used by gh CLI.
+    required: true
+  repo:
+    description: Repository slug in owner/name format.
+    required: true
+  pr_number:
+    description: Pull request number.
+    required: true
+  marker:
+    description: Hidden marker used to identify an existing comment.
+    required: true
+  title:
+    description: Markdown heading for the status comment.
+    required: true
+  message:
+    description: Body text below the heading.
+    required: true
+  run_url:
+    description: Optional workflow run URL to include in the message.
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Upsert PR status comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.gh_token }}
+        REPO: ${{ inputs.repo }}
+        PR_NUMBER: ${{ inputs.pr_number }}
+        MARKER: ${{ inputs.marker }}
+        TITLE: ${{ inputs.title }}
+        MESSAGE: ${{ inputs.message }}
+        RUN_URL: ${{ inputs.run_url }}
+      run: |
+        set -euo pipefail
+
+        BODY="## ${TITLE}"
+        BODY+=$'\n\n'
+        BODY+="${MESSAGE}"
+
+        if [ -n "${RUN_URL}" ]; then
+          BODY+=$'\n\n'
+          BODY+="Review the [workflow run](${RUN_URL}) for details."
+        fi
+
+        BODY+=$'\n\n'
+        BODY+="${MARKER}"
+
+        COMMENT_ID="$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+          --paginate \
+          --jq ".[] | select(.user.type == \"Bot\" and ((.body // \"\") | contains(\"${MARKER}\"))) | .id" | head -n 1)"
+
+        if [ -z "${COMMENT_ID}" ]; then
+          gh pr comment "${PR_NUMBER}" \
+            --body "${BODY}" \
+            --repo "${REPO}"
+        else
+          gh api "repos/${REPO}/issues/comments/${COMMENT_ID}" \
+            -X PATCH \
+            -f "body=${BODY}" >/dev/null
+        fi

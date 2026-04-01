@@ -460,10 +460,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
 
     const enrolledCount = editingSession.enrolledStudents.length
     if (parsedCapacity < enrolledCount) {
-      const enrolledStudentLabel = {
-        one: 'student',
-        other: 'students',
-      }[new Intl.PluralRules('en').select(enrolledCount)]
+      const enrolledStudentLabel = enrolledCount === 1 ? 'student' : 'students'
 
       toast.error('Invalid capacity', {
         description: `Capacity cannot be less than the ${enrolledCount} currently enrolled ${enrolledStudentLabel}.`,

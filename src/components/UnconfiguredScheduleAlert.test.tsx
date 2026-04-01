@@ -28,6 +28,7 @@ describe('UnconfiguredScheduleAlert', () => {
                         shiftSchedules: [
                             {
                                 shiftCode: 'DAY-A-1',
+                                shiftType: 'day',
                                 daysWorked: ['monday'],
                                 startTime: '08:00',
                                 endTime: '16:00',
