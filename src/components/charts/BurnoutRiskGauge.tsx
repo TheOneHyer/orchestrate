@@ -31,7 +31,10 @@ export function BurnoutRiskGauge({ data }: BurnoutRiskGaugeProps) {
   const chartData = useMemo(() => {
     const counts = {
       low: data.filter(t => t.riskLevel === 'low').length,
-      medium: data.filter(t => t.riskLevel === 'medium').length,
+      medium: data.filter(trainer => {
+        const riskLevel = trainer.riskLevel as TrainerUtilization['riskLevel'] | 'moderate'
+        return riskLevel === 'medium' || riskLevel === 'moderate'
+      }).length,
       high: data.filter(t => t.riskLevel === 'high').length,
       critical: data.filter(t => t.riskLevel === 'critical').length
     }

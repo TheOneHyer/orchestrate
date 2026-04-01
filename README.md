@@ -130,6 +130,11 @@ orchestrate/
 └── vite.config.ts
 ```
 
+## 📝 Development Notes
+
+- `src/components/ui/**` remains shadcn-managed by default.
+- `src/components/ui/chart.tsx` currently carries a deliberate local compatibility patch for Recharts typing and label rendering. Reapply or preserve that patch if the component is regenerated with the shadcn CLI.
+
 ---
 
 ## 🛠️ Tech Stack

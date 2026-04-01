@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react-swc";
 import type { PluginOption } from "vite";
@@ -7,7 +9,7 @@ import sparkPlugin from "@github/spark/spark-vite-plugin";
 import createIconImportProxy from "@github/spark/vitePhosphorIconProxyPlugin";
 import { resolve } from "path";
 
-const projectRoot = import.meta.dirname || process.env.PROJECT_ROOT || process.cwd();
+const projectRoot = import.meta.dirname ?? process.env.PROJECT_ROOT ?? process.cwd();
 const isTest = Boolean(process.env.VITEST)
 
 // https://vite.dev/config/

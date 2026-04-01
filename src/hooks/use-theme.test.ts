@@ -16,12 +16,12 @@ vi.mock('@github/spark/hooks', async () => {
 import { useTheme, type Theme } from './use-theme'
 
 describe('use-theme', () => {
-    const mockedUseKV = useKV as unknown as ReturnType<typeof vi.fn>
+    const mockedUseKV = vi.mocked(useKV)
 
     beforeEach(() => {
         mockedUseKV.mockImplementation((_key: string, defaultValue: Theme) => {
             const [value, setValue] = useState(defaultValue)
-            return [value, setValue, vi.fn()] as const
+            return [value, setValue, vi.fn()] as unknown as ReturnType<typeof useKV>
         })
     })
 
@@ -49,7 +49,7 @@ describe('use-theme', () => {
     it('toggleTheme switches from dark to light', () => {
         mockedUseKV.mockImplementation((_key: string, _defaultValue: Theme) => {
             const [value, setValue] = useState<Theme>('dark')
-            return [value, setValue, vi.fn()] as const
+            return [value, setValue, vi.fn()] as unknown as ReturnType<typeof useKV>
         })
         const { result } = renderHook(() => useTheme())
         expect(result.current.theme).toBe('dark')
@@ -64,7 +64,7 @@ describe('use-theme', () => {
     it('falls back to "light" when the stored theme is null', () => {
         mockedUseKV.mockImplementation((_key: string, _initial: Theme) => {
             const [value, setValue] = useState<Theme>(null as unknown as Theme)
-            return [value, setValue, vi.fn()] as const
+            return [value, setValue, vi.fn()] as unknown as ReturnType<typeof useKV>
         })
         const { result } = renderHook(() => useTheme())
         expect(result.current.theme).toBe('light')

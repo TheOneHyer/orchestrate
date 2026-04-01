@@ -3,12 +3,12 @@
  * "lucide-react/dist/esm/icons/alarm-clock".
  */
 declare module "lucide-react/dist/esm/icons/*" {
-    import type { ComponentType } from "react"
+    import type { LucideIcon } from "lucide-react"
 
     /**
      * Default icon component export for a Lucide deep import path.
-     * @type {ComponentType<Record<string, unknown>>}
+     * @type {LucideIcon}
      */
-    const Icon: ComponentType<Record<string, unknown>>
+    const Icon: LucideIcon
     export default Icon
 }

@@ -22,7 +22,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
     "types": [
-      "node",
       "vitest/globals",
       "@testing-library/jest-dom"
     ],

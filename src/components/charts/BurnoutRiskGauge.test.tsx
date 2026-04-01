@@ -139,4 +139,24 @@ describe('BurnoutRiskGauge', () => {
         expect(screen.getByTestId('burnout-risk-gauge')).toBeInTheDocument()
         expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('1 Medium Risk')
     })
+
+    it('counts legacy moderate risk records in the medium bucket', () => {
+        const legacyRiskData = [
+            {
+                trainerId: 't6',
+                utilizationRate: 74,
+                hoursScheduled: 30,
+                sessionCount: 7,
+                consecutiveDays: 5,
+                riskScore: 42,
+                riskLevel: 'moderate',
+                factors: [],
+                recommendations: [],
+            },
+        ] as unknown as Parameters<typeof BurnoutRiskGauge>[0]['data']
+
+        render(<BurnoutRiskGauge data={legacyRiskData} />)
+
+        expect(screen.getByTestId('burnout-risk-gauge-chart')).toHaveTextContent('1 Medium Risk')
+    })
 })

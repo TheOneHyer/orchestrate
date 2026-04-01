@@ -3,6 +3,14 @@ import * as RechartsPrimitive from "recharts"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Deliberate local deviation from the shadcn-managed chart template.
+ *
+ * Orchestrate relies on app-specific tooltip, legend, and compatibility fixes
+ * in this file. Preserve or reapply them if the component is regenerated via
+ * the shadcn CLI.
+ */
+
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const
 
@@ -245,7 +253,7 @@ const ChartTooltipContent = React.forwardRef<
                             {itemConfig?.label || item.name}
                           </span>
                         </div>
-                        {item.value && (
+                        {item.value !== undefined && item.value !== null && (
                           <span className="font-mono font-medium tabular-nums text-foreground">
                             {item.value.toLocaleString()}
                           </span>
@@ -297,6 +305,13 @@ const ChartLegendContent = React.forwardRef<
           .map((item) => {
             const key = `${nameKey || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
+            const fallbackLabel =
+              typeof item.dataKey === "string" || typeof item.dataKey === "number"
+                ? item.dataKey
+                : typeof item.value === "string" || typeof item.value === "number"
+                  ? item.value
+                  : "Untitled"
+            const legendLabel = itemConfig?.label ?? fallbackLabel
 
             return (
               <div
@@ -315,7 +330,7 @@ const ChartLegendContent = React.forwardRef<
                     }}
                   />
                 )}
-                {itemConfig?.label}
+                {legendLabel}
               </div>
             )
           })}
