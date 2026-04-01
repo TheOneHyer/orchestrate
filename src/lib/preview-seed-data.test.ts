@@ -4,7 +4,7 @@ import { PREVIEW_SEED_VERSION, createPreviewSeedData } from './preview-seed-data
 
 describe('preview-seed-data', () => {
     it('exposes the expected seed data version', () => {
-        expect(PREVIEW_SEED_VERSION).toBe('preview-seed-v2')
+        expect(PREVIEW_SEED_VERSION).toBe('preview-seed-v3')
     })
 
     it('creates deterministic preview data for a reference date', () => {
@@ -67,7 +67,7 @@ describe('preview-seed-data', () => {
         expect(new Date(inProgressSession!.startTime).getTime()).toBe(nowMs - 60 * 60 * 1000)
     })
 
-    it('includes certification edge states and active recovery flows', () => {
+    it('includes certification edge states and complete recovery/wellness demo coverage', () => {
         const seed = createPreviewSeedData(new Date('2026-03-16T12:00:00.000Z'))
 
         const trainerCertStatuses = seed.users
@@ -82,24 +82,68 @@ describe('preview-seed-data', () => {
             expect.arrayContaining([
                 expect.objectContaining({ status: 'active' }),
                 expect.objectContaining({ status: 'in-progress' }),
+                expect.objectContaining({ status: 'completed' }),
+                expect.objectContaining({ status: 'cancelled' }),
             ])
         )
 
         for (const plan of seed.recoveryPlans) {
-            expect(plan.actions).toEqual(
-                expect.arrayContaining([
-                    expect.objectContaining({ completed: false }),
-                    expect.objectContaining({ completed: true }),
-                ])
-            )
+            expect(plan.actions.some(action => action.completed)).toBe(true)
             expect(plan.checkIns.length).toBeGreaterThan(0)
         }
 
+        expect(seed.recoveryPlans.some(plan => plan.actions.some(action => !action.completed))).toBe(true)
+
         const highRiskSnapshots = seed.riskHistorySnapshots.filter(snapshot => snapshot.riskLevel === 'high')
         const criticalRiskSnapshots = seed.riskHistorySnapshots.filter(snapshot => snapshot.riskLevel === 'critical')
+        const mediumRiskSnapshots = seed.riskHistorySnapshots.filter(snapshot => snapshot.riskLevel === 'medium')
+        const lowRiskSnapshots = seed.riskHistorySnapshots.filter(snapshot => snapshot.riskLevel === 'low')
 
         expect(highRiskSnapshots.length).toBeGreaterThan(0)
         expect(criticalRiskSnapshots.length).toBeGreaterThan(0)
+        expect(mediumRiskSnapshots.length).toBeGreaterThan(0)
+        expect(lowRiskSnapshots.length).toBeGreaterThan(0)
+
+        const stressLevels = new Set(seed.wellnessCheckIns.map(checkIn => checkIn.stress))
+        expect(stressLevels).toEqual(new Set(['low', 'moderate', 'high', 'critical']))
+
+        const energyLevels = new Set(seed.wellnessCheckIns.map(checkIn => checkIn.energy))
+        expect(energyLevels).toEqual(new Set(['exhausted', 'tired', 'neutral', 'energized', 'excellent']))
+
+        expect(seed.wellnessCheckIns.some(checkIn => (checkIn.concerns?.length ?? 0) >= 2)).toBe(true)
+        expect(seed.wellnessCheckIns.some(checkIn => checkIn.followUpRequired && !checkIn.followUpCompleted)).toBe(true)
+        expect(seed.wellnessCheckIns.some(checkIn => checkIn.followUpRequired && checkIn.followUpCompleted)).toBe(true)
+
+        const notificationTypes = new Set(seed.notifications.map(notification => notification.type))
+        expect(notificationTypes).toEqual(new Set(['session', 'assignment', 'completion', 'reminder', 'system', 'workload']))
+    })
+
+    it('seeds mixed risk trend directions for burnout history', () => {
+        const seed = createPreviewSeedData(new Date('2026-03-16T12:00:00.000Z'))
+        const snapshotsByTrainer = seed.riskHistorySnapshots.reduce<Record<string, typeof seed.riskHistorySnapshots>>((accumulator, snapshot) => {
+            if (!accumulator[snapshot.trainerId]) {
+                accumulator[snapshot.trainerId] = []
+            }
+
+            accumulator[snapshot.trainerId].push(snapshot)
+            return accumulator
+        }, {})
+
+        const trendDirections = Object.values(snapshotsByTrainer).map((snapshots) => {
+            const orderedSnapshots = [...snapshots].sort(
+                (left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime()
+            )
+
+            expect(orderedSnapshots.length).toBeGreaterThanOrEqual(2)
+
+            const earliestSnapshot = orderedSnapshots[0]
+            const latestSnapshot = orderedSnapshots[orderedSnapshots.length - 1]
+            return Math.sign(latestSnapshot.riskScore - earliestSnapshot.riskScore)
+        })
+
+        expect(trendDirections).toContain(-1)
+        expect(trendDirections).toContain(0)
+        expect(trendDirections).toContain(1)
     })
 
     it('produces a deterministic, wrapping shift pattern across all sessions', () => {
