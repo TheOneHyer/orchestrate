@@ -79,12 +79,36 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr comment "${{ github.event.pull_request.number }}" \
-            --body "## ❌ Lint Failed
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          MARKER="<!-- lint-status-comment -->"
 
-          One or more ESLint errors or warnings were found on this PR. Review the [workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details." \
-            --repo "${{ github.repository }}"
+          BODY=$(cat <<EOF
+          ## ❌ Lint Failed
 
+          One or more ESLint errors or warnings were found on this PR. Review the [workflow run]($RUN_URL) for details.
+
+          $MARKER
+          EOF
+          )
+
+          # Try to find an existing bot comment for lint status using the hidden marker.
+          COMMENT_ID="$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --paginate \
+            --jq ".[] | select(.user.type == \"Bot\" and (.body | contains(\"$MARKER\"))) | .id" | head -n 1)"
+
+          if [ -z "$COMMENT_ID" ]; then
+            # No existing comment found; create a new one.
+            gh pr comment "$PR_NUMBER" \
+              --body "$BODY" \
+              --repo "$REPO"
+          else
+            # Existing comment found; update it instead of creating a new one.
+            gh api "repos/$REPO/issues/comments/$COMMENT_ID" \
+              -X PATCH \
+              -f "body=$BODY"
+          fi
       - name: Fail if lint failed
         if: steps.lint.outcome == 'failure'
         run: |
