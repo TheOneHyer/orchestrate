@@ -9,6 +9,7 @@ import { formatDuration } from '@/lib/helpers'
 import { buildLearningFocusItems } from '@/lib/learning-insights'
 import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
 import { buildLearningPathRecommendations } from '@/lib/competency-insights'
+import { buildLearningEngagementItems } from '@/lib/learning-engagement'
 import { format } from 'date-fns'
 
 /** Props for the Dashboard home view component. */
@@ -63,6 +64,7 @@ export function Dashboard({
   const completedCount = enrollments.filter(e => e.status === 'completed').length
   const learningFocusItems = buildLearningFocusItems(enrollments, courses)
   const learningDeadlineItems = buildLearningDeadlineInsights(enrollments, courses)
+  const learningEngagementItems = buildLearningEngagementItems(enrollments, courses)
   const learningPathRecommendations = buildLearningPathRecommendations(currentUser, courses, enrollments)
 
   return (
@@ -220,6 +222,36 @@ export function Dashboard({
                   </button>
                 )
               })}
+            </CardContent>
+          </Card>
+        )}
+
+        {learningEngagementItems.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Engagement Watch</CardTitle>
+              <CardDescription>Learners with stalled progress that need a nudge</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {learningEngagementItems.slice(0, 3).map((item) => (
+                <button
+                  key={item.enrollmentId}
+                  onClick={() => onNavigate('courses', { courseId: item.courseId })}
+                  className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-foreground">{item.courseTitle}</p>
+                    <Badge variant={item.severity === 'critical-stall' ? 'destructive' : 'secondary'}>
+                      {item.severity === 'critical-stall' ? 'critical stall' : 'stalled'}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    No progress for {item.daysSinceProgress} day{item.daysSinceProgress === 1 ? '' : 's'}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.progress}% complete</p>
+                  <p className="mt-2 text-sm">{item.recommendedAction}</p>
+                </button>
+              ))}
             </CardContent>
           </Card>
         )}

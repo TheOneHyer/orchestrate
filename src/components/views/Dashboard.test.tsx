@@ -348,6 +348,59 @@ describe('Dashboard', () => {
     expect(within(deadlineWatchCard).getByText(/^due soon$/i)).toBeInTheDocument()
   })
 
+  it('renders engagement watch insights and navigates to course details', async () => {
+    const onNavigate = vi.fn()
+    const courses: Course[] = [
+      { ...baseCourse, id: 'engagement-course-1', title: 'Engagement Course 1' },
+      { ...baseCourse, id: 'engagement-course-2', title: 'Engagement Course 2' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'engagement-critical',
+        userId: baseUser.id,
+        courseId: 'engagement-course-1',
+        status: 'in-progress',
+        progress: 25,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+      {
+        id: 'engagement-stalled',
+        userId: baseUser.id,
+        courseId: 'engagement-course-2',
+        status: 'enrolled',
+        progress: 5,
+        enrolledAt: '2026-03-15T00:00:00.000Z',
+        lastProgressAt: '2026-03-23T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={courses}
+        onNavigate={onNavigate}
+      />
+    )
+
+    const engagementCard = screen.getByText(/^engagement watch$/i).closest('[data-slot="card"]')
+    expect(engagementCard).not.toBeNull()
+
+    if (!engagementCard) {
+      throw new Error('Expected engagement watch card to exist')
+    }
+
+    expect(within(engagementCard).getByText(/engagement course 1/i)).toBeInTheDocument()
+    expect(within(engagementCard).getByText(/critical stall/i)).toBeInTheDocument()
+
+    await userEvent.click(within(engagementCard).getByRole('button', { name: /engagement course 1/i }))
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'engagement-course-1' })
+  })
+
   it('navigates from deadline watch items to course details', async () => {
     const onNavigate = vi.fn()
     const deadlineCourse: Course = {

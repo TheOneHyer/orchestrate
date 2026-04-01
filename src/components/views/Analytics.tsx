@@ -6,6 +6,7 @@ import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '
 import { AttendanceRecord, User, Enrollment, Session, Course } from '@/lib/types'
 import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
 import { getMissingCertificationsForUser } from '@/lib/competency-insights'
+import { buildLearningEngagementItems } from '@/lib/learning-engagement'
 
 /** Props for the Analytics view component. */
 interface AnalyticsProps {
@@ -144,8 +145,11 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
 
   const atRiskCourses = fullCourses.filter((course) => course.completionRate < 60 || course.avgScore < 75)
   const deadlineInsights = buildLearningDeadlineInsights(filteredEnrollments, filteredCourses)
+  const engagementInsights = buildLearningEngagementItems(filteredEnrollments, filteredCourses)
   const overdueEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'overdue').length
   const dueSoonEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'due-soon').length
+  const stalledEnrollments = engagementInsights.filter((insight) => insight.severity === 'stalled').length
+  const criticalStalledEnrollments = engagementInsights.filter((insight) => insight.severity === 'critical-stall').length
   const employeesWithGaps = filteredUsers
     .filter((user) => user.role === 'employee')
     .filter((employee) => getMissingCertificationsForUser(employee, filteredCourses).length > 0).length
@@ -301,7 +305,7 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
           <CardTitle>Operational Highlights</CardTitle>
           <CardDescription>Focus areas based on the current filters</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3 lg:grid-cols-7">
+        <CardContent className="grid gap-4 md:grid-cols-3 lg:grid-cols-9">
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Filtered enrollments</div>
             <div data-testid="filtered-enrollments-value" className="mt-1 text-2xl font-semibold">{totalEnrollments}</div>
@@ -321,6 +325,14 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Overdue enrollments</div>
             <div data-testid="overdue-enrollments-value" className="mt-1 text-2xl font-semibold">{overdueEnrollments}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Stalled enrollments</div>
+            <div data-testid="stalled-enrollments-value" className="mt-1 text-2xl font-semibold">{stalledEnrollments}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Critical stalls</div>
+            <div data-testid="critical-stalled-enrollments-value" className="mt-1 text-2xl font-semibold">{criticalStalledEnrollments}</div>
           </div>
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Learners with skill gaps</div>

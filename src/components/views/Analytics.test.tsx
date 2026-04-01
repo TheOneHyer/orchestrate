@@ -544,4 +544,37 @@ describe('Analytics', () => {
     expect(screen.getByTestId('learners-with-gaps-value')).toHaveTextContent('3')
     expect(screen.getByTestId('top-missing-certification-value')).toHaveTextContent('Quality (3)')
   })
+
+  it('shows stalled and critical stalled enrollment engagement metrics', () => {
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+      { id: 'c2', title: 'Leadership', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-02', published: true, passScore: 80 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-critical-stall',
+        userId: 'u1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+      {
+        id: 'e-stall',
+        userId: 'u2',
+        courseId: 'c2',
+        status: 'enrolled',
+        progress: 8,
+        enrolledAt: '2026-03-10T00:00:00.000Z',
+        lastProgressAt: '2026-03-24T00:00:00.000Z',
+      },
+    ]
+
+    render(<Analytics users={[]} courses={courses} sessions={[]} enrollments={enrollments} />)
+
+    expect(screen.getByTestId('stalled-enrollments-value')).toHaveTextContent('1')
+    expect(screen.getByTestId('critical-stalled-enrollments-value')).toHaveTextContent('1')
+  })
 })
