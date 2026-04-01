@@ -659,6 +659,8 @@ function App() {
       return
     }
 
+    previewSeedResetGenerationRef.current += 1
+    setSuppressAutoSeedAfterReset(true)
     clearPreviewDataState(false)
   }, [clearPreviewDataState, shouldClearStaleDemoData])
 

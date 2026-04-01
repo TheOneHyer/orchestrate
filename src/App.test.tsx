@@ -2685,6 +2685,39 @@ describe('App', () => {
         expect(localStorage.getItem('orchestrate-demo-seed-lease')).toBeNull()
     })
 
+    it('does not auto-seed immediately after stale demo cleanup when preview seeding is enabled', async () => {
+        kvSeed['active-user-id'] = ''
+        kvSeed['preview-seed-version'] = 'preview-seed-v1:manual'
+        setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
+        getPreviewSeedModeMock.mockReturnValue('full')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
+        localStorage.setItem(
+            'orchestrate-demo-seed-lease',
+            JSON.stringify({
+                expiresAtMs: Date.now() - 60_000,
+                demoModeEnabled: true,
+                demoSessionUserId: 'admin-1',
+            }),
+        )
+
+        createPreviewSeedDataMock.mockClear()
+
+        render(<App />)
+
+        expect(await screen.findByText(/setup required/i)).toBeInTheDocument()
+
+        await waitFor(() => {
+            expect(kvState['users']).toEqual([])
+            expect(kvState['auth-passwords']).toEqual({})
+            expect(kvState['preview-seed-version']).toBe('')
+        })
+
+        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+        expect(localStorage.getItem('orchestrate-demo-mode-seeded')).toBeNull()
+        expect(localStorage.getItem('orchestrate-demo-seed-lease')).toBeNull()
+    })
+
     it('renews the demo lease while demo mode remains active', async () => {
         const baseNowMs = new Date('2026-01-01T00:00:00.000Z').getTime()
         const renewalNowMs = baseNowMs + 45_000
