@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from 'recharts'
-import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent'
 import { TrainerUtilization } from '@/lib/burnout-analytics'
 import { User } from '@/lib/types'
 
@@ -106,7 +105,7 @@ export function WorkloadDistribution({ data, trainers }: WorkloadDistributionPro
               borderRadius: '8px'
             }}
             labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
-            formatter={(value: ValueType, name: NameType) => {
+            formatter={(value, name) => {
               const numericValue = typeof value === 'number' ? value : Number(value ?? 0)
               const seriesName = String(name)
 
