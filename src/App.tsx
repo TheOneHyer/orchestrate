@@ -47,6 +47,7 @@ import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
 import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
 import { hashPassword, verifyPassword } from '@/lib/auth-utils'
+import { reconcileSessionEnrollments } from '@/lib/enrollment-sync'
 import { buildLearningReminderCandidates } from '@/lib/learning-reminders'
 import { AppRuntimeEnvOverrides, AppTestHooks } from '@/test-support'
 
@@ -1481,6 +1482,22 @@ function App() {
   const handleUpdateSession = (id: string, updates: Partial<Session>) => {
     setSessions((currentSessions) =>
       (currentSessions || []).map((session) => applySessionUpdates(session, id, updates))
+    )
+
+    const affectsEnrollmentMembership = updates.enrolledStudents !== undefined || updates.courseId !== undefined
+    if (!affectsEnrollmentMembership) {
+      return
+    }
+
+    const nextSessions = (safeSessions || []).map((session) => applySessionUpdates(session, id, updates))
+    const nowIso = new Date().toISOString()
+    setEnrollments((currentEnrollments) =>
+      reconcileSessionEnrollments({
+        enrollments: currentEnrollments || [],
+        sessions: nextSessions,
+        nowIso,
+        createEnrollmentId: () => createEntityId('enrollment'),
+      })
     )
   }
 
