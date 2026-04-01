@@ -493,4 +493,37 @@ describe('Analytics', () => {
     expect(screen.getByTestId('attendance-rate')).toHaveTextContent('67%')
     expect(screen.getByText(/2 present\/late of 3 marks/i)).toBeInTheDocument()
   })
+
+  it('shows due-soon and overdue enrollment counts in operational highlights', () => {
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+      { id: 'c2', title: 'Leadership', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-02', published: true, passScore: 80 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-overdue',
+        userId: 'u1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 15,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        targetCompletionDate: '2026-03-10T00:00:00.000Z',
+      },
+      {
+        id: 'e-due-soon',
+        userId: 'u2',
+        courseId: 'c2',
+        status: 'enrolled',
+        progress: 5,
+        enrolledAt: '2026-03-20T00:00:00.000Z',
+        targetCompletionDate: '2026-04-06T00:00:00.000Z',
+      },
+    ]
+
+    render(<Analytics users={[]} courses={courses} sessions={[]} enrollments={enrollments} />)
+
+    expect(screen.getByTestId('due-soon-enrollments-value')).toHaveTextContent('1')
+    expect(screen.getByTestId('overdue-enrollments-value')).toHaveTextContent('1')
+  })
 })

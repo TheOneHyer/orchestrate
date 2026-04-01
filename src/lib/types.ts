@@ -270,6 +270,10 @@ export interface Enrollment {
   score?: number
   /** ISO 8601 timestamp of when the enrollment was created. */
   enrolledAt: string
+  /** Optional ISO 8601 target date by which the learner should complete the course. */
+  targetCompletionDate?: string
+  /** Optional ISO 8601 timestamp when learner progress was last updated. */
+  lastProgressAt?: string
   /** ISO 8601 timestamp of when the user completed the course, if applicable. */
   completedAt?: string
 }

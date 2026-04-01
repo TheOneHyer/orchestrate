@@ -299,6 +299,97 @@ describe('Dashboard', () => {
     expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'focus-course' })
   })
 
+  it('renders deadline watch indicators for due-soon and overdue enrollments', () => {
+    const courses: Course[] = [
+      { ...baseCourse, id: 'deadline-course-1', title: 'Deadline Course 1' },
+      { ...baseCourse, id: 'deadline-course-2', title: 'Deadline Course 2' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'deadline-overdue',
+        userId: baseUser.id,
+        courseId: 'deadline-course-1',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        targetCompletionDate: '2026-03-15T00:00:00.000Z',
+      },
+      {
+        id: 'deadline-soon',
+        userId: baseUser.id,
+        courseId: 'deadline-course-2',
+        status: 'enrolled',
+        progress: 10,
+        enrolledAt: '2026-03-15T00:00:00.000Z',
+        targetCompletionDate: '2026-04-05T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={courses}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
+    expect(deadlineWatchCard).not.toBeNull()
+
+    if (!deadlineWatchCard) {
+      throw new Error('Expected deadline watch card to exist')
+    }
+
+    expect(within(deadlineWatchCard).getByText(/^overdue$/i)).toBeInTheDocument()
+    expect(within(deadlineWatchCard).getByText(/^due soon$/i)).toBeInTheDocument()
+  })
+
+  it('navigates from deadline watch items to course details', async () => {
+    const onNavigate = vi.fn()
+    const deadlineCourse: Course = {
+      ...baseCourse,
+      id: 'deadline-course-nav',
+      title: 'Deadline Navigation Course',
+    }
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'deadline-navigation-enrollment',
+        userId: baseUser.id,
+        courseId: 'deadline-course-nav',
+        status: 'in-progress',
+        progress: 40,
+        enrolledAt: '2026-03-01T00:00:00.000Z',
+        targetCompletionDate: '2026-04-04T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={[deadlineCourse]}
+        onNavigate={onNavigate}
+      />
+    )
+
+    const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
+    expect(deadlineWatchCard).not.toBeNull()
+
+    if (!deadlineWatchCard) {
+      throw new Error('Expected deadline watch card to exist')
+    }
+
+    await userEvent.click(within(deadlineWatchCard).getByRole('button', { name: /deadline navigation course/i }))
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'deadline-course-nav' })
+  })
+
   it('displays active vs completed enrollments appropriately', () => {
     const courses: Course[] = [
       { ...baseCourse, id: 'c1', title: 'Active Course 1' },

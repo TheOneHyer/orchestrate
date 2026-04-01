@@ -4,6 +4,7 @@ import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
 import { AttendanceRecord, User, Enrollment, Session, Course } from '@/lib/types'
+import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
 
 /** Props for the Analytics view component. */
 interface AnalyticsProps {
@@ -141,6 +142,9 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
     .slice(0, 5)
 
   const atRiskCourses = fullCourses.filter((course) => course.completionRate < 60 || course.avgScore < 75)
+  const deadlineInsights = buildLearningDeadlineInsights(filteredEnrollments, filteredCourses)
+  const overdueEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'overdue').length
+  const dueSoonEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'due-soon').length
 
   return (
     <div className="p-6 space-y-6">
@@ -272,7 +276,7 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
           <CardTitle>Operational Highlights</CardTitle>
           <CardDescription>Focus areas based on the current filters</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
+        <CardContent className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Filtered enrollments</div>
             <div data-testid="filtered-enrollments-value" className="mt-1 text-2xl font-semibold">{totalEnrollments}</div>
@@ -284,6 +288,14 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Open sessions</div>
             <div className="mt-1 text-2xl font-semibold">{filteredSessions.filter((session) => session.status === 'scheduled' || session.status === 'in-progress').length}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Due soon enrollments</div>
+            <div data-testid="due-soon-enrollments-value" className="mt-1 text-2xl font-semibold">{dueSoonEnrollments}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Overdue enrollments</div>
+            <div data-testid="overdue-enrollments-value" className="mt-1 text-2xl font-semibold">{overdueEnrollments}</div>
           </div>
         </CardContent>
       </Card>

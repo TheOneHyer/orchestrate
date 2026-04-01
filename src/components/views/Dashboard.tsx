@@ -7,6 +7,7 @@ import { Clock, CheckCircle, Warning, X, Check } from '@phosphor-icons/react'
 import { User, Session, Notification, Enrollment, Course } from '@/lib/types'
 import { formatDuration } from '@/lib/helpers'
 import { buildLearningFocusItems } from '@/lib/learning-insights'
+import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
 import { format } from 'date-fns'
 
 /** Props for the Dashboard home view component. */
@@ -60,6 +61,7 @@ export function Dashboard({
   const activeEnrollments = enrollments.filter(e => e.status === 'in-progress')
   const completedCount = enrollments.filter(e => e.status === 'completed').length
   const learningFocusItems = buildLearningFocusItems(enrollments, courses)
+  const learningDeadlineItems = buildLearningDeadlineInsights(enrollments, courses)
 
   return (
     <div className="p-6 space-y-6">
@@ -123,6 +125,37 @@ export function Dashboard({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {learningDeadlineItems.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Deadline Watch</CardTitle>
+              <CardDescription>Upcoming and overdue learner completion targets</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {learningDeadlineItems.slice(0, 3).map((item) => (
+                <button
+                  key={item.enrollmentId}
+                  onClick={() => onNavigate('courses', { courseId: item.courseId })}
+                  className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-foreground">{item.courseTitle}</p>
+                    <Badge variant={item.urgency === 'overdue' ? 'destructive' : item.urgency === 'due-soon' ? 'secondary' : 'outline'}>
+                      {item.urgency === 'overdue' ? 'overdue' : item.urgency === 'due-soon' ? 'due soon' : 'on track'}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {item.isOverdue
+                      ? `${Math.abs(item.daysUntilDue)} day${Math.abs(item.daysUntilDue) === 1 ? '' : 's'} overdue`
+                      : `Due in ${item.daysUntilDue} day${item.daysUntilDue === 1 ? '' : 's'}`}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.progress}% complete</p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {learningFocusItems.length > 0 && (
           <Card>
             <CardHeader>
