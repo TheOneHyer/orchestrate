@@ -8,6 +8,7 @@ import { User, Session, Notification, Enrollment, Course } from '@/lib/types'
 import { formatDuration } from '@/lib/helpers'
 import { buildLearningFocusItems } from '@/lib/learning-insights'
 import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
+import { buildLearningPathRecommendations } from '@/lib/competency-insights'
 import { format } from 'date-fns'
 
 /** Props for the Dashboard home view component. */
@@ -62,6 +63,7 @@ export function Dashboard({
   const completedCount = enrollments.filter(e => e.status === 'completed').length
   const learningFocusItems = buildLearningFocusItems(enrollments, courses)
   const learningDeadlineItems = buildLearningDeadlineInsights(enrollments, courses)
+  const learningPathRecommendations = buildLearningPathRecommendations(currentUser, courses, enrollments)
 
   return (
     <div className="p-6 space-y-6">
@@ -125,6 +127,30 @@ export function Dashboard({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {learningPathRecommendations.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recommended Learning Path</CardTitle>
+              <CardDescription>Next-best courses to close certification gaps</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {learningPathRecommendations.map((recommendation) => (
+                <button
+                  key={recommendation.courseId}
+                  onClick={() => onNavigate('courses', { courseId: recommendation.courseId })}
+                  className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-foreground">{recommendation.courseTitle}</p>
+                    <Badge variant="secondary">{recommendation.gapClosureCount} gap{recommendation.gapClosureCount === 1 ? '' : 's'}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{recommendation.reason}</p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         {learningDeadlineItems.length > 0 && (
           <Card>
             <CardHeader>

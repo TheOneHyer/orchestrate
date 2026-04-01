@@ -390,6 +390,69 @@ describe('Dashboard', () => {
     expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'deadline-course-nav' })
   })
 
+  it('renders recommended learning path items for missing certifications', () => {
+    const courses: Course[] = [
+      {
+        ...baseCourse,
+        id: 'learning-path-course-1',
+        title: 'Leadership Pathway',
+        certifications: ['Leadership'],
+      },
+      {
+        ...baseCourse,
+        id: 'learning-path-course-2',
+        title: 'Quality Pathway',
+        certifications: ['Quality'],
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={{ ...baseUser, certifications: ['Safety'] }}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={[]}
+        courses={courses}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/^recommended learning path$/i)).toBeInTheDocument()
+    expect(screen.getByText(/leadership pathway/i)).toBeInTheDocument()
+    expect(screen.getByText(/quality pathway/i)).toBeInTheDocument()
+  })
+
+  it('navigates to a course from recommended learning path', async () => {
+    const onNavigate = vi.fn()
+    const recommendedCourse: Course = {
+      ...baseCourse,
+      id: 'learning-path-nav-course',
+      title: 'Leadership Navigation Path',
+      certifications: ['Leadership'],
+    }
+
+    render(
+      <Dashboard
+        currentUser={{ ...baseUser, certifications: ['Safety'] }}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={[]}
+        courses={[recommendedCourse]}
+        onNavigate={onNavigate}
+      />
+    )
+
+    const learningPathCard = screen.getByText(/^recommended learning path$/i).closest('[data-slot="card"]')
+    expect(learningPathCard).not.toBeNull()
+
+    if (!learningPathCard) {
+      throw new Error('Expected recommended learning path card to exist')
+    }
+
+    await userEvent.click(within(learningPathCard).getByRole('button', { name: /leadership navigation path/i }))
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'learning-path-nav-course' })
+  })
+
   it('displays active vs completed enrollments appropriately', () => {
     const courses: Course[] = [
       { ...baseCourse, id: 'c1', title: 'Active Course 1' },
