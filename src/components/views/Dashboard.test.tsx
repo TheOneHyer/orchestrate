@@ -390,6 +390,48 @@ describe('Dashboard', () => {
     expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'deadline-course-nav' })
   })
 
+  it('opens notifications pre-filtered to learning reminders from deadline watch', async () => {
+    const onNavigate = vi.fn()
+    const deadlineCourse: Course = {
+      ...baseCourse,
+      id: 'deadline-alert-course',
+      title: 'Deadline Alert Course',
+    }
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'deadline-alert-enrollment',
+        userId: baseUser.id,
+        courseId: 'deadline-alert-course',
+        status: 'in-progress',
+        progress: 25,
+        enrolledAt: '2026-03-01T00:00:00.000Z',
+        targetCompletionDate: '2026-04-04T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={[deadlineCourse]}
+        onNavigate={onNavigate}
+      />
+    )
+
+    const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
+    expect(deadlineWatchCard).not.toBeNull()
+
+    if (!deadlineWatchCard) {
+      throw new Error('Expected deadline watch card to exist')
+    }
+
+    await userEvent.click(within(deadlineWatchCard).getByRole('button', { name: /open learning alerts/i }))
+    expect(onNavigate).toHaveBeenCalledWith('notifications', { tab: 'learning-reminders' })
+  })
+
   it('renders recommended learning path items for missing certifications', () => {
     const courses: Course[] = [
       {

@@ -391,6 +391,43 @@ describe('Notifications', () => {
     expect(screen.queryByText('System Item')).not.toBeInTheDocument()
   })
 
+  it('opens a target tab from navigation payload and consumes the payload', async () => {
+    const onNavigationPayloadConsumed = vi.fn()
+
+    render(
+      <Notifications
+        notifications={[
+          {
+            ...baseNotification,
+            id: 'n-learning',
+            title: 'Learning Reminder Item',
+            type: 'reminder',
+            metadata: { learningReminderKey: 'enrollment-1:due-soon' },
+          },
+          {
+            ...baseNotification,
+            id: 'n-standard-reminder',
+            title: 'Standard Reminder Item',
+            type: 'reminder',
+            read: true,
+          },
+        ]}
+        onMarkAsRead={vi.fn()}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={vi.fn()}
+        navigationPayload={{ tab: 'learning-reminders' }}
+        onNavigationPayloadConsumed={onNavigationPayloadConsumed}
+      />
+    )
+
+    expect(screen.getByText('Learning Reminder Item')).toBeInTheDocument()
+    expect(screen.queryByText('Standard Reminder Item')).not.toBeInTheDocument()
+    expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
+  })
+
   it('handles notifications with different priority levels', () => {
     const notifications: Notification[] = [
       { ...baseNotification, id: 'n-1', priority: 'high', title: 'High Priority' },

@@ -2047,6 +2047,8 @@ function App() {
             onDismiss={handleDismissNotification}
             onDismissAll={handleDismissAllNotifications}
             onNavigate={handleNavigate}
+            navigationPayload={navigationPayload}
+            onNavigationPayloadConsumed={clearNavigationPayload}
           />
         )
       case 'user-guide':

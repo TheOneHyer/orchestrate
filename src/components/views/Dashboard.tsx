@@ -154,7 +154,16 @@ export function Dashboard({
         {learningDeadlineItems.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Deadline Watch</CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle>Deadline Watch</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onNavigate('notifications', { tab: 'learning-reminders' })}
+                >
+                  Open Learning Alerts
+                </Button>
+              </div>
               <CardDescription>Upcoming and overdue learner completion targets</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
