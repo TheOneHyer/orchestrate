@@ -401,7 +401,7 @@ function App() {
   const [, setTargetTrainerCoverage] = useKV<number>('target-trainer-coverage', 4)
   const [previewSeedVersion, setPreviewSeedVersion] = useKV<string>('preview-seed-version', '')
   const [suppressAutoSeedAfterReset, setSuppressAutoSeedAfterReset] = useState(false)
-  const seedCancelledRef = useRef(false)
+  const previewSeedResetGenerationRef = useRef(0)
 
   /**
    * Computed active user identifier that switches between the demo session user ID
@@ -459,6 +459,8 @@ function App() {
       return
     }
 
+    const seedRunResetGeneration = previewSeedResetGenerationRef.current
+
     const seedData = createPreviewSeedData()
     const seedMarker = `${PREVIEW_SEED_VERSION}:${seedMode}`
     const defaultSessionUserId = seedData.users.find((user) => user.role === 'admin')?.id || seedData.users[0]?.id || ''
@@ -467,8 +469,7 @@ function App() {
     const seededAuthPasswords = await buildPreviewAuthPasswords(seedData.users)
 
     // Check if reset was invoked mid-flight; abort to prevent overwriting a user-initiated clear.
-    if (seedCancelledRef.current) {
-      seedCancelledRef.current = false
+    if (seedRunResetGeneration !== previewSeedResetGenerationRef.current) {
       return
     }
 
@@ -639,7 +640,7 @@ function App() {
       return
     }
 
-    seedCancelledRef.current = true
+    previewSeedResetGenerationRef.current += 1
     setSuppressAutoSeedAfterReset(true)
     clearPreviewDataState(true)
   }, [

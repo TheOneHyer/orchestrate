@@ -1591,10 +1591,26 @@ describe('App', () => {
 
         render(<App />)
 
+        await waitFor(() => {
+            expect(kvState['users']).toBeDefined()
+            expect(kvState['sessions']).toBeDefined()
+            expect(kvState['courses']).toBeDefined()
+            expect(kvState['enrollments']).toBeDefined()
+        })
+
+        const usersBeforeReset = structuredClone(kvState['users'])
+        const sessionsBeforeReset = structuredClone(kvState['sessions'])
+        const coursesBeforeReset = structuredClone(kvState['courses'])
+        const enrollmentsBeforeReset = structuredClone(kvState['enrollments'])
+
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         await user.click(screen.getByRole('button', { name: /reset preview data/i }))
 
         expect(globalThis.confirm).toHaveBeenCalled()
+        expect(kvState['users']).toEqual(usersBeforeReset)
+        expect(kvState['sessions']).toEqual(sessionsBeforeReset)
+        expect(kvState['courses']).toEqual(coursesBeforeReset)
+        expect(kvState['enrollments']).toEqual(enrollmentsBeforeReset)
         expect(toastSuccess).not.toHaveBeenCalledWith(
             'Preview data reset complete',
             expect.objectContaining({ description: expect.stringMatching(/cleared/i) })
@@ -1636,6 +1652,7 @@ describe('App', () => {
 
     it('prevents seed data write when reset is triggered during seed flow', async () => {
         const user = userEvent.setup()
+        let resolveSeedHash: ((hash: string) => void) | undefined
 
         getPreviewSeedModeMock.mockReturnValue('empty')
         isPreviewSeedEnabledMock.mockReturnValue(true)
@@ -1644,26 +1661,38 @@ describe('App', () => {
         kvSeed['courses'] = []
         kvSeed['enrollments'] = []
         kvSeed['preview-seed-version'] = ''
+        scoringControls.hashPasswordMock.mockImplementationOnce(() => {
+            return new Promise<string>((resolve) => {
+                resolveSeedHash = resolve
+            })
+        })
 
         render(<App />)
 
-        // Wait for seed to start
+        // Wait for seed to start and suspend at async password hashing.
         await waitFor(() => {
-            expect(createPreviewSeedDataMock).toHaveBeenCalled()
+            expect(scoringControls.hashPasswordMock).toHaveBeenCalledWith('password123')
         })
 
-        // Navigate to settings and reset
+        // Navigate to settings and reset while the seed run is still awaiting.
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         toastSuccess.mockClear()
         await user.click(screen.getByRole('button', { name: /reset preview data/i }))
 
-        // Verify data remains empty after reset
+        // Resolve the suspended seed step after reset to verify stale run cancellation.
+        await act(async () => {
+            resolveSeedHash?.('__hash__password123')
+            await Promise.resolve()
+        })
+
+        // Verify data remains empty after reset.
         expect(kvState['users']).toEqual([])
         expect(kvState['sessions']).toEqual([])
         expect(kvState['courses']).toEqual([])
         expect(kvState['enrollments']).toEqual([])
+        expect(kvState['preview-seed-version']).toBe('')
 
-        // Verify no seed success toast was shown
+        // Verify no seed success toast was shown.
         expect(toastSuccess).not.toHaveBeenCalledWith(
             'Preview test data loaded',
             expect.anything()
