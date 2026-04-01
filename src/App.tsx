@@ -47,6 +47,7 @@ import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
 import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
 import { hashPassword, verifyPassword } from '@/lib/auth-utils'
+import { buildLearningReminderCandidates } from '@/lib/learning-reminders'
 import { AppRuntimeEnvOverrides, AppTestHooks } from '@/test-support'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
@@ -918,6 +919,29 @@ function App() {
   useUtilizationNotifications(sideEffectUsers, sideEffectSessions, handleCreateNotification)
 
   useCertificationNotifications(sideEffectUsers, handleCreateNotification, setUsers)
+
+  useEffect(() => {
+    const reminders = buildLearningReminderCandidates(safeEnrollments, safeCourses, safeNotifications)
+    if (reminders.length === 0) {
+      return
+    }
+
+    reminders.forEach((reminder) => {
+      handleCreateNotification({
+        userId: reminder.userId,
+        type: 'reminder',
+        title: reminder.title,
+        message: reminder.message,
+        link: 'courses',
+        priority: reminder.priority,
+        read: false,
+        metadata: {
+          learningReminderKey: reminder.reminderKey,
+          courseId: reminder.courseId,
+        },
+      })
+    })
+  }, [handleCreateNotification, safeCourses, safeEnrollments, safeNotifications])
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 
