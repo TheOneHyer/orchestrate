@@ -51,7 +51,7 @@ jobs:
 
       - name: Run lint
         id: lint
-        run: pnpm lint -- --max-warnings=0
+        run: pnpm lint --max-warnings=0
         continue-on-error: true
 
       - name: Write lint summary
