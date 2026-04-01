@@ -9,7 +9,11 @@ import sparkPlugin from "@github/spark/spark-vite-plugin";
 import createIconImportProxy from "@github/spark/vitePhosphorIconProxyPlugin";
 import { resolve } from "path";
 
-const projectRoot = import.meta.dirname ?? process.env.PROJECT_ROOT ?? process.cwd();
+// NOTE: PROJECT_ROOT is intentionally preferred over import.meta.dirname so that builds
+// can be driven from a different working directory (e.g. monorepos or CI) while still
+// resolving aliases relative to the logical project root. import.meta.dirname and
+// process.cwd() act as fallbacks when PROJECT_ROOT is not provided.
+const projectRoot = process.env.PROJECT_ROOT ?? import.meta.dirname ?? process.cwd();
 const isTest = Boolean(process.env.VITEST)
 
 // https://vite.dev/config/
