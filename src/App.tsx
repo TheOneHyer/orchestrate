@@ -529,33 +529,6 @@ function App() {
   }, [users?.length, sessions?.length, courses?.length, enrollments?.length])
 
   /**
-   * Handles a user-initiated request to load preview seed data from the
-   * Settings page. If core data already exists, shows a confirmation dialog
-   * before overwriting it. Delegates to {@link applyPreviewSeedData}.
-   */
-  const handleLoadPreviewSeedData = useCallback(() => {
-    if (hasExistingCoreData) {
-      const shouldOverwrite = window.confirm(
-        'This will overwrite existing local data in preview storage. Continue?'
-      )
-
-      if (!shouldOverwrite) {
-        return
-      }
-    }
-
-    void applyPreviewSeedData('manual', demoModeEnabled ? 'transient' : 'persisted').catch((error: unknown) => {
-      console.error('Failed to load preview seed data', error)
-      toast.error('Failed to load preview seed data', {
-        description:
-          error instanceof Error
-            ? error.message
-            : 'An unexpected error occurred while loading seed data.',
-      })
-    })
-  }, [applyPreviewSeedData, demoModeEnabled, hasExistingCoreData])
-
-  /**
    * Handles a user-initiated request to enter demo mode from the Setup Required screen.
    *
    * Seeds the KV store with preview data as a transient (non-persisted) demo session.
@@ -2106,7 +2079,7 @@ function App() {
                 <CardHeader>
                   <CardTitle>Preview Test Data</CardTitle>
                   <CardDescription>
-                    Load a deterministic fake dataset for testing all major workflows and edge cases.
+                    Reset the local preview dataset when you need a clean state.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -2114,11 +2087,10 @@ function App() {
                     Current preview mode: <span className="font-medium text-foreground">{previewSeedMode}</span>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <Button onClick={handleLoadPreviewSeedData}>Load Seed Data</Button>
                     <Button variant="destructive" onClick={handleResetPreviewData}>Reset Preview Data</Button>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Load will overwrite existing local data after confirmation. Reset clears all local preview records.
+                    Reset clears all local preview records.
                   </div>
                 </CardContent>
               </Card>
