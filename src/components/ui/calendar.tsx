@@ -1,8 +1,18 @@
 import { ComponentProps } from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+
+/**
+ * Deliberate, controlled deviation from the shadcn-managed `calendar` component.
+ *
+ * This file must stay aligned with the upstream shadcn/ui template, with only the
+ * app-specific navigation button patch reapplied after regeneration. The local patch
+ * preserves Orchestrate's custom nav icon markup while ensuring the buttons keep an
+ * explicit `type="button"` so the calendar cannot accidentally submit a parent form.
+ */
 
 function Calendar({
   className,
@@ -55,6 +65,28 @@ function Calendar({
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
+      }}
+      components={{
+        PreviousMonthButton: ({ className, ...buttonProps }) => (
+          <button
+            type="button"
+            className={cn(className)}
+            {...buttonProps}
+          >
+            <ChevronLeft className="size-4" />
+            <span className="sr-only">Previous month</span>
+          </button>
+        ),
+        NextMonthButton: ({ className, ...buttonProps }) => (
+          <button
+            type="button"
+            className={cn(className)}
+            {...buttonProps}
+          >
+            <ChevronRight className="size-4" />
+            <span className="sr-only">Next month</span>
+          </button>
+        ),
       }}
       {...props}
     />

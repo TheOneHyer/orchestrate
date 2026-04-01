@@ -5,7 +5,6 @@ if [ -f "$hook_dir/_/husky.sh" ]; then
 fi
 set -e
 
-pnpm install --frozen-lockfile
 pnpm lint
 pnpm typecheck
 pnpm build
