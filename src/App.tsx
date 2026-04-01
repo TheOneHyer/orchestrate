@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useLayoutEffect, useMemo } from 'react'
+import { useState, useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useKV } from '@github/spark/hooks'
 import { useForm } from 'react-hook-form'
@@ -401,6 +401,7 @@ function App() {
   const [, setTargetTrainerCoverage] = useKV<number>('target-trainer-coverage', 4)
   const [previewSeedVersion, setPreviewSeedVersion] = useKV<string>('preview-seed-version', '')
   const [suppressAutoSeedAfterReset, setSuppressAutoSeedAfterReset] = useState(false)
+  const seedCancelledRef = useRef(false)
 
   /**
    * Computed active user identifier that switches between the demo session user ID
@@ -464,6 +465,12 @@ function App() {
 
     // DEMO ONLY: Build auth passwords first so a rejection leaves the app un-mutated.
     const seededAuthPasswords = await buildPreviewAuthPasswords(seedData.users)
+
+    // Check if reset was invoked mid-flight; abort to prevent overwriting a user-initiated clear.
+    if (seedCancelledRef.current) {
+      seedCancelledRef.current = false
+      return
+    }
 
     setUsers(seedData.users)
     setSessions(seedData.sessions)
@@ -632,6 +639,7 @@ function App() {
       return
     }
 
+    seedCancelledRef.current = true
     setSuppressAutoSeedAfterReset(true)
     clearPreviewDataState(true)
   }, [

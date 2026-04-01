@@ -756,7 +756,8 @@ export function createPreviewSeedData(referenceDate = new Date()): PreviewSeedDa
 
     const riskHistorySnapshots: RiskHistorySnapshot[] = trainers.flatMap((trainer, index) => {
         const riskProfile = getRiskProfile(index % 6)
-        const trendPattern = cycle(['worsening', 'improving', 'stable'] as const, index)
+        // Use a different index offset for trendPattern so it varies independently from risk profile
+        const trendPattern = cycle(['worsening', 'improving', 'stable'] as const, index + 5)
         const baseline = riskProfile === 'critical' ? 88 : riskProfile === 'high' ? 71 : riskProfile === 'medium' ? 46 : 24
         const olderScore = trendPattern === 'worsening' ? baseline - 6 : trendPattern === 'improving' ? baseline + 5 : baseline
         const recentScore = trendPattern === 'worsening' ? baseline + 4 : trendPattern === 'improving' ? baseline - 6 : baseline

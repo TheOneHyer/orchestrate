@@ -18,6 +18,10 @@ const sendNotificationMock = vi.fn()
 const scoringControls = vi.hoisted(() => ({
     applyScoreImpl: null as null | ((score: number, passScore: number, enrollment: unknown) => Record<string, unknown>),
     shouldNotifyCompletionImpl: null as null | ((status: unknown, score: number, passScore: number) => boolean),
+    hashPasswordMock: vi.fn((password: string) => Promise.resolve(`__hash__${password}`)),
+    verifyPasswordMock: vi.fn((password: string, storedHash: string) =>
+        Promise.resolve(storedHash === `__hash__${password}`)
+    ),
 }))
 let utilizationNotified = false
 function createUtilizationNotificationPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -119,10 +123,8 @@ vi.mock('sonner', () => ({
 // DEMO-ONLY test mock: replaces the real SHA-256 hash with a deterministic
 // prefix so tests can use predictable password values without real crypto.
 vi.mock('@/lib/auth-utils', () => ({
-    hashPassword: vi.fn((password: string) => Promise.resolve(`__hash__${password}`)),
-    verifyPassword: vi.fn((password: string, storedHash: string) =>
-        Promise.resolve(storedHash === `__hash__${password}`)
-    ),
+    hashPassword: scoringControls.hashPasswordMock,
+    verifyPassword: scoringControls.verifyPasswordMock,
 }))
 
 vi.mock('@github/spark/hooks', async () => {
@@ -1632,6 +1634,42 @@ describe('App', () => {
         expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
     })
 
+    it('prevents seed data write when reset is triggered during seed flow', async () => {
+        const user = userEvent.setup()
+
+        getPreviewSeedModeMock.mockReturnValue('empty')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        kvSeed['users'] = []
+        kvSeed['sessions'] = []
+        kvSeed['courses'] = []
+        kvSeed['enrollments'] = []
+        kvSeed['preview-seed-version'] = ''
+
+        render(<App />)
+
+        // Wait for seed to start
+        await waitFor(() => {
+            expect(createPreviewSeedDataMock).toHaveBeenCalled()
+        })
+
+        // Navigate to settings and reset
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+        toastSuccess.mockClear()
+        await user.click(screen.getByRole('button', { name: /reset preview data/i }))
+
+        // Verify data remains empty after reset
+        expect(kvState['users']).toEqual([])
+        expect(kvState['sessions']).toEqual([])
+        expect(kvState['courses']).toEqual([])
+        expect(kvState['enrollments']).toEqual([])
+
+        // Verify no seed success toast was shown
+        expect(toastSuccess).not.toHaveBeenCalledWith(
+            'Preview test data loaded',
+            expect.anything()
+        )
+    })
+
     it('auto-seeds preview data in empty mode when enabled', async () => {
         getPreviewSeedModeMock.mockReturnValue('empty')
         isPreviewSeedEnabledMock.mockReturnValue(true)
@@ -2004,10 +2042,9 @@ describe('App', () => {
             link: '/settings',
             priority: 'high',
         })
-
         await act(async () => { render(<App />) })
 
-        const sendCall = sendNotificationMock.mock.calls.at(-1)
+        const sendCall = sendNotificationMock.mock.calls[sendNotificationMock.mock.calls.length - 1]
         const options = sendCall?.[1]
         await act(async () => {
             options.onClick()
