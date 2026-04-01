@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Clock, CheckCircle, Warning, X, Check } from '@phosphor-icons/react'
 import { User, Session, Notification, Enrollment, Course } from '@/lib/types'
 import { formatDuration } from '@/lib/helpers'
+import { buildLearningFocusItems } from '@/lib/learning-insights'
 import { format } from 'date-fns'
 
 /** Props for the Dashboard home view component. */
@@ -58,6 +59,7 @@ export function Dashboard({
   const unreadNotifications = notifications.filter(n => !n.read)
   const activeEnrollments = enrollments.filter(e => e.status === 'in-progress')
   const completedCount = enrollments.filter(e => e.status === 'completed').length
+  const learningFocusItems = buildLearningFocusItems(enrollments, courses)
 
   return (
     <div className="p-6 space-y-6">
@@ -121,6 +123,39 @@ export function Dashboard({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {learningFocusItems.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Learning Focus</CardTitle>
+              <CardDescription>Prioritized actions to keep learners on track</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {learningFocusItems.slice(0, 3).map((item) => {
+                const badgeVariant = item.riskLevel === 'at-risk' ? 'destructive' : item.riskLevel === 'watch' ? 'secondary' : 'outline'
+                return (
+                  <button
+                    key={item.enrollmentId}
+                    onClick={() => onNavigate('courses', { courseId: item.courseId })}
+                    className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-foreground">{item.courseTitle}</p>
+                      <Badge variant={badgeVariant}>{item.riskLevel}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {item.progress}% complete • {item.daysSinceEnrollment} days active
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Gap to expected pace: {item.progressGap}%
+                    </p>
+                    <p className="mt-2 text-sm">{item.recommendedAction}</p>
+                  </button>
+                )
+              })}
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Upcoming Sessions</CardTitle>

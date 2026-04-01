@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -203,9 +203,100 @@ describe('Dashboard', () => {
     expect(screen.getByText(/^2$/)).toBeInTheDocument()
     expect(screen.getByText(/1 completed/i)).toBeInTheDocument()
     expect(screen.getByText(/^in progress$/i)).toBeInTheDocument()
-    expect(screen.getByText('Course 1')).toBeInTheDocument()
-    expect(screen.getByText('Course 2')).toBeInTheDocument()
+    expect(screen.getAllByText('Course 1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Course 2').length).toBeGreaterThan(0)
     expect(screen.queryByText('Course 3')).not.toBeInTheDocument()
+  })
+
+  it('renders learning focus cards for in-progress enrollments', () => {
+    const courses: Course[] = [
+      { ...baseCourse, id: 'focus-course-1', title: 'Focus Course 1' },
+      { ...baseCourse, id: 'focus-course-2', title: 'Focus Course 2' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'focus-enrollment-risk',
+        userId: baseUser.id,
+        courseId: 'focus-course-1',
+        status: 'in-progress',
+        progress: 15,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+      },
+      {
+        id: 'focus-enrollment-watch',
+        userId: baseUser.id,
+        courseId: 'focus-course-2',
+        status: 'in-progress',
+        progress: 40,
+        enrolledAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={courses}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText(/^learning focus$/i)).toBeInTheDocument()
+    const learningFocusCard = screen.getByText(/^learning focus$/i).closest('[data-slot="card"]')
+    expect(learningFocusCard).not.toBeNull()
+
+    if (!learningFocusCard) {
+      throw new Error('Expected learning focus card to exist')
+    }
+
+    expect(within(learningFocusCard).getByText(/focus course 1/i)).toBeInTheDocument()
+    expect(within(learningFocusCard).getByText(/focus course 2/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/gap to expected pace/i).length).toBeGreaterThan(0)
+  })
+
+  it('navigates to course details from learning focus cards', async () => {
+    const onNavigate = vi.fn()
+
+    const focusCourse: Course = {
+      ...baseCourse,
+      id: 'focus-course',
+      title: 'Focus Course Navigation',
+    }
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'focus-enrollment',
+        userId: baseUser.id,
+        courseId: 'focus-course',
+        status: 'in-progress',
+        progress: 12,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={[focusCourse]}
+        onNavigate={onNavigate}
+      />
+    )
+
+    const learningFocusCard = screen.getByText(/^learning focus$/i).closest('[data-slot="card"]')
+    expect(learningFocusCard).not.toBeNull()
+
+    if (!learningFocusCard) {
+      throw new Error('Expected learning focus card to exist')
+    }
+
+    await userEvent.click(within(learningFocusCard).getByRole('button', { name: /focus course navigation/i }))
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'focus-course' })
   })
 
   it('displays active vs completed enrollments appropriately', () => {
@@ -237,8 +328,8 @@ describe('Dashboard', () => {
     expect(screen.getByText(/^active courses$/i)).toBeInTheDocument()
     expect(screen.getByText(/^2$/)).toBeInTheDocument()
     expect(screen.getByText(/1 completed/i)).toBeInTheDocument()
-    expect(screen.getByText('Active Course 1')).toBeInTheDocument()
-    expect(screen.getByText('Active Course 2')).toBeInTheDocument()
+    expect(screen.getAllByText('Active Course 1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Active Course 2').length).toBeGreaterThan(0)
     expect(screen.queryByText('Completed Course')).not.toBeInTheDocument()
     expect(screen.queryByText('Failed Course')).not.toBeInTheDocument()
   })
