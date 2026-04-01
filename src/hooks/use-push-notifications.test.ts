@@ -20,7 +20,9 @@ vi.mock('@github/spark/hooks', async () => {
 })
 
 beforeEach(() => {
-    vi.mocked(useKV).mockImplementation((_key, defaultValue) => [defaultValue as any, createSettingsSetter(), vi.fn()] as any)
+    vi.mocked(useKV).mockImplementation(
+        (_key, defaultValue) => [defaultValue as PushNotificationSettings, createSettingsSetter()] as unknown as ReturnType<typeof useKV>
+    )
     const NotificationCtor = vi.fn().mockImplementation(function (this: any, title: string, options?: NotificationOptions) {
         this.title = title
         this.options = options
@@ -43,7 +45,7 @@ afterEach(() => {
 describe('usePushNotifications', () => {
     it('falls back to default settings when persisted settings are undefined', () => {
         const setter = createSettingsSetter()
-        vi.mocked(useKV).mockReturnValue([undefined, setter, vi.fn()] as any)
+        vi.mocked(useKV).mockReturnValue([undefined, setter] as unknown as ReturnType<typeof useKV>)
 
         const NotificationMock = globalThis.Notification as any
         NotificationMock.permission = 'granted'
@@ -76,9 +78,8 @@ describe('usePushNotifications', () => {
                 permission: 'default',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
-            setter,
-            vi.fn(),
-        ] as any)
+            setter
+        ] as unknown as ReturnType<typeof useKV>)
 
         const NotificationMock = globalThis.Notification as any
         NotificationMock.permission = 'granted'
@@ -135,9 +136,8 @@ describe('usePushNotifications', () => {
                 enabled: false, permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
-            setter,
-            vi.fn(),
-        ] as any)
+            setter
+        ] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
         let permResult: NotificationPermission | undefined
@@ -158,7 +158,7 @@ describe('usePushNotifications', () => {
 
     it('requestPermission merges from DEFAULT_SETTINGS when current settings are undefined', async () => {
         const setter = createSettingsSetter()
-        vi.mocked(useKV).mockReturnValue([undefined, setter, vi.fn()] as any)
+        vi.mocked(useKV).mockReturnValue([undefined, setter] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
         await act(async () => {
@@ -181,9 +181,8 @@ describe('usePushNotifications', () => {
                 permission: 'default',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
-            setter,
-            vi.fn(),
-        ] as any)
+            setter
+        ] as unknown as ReturnType<typeof useKV>)
 
         const NotificationMock = globalThis.Notification as any
         NotificationMock.requestPermission = vi.fn(async () => 'denied' as NotificationPermission)
@@ -211,9 +210,8 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
-            setter,
-            vi.fn(),
-        ] as any)
+            setter
+        ] as unknown as ReturnType<typeof useKV>)
 
         const NotificationMock = globalThis.Notification as any
         NotificationMock.requestPermission = vi.fn(async () => {
@@ -249,9 +247,8 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
-            createSettingsSetter(),
-            vi.fn(),
-        ] as any)
+            createSettingsSetter()
+        ] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
         expect(result.current.sendNotification('Hello')).toBeNull()
@@ -263,9 +260,8 @@ describe('usePushNotifications', () => {
                 enabled: true, permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
-            createSettingsSetter(),
-            vi.fn(),
-        ] as any)
+            createSettingsSetter()
+        ] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
         expect(result.current.sendNotification('Low priority', { priority: 'low' })).toBeNull()
@@ -277,9 +273,8 @@ describe('usePushNotifications', () => {
                 enabled: true, permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
-            createSettingsSetter(),
-            vi.fn(),
-        ] as any)
+            createSettingsSetter()
+        ] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
         const notif = result.current.sendNotification('High alert', { priority: 'high' })
@@ -304,9 +299,8 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
-            createSettingsSetter(),
-            vi.fn(),
-        ] as any)
+            createSettingsSetter()
+        ] as unknown as ReturnType<typeof useKV>)
 
         const onClick = vi.fn()
         const { result } = renderHook(() => usePushNotifications())
@@ -327,9 +321,8 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
-            createSettingsSetter(),
-            vi.fn(),
-        ] as any)
+            createSettingsSetter()
+        ] as unknown as ReturnType<typeof useKV>)
 
         const timeoutSpy = vi.spyOn(globalThis, 'setTimeout')
 
@@ -351,9 +344,8 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
-            createSettingsSetter(),
-            vi.fn(),
-        ] as any)
+            createSettingsSetter()
+        ] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
         const notification = result.current.sendNotification('High', { priority: 'high' }) as any
@@ -377,9 +369,8 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: true, medium: true, high: true, critical: true },
             },
-            createSettingsSetter(),
-            vi.fn(),
-        ] as any)
+            createSettingsSetter()
+        ] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
         const notification = result.current.sendNotification('Low', { priority: 'low' }) as any
@@ -402,9 +393,8 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
-            setter,
-            vi.fn(),
-        ] as any)
+            setter
+        ] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
 
@@ -421,7 +411,7 @@ describe('usePushNotifications', () => {
 
     it('updateSettings merges with default settings when current is undefined', () => {
         const setter = createSettingsSetter()
-        vi.mocked(useKV).mockReturnValue([undefined, setter, vi.fn()] as any)
+        vi.mocked(useKV).mockReturnValue([undefined, setter] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
 
@@ -443,9 +433,8 @@ describe('usePushNotifications', () => {
                 permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
-            createSettingsSetter(),
-            vi.fn(),
-        ] as any)
+            createSettingsSetter()
+        ] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
         act(() => {
@@ -468,8 +457,7 @@ describe('usePushNotifications', () => {
                 enabled: true, permission: 'granted',
                 showForPriorities: { low: false, medium: true, high: true, critical: true }
             },
-            createSettingsSetter(),
-            vi.fn()
+            createSettingsSetter()
         ] as unknown as ReturnType<typeof useKV>)
 
         const { result } = renderHook(() => usePushNotifications())
@@ -497,7 +485,6 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
             setter,
-            vi.fn(),
         ] as unknown as ReturnType<typeof useKV>)
 
         const NotificationMock = globalThis.Notification as unknown as MutableNotificationConstructor
@@ -524,7 +511,6 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
             createSettingsSetter(),
-            vi.fn(),
         ] as unknown as ReturnType<typeof useKV>)
 
         const NotificationMock = globalThis.Notification as unknown as MutableNotificationConstructor
@@ -544,7 +530,6 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
             createSettingsSetter(),
-            vi.fn(),
         ] as unknown as ReturnType<typeof useKV>)
 
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)
@@ -571,7 +556,6 @@ describe('usePushNotifications', () => {
                 showForPriorities: { low: false, medium: true, high: true, critical: true },
             },
             createSettingsSetter(),
-            vi.fn(),
         ] as unknown as ReturnType<typeof useKV>)
 
         const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined)

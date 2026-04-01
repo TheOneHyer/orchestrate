@@ -85,7 +85,7 @@ export function shouldSendRenewalReminder(cert: CertificationRecord): boolean {
   )
 
   if (matchingRule) {
-    return cert.remindersSent <= matchingRule.maxRemindersSent
+    return (cert.remindersSent ?? 0) <= matchingRule.maxRemindersSent
   }
 
   if (daysUntilExpiration <= 7 && daysUntilExpiration > 0) {

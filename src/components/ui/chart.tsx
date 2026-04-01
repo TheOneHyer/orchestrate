@@ -319,7 +319,7 @@ const ChartLegendContent = React.forwardRef<
       >
         {payload
           .filter((item) => item.type !== "none")
-          .map((item) => {
+          .map((item, index) => {
             const key = `${nameKey || item.dataKey || "value"}`
             const itemConfig = getPayloadConfigFromPayload(config, item, key)
             const fallbackLabel =
@@ -329,10 +329,11 @@ const ChartLegendContent = React.forwardRef<
                   ? item.value
                   : "Untitled"
             const legendLabel = itemConfig?.label ?? fallbackLabel
+            const legendItemKey = `${String(item.dataKey ?? item.value ?? "value")}-${index}`
 
             return (
               <div
-                key={item.value}
+                key={legendItemKey}
                 className={cn(
                   "flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:text-muted-foreground"
                 )}

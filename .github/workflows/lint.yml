@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: write
 
     steps:
       - name: Checkout
@@ -50,7 +51,7 @@ jobs:
 
       - name: Run lint
         id: lint
-        run: pnpm lint
+        run: pnpm lint -- --max-warnings=0
         continue-on-error: true
 
       - name: Write lint summary
@@ -84,14 +85,10 @@ jobs:
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           MARKER="<!-- lint-status-comment -->"
 
-          BODY=$(cat <<EOF
-          ## ❌ Lint Failed
-
-          One or more ESLint errors or warnings were found on this PR. Review the [workflow run]($RUN_URL) for details.
-
-          $MARKER
-          EOF
-          )
+          BODY=$(printf '%s\n\n%s\n\n%s' \
+            '## ❌ Lint Failed' \
+            "One or more ESLint errors or warnings were found on this PR. Review the [workflow run]($RUN_URL) for details." \
+            "$MARKER")
 
           # Try to find an existing bot comment for lint status using the hidden marker.
           COMMENT_ID="$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
