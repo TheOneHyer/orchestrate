@@ -174,6 +174,13 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
 
     return top ? `${top[0]} (${top[1]})` : 'None'
   })()
+  const userById = new Map(filteredUsers.map((user) => [user.id, user]))
+  const interventionQueue = engagementInsights
+    .slice(0, 5)
+    .map((insight) => ({
+      ...insight,
+      learnerName: userById.get(insight.userId)?.name ?? 'Unknown learner',
+    }))
 
   return (
     <div className="p-6 space-y-6">
@@ -370,6 +377,36 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
               <Progress value={rate} className="h-2" />
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Intervention Queue</CardTitle>
+          <CardDescription>Stalled learners ranked for coaching follow-up</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {interventionQueue.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No stalled learners in the current filter scope.</p>
+          ) : (
+            interventionQueue.map((item) => (
+              <div key={item.enrollmentId} className="rounded-lg border p-3" data-testid={`intervention-${item.enrollmentId}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="font-medium text-foreground">{item.learnerName}</div>
+                    <div className="text-sm text-muted-foreground">{item.courseTitle}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {item.severity === 'critical-stall' ? 'Critical stall' : 'Stalled'}
+                    </div>
+                    <div className="text-sm font-medium">{item.daysSinceProgress}d inactive</div>
+                  </div>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{item.recommendedAction}</p>
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
 

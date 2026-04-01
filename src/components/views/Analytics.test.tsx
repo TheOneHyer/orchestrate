@@ -87,7 +87,7 @@ describe('Analytics', () => {
     expect(screen.getByTestId('average-score')).toHaveTextContent('86%')
     expect(screen.getByTestId('sessions-completed')).toHaveTextContent('1/2')
     expect(screen.getByText(/course performance/i)).toBeInTheDocument()
-    expect(screen.getByText(/compliance 101/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/compliance 101/i).length).toBeGreaterThan(0)
     expect(screen.getByText(/department distribution/i)).toBeInTheDocument()
     expect(screen.getByText(/trainer schedule status/i)).toBeInTheDocument()
   })
@@ -224,9 +224,9 @@ describe('Analytics', () => {
     render(<Analytics users={[]} courses={courses} sessions={[]} enrollments={enrollments} />)
 
     // Component should handle multiple courses
-    expect(screen.getByText('Analytics Course 1')).toBeInTheDocument()
-    expect(screen.getByText('Analytics Course 2')).toBeInTheDocument()
-    expect(screen.getByText('Analytics Course 3')).toBeInTheDocument()
+    expect(screen.getAllByText('Analytics Course 1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Analytics Course 2').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Analytics Course 3').length).toBeGreaterThan(0)
   })
 
   it('handles departments with single trainer correctly', () => {
@@ -546,6 +546,10 @@ describe('Analytics', () => {
   })
 
   it('shows stalled and critical stalled enrollment engagement metrics', () => {
+    const users: User[] = [
+      createUser({ id: 'u1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+      createUser({ id: 'u2', name: 'Learner Two', role: 'employee', department: 'Ops' }),
+    ]
     const courses: Course[] = [
       { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
       { id: 'c2', title: 'Leadership', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-02', published: true, passScore: 80 },
@@ -572,9 +576,38 @@ describe('Analytics', () => {
       },
     ]
 
-    render(<Analytics users={[]} courses={courses} sessions={[]} enrollments={enrollments} />)
+    render(<Analytics users={users} courses={courses} sessions={[]} enrollments={enrollments} />)
 
     expect(screen.getByTestId('stalled-enrollments-value')).toHaveTextContent('1')
     expect(screen.getByTestId('critical-stalled-enrollments-value')).toHaveTextContent('1')
+    expect(screen.getByText(/intervention queue/i)).toBeInTheDocument()
+    expect(screen.getByTestId('intervention-e-critical-stall')).toHaveTextContent('Learner One')
+    expect(screen.getByTestId('intervention-e-critical-stall')).toHaveTextContent('Critical stall')
+  })
+
+  it('shows an empty intervention queue message when no stalled learners exist', () => {
+    const users: User[] = [
+      createUser({ id: 'u1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+    ]
+
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-active',
+        userId: 'u1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 70,
+        enrolledAt: '2026-03-20T00:00:00.000Z',
+        lastProgressAt: '2026-03-30T00:00:00.000Z',
+      },
+    ]
+
+    render(<Analytics users={users} courses={courses} sessions={[]} enrollments={enrollments} />)
+
+    expect(screen.getByText(/no stalled learners in the current filter scope/i)).toBeInTheDocument()
   })
 })
