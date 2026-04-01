@@ -400,6 +400,7 @@ function App() {
   const [, setRiskHistorySnapshots] = useKV<RiskHistorySnapshot[]>('risk-history-snapshots', [])
   const [, setTargetTrainerCoverage] = useKV<number>('target-trainer-coverage', 4)
   const [previewSeedVersion, setPreviewSeedVersion] = useKV<string>('preview-seed-version', '')
+  const [suppressAutoSeedAfterReset, setSuppressAutoSeedAfterReset] = useState(false)
 
   /**
    * Computed active user identifier that switches between the demo session user ID
@@ -631,6 +632,7 @@ function App() {
       return
     }
 
+    setSuppressAutoSeedAfterReset(true)
     clearPreviewDataState(true)
   }, [
     clearPreviewDataState,
@@ -686,7 +688,7 @@ function App() {
   }, [demoModeEnabled])
 
   useEffect(() => {
-    if (!previewSeedEnabled) {
+    if (!previewSeedEnabled || suppressAutoSeedAfterReset) {
       return
     }
 
@@ -737,6 +739,8 @@ function App() {
     setRiskHistorySnapshots,
     setTargetTrainerCoverage,
     setPreviewSeedVersion,
+    // This flag gates auto-seeding after a reset, so changes must re-run this effect to re-evaluate seeding logic.
+    suppressAutoSeedAfterReset,
     applyPreviewSeedData
   ])
 
@@ -2079,7 +2083,7 @@ function App() {
                 <CardHeader>
                   <CardTitle>Preview Test Data</CardTitle>
                   <CardDescription>
-                    Reset the local preview dataset when you need a clean state.
+                    Reset the local preview dataset and pause automatic reseeding for this tab.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -2090,7 +2094,7 @@ function App() {
                     <Button variant="destructive" onClick={handleResetPreviewData}>Reset Preview Data</Button>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Reset clears all local preview records.
+                    Reset clears all local preview records{previewSeedEnabled ? ' and keeps preview auto-seeding paused until reload.' : '.'}
                   </div>
                 </CardContent>
               </Card>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { PREVIEW_SEED_VERSION, createPreviewSeedData } from './preview-seed-data'
+import { PREVIEW_SEED_VERSION, createPreviewSeedData, getRiskLevelFromScore } from './preview-seed-data'
 
 describe('preview-seed-data', () => {
     it('exposes the expected seed data version', () => {
@@ -144,6 +144,21 @@ describe('preview-seed-data', () => {
         expect(trendDirections).toContain(-1)
         expect(trendDirections).toContain(0)
         expect(trendDirections).toContain(1)
+    })
+
+    it('maps risk-score cutoffs with exact boundary behavior', () => {
+        const boundaryCases = [
+            { score: 39, expected: 'low' as const },
+            { score: 40, expected: 'medium' as const },
+            { score: 64, expected: 'medium' as const },
+            { score: 65, expected: 'high' as const },
+            { score: 84, expected: 'high' as const },
+            { score: 85, expected: 'critical' as const },
+        ]
+
+        for (const { score, expected } of boundaryCases) {
+            expect(getRiskLevelFromScore(score)).toBe(expected)
+        }
     })
 
     it('produces a deterministic, wrapping shift pattern across all sessions', () => {

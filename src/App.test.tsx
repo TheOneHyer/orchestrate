@@ -1599,6 +1599,39 @@ describe('App', () => {
         )
     })
 
+    it('does not auto-reseed after an explicit preview reset in empty mode', async () => {
+        const user = userEvent.setup()
+
+        getPreviewSeedModeMock.mockReturnValue('empty')
+        isPreviewSeedEnabledMock.mockReturnValue(true)
+        kvSeed['users'] = []
+        kvSeed['sessions'] = []
+        kvSeed['courses'] = []
+        kvSeed['enrollments'] = []
+        kvSeed['preview-seed-version'] = ''
+
+        render(<App />)
+
+        await waitFor(() => {
+            expect(createPreviewSeedDataMock).toHaveBeenCalled()
+        })
+
+        await user.click(screen.getByRole('button', { name: /^go settings$/i }))
+
+        createPreviewSeedDataMock.mockClear()
+
+        await user.click(screen.getByRole('button', { name: /reset preview data/i }))
+
+        await waitFor(() => {
+            expect(kvState['users']).toEqual([])
+            expect(kvState['sessions']).toEqual([])
+            expect(kvState['courses']).toEqual([])
+            expect(kvState['enrollments']).toEqual([])
+        })
+
+        expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
+    })
+
     it('auto-seeds preview data in empty mode when enabled', async () => {
         getPreviewSeedModeMock.mockReturnValue('empty')
         isPreviewSeedEnabledMock.mockReturnValue(true)

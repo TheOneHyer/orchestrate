@@ -172,7 +172,7 @@ type RiskProfile = 'critical' | 'high' | 'medium' | 'low'
  * @param score - Numeric burnout-risk score on a 0-100 scale.
  * @returns Categorical risk level.
  */
-function getRiskLevelFromScore(score: number): RiskHistorySnapshot['riskLevel'] {
+export function getRiskLevelFromScore(score: number): RiskHistorySnapshot['riskLevel'] {
     if (score >= 85) {
         return 'critical'
     }
