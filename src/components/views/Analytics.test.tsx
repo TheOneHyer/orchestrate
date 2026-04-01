@@ -129,7 +129,7 @@ describe('Analytics', () => {
         ...createUser({ id: 't1', name: 'Trainer One', email: 't1@example.com', role: 'trainer' }),
         trainerProfile: {
           authorizedRoles: [],
-          shiftSchedules: [{ shiftCode: 'DAY', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8 }],
+          shiftSchedules: [{ shiftCode: 'DAY', shiftType: 'day', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8 }],
           tenure: { hireDate: '2024-01-01', yearsOfService: 2, monthsOfService: 24 },
           specializations: [],
         },
@@ -298,7 +298,7 @@ describe('Analytics', () => {
         ...createUser({ id: 't1', name: 'T1', email: 't1@example.com', role: 'trainer' }),
         trainerProfile: {
           authorizedRoles: [],
-          shiftSchedules: [{ shiftCode: 'DAY', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8 }],
+          shiftSchedules: [{ shiftCode: 'DAY', shiftType: 'day', daysWorked: ['monday'], startTime: '08:00', endTime: '16:00', totalHoursPerWeek: 8 }],
           tenure: { hireDate: '2024-01-01', yearsOfService: 2, monthsOfService: 24 },
           specializations: [],
         },
@@ -307,7 +307,7 @@ describe('Analytics', () => {
         ...createUser({ id: 't2', name: 'T2', email: 't2@example.com', role: 'trainer' }),
         trainerProfile: {
           authorizedRoles: [],
-          shiftSchedules: [{ shiftCode: 'EVENING', daysWorked: ['tuesday'], startTime: '16:00', endTime: '23:00', totalHoursPerWeek: 7 }],
+          shiftSchedules: [{ shiftCode: 'EVENING', shiftType: 'evening', daysWorked: ['tuesday'], startTime: '16:00', endTime: '23:00', totalHoursPerWeek: 7 }],
           tenure: { hireDate: '2024-01-01', yearsOfService: 1, monthsOfService: 12 },
           specializations: [],
         },

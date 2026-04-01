@@ -179,7 +179,7 @@ class NotificationMock {
     badge?: string
     data?: unknown
     requireInteraction?: boolean
-    silent?: boolean
+    silent?: boolean | null
 
     /**
      * @param title - The notification title.

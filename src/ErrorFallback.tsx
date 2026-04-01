@@ -1,5 +1,6 @@
 import { Alert, AlertTitle, AlertDescription } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
+import type { FallbackProps } from "react-error-boundary";
 
 import { AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
 
@@ -18,7 +19,7 @@ import { AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
  *   state, allowing the application to attempt re-rendering.
  * @returns A full-screen error card, or re-throws in development.
  */
-export const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => {
+export const ErrorFallback = ({ error, resetErrorBoundary }: FallbackProps) => {
   // When encountering an error in the development mode, rethrow it and don't display the boundary.
   // The parent UI will take care of showing a more helpful dialog.
   if (import.meta.env.DEV) throw error;
@@ -37,7 +38,7 @@ export const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; res
         <div className="bg-card border rounded-lg p-4 mb-6">
           <h3 className="font-semibold text-sm text-muted-foreground mb-2">Error Details:</h3>
           <pre className="text-xs text-destructive bg-muted/50 p-3 rounded border overflow-auto max-h-32">
-            {error.message}
+            {error instanceof Error ? error.message : String(error)}
           </pre>
         </div>
         

@@ -7,7 +7,7 @@ import sparkPlugin from "@github/spark/spark-vite-plugin";
 import createIconImportProxy from "@github/spark/vitePhosphorIconProxyPlugin";
 import { resolve } from "path";
 
-const projectRoot = process.env.PROJECT_ROOT || import.meta.dirname
+const projectRoot = process.env.PROJECT_ROOT || process.cwd()
 const isTest = Boolean(process.env.VITEST)
 
 // https://vite.dev/config/

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 
 import { calculateWellnessScore } from '@/lib/wellness-analytics'
 import type { User, WellnessCheckIn } from '@/lib/types'
@@ -36,25 +37,20 @@ const latestCheckIn: WellnessCheckIn = {
 
 describe('RecoveryPlanDialog', () => {
     let user: ReturnType<typeof userEvent.setup>
-    let baseProps: {
-        open: boolean
-        onClose: ReturnType<typeof vi.fn>
-        trainerId: string
-        trainerName: string
-        currentUser: User
-        onSubmit: ReturnType<typeof vi.fn>
-    }
+    let baseProps: ComponentProps<typeof RecoveryPlanDialog>
+    let onSubmitMock: ReturnType<typeof vi.fn<(plan: Omit<import('@/lib/types').RecoveryPlan, 'id' | 'createdAt'>) => void>>
 
     beforeEach(() => {
         vi.clearAllMocks()
         user = userEvent.setup()
+        onSubmitMock = vi.fn<(plan: Omit<import('@/lib/types').RecoveryPlan, 'id' | 'createdAt'>) => void>()
         baseProps = {
             open: true,
-            onClose: vi.fn(),
+            onClose: vi.fn<() => void>(),
             trainerId: 'trainer-1',
             trainerName: 'Taylor Trainer',
             currentUser,
-            onSubmit: vi.fn(),
+            onSubmit: onSubmitMock,
         }
     })
 
@@ -94,12 +90,12 @@ describe('RecoveryPlanDialog', () => {
 
         await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
 
-        expect(baseProps.onSubmit).toHaveBeenCalledOnce()
-        const submittedPayload = baseProps.onSubmit.mock.calls[0][0]
+        expect(onSubmitMock).toHaveBeenCalledOnce()
+        const submittedPayload = onSubmitMock.mock.calls[0][0]
         expect(new Date(submittedPayload.targetCompletionDate).getTime()).toBeGreaterThan(
             new Date(submittedPayload.startDate).getTime()
         )
-        expect(baseProps.onSubmit).toHaveBeenCalledWith(
+        expect(onSubmitMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 trainerId: 'trainer-1',
                 createdBy: 'admin-1',
@@ -170,8 +166,8 @@ describe('RecoveryPlanDialog', () => {
 
         await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
 
-        expect(baseProps.onSubmit).toHaveBeenCalledOnce()
-        const submittedPlan = baseProps.onSubmit.mock.calls[0][0]
+        expect(onSubmitMock).toHaveBeenCalledOnce()
+        const submittedPlan = onSubmitMock.mock.calls[0][0]
         expect(submittedPlan.actions).toHaveLength(1)
         expect(submittedPlan.actions[0]).toEqual(
             expect.objectContaining({
@@ -207,7 +203,7 @@ describe('RecoveryPlanDialog', () => {
 
         await user.click(screen.getByRole('button', { name: /create recovery plan/i }))
 
-        expect(baseProps.onSubmit).toHaveBeenCalledWith(
+        expect(onSubmitMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 targetUtilization: 65,
                 currentUtilization: 88,
@@ -223,7 +219,7 @@ describe('RecoveryPlanDialog', () => {
             })
         )
 
-        const submittedPlan = baseProps.onSubmit.mock.calls[0][0]
+        const submittedPlan = onSubmitMock.mock.calls[0][0]
         const durationDays = (new Date(submittedPlan.targetCompletionDate).getTime() - new Date(submittedPlan.startDate).getTime()) / (1000 * 60 * 60 * 24)
         expect(durationDays).toBeGreaterThanOrEqual(41)
     })
@@ -345,7 +341,7 @@ describe('RecoveryPlanDialog', () => {
             stress: 'low',
             followUpRequired: false,
             concerns: [],
-            energy: 'good',
+            energy: 'energized',
         }
 
         render(

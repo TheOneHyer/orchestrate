@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { AddPersonDialog } from './AddPersonDialog'
+import type { User } from '@/lib/types'
 
 const toastError = vi.fn()
 const toastSuccess = vi.fn()
@@ -15,19 +17,14 @@ vi.mock('sonner', () => ({
 }))
 
 describe('AddPersonDialog', () => {
-    let baseProps: {
-        open: boolean
-        onOpenChange: ReturnType<typeof vi.fn>
-        onSave: ReturnType<typeof vi.fn>
-        existingEmails: string[]
-    }
+    let baseProps: ComponentProps<typeof AddPersonDialog>
 
     beforeEach(() => {
         vi.clearAllMocks()
         baseProps = {
             open: true,
-            onOpenChange: vi.fn(),
-            onSave: vi.fn(),
+            onOpenChange: vi.fn<(open: boolean) => void>(),
+            onSave: vi.fn<(user: User) => void>(),
             existingEmails: [],
         }
     })

@@ -5,24 +5,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { WellnessCheckInDialog } from './WellnessCheckInDialog'
 import { COMMON_CONCERNS } from '@/lib/wellness-concerns'
+import type { ComponentProps } from 'react'
+import type { WellnessCheckIn } from '@/lib/types'
 
-let defaultProps!: {
-  open: boolean
-  onClose: ReturnType<typeof vi.fn>
-  trainerId: string
-  trainerName: string
-  onSubmit: ReturnType<typeof vi.fn>
-}
+let defaultProps!: ComponentProps<typeof WellnessCheckInDialog>
 
 describe('WellnessCheckInDialog', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     defaultProps = {
       open: true,
-      onClose: vi.fn(),
+      onClose: vi.fn<() => void>(),
       trainerId: 'trainer-1',
       trainerName: 'Alex Trainer',
-      onSubmit: vi.fn(),
+      onSubmit: vi.fn<(checkIn: Omit<WellnessCheckIn, 'id' | 'timestamp'>) => void>(),
     }
   })
 

@@ -195,6 +195,7 @@ describe('scheduler', () => {
                 shiftSchedules: [
                     {
                         shiftCode: 'WEEKDAY',
+                        shiftType: 'day',
                         daysWorked: ['monday'],
                         startTime: '08:00',
                         endTime: '17:00',
@@ -561,6 +562,7 @@ describe('scheduler', () => {
                 ...createTrainer('trainer-overnight', 'Night Owl', ['Forklift']).trainerProfile,
                 shiftSchedules: [{
                     shiftCode: 'NIGHT',
+                    shiftType: 'night',
                     daysWorked: ['monday'],
                     startTime: '22:00',
                     endTime: '06:00',
