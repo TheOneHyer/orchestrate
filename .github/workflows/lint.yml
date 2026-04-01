@@ -85,10 +85,11 @@ jobs:
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           MARKER="<!-- lint-status-comment -->"
 
-          BODY=$(printf '%s\n\n%s\n\n%s' \
-            '## ❌ Lint Failed' \
-            "One or more ESLint errors or warnings were found on this PR. Review the [workflow run]($RUN_URL) for details." \
-            "$MARKER")
+          BODY="## ❌ Lint Failed"
+          BODY+=$'\n\n'
+          BODY+="One or more ESLint errors or warnings were found on this PR. Review the [workflow run]($RUN_URL) for details."
+          BODY+=$'\n\n'
+          BODY+="$MARKER"
 
           # Try to find an existing bot comment for lint status using the hidden marker.
           COMMENT_ID="$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" \
@@ -106,6 +107,7 @@ jobs:
               -X PATCH \
               -f "body=$BODY"
           fi
+
       - name: Fail if lint failed
         if: steps.lint.outcome == 'failure'
         run: |
