@@ -78,6 +78,9 @@ export function Notifications({
 
   const unreadNotifications = notifications.filter(n => !n.read)
   const readNotifications = notifications.filter(n => n.read)
+  const learningReminderNotifications = notifications.filter((notification) =>
+    typeof notification.metadata?.learningReminderKey === 'string'
+  )
 
   const getFilteredNotifications = () => {
     let filtered = notifications
@@ -103,6 +106,9 @@ export function Notifications({
         break
       case 'workload':
         filtered = notifications.filter(n => n.type === 'workload')
+        break
+      case 'learning-reminders':
+        filtered = learningReminderNotifications
         break
       case 'high-priority':
         filtered = notifications.filter(n =>
@@ -291,7 +297,7 @@ export function Notifications({
         <Card>
           <CardHeader>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-4 lg:grid-cols-9 gap-2 h-auto">
+              <TabsList className="grid grid-cols-4 lg:grid-cols-10 gap-2 h-auto">
                 <TabsTrigger value="all" className="text-xs">
                   All
                   <Badge variant="secondary" className="ml-2">
@@ -323,6 +329,14 @@ export function Notifications({
                 </TabsTrigger>
                 <TabsTrigger value="reminder" className="text-xs">
                   Reminders
+                </TabsTrigger>
+                <TabsTrigger value="learning-reminders" className="text-xs">
+                  Learning
+                  {learningReminderNotifications.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {learningReminderNotifications.length}
+                    </Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="workload" className="text-xs">
                   Workload

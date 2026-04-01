@@ -347,6 +347,50 @@ describe('Notifications', () => {
     expect(screen.queryByText('Medium Item')).not.toBeInTheDocument()
   })
 
+  it('filters notifications by learning reminder tab using metadata keys', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <Notifications
+        notifications={[
+          {
+            ...baseNotification,
+            id: 'n-learning',
+            title: 'Learning Reminder Item',
+            type: 'reminder',
+            metadata: { learningReminderKey: 'enrollment-1:due-soon' },
+          },
+          {
+            ...baseNotification,
+            id: 'n-standard-reminder',
+            title: 'Standard Reminder Item',
+            type: 'reminder',
+            read: true,
+          },
+          {
+            ...baseNotification,
+            id: 'n-system',
+            title: 'System Item',
+            type: 'system',
+            read: true,
+          },
+        ]}
+        onMarkAsRead={vi.fn()}
+        onMarkAsUnread={vi.fn()}
+        onMarkAllAsRead={vi.fn()}
+        onDismiss={vi.fn()}
+        onDismissAll={vi.fn()}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    await user.click(screen.getByRole('tab', { name: /^learning/i }))
+
+    expect(screen.getByText('Learning Reminder Item')).toBeInTheDocument()
+    expect(screen.queryByText('Standard Reminder Item')).not.toBeInTheDocument()
+    expect(screen.queryByText('System Item')).not.toBeInTheDocument()
+  })
+
   it('handles notifications with different priority levels', () => {
     const notifications: Notification[] = [
       { ...baseNotification, id: 'n-1', priority: 'high', title: 'High Priority' },
