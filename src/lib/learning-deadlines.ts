@@ -90,7 +90,9 @@ export function buildLearningDeadlineInsights(
       }
 
       const targetDate = resolveEnrollmentTargetDate(enrollment)
-      const daysUntilDue = Math.floor((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      const millisUntilDue = targetDate.getTime() - now.getTime()
+      const daysUntilDueFloat = millisUntilDue / (1000 * 60 * 60 * 24)
+      const daysUntilDue = millisUntilDue >= 0 ? Math.floor(daysUntilDueFloat) : Math.ceil(daysUntilDueFloat)
       const isOverdue = daysUntilDue < 0
       const isDueSoon = !isOverdue && daysUntilDue <= DUE_SOON_THRESHOLD_DAYS
 
