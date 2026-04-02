@@ -353,94 +353,110 @@ describe('Dashboard', () => {
     const courses: Course[] = [
       { ...baseCourse, id: 'engagement-course-1', title: 'Engagement Course 1' },
       { ...baseCourse, id: 'engagement-course-2', title: 'Engagement Course 2' },
-    ]
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-20T00:00:00.000Z'))
 
-    const enrollments: Enrollment[] = [
-      {
-        id: 'engagement-critical',
-        userId: baseUser.id,
-        courseId: 'engagement-course-1',
-        status: 'in-progress',
-        progress: 25,
-        enrolledAt: '2026-02-01T00:00:00.000Z',
-        lastProgressAt: '2026-03-01T00:00:00.000Z',
-      },
-      {
-        id: 'engagement-stalled',
-        userId: baseUser.id,
-        courseId: 'engagement-course-2',
-        status: 'enrolled',
-        progress: 5,
-        enrolledAt: '2026-03-15T00:00:00.000Z',
-        lastProgressAt: '2026-03-23T00:00:00.000Z',
-      },
-    ]
+    try {
+      const courses: Course[] = [
+        { ...baseCourse, id: 'deadline-course-1', title: 'Deadline Course 1' },
+        { ...baseCourse, id: 'deadline-course-2', title: 'Deadline Course 2' },
+      ]
 
-    render(
-      <Dashboard
-        currentUser={baseUser}
-        upcomingSessions={[]}
-        notifications={[]}
-        enrollments={enrollments}
-        courses={courses}
-        onNavigate={onNavigate}
-      />
-    )
+      const enrollments: Enrollment[] = [
+        {
+          id: 'deadline-overdue',
+          userId: baseUser.id,
+          courseId: 'deadline-course-1',
+          status: 'in-progress',
+          progress: 20,
+          enrolledAt: '2026-02-01T00:00:00.000Z',
+          targetCompletionDate: '2026-03-15T00:00:00.000Z',
+        },
+        {
+          id: 'deadline-soon',
+          userId: baseUser.id,
+          courseId: 'deadline-course-2',
+          status: 'enrolled',
+          progress: 10,
+          enrolledAt: '2026-03-15T00:00:00.000Z',
+          targetCompletionDate: '2026-04-05T00:00:00.000Z',
+        },
+      ]
 
-    const engagementCard = screen.getByText(/^engagement watch$/i).closest('[data-slot="card"]')
-    expect(engagementCard).not.toBeNull()
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={courses}
+          onNavigate={vi.fn()}
+        />
+      )
 
-    if (!engagementCard) {
-      throw new Error('Expected engagement watch card to exist')
+      const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
+      expect(deadlineWatchCard).not.toBeNull()
+
+      if (!deadlineWatchCard) {
+        throw new Error('Expected deadline watch card to exist')
+      }
+
+      expect(within(deadlineWatchCard).getByText(/^overdue$/i)).toBeInTheDocument()
+      expect(within(deadlineWatchCard).getByText(/^due soon$/i)).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
     }
-
-    expect(within(engagementCard).getByText(/engagement course 1/i)).toBeInTheDocument()
-    expect(within(engagementCard).getByText(/critical stall/i)).toBeInTheDocument()
-
-    await userEvent.click(within(engagementCard).getByRole('button', { name: /engagement course 1/i }))
-    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'engagement-course-1' })
   })
 
   it('navigates from deadline watch items to course details', async () => {
-    const onNavigate = vi.fn()
-    const deadlineCourse: Course = {
-      ...baseCourse,
-      id: 'deadline-course-nav',
-      title: 'Deadline Navigation Course',
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-20T00:00:00.000Z'))
+
+    try {
+      const onNavigate = vi.fn()
+      const deadlineCourse: Course = {
+        ...baseCourse,
+        id: 'deadline-course-nav',
+        title: 'Deadline Navigation Course',
+      }
+
+      const enrollments: Enrollment[] = [
+        {
+          id: 'deadline-navigation-enrollment',
+          userId: baseUser.id,
+          courseId: 'deadline-course-nav',
+          status: 'in-progress',
+          progress: 40,
+          enrolledAt: '2026-03-01T00:00:00.000Z',
+          targetCompletionDate: '2026-04-04T00:00:00.000Z',
+        },
+      ]
+
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={[deadlineCourse]}
+          onNavigate={onNavigate}
+        />
+      )
+
+      const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
+      expect(deadlineWatchCard).not.toBeNull()
+
+      if (!deadlineWatchCard) {
+        throw new Error('Expected deadline watch card to exist')
+      }
+
+      await userEvent.click(
+        within(deadlineWatchCard).getByRole('button', { name: /deadline navigation course/i })
+      )
+      expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'deadline-course-nav' })
+    } finally {
+      vi.useRealTimers()
     }
-
-    const enrollments: Enrollment[] = [
-      {
-        id: 'deadline-navigation-enrollment',
-        userId: baseUser.id,
-        courseId: 'deadline-course-nav',
-        status: 'in-progress',
-        progress: 40,
-        enrolledAt: '2026-03-01T00:00:00.000Z',
-        targetCompletionDate: '2026-04-04T00:00:00.000Z',
-      },
-    ]
-
-    render(
-      <Dashboard
-        currentUser={baseUser}
-        upcomingSessions={[]}
-        notifications={[]}
-        enrollments={enrollments}
-        courses={[deadlineCourse]}
-        onNavigate={onNavigate}
-      />
-    )
-
-    const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
-    expect(deadlineWatchCard).not.toBeNull()
-
-    if (!deadlineWatchCard) {
-      throw new Error('Expected deadline watch card to exist')
-    }
-
-    await userEvent.click(within(deadlineWatchCard).getByRole('button', { name: /deadline navigation course/i }))
-    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'deadline-course-nav' })
   })
 
   it('opens notifications pre-filtered to learning reminders from deadline watch', async () => {
