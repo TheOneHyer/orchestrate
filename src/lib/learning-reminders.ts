@@ -40,12 +40,23 @@ export function buildLearningReminderCandidates(
       .filter((value): value is string => typeof value === 'string')
   )
 
+  const explicitTargetEnrollmentIds = new Set(
+    enrollments
+      .filter((enrollment) => {
+        if (!enrollment.targetCompletionDate) {
+          return false
+        }
+        const parsed = new Date(enrollment.targetCompletionDate)
+        return !Number.isNaN(parsed.getTime())
+      })
+      .map((enrollment) => enrollment.id)
+  )
+
   return buildLearningDeadlineInsights(enrollments, courses, now)
     .filter((insight) => insight.urgency === 'due-soon' || insight.urgency === 'overdue')
     .filter((insight) => {
       // Only emit reminders for enrollments with explicit targets to avoid noisy defaults.
-      const enrollment = enrollments.find((item) => item.id === insight.enrollmentId)
-      return Boolean(enrollment?.targetCompletionDate)
+      return explicitTargetEnrollmentIds.has(insight.enrollmentId)
     })
     .map((insight) => {
       const stage = insight.urgency === 'overdue' ? 'overdue' : 'due-soon'
