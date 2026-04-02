@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -62,10 +63,13 @@ export function Dashboard({
   const unreadNotifications = notifications.filter(n => !n.read)
   const activeEnrollments = enrollments.filter(e => e.status === 'in-progress')
   const completedCount = enrollments.filter(e => e.status === 'completed').length
-  const learningFocusItems = buildLearningFocusItems(enrollments, courses)
-  const learningDeadlineItems = buildLearningDeadlineInsights(enrollments, courses)
-  const learningEngagementItems = buildLearningEngagementItems(enrollments, courses)
-  const learningPathRecommendations = buildLearningPathRecommendations(currentUser, courses, enrollments)
+  const learningFocusItems = useMemo(() => buildLearningFocusItems(enrollments, courses), [courses, enrollments])
+  const learningDeadlineItems = useMemo(() => buildLearningDeadlineInsights(enrollments, courses), [courses, enrollments])
+  const learningEngagementItems = useMemo(() => buildLearningEngagementItems(enrollments, courses), [courses, enrollments])
+  const learningPathRecommendations = useMemo(
+    () => buildLearningPathRecommendations(currentUser, courses, enrollments),
+    [courses, currentUser, enrollments]
+  )
 
   return (
     <div className="p-6 space-y-6">

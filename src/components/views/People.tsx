@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { MagnifyingGlass, Plus, UserCircle, ArrowLeft, WarningCircle } from '@phosphor-icons/react'
@@ -133,6 +133,19 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
     }
   }
 
+  const certificationGapStatsByUserId = useMemo(() => {
+    const map = new Map<string, { certificationCount: number; missingCount: number }>()
+    users.forEach((user) => {
+      const missingCertifications = getMissingCertificationsForUser(user, courses)
+      map.set(user.id, {
+        certificationCount: user.certifications.length,
+        missingCount: missingCertifications.length,
+      })
+    })
+
+    return map
+  }, [courses, users])
+
   /**
    * Returns certification coverage summary for the given user.
    *
@@ -140,10 +153,9 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
    * @returns Existing certification count and missing certification count.
    */
   const getUserCertificationGapStats = (user: User) => {
-    const missingCertifications = getMissingCertificationsForUser(user, courses)
-    return {
+    return certificationGapStatsByUserId.get(user.id) || {
       certificationCount: user.certifications.length,
-      missingCount: missingCertifications.length,
+      missingCount: getMissingCertificationsForUser(user, courses).length,
     }
   }
 
@@ -212,7 +224,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
   const existingEmails = users.map(u => u.email.toLowerCase())
 
   return (
-    <div className="p-6 space-y-6">
+    <section className="p-6 space-y-6" aria-labelledby="people-heading">
       {selectedUser ? (
         <div className="space-y-4">
           <Button variant="ghost" onClick={() => {
@@ -243,7 +255,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
         <>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-semibold text-foreground">People</h1>
+              <h1 id="people-heading" className="text-3xl font-semibold text-foreground">People</h1>
               <p className="text-muted-foreground mt-1">Manage employees and training profiles</p>
             </div>
             {currentUser.role === 'admin' && (
@@ -261,13 +273,14 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                 placeholder="Search people..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search people"
                 className="pl-10"
               />
             </div>
           </div>
 
           <Tabs value={roleFilter} onValueChange={(v) => setRoleFilter(v as 'all' | 'admin' | 'trainer' | 'employee')}>
-            <TabsList>
+            <TabsList aria-label="Filter people by role">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="employee">Employees</TabsTrigger>
               <TabsTrigger value="trainer">Trainers</TabsTrigger>
@@ -277,16 +290,19 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
             <TabsContent value={roleFilter} className="mt-6">
               <Card>
                 <CardContent className="pt-6">
-                  <Table>
+                  <Table aria-label="People directory">
+                    <TableCaption className="sr-only">
+                      People directory with role, department, schedule, enrollment, and certification status.
+                    </TableCaption>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Shifts</TableHead>
-                        <TableHead>Enrollments</TableHead>
-                        <TableHead>Certifications</TableHead>
-                        <TableHead></TableHead>
+                        <TableHead scope="col">Name</TableHead>
+                        <TableHead scope="col">Role</TableHead>
+                        <TableHead scope="col">Department</TableHead>
+                        <TableHead scope="col">Shifts</TableHead>
+                        <TableHead scope="col">Enrollments</TableHead>
+                        <TableHead scope="col">Certifications</TableHead>
+                        <TableHead scope="col"><span className="sr-only">Actions</span></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -297,7 +313,19 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                           (!user.trainerProfile?.shiftSchedules || user.trainerProfile.shiftSchedules.length === 0)
 
                         return (
-                          <TableRow key={user.id} className="cursor-pointer hover:bg-secondary" onClick={() => handleUserClick(user)}>
+                          <TableRow
+                            key={user.id}
+                            className="cursor-pointer hover:bg-secondary"
+                            onClick={() => handleUserClick(user)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault()
+                                handleUserClick(user)
+                              }
+                            }}
+                            tabIndex={0}
+                            aria-label={`View profile for ${user.name}`}
+                          >
                             <TableCell>
                               <div className="flex items-center gap-3">
                                 <Avatar>
@@ -311,7 +339,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                                     {isTrainerWithoutSchedule && (
                                       <TooltipProvider>
                                         <Tooltip>
-                                          <TooltipTrigger>
+                                          <TooltipTrigger aria-label={`Schedule not configured for ${user.name}`}>
                                             <WarningCircle size={16} weight="fill" className="text-amber-600 dark:text-amber-500" />
                                           </TooltipTrigger>
                                           <TooltipContent>
@@ -363,7 +391,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="sm" tabIndex={-1} aria-hidden="true">
                                 View Profile
                               </Button>
                             </TableCell>
@@ -399,6 +427,6 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
           />
         </>
       )}
-    </div>
+    </section>
   )
 }

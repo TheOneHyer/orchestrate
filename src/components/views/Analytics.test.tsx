@@ -87,7 +87,7 @@ describe('Analytics', () => {
     expect(screen.getByTestId('average-score')).toHaveTextContent('86%')
     expect(screen.getByTestId('sessions-completed')).toHaveTextContent('1/2')
     expect(screen.getByText(/course performance/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/compliance 101/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/compliance 101/i)).not.toHaveLength(0)
     expect(screen.getByText(/department distribution/i)).toBeInTheDocument()
     expect(screen.getByText(/trainer schedule status/i)).toBeInTheDocument()
   })
@@ -495,6 +495,9 @@ describe('Analytics', () => {
   })
 
   it('shows due-soon and overdue enrollment counts in operational highlights', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-02T00:00:00.000Z'))
+
     const courses: Course[] = [
       { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
       { id: 'c2', title: 'Leadership', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-02', published: true, passScore: 80 },
@@ -507,6 +510,7 @@ describe('Analytics', () => {
         courseId: 'c1',
         status: 'in-progress',
         progress: 15,
+        score: 0,
         enrolledAt: '2026-02-01T00:00:00.000Z',
         targetCompletionDate: '2026-03-10T00:00:00.000Z',
       },
@@ -516,15 +520,20 @@ describe('Analytics', () => {
         courseId: 'c2',
         status: 'enrolled',
         progress: 5,
+        score: 0,
         enrolledAt: '2026-03-20T00:00:00.000Z',
         targetCompletionDate: '2026-04-06T00:00:00.000Z',
       },
     ]
 
-    render(<Analytics users={[]} courses={courses} sessions={[]} enrollments={enrollments} />)
+    try {
+      render(<Analytics users={[]} courses={courses} sessions={[]} enrollments={enrollments} />)
 
-    expect(screen.getByTestId('due-soon-enrollments-value')).toHaveTextContent('1')
-    expect(screen.getByTestId('overdue-enrollments-value')).toHaveTextContent('1')
+      expect(screen.getByTestId('due-soon-enrollments-value')).toHaveTextContent('1')
+      expect(screen.getByTestId('overdue-enrollments-value')).toHaveTextContent('1')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows learner skill-gap metrics in operational highlights', () => {
@@ -546,6 +555,9 @@ describe('Analytics', () => {
   })
 
   it('shows stalled and critical stalled enrollment engagement metrics', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-02T00:00:00.000Z'))
+
     const users: User[] = [
       createUser({ id: 'u1', name: 'Learner One', role: 'employee', department: 'Ops' }),
       createUser({ id: 'u2', name: 'Learner Two', role: 'employee', department: 'Ops' }),
@@ -562,6 +574,7 @@ describe('Analytics', () => {
         courseId: 'c1',
         status: 'in-progress',
         progress: 20,
+        score: 0,
         enrolledAt: '2026-02-01T00:00:00.000Z',
         lastProgressAt: '2026-03-01T00:00:00.000Z',
       },
@@ -571,18 +584,23 @@ describe('Analytics', () => {
         courseId: 'c2',
         status: 'enrolled',
         progress: 8,
+        score: 0,
         enrolledAt: '2026-03-10T00:00:00.000Z',
         lastProgressAt: '2026-03-24T00:00:00.000Z',
       },
     ]
 
-    render(<Analytics users={users} courses={courses} sessions={[]} enrollments={enrollments} />)
+    try {
+      render(<Analytics users={users} courses={courses} sessions={[]} enrollments={enrollments} />)
 
-    expect(screen.getByTestId('stalled-enrollments-value')).toHaveTextContent('1')
-    expect(screen.getByTestId('critical-stalled-enrollments-value')).toHaveTextContent('1')
-    expect(screen.getByText(/intervention queue/i)).toBeInTheDocument()
-    expect(screen.getByTestId('intervention-e-critical-stall')).toHaveTextContent('Learner One')
-    expect(screen.getByTestId('intervention-e-critical-stall')).toHaveTextContent('Critical stall')
+      expect(screen.getByTestId('stalled-enrollments-value')).toHaveTextContent('1')
+      expect(screen.getByTestId('critical-stalled-enrollments-value')).toHaveTextContent('1')
+      expect(screen.getByText(/intervention queue/i)).toBeInTheDocument()
+      expect(screen.getByTestId('intervention-e-critical-stall')).toHaveTextContent('Learner One')
+      expect(screen.getByTestId('intervention-e-critical-stall')).toHaveTextContent('Critical stall')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows intervention SLA fields and triggers playbook navigation actions', async () => {

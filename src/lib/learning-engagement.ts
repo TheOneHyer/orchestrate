@@ -1,3 +1,5 @@
+import { differenceInDays } from 'date-fns'
+
 import type { Course, Enrollment } from './types'
 
 /** Engagement severity for stalled learner progress. */
@@ -7,22 +9,22 @@ export type LearningStallSeverity = 'stalled' | 'critical-stall'
  * Insight describing a learner enrollment with little or no recent progress.
  */
 export interface LearningEngagementItem {
-  /** Enrollment identifier. */
-  enrollmentId: string
-  /** User identifier associated with the enrollment. */
-  userId: string
-  /** Course identifier associated with the enrollment. */
-  courseId: string
-  /** Resolved course title for display. */
-  courseTitle: string
-  /** Current enrollment progress percentage. */
-  progress: number
-  /** Number of full days since progress was last observed. */
-  daysSinceProgress: number
-  /** Stall severity bucket derived from inactivity duration. */
-  severity: LearningStallSeverity
-  /** Recommended action for the coach or manager. */
-  recommendedAction: string
+    /** Enrollment identifier. */
+    enrollmentId: string
+    /** User identifier associated with the enrollment. */
+    userId: string
+    /** Course identifier associated with the enrollment. */
+    courseId: string
+    /** Resolved course title for display. */
+    courseTitle: string
+    /** Current enrollment progress percentage. */
+    progress: number
+    /** Number of full days since progress was last observed. */
+    daysSinceProgress: number
+    /** Stall severity bucket derived from inactivity duration. */
+    severity: LearningStallSeverity
+    /** Recommended action for the coach or manager. */
+    recommendedAction: string
 }
 
 /** Default day threshold for considering an enrollment stalled. */
@@ -44,69 +46,71 @@ export const DEFAULT_CRITICAL_STALL_DAYS = 14
  * @returns Sorted stalled engagement items by severity and inactivity days.
  */
 export function buildLearningEngagementItems(
-  enrollments: Enrollment[],
-  courses: Course[],
-  now: Date = new Date(),
-  stallDays: number = DEFAULT_STALL_DAYS,
-  criticalDays: number = DEFAULT_CRITICAL_STALL_DAYS,
+    enrollments: Enrollment[],
+    courses: Course[],
+    now: Date = new Date(),
+    stallDays: number = DEFAULT_STALL_DAYS,
+    criticalDays: number = DEFAULT_CRITICAL_STALL_DAYS,
 ): LearningEngagementItem[] {
-  const courseById = new Map(courses.map((course) => [course.id, course]))
+    const courseById = new Map(courses.map((course) => [course.id, course]))
 
-  const items = enrollments
-    .filter((enrollment) => enrollment.status === 'in-progress' || enrollment.status === 'enrolled')
-    .map((enrollment) => {
-      const course = courseById.get(enrollment.courseId)
-      if (!course) {
-        return null
-      }
+    const items = enrollments
+        .filter((enrollment) => enrollment.status === 'in-progress' || enrollment.status === 'enrolled')
+        .map((enrollment) => {
+            const course = courseById.get(enrollment.courseId)
+            if (!course) {
+                return null
+            }
 
-      const activityTimestamp = enrollment.lastProgressAt || enrollment.enrolledAt
-      const activityDate = new Date(activityTimestamp)
-      if (Number.isNaN(activityDate.getTime())) {
-        return null
-      }
+            const activityTimestamp = enrollment.lastProgressAt || enrollment.enrolledAt
+            const activityDate = new Date(activityTimestamp)
+            if (Number.isNaN(activityDate.getTime())) {
+                return null
+            }
 
-      const daysSinceProgress = Math.max(
-        0,
-        Math.floor((now.getTime() - activityDate.getTime()) / (1000 * 60 * 60 * 24)),
-      )
+            const daysSinceProgress = Math.max(0, differenceInDays(now, activityDate))
 
-      if (daysSinceProgress < stallDays) {
-        return null
-      }
+            if (daysSinceProgress < stallDays) {
+                return null
+            }
 
-      const severity: LearningStallSeverity =
-        daysSinceProgress >= criticalDays ? 'critical-stall' : 'stalled'
+            const severity: LearningStallSeverity =
+                daysSinceProgress >= criticalDays ? 'critical-stall' : 'stalled'
 
-      const recommendedAction =
-        severity === 'critical-stall'
-          ? 'Escalate to manager and assign a same-week recovery checkpoint.'
-          : 'Send a coaching nudge and suggest the next micro-goal module.'
+            const recommendedAction =
+                severity === 'critical-stall'
+                    ? 'Escalate to manager and assign a same-week recovery checkpoint.'
+                    : 'Send a coaching nudge and suggest the next micro-goal module.'
 
-      return {
-        enrollmentId: enrollment.id,
-        userId: enrollment.userId,
-        courseId: enrollment.courseId,
-        courseTitle: course.title,
-        progress: enrollment.progress,
-        daysSinceProgress,
-        severity,
-        recommendedAction,
-      }
-    })
-    .filter((item): item is LearningEngagementItem => item !== null)
+            return {
+                enrollmentId: enrollment.id,
+                userId: enrollment.userId,
+                courseId: enrollment.courseId,
+                courseTitle: course.title,
+                progress: enrollment.progress,
+                daysSinceProgress,
+                severity,
+                recommendedAction,
+            }
+        })
+        .filter((item): item is LearningEngagementItem => item !== null)
 
-  const severityWeight: Record<LearningStallSeverity, number> = {
-    'critical-stall': 2,
-    stalled: 1,
-  }
-
-  return items.sort((left, right) => {
-    const severityDiff = severityWeight[right.severity] - severityWeight[left.severity]
-    if (severityDiff !== 0) {
-      return severityDiff
+    const severityWeight: Record<LearningStallSeverity, number> = {
+        'critical-stall': 2,
+        stalled: 1,
     }
 
-    return right.daysSinceProgress - left.daysSinceProgress
-  })
+    return items.sort((left, right) => {
+        const severityDiff = severityWeight[right.severity] - severityWeight[left.severity]
+        if (severityDiff !== 0) {
+            return severityDiff
+        }
+
+        const daysDiff = right.daysSinceProgress - left.daysSinceProgress
+        if (daysDiff !== 0) {
+            return daysDiff
+        }
+
+        return left.enrollmentId.localeCompare(right.enrollmentId)
+    })
 }

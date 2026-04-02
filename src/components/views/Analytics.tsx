@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
@@ -48,6 +49,75 @@ function toStableSlug(value: string): string {
  */
 function trainerLabel(count: number): string {
   return `${count} trainer${count === 1 ? '' : 's'}`
+}
+
+/**
+ * Groups engagement reminders by enrollment identifier.
+ * @param reminders - Notification records that may include engagement reminder metadata.
+ * @returns A map keyed by enrollment ID containing related reminder notifications.
+ */
+function buildEngagementRemindersByEnrollment(reminders: Notification[]): Map<string, Notification[]> {
+  return reminders
+    .filter((notification) => typeof notification.metadata?.engagementReminderKey === 'string')
+    .reduce((map, notification) => {
+      const enrollmentId = notification.metadata?.enrollmentId
+      if (typeof enrollmentId !== 'string') {
+        return map
+      }
+
+      const list = map.get(enrollmentId) || []
+      list.push(notification)
+      map.set(enrollmentId, list)
+      return map
+    }, new Map<string, Notification[]>())
+}
+
+/**
+ * Resolves the owner display name from reminder metadata and user lookup map.
+ * @param reminders - Reminders associated with one enrollment.
+ * @param userById - Lookup map for known users.
+ * @returns Owner display name or fallback.
+ */
+function getOwnerNameFromReminders(reminders: Notification[], userById: Map<string, User>): string {
+  const reminderOwnerId = reminders
+    .map((notification) => notification.metadata?.ownerUserId)
+    .find((ownerId): ownerId is string => typeof ownerId === 'string')
+
+  if (!reminderOwnerId) {
+    return 'Unassigned'
+  }
+
+  return userById.get(reminderOwnerId)?.name ?? 'Unassigned'
+}
+
+/**
+ * Resolves the first reminder timestamp for an enrollment, if one exists.
+ * @param reminders - Reminders associated with one enrollment.
+ * @returns Earliest reminder timestamp or null.
+ */
+function getFirstNudgeAt(reminders: Notification[]): string | null {
+  if (reminders.length === 0) {
+    return null
+  }
+
+  const first = reminders
+    .map((notification) => notification.createdAt)
+    .sort((left, right) => new Date(left).getTime() - new Date(right).getTime())[0]
+
+  return first || null
+}
+
+/**
+ * Computes escalation age in full days since first nudge.
+ * @param firstNudgeAt - Timestamp of first nudge.
+ * @returns Escalation age in days.
+ */
+function getEscalationAgeDays(firstNudgeAt: string | null): number {
+  if (!firstNudgeAt) {
+    return 0
+  }
+
+  return Math.max(0, Math.floor((Date.now() - new Date(firstNudgeAt).getTime()) / (1000 * 60 * 60 * 24)))
 }
 
 /**
@@ -149,24 +219,38 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
     .slice(0, 5)
 
   const atRiskCourses = fullCourses.filter((course) => course.completionRate < 60 || course.avgScore < 75)
-  const deadlineInsights = buildLearningDeadlineInsights(filteredEnrollments, filteredCourses)
-  const engagementInsights = buildLearningEngagementItems(filteredEnrollments, filteredCourses)
+  const deadlineInsights = useMemo(
+    () => buildLearningDeadlineInsights(filteredEnrollments, filteredCourses),
+    [filteredCourses, filteredEnrollments]
+  )
+  const engagementInsights = useMemo(
+    () => buildLearningEngagementItems(filteredEnrollments, filteredCourses),
+    [filteredCourses, filteredEnrollments]
+  )
   const overdueEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'overdue').length
   const dueSoonEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'due-soon').length
   const stalledEnrollments = engagementInsights.filter((insight) => insight.severity === 'stalled').length
   const criticalStalledEnrollments = engagementInsights.filter((insight) => insight.severity === 'critical-stall').length
-  const employeesWithGaps = filteredUsers
-    .filter((user) => user.role === 'employee')
-    .filter((employee) => getMissingCertificationsForUser(employee, filteredCourses).length > 0).length
-  const topMissingCertification = (() => {
-    const counts = new Map<string, number>()
+  const missingCertificationsByEmployee = useMemo(() => {
+    const map = new Map<string, string[]>()
     filteredUsers
       .filter((user) => user.role === 'employee')
       .forEach((employee) => {
-        getMissingCertificationsForUser(employee, filteredCourses).forEach((certification) => {
-          counts.set(certification, (counts.get(certification) || 0) + 1)
-        })
+        map.set(employee.id, getMissingCertificationsForUser(employee, filteredCourses))
       })
+    return map
+  }, [filteredCourses, filteredUsers])
+  const employeesWithGaps = useMemo(
+    () => Array.from(missingCertificationsByEmployee.values()).filter((missing) => missing.length > 0).length,
+    [missingCertificationsByEmployee]
+  )
+  const topMissingCertification = useMemo(() => {
+    const counts = new Map<string, number>()
+    missingCertificationsByEmployee.forEach((missingCertifications) => {
+      missingCertifications.forEach((certification) => {
+        counts.set(certification, (counts.get(certification) || 0) + 1)
+      })
+    })
 
     const top = Array.from(counts.entries()).sort((left, right) => {
       const countDiff = right[1] - left[1]
@@ -178,52 +262,30 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
     })[0]
 
     return top ? `${top[0]} (${top[1]})` : 'None'
-  })()
-  const userById = new Map(filteredUsers.map((user) => [user.id, user]))
-  const engagementRemindersByEnrollment = notifications
-    .filter((notification) => typeof notification.metadata?.engagementReminderKey === 'string')
-    .reduce((map, notification) => {
-      const enrollmentId = notification.metadata?.enrollmentId
-      if (typeof enrollmentId !== 'string') {
-        return map
-      }
+  }, [missingCertificationsByEmployee])
+  const userById = useMemo(() => new Map(filteredUsers.map((user) => [user.id, user])), [filteredUsers])
+  const engagementRemindersByEnrollment = useMemo(
+    () => buildEngagementRemindersByEnrollment(notifications),
+    [notifications]
+  )
 
-      const list = map.get(enrollmentId) || []
-      list.push(notification)
-      map.set(enrollmentId, list)
-      return map
-    }, new Map<string, Notification[]>())
-
-  const interventionQueue = engagementInsights
-    .slice(0, 5)
-    .map((insight) => ({
-      ...insight,
-      learnerName: userById.get(insight.userId)?.name ?? 'Unknown learner',
-      ownerName: (() => {
-        const reminderOwnerId = engagementRemindersByEnrollment
-          .get(insight.enrollmentId)
-          ?.map((notification) => notification.metadata?.ownerUserId)
-          .find((ownerId): ownerId is string => typeof ownerId === 'string')
-
-        if (!reminderOwnerId) {
-          return 'Unassigned'
-        }
-
-        return userById.get(reminderOwnerId)?.name ?? 'Unassigned'
-      })(),
-      firstNudgeAt: (() => {
+  const interventionQueue = useMemo(
+    () => engagementInsights
+      .slice(0, 5)
+      .map((insight) => {
         const reminders = engagementRemindersByEnrollment.get(insight.enrollmentId) || []
-        if (reminders.length === 0) {
-          return null
+        const firstNudgeAt = getFirstNudgeAt(reminders)
+
+        return {
+          ...insight,
+          learnerName: userById.get(insight.userId)?.name ?? 'Unknown learner',
+          ownerName: getOwnerNameFromReminders(reminders, userById),
+          firstNudgeAt,
+          escalationAgeDays: getEscalationAgeDays(firstNudgeAt),
         }
-
-        const first = reminders
-          .map((notification) => notification.createdAt)
-          .sort((left, right) => new Date(left).getTime() - new Date(right).getTime())[0]
-
-        return first || null
-      })(),
-    }))
+      }),
+    [engagementInsights, engagementRemindersByEnrollment, userById]
+  )
 
   return (
     <div className="p-6 space-y-6">
@@ -457,26 +519,28 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
                   </div>
                   <div>
                     <span className="font-medium">Escalation age:</span>{' '}
-                    {item.firstNudgeAt
-                      ? `${Math.max(0, Math.floor((Date.now() - new Date(item.firstNudgeAt).getTime()) / (1000 * 60 * 60 * 24)))}d`
-                      : '0d'}
+                    {item.escalationAgeDays}d
                   </div>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button
+                  <Button
                     type="button"
-                    className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-secondary"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
                     onClick={() => onNavigate?.('courses', { courseId: item.courseId })}
                   >
                     Open Course
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="rounded-md border px-2 py-1 text-xs font-medium hover:bg-secondary"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
                     onClick={() => onNavigate?.('people', { userId: item.userId })}
                   >
                     Open Learner
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))

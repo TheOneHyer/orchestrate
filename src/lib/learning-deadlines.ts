@@ -1,4 +1,4 @@
-import { addDays } from 'date-fns'
+import { addDays, differenceInDays } from 'date-fns'
 
 import { Course, Enrollment } from '@/lib/types'
 
@@ -15,28 +15,28 @@ export type LearningDeadlineUrgency = 'on-track' | 'due-soon' | 'overdue'
  * Enriched deadline insight for an active enrollment.
  */
 export interface LearningDeadlineInsight {
-  /** Enrollment identifier. */
-  enrollmentId: string
-  /** User identifier associated with the enrollment. */
-  userId: string
-  /** Course identifier associated with the enrollment. */
-  courseId: string
-  /** Resolved course title for display. */
-  courseTitle: string
-  /** Current enrollment status. */
-  status: Enrollment['status']
-  /** Current completion percentage. */
-  progress: number
-  /** ISO target completion timestamp. */
-  targetCompletionDate: string
-  /** Number of full days until due date. Negative means overdue. */
-  daysUntilDue: number
-  /** True when due date has passed. */
-  isOverdue: boolean
-  /** True when due date is within the due-soon threshold. */
-  isDueSoon: boolean
-  /** Priority bucket based on due date proximity. */
-  urgency: LearningDeadlineUrgency
+    /** Enrollment identifier. */
+    enrollmentId: string
+    /** User identifier associated with the enrollment. */
+    userId: string
+    /** Course identifier associated with the enrollment. */
+    courseId: string
+    /** Resolved course title for display. */
+    courseTitle: string
+    /** Current enrollment status. */
+    status: Enrollment['status']
+    /** Current completion percentage. */
+    progress: number
+    /** ISO target completion timestamp. */
+    targetCompletionDate: string
+    /** Number of full days until due date. Negative means overdue. */
+    daysUntilDue: number
+    /** True when due date has passed. */
+    isOverdue: boolean
+    /** True when due date is within the due-soon threshold. */
+    isDueSoon: boolean
+    /** Priority bucket based on due date proximity. */
+    urgency: LearningDeadlineUrgency
 }
 
 /**
@@ -48,22 +48,23 @@ export interface LearningDeadlineInsight {
  * @returns A Date representing the target completion deadline.
  */
 export function resolveEnrollmentTargetDate(
-  enrollment: Enrollment,
-  fallbackDays: number = DEFAULT_TARGET_COMPLETION_DAYS
+    enrollment: Enrollment,
+    fallbackDays: number = DEFAULT_TARGET_COMPLETION_DAYS,
+    baseDate: Date = new Date()
 ): Date {
-  if (enrollment.targetCompletionDate) {
-    const explicitDate = new Date(enrollment.targetCompletionDate)
-    if (!Number.isNaN(explicitDate.getTime())) {
-      return explicitDate
+    if (enrollment.targetCompletionDate) {
+        const explicitDate = new Date(enrollment.targetCompletionDate)
+        if (!Number.isNaN(explicitDate.getTime())) {
+            return explicitDate
+        }
     }
-  }
 
-  const enrolledDate = new Date(enrollment.enrolledAt)
-  if (!Number.isNaN(enrolledDate.getTime())) {
-    return addDays(enrolledDate, fallbackDays)
-  }
+    const enrolledDate = new Date(enrollment.enrolledAt)
+    if (!Number.isNaN(enrolledDate.getTime())) {
+        return addDays(enrolledDate, fallbackDays)
+    }
 
-  return addDays(new Date(), fallbackDays)
+    return addDays(baseDate, fallbackDays)
 }
 
 /**
@@ -75,55 +76,55 @@ export function resolveEnrollmentTargetDate(
  * @returns Enrollment deadline insights sorted by urgency and due-date proximity.
  */
 export function buildLearningDeadlineInsights(
-  enrollments: Enrollment[],
-  courses: Course[],
-  now: Date = new Date()
+    enrollments: Enrollment[],
+    courses: Course[],
+    now: Date = new Date()
 ): LearningDeadlineInsight[] {
-  const courseById = new Map(courses.map((course) => [course.id, course]))
+    const courseById = new Map(courses.map((course) => [course.id, course]))
 
-  const insights = enrollments
-    .filter((enrollment) => enrollment.status === 'enrolled' || enrollment.status === 'in-progress')
-    .map((enrollment) => {
-      const course = courseById.get(enrollment.courseId)
-      if (!course) {
-        return null
-      }
+    const insights = enrollments
+        .filter((enrollment) => enrollment.status === 'enrolled' || enrollment.status === 'in-progress')
+        .map((enrollment) => {
+            const course = courseById.get(enrollment.courseId)
+            if (!course) {
+                return null
+            }
 
-      const targetDate = resolveEnrollmentTargetDate(enrollment)
-      const daysUntilDue = Math.floor((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      const isOverdue = daysUntilDue < 0
-      const isDueSoon = !isOverdue && daysUntilDue <= DUE_SOON_THRESHOLD_DAYS
+            const targetDate = resolveEnrollmentTargetDate(enrollment, DEFAULT_TARGET_COMPLETION_DAYS, now)
+            const daysUntilDue = differenceInDays(targetDate, now)
+            const isOverdue = daysUntilDue <= 0 && targetDate < now
+            const isDueSoon = !isOverdue && daysUntilDue <= DUE_SOON_THRESHOLD_DAYS
 
-      const urgency: LearningDeadlineUrgency = isOverdue ? 'overdue' : isDueSoon ? 'due-soon' : 'on-track'
+            const urgency: LearningDeadlineUrgency = isOverdue ? 'overdue' : isDueSoon ? 'due-soon' : 'on-track'
 
-      return {
-        enrollmentId: enrollment.id,
-        userId: enrollment.userId,
-        courseId: enrollment.courseId,
-        courseTitle: course.title,
-        status: enrollment.status,
-        progress: enrollment.progress,
-        targetCompletionDate: targetDate.toISOString(),
-        daysUntilDue,
-        isOverdue,
-        isDueSoon,
-        urgency,
-      }
-    })
-    .filter((insight): insight is LearningDeadlineInsight => insight !== null)
+            return {
+                enrollmentId: enrollment.id,
+                userId: enrollment.userId,
+                courseId: enrollment.courseId,
+                courseTitle: course.title,
+                status: enrollment.status,
+                progress: enrollment.progress,
+                targetCompletionDate: targetDate.toISOString(),
+                daysUntilDue,
+                isOverdue,
+                isDueSoon,
+                urgency,
+            }
+        })
+        .filter((insight): insight is LearningDeadlineInsight => insight !== null)
 
-  const urgencyWeight: Record<LearningDeadlineUrgency, number> = {
-    overdue: 3,
-    'due-soon': 2,
-    'on-track': 1,
-  }
-
-  return insights.sort((left, right) => {
-    const urgencyDiff = urgencyWeight[right.urgency] - urgencyWeight[left.urgency]
-    if (urgencyDiff !== 0) {
-      return urgencyDiff
+    const urgencyWeight: Record<LearningDeadlineUrgency, number> = {
+        overdue: 3,
+        'due-soon': 2,
+        'on-track': 1,
     }
 
-    return left.daysUntilDue - right.daysUntilDue
-  })
+    return insights.sort((left, right) => {
+        const urgencyDiff = urgencyWeight[right.urgency] - urgencyWeight[left.urgency]
+        if (urgencyDiff !== 0) {
+            return urgencyDiff
+        }
+
+        return left.daysUntilDue - right.daysUntilDue
+    })
 }

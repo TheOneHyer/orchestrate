@@ -199,6 +199,9 @@ describe('People', () => {
         const user = userEvent.setup()
         renderPeople()
 
+        expect(screen.getByRole('tablist', { name: /filter people by role/i })).toBeInTheDocument()
+        expect(screen.getByRole('table', { name: /people directory/i })).toBeInTheDocument()
+
         await user.click(screen.getByRole('tab', { name: /trainers/i }))
 
         expect(screen.getByText('Trainer User')).toBeInTheDocument()
@@ -210,6 +213,17 @@ describe('People', () => {
         expect(screen.getByText('Admin User')).toBeInTheDocument()
         expect(screen.queryByText('Trainer User')).toBeNull()
         expect(screen.queryByText('Employee User')).toBeNull()
+    })
+
+    it('opens a profile from keyboard row interaction', async () => {
+        const user = userEvent.setup()
+        renderPeople()
+
+        const trainerRow = screen.getByRole('row', { name: /trainer user/i })
+        trainerRow.focus()
+        await user.keyboard('{Enter}')
+
+        expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User')
     })
 
     it('opens selected profile view and returns to people list', async () => {

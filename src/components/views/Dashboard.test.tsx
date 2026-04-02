@@ -28,6 +28,21 @@ const baseCourse: Course = {
   passScore: 80,
 }
 
+/**
+ * Returns the dashboard card element for a section heading.
+ * @param headingText - Heading text matcher used to locate the card title.
+ * @returns The enclosing card element.
+ * @throws {Error} If no element with data-slot="card" enclosing the matched heading is found.
+ */
+function getCardByHeading(headingText: RegExp): HTMLElement {
+  const card = screen.getByText(headingText).closest('[data-slot="card"]')
+  if (!(card instanceof HTMLElement)) {
+    throw new Error(`Expected card container for heading ${headingText.toString()}`)
+  }
+
+  return card
+}
+
 describe('Dashboard', () => {
   it('renders summary metrics and empty states', () => {
     render(
@@ -203,8 +218,8 @@ describe('Dashboard', () => {
     expect(screen.getByText(/^2$/)).toBeInTheDocument()
     expect(screen.getByText(/1 completed/i)).toBeInTheDocument()
     expect(screen.getByText(/^in progress$/i)).toBeInTheDocument()
-    expect(screen.getAllByText('Course 1').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Course 2').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Course 1')[0]).toBeInTheDocument()
+    expect(screen.getAllByText('Course 2')[0]).toBeInTheDocument()
     expect(screen.queryByText('Course 3')).not.toBeInTheDocument()
   })
 
@@ -245,16 +260,108 @@ describe('Dashboard', () => {
     )
 
     expect(screen.getByText(/^learning focus$/i)).toBeInTheDocument()
-    const learningFocusCard = screen.getByText(/^learning focus$/i).closest('[data-slot="card"]')
-    expect(learningFocusCard).not.toBeNull()
-
-    if (!learningFocusCard) {
-      throw new Error('Expected learning focus card to exist')
-    }
+    const learningFocusCard = getCardByHeading(/^learning focus$/i)
 
     expect(within(learningFocusCard).getByText(/focus course 1/i)).toBeInTheDocument()
     expect(within(learningFocusCard).getByText(/focus course 2/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/gap to expected pace/i).length).toBeGreaterThan(0)
+    expect(within(learningFocusCard).queryAllByText(/gap to expected pace/i).length).toBeGreaterThan(0)
+  })
+
+  it('does not render learning focus when there are no in-progress enrollments with known courses', () => {
+    const courses: Course[] = [
+      { ...baseCourse, id: 'focus-known', title: 'Known Focus Course' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'completed-enrollment',
+        userId: baseUser.id,
+        courseId: 'focus-known',
+        status: 'completed',
+        progress: 100,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        completedAt: '2026-03-01T00:00:00.000Z',
+      },
+      {
+        id: 'missing-course-in-progress',
+        userId: baseUser.id,
+        courseId: 'focus-missing',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={courses}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    expect(screen.queryByText(/^learning focus$/i)).not.toBeInTheDocument()
+  })
+
+  it('limits learning focus panel to three items', () => {
+    const courses: Course[] = [
+      { ...baseCourse, id: 'focus-cap-1', title: 'Focus Cap Course 1' },
+      { ...baseCourse, id: 'focus-cap-2', title: 'Focus Cap Course 2' },
+      { ...baseCourse, id: 'focus-cap-3', title: 'Focus Cap Course 3' },
+      { ...baseCourse, id: 'focus-cap-4', title: 'Focus Cap Course 4' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'focus-cap-enrollment-1',
+        userId: baseUser.id,
+        courseId: 'focus-cap-1',
+        status: 'in-progress',
+        progress: 5,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+      },
+      {
+        id: 'focus-cap-enrollment-2',
+        userId: baseUser.id,
+        courseId: 'focus-cap-2',
+        status: 'in-progress',
+        progress: 10,
+        enrolledAt: '2026-02-05T00:00:00.000Z',
+      },
+      {
+        id: 'focus-cap-enrollment-3',
+        userId: baseUser.id,
+        courseId: 'focus-cap-3',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-10T00:00:00.000Z',
+      },
+      {
+        id: 'focus-cap-enrollment-4',
+        userId: baseUser.id,
+        courseId: 'focus-cap-4',
+        status: 'in-progress',
+        progress: 30,
+        enrolledAt: '2026-02-15T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={courses}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    const learningFocusCard = getCardByHeading(/^learning focus$/i)
+    expect(within(learningFocusCard).getAllByRole('button')).toHaveLength(3)
   })
 
   it('navigates to course details from learning focus cards', async () => {
@@ -288,12 +395,7 @@ describe('Dashboard', () => {
       />
     )
 
-    const learningFocusCard = screen.getByText(/^learning focus$/i).closest('[data-slot="card"]')
-    expect(learningFocusCard).not.toBeNull()
-
-    if (!learningFocusCard) {
-      throw new Error('Expected learning focus card to exist')
-    }
+    const learningFocusCard = getCardByHeading(/^learning focus$/i)
 
     await userEvent.click(within(learningFocusCard).getByRole('button', { name: /focus course navigation/i }))
     expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'focus-course' })
@@ -337,12 +439,7 @@ describe('Dashboard', () => {
       />
     )
 
-    const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
-    expect(deadlineWatchCard).not.toBeNull()
-
-    if (!deadlineWatchCard) {
-      throw new Error('Expected deadline watch card to exist')
-    }
+    const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
 
     expect(within(deadlineWatchCard).getByText(/^overdue$/i)).toBeInTheDocument()
     expect(within(deadlineWatchCard).getByText(/^due soon$/i)).toBeInTheDocument()
@@ -387,12 +484,7 @@ describe('Dashboard', () => {
       />
     )
 
-    const engagementCard = screen.getByText(/^engagement watch$/i).closest('[data-slot="card"]')
-    expect(engagementCard).not.toBeNull()
-
-    if (!engagementCard) {
-      throw new Error('Expected engagement watch card to exist')
-    }
+    const engagementCard = getCardByHeading(/^engagement watch$/i)
 
     expect(within(engagementCard).getByText(/engagement course 1/i)).toBeInTheDocument()
     expect(within(engagementCard).getByText(/critical stall/i)).toBeInTheDocument()
@@ -432,12 +524,7 @@ describe('Dashboard', () => {
       />
     )
 
-    const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
-    expect(deadlineWatchCard).not.toBeNull()
-
-    if (!deadlineWatchCard) {
-      throw new Error('Expected deadline watch card to exist')
-    }
+    const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
 
     await userEvent.click(within(deadlineWatchCard).getByRole('button', { name: /deadline navigation course/i }))
     expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'deadline-course-nav' })
@@ -474,12 +561,7 @@ describe('Dashboard', () => {
       />
     )
 
-    const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
-    expect(deadlineWatchCard).not.toBeNull()
-
-    if (!deadlineWatchCard) {
-      throw new Error('Expected deadline watch card to exist')
-    }
+    const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
 
     await userEvent.click(within(deadlineWatchCard).getByRole('button', { name: /open learning alerts/i }))
     expect(onNavigate).toHaveBeenCalledWith('notifications', { tab: 'learning-reminders' })
@@ -537,12 +619,7 @@ describe('Dashboard', () => {
       />
     )
 
-    const learningPathCard = screen.getByText(/^recommended learning path$/i).closest('[data-slot="card"]')
-    expect(learningPathCard).not.toBeNull()
-
-    if (!learningPathCard) {
-      throw new Error('Expected recommended learning path card to exist')
-    }
+    const learningPathCard = getCardByHeading(/^recommended learning path$/i)
 
     await userEvent.click(within(learningPathCard).getByRole('button', { name: /leadership navigation path/i }))
     expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'learning-path-nav-course' })
@@ -577,8 +654,8 @@ describe('Dashboard', () => {
     expect(screen.getByText(/^active courses$/i)).toBeInTheDocument()
     expect(screen.getByText(/^2$/)).toBeInTheDocument()
     expect(screen.getByText(/1 completed/i)).toBeInTheDocument()
-    expect(screen.getAllByText('Active Course 1').length).toBeGreaterThan(0)
-    expect(screen.getAllByText('Active Course 2').length).toBeGreaterThan(0)
+    expect(screen.queryAllByText('Active Course 1').length).toBeGreaterThan(0)
+    expect(screen.queryAllByText('Active Course 2').length).toBeGreaterThan(0)
     expect(screen.queryByText('Completed Course')).not.toBeInTheDocument()
     expect(screen.queryByText('Failed Course')).not.toBeInTheDocument()
   })

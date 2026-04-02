@@ -448,6 +448,8 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                   <Badge key={role} variant="default" className="text-sm px-3 py-1">
                     {role}
                     <button
+                      type="button"
+                      aria-label={`Remove authorized role ${role}`}
                       onClick={() => removeAuthorizedRole(role)}
                       className="ml-2 hover:text-destructive"
                     >
@@ -485,6 +487,8 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                   <Badge key={spec} variant="secondary" className="text-sm px-3 py-1">
                     {spec}
                     <button
+                      type="button"
+                      aria-label={`Remove specialization ${spec}`}
                       onClick={() => removeSpecialization(spec)}
                       className="ml-2 hover:text-destructive"
                     >

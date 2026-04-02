@@ -396,6 +396,8 @@ function App() {
   const [enrollments, setEnrollments] = useKV<Enrollment[]>('enrollments', [])
   const [attendanceRecords, setAttendanceRecords] = useKV<AttendanceRecord[]>('attendance-records', [])
   const [notifications, setNotifications] = useKV<Notification[]>('notifications', [])
+  const [emittedLearningReminderKeys, setEmittedLearningReminderKeys] = useKV<string[]>('emitted-learning-reminder-keys', [])
+  const [emittedEngagementReminderKeys, setEmittedEngagementReminderKeys] = useKV<string[]>('emitted-engagement-reminder-keys', [])
   const [, setWellnessCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const [, setRecoveryPlans] = useKV<RecoveryPlan[]>('recovery-plans', [])
   const [, setCheckInSchedules] = useKV<CheckInSchedule[]>('check-in-schedules', [])
@@ -815,6 +817,32 @@ function App() {
   const safeCourses = useMemo(() => courses || [], [courses])
   const safeEnrollments = useMemo(() => enrollments || [], [enrollments])
   const safeNotifications = useMemo(() => notifications || [], [notifications])
+  const learningReminderHistory = useMemo(() => new Set(emittedLearningReminderKeys || []), [emittedLearningReminderKeys])
+  const engagementReminderHistory = useMemo(() => new Set(emittedEngagementReminderKeys || []), [emittedEngagementReminderKeys])
+  const sessionsRef = useRef<Session[]>(safeSessions)
+  const notificationsRef = useRef<Notification[]>(safeNotifications)
+  const activeUserIdRef = useRef(activeUserId)
+  const processedLearningReminderKeysRef = useRef<Set<string>>(new Set())
+  const processedEngagementReminderKeysRef = useRef<Set<string>>(new Set())
+  const reminderNotificationSnapshot = useMemo(
+    () => safeNotifications
+      .map((notification) => `${notification.id}:${notification.metadata?.learningReminderKey ?? ''}:${notification.metadata?.engagementReminderKey ?? ''}`)
+      .sort()
+      .join('|'),
+    [safeNotifications]
+  )
+
+  useEffect(() => {
+    sessionsRef.current = safeSessions
+  }, [safeSessions])
+
+  useEffect(() => {
+    notificationsRef.current = safeNotifications
+  }, [safeNotifications])
+
+  useEffect(() => {
+    activeUserIdRef.current = activeUserId
+  }, [activeUserId])
   const sideEffectsEnabled = !shouldClearStaleDemoData && (localPreviewMode || Boolean(activeUserId))
   const sideEffectUsers = sideEffectsEnabled ? safeUsers : []
   const sideEffectSessions = sideEffectsEnabled ? safeSessions : []
@@ -923,12 +951,32 @@ function App() {
   useCertificationNotifications(sideEffectUsers, handleCreateNotification, setUsers)
 
   useEffect(() => {
-    const reminders = buildLearningReminderCandidates(safeEnrollments, safeCourses, safeNotifications)
+    if (!sideEffectsEnabled) {
+      return
+    }
+
+    const reminders = buildLearningReminderCandidates(safeEnrollments, safeCourses, notificationsRef.current)
     if (reminders.length === 0) {
       return
     }
 
     reminders.forEach((reminder) => {
+      if (learningReminderHistory.has(reminder.reminderKey)) {
+        return
+      }
+
+      if (processedLearningReminderKeysRef.current.has(reminder.reminderKey)) {
+        return
+      }
+
+      processedLearningReminderKeysRef.current.add(reminder.reminderKey)
+      setEmittedLearningReminderKeys((currentKeys) => {
+        const safeCurrentKeys = currentKeys || []
+        if (safeCurrentKeys.includes(reminder.reminderKey)) {
+          return safeCurrentKeys
+        }
+        return [...safeCurrentKeys, reminder.reminderKey]
+      })
       handleCreateNotification({
         userId: reminder.userId,
         type: 'reminder',
@@ -943,15 +991,35 @@ function App() {
         },
       })
     })
-  }, [handleCreateNotification, safeCourses, safeEnrollments, safeNotifications])
+  }, [handleCreateNotification, learningReminderHistory, reminderNotificationSnapshot, safeCourses, safeEnrollments, setEmittedLearningReminderKeys, sideEffectsEnabled])
 
   useEffect(() => {
-    const reminders = buildLearningEngagementReminderCandidates(safeEnrollments, safeCourses, safeNotifications)
+    if (!sideEffectsEnabled) {
+      return
+    }
+
+    const reminders = buildLearningEngagementReminderCandidates(safeEnrollments, safeCourses, notificationsRef.current)
     if (reminders.length === 0) {
       return
     }
 
     reminders.forEach((reminder) => {
+      if (engagementReminderHistory.has(reminder.reminderKey)) {
+        return
+      }
+
+      if (processedEngagementReminderKeysRef.current.has(reminder.reminderKey)) {
+        return
+      }
+
+      processedEngagementReminderKeysRef.current.add(reminder.reminderKey)
+      setEmittedEngagementReminderKeys((currentKeys) => {
+        const safeCurrentKeys = currentKeys || []
+        if (safeCurrentKeys.includes(reminder.reminderKey)) {
+          return safeCurrentKeys
+        }
+        return [...safeCurrentKeys, reminder.reminderKey]
+      })
       handleCreateNotification({
         userId: reminder.userId,
         type: 'reminder',
@@ -964,11 +1032,11 @@ function App() {
           engagementReminderKey: reminder.reminderKey,
           enrollmentId: reminder.enrollmentId,
           courseId: reminder.courseId,
-          ownerUserId: activeUserId,
+          ownerUserId: activeUserIdRef.current || reminder.userId,
         },
       })
     })
-  }, [activeUserId, handleCreateNotification, safeCourses, safeEnrollments, safeNotifications])
+  }, [engagementReminderHistory, handleCreateNotification, reminderNotificationSnapshot, safeCourses, safeEnrollments, setEmittedEngagementReminderKeys, sideEffectsEnabled])
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 
@@ -1290,7 +1358,7 @@ function App() {
    * @param updates - Partial session fields to merge in.
    * @returns The updated session with a fresh `updatedAt` timestamp.
    */
-  const applySessionUpdates = (session: Session, id: string, updates: Partial<Session>): Session => {
+  const applySessionUpdates = useCallback((session: Session, id: string, updates: Partial<Session>): Session => {
     if (session.id !== id) {
       return session
     }
@@ -1305,7 +1373,7 @@ function App() {
     }
 
     return { ...session, ...sessionUpdates, updatedAt: new Date().toISOString() }
-  }
+  }, [])
 
   /**
    * Applies partial updates to a user, returning a new user object.
@@ -1505,27 +1573,22 @@ function App() {
    * @param id - The unique identifier of the session to update.
    * @param updates - The fields to merge into the existing session record.
    */
-  const handleUpdateSession = (id: string, updates: Partial<Session>) => {
-    setSessions((currentSessions) =>
-      (currentSessions || []).map((session) => applySessionUpdates(session, id, updates))
-    )
-
+  const handleUpdateSession = useCallback((id: string, updates: Partial<Session>) => {
     const affectsEnrollmentMembership = updates.enrolledStudents !== undefined || updates.courseId !== undefined
-    if (!affectsEnrollmentMembership) {
-      return
+    const nextSessions = (sessionsRef.current || []).map((session) => applySessionUpdates(session, id, updates))
+    setSessions(nextSessions)
+    if (affectsEnrollmentMembership) {
+      const nowIso = new Date().toISOString()
+      setEnrollments((currentEnrollments) =>
+        reconcileSessionEnrollments({
+          enrollments: currentEnrollments || [],
+          sessions: nextSessions,
+          nowIso,
+          createEnrollmentId: () => createEntityId('enrollment'),
+        })
+      )
     }
-
-    const nextSessions = (safeSessions || []).map((session) => applySessionUpdates(session, id, updates))
-    const nowIso = new Date().toISOString()
-    setEnrollments((currentEnrollments) =>
-      reconcileSessionEnrollments({
-        enrollments: currentEnrollments || [],
-        sessions: nextSessions,
-        nowIso,
-        createEnrollmentId: () => createEntityId('enrollment'),
-      })
-    )
-  }
+  }, [applySessionUpdates, setEnrollments, setSessions])
 
   /**
    * Deletes a single session and any enrollment rows bound to its `sessionId`.

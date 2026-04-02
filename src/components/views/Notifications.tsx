@@ -50,18 +50,21 @@ interface NotificationsProps {
   onNavigationPayloadConsumed?: () => void
 }
 
-type NotificationsTab =
-  | 'all'
-  | 'unread'
-  | 'read'
-  | 'session'
-  | 'assignment'
-  | 'reminder'
-  | 'learning-reminders'
-  | 'engagement-reminders'
-  | 'system'
-  | 'workload'
-  | 'high-priority'
+const NOTIFICATION_TABS = [
+  'all',
+  'unread',
+  'read',
+  'session',
+  'assignment',
+  'reminder',
+  'learning-reminders',
+  'engagement-reminders',
+  'system',
+  'workload',
+  'high-priority',
+] as const
+
+type NotificationsTab = typeof NOTIFICATION_TABS[number]
 
 /**
  * Returns true when the value is a valid notifications tab key.
@@ -70,19 +73,7 @@ type NotificationsTab =
  * @returns True when the value is a supported notifications tab key.
  */
 function isNotificationsTab(value: unknown): value is NotificationsTab {
-  return [
-    'all',
-    'unread',
-    'read',
-    'session',
-    'assignment',
-    'reminder',
-    'learning-reminders',
-    'engagement-reminders',
-    'system',
-    'workload',
-    'high-priority',
-  ].includes(String(value))
+  return typeof value === 'string' && NOTIFICATION_TABS.includes(value as NotificationsTab)
 }
 
 /**

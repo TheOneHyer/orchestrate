@@ -428,7 +428,7 @@ describe('Notifications', () => {
     expect(screen.queryByText('Learning Reminder Item')).not.toBeInTheDocument()
   })
 
-  it('opens a target tab from navigation payload and consumes the payload', async () => {
+  it('opens a target tab from navigation payload and consumes the payload', () => {
     const onNavigationPayloadConsumed = vi.fn()
 
     render(
@@ -465,7 +465,7 @@ describe('Notifications', () => {
     expect(onNavigationPayloadConsumed).toHaveBeenCalledTimes(1)
   })
 
-  it('opens engagement reminders tab from navigation payload', async () => {
+  it('opens engagement reminders tab from navigation payload', () => {
     render(
       <Notifications
         notifications={[
