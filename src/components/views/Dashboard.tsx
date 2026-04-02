@@ -140,7 +140,7 @@ export function Dashboard({
               <CardDescription>Next-best courses to close certification gaps</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {learningPathRecommendations.map((recommendation) => (
+              {learningPathRecommendations.slice(0, 3).map((recommendation) => (
                 <button
                   key={recommendation.courseId}
                   onClick={() => onNavigate('courses', { courseId: recommendation.courseId })}

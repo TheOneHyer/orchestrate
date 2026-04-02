@@ -587,6 +587,8 @@ function App() {
     setTargetTrainerCoverage(4)
     setPreviewSeedVersion('')
     setPersistedActiveUserId('')
+    setEmittedLearningReminderKeys([])
+    setEmittedEngagementReminderKeys([])
     setDemoSessionState(false, '')
     writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, '')
     writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, false)
@@ -625,6 +627,8 @@ function App() {
     setTargetTrainerCoverage,
     setPreviewSeedVersion,
     setPersistedActiveUserId,
+    setEmittedLearningReminderKeys,
+    setEmittedEngagementReminderKeys,
     setDemoSessionState,
   ])
 
@@ -843,6 +847,19 @@ function App() {
   useEffect(() => {
     activeUserIdRef.current = activeUserId
   }, [activeUserId])
+
+  useEffect(() => {
+    if ((emittedLearningReminderKeys || []).length === 0) {
+      processedLearningReminderKeysRef.current = new Set()
+    }
+  }, [emittedLearningReminderKeys])
+
+  useEffect(() => {
+    if ((emittedEngagementReminderKeys || []).length === 0) {
+      processedEngagementReminderKeysRef.current = new Set()
+    }
+  }, [emittedEngagementReminderKeys])
+
   const sideEffectsEnabled = !shouldClearStaleDemoData && (localPreviewMode || Boolean(activeUserId))
   const sideEffectUsers = sideEffectsEnabled ? safeUsers : []
   const sideEffectSessions = sideEffectsEnabled ? safeSessions : []
@@ -955,7 +972,7 @@ function App() {
       return
     }
 
-    const reminders = buildLearningReminderCandidates(safeEnrollments, safeCourses, notificationsRef.current)
+    const reminders = buildLearningReminderCandidates(safeEnrollments, safeCourses, safeNotifications)
     if (reminders.length === 0) {
       return
     }
@@ -991,14 +1008,14 @@ function App() {
         },
       })
     })
-  }, [handleCreateNotification, learningReminderHistory, reminderNotificationSnapshot, safeCourses, safeEnrollments, setEmittedLearningReminderKeys, sideEffectsEnabled])
+  }, [handleCreateNotification, learningReminderHistory, reminderNotificationSnapshot, safeCourses, safeEnrollments, safeNotifications, setEmittedLearningReminderKeys, sideEffectsEnabled])
 
   useEffect(() => {
     if (!sideEffectsEnabled) {
       return
     }
 
-    const reminders = buildLearningEngagementReminderCandidates(safeEnrollments, safeCourses, notificationsRef.current)
+    const reminders = buildLearningEngagementReminderCandidates(safeEnrollments, safeCourses, safeNotifications)
     if (reminders.length === 0) {
       return
     }
@@ -1036,7 +1053,7 @@ function App() {
         },
       })
     })
-  }, [engagementReminderHistory, handleCreateNotification, reminderNotificationSnapshot, safeCourses, safeEnrollments, setEmittedEngagementReminderKeys, sideEffectsEnabled])
+  }, [engagementReminderHistory, handleCreateNotification, reminderNotificationSnapshot, safeCourses, safeEnrollments, safeNotifications, setEmittedEngagementReminderKeys, sideEffectsEnabled])
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 
@@ -1112,6 +1129,14 @@ function App() {
     .slice(0, 10)
 
   const unreadNotifications = visibleNotifications.filter(n => !n.read)
+
+  const analyticsNotifications = useMemo(() => {
+    if (currentUser.role === 'admin') {
+      return safeNotifications
+    }
+    const visibleEnrollmentUserIds = new Set(visibleEnrollments.map((e) => e.userId))
+    return safeNotifications.filter((n) => visibleEnrollmentUserIds.has(n.userId))
+  }, [currentUser.role, safeNotifications, visibleEnrollments])
 
   const handleSwitchUser = useCallback((userId: string) => {
     setSessionUserId(userId)
@@ -2104,7 +2129,7 @@ function App() {
             sessions={visibleSessions}
             courses={visibleCourses}
             attendanceRecords={visibleAttendanceRecords}
-            notifications={visibleNotifications}
+            notifications={analyticsNotifications}
             onNavigate={handleNavigate}
           />
         )

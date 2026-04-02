@@ -21,7 +21,7 @@ pnpm remove <pkg>     # remove a dependency
 - `package-lock.json` and `yarn.lock` are listed in `.gitignore` and must
   never be committed.
 - The exact package manager version is pinned in `package.json`
-  (`"packageManager": "pnpm@10.32.1"`). Enable it via `corepack enable`.
+  (`"packageManager": "pnpm@10.33.0"`). Enable it via `corepack enable`.
 
 ---
 

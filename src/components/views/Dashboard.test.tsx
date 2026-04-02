@@ -402,6 +402,9 @@ describe('Dashboard', () => {
   })
 
   it('renders deadline watch indicators for due-soon and overdue enrollments', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-02T00:00:00.000Z'))
+
     const courses: Course[] = [
       { ...baseCourse, id: 'deadline-course-1', title: 'Deadline Course 1' },
       { ...baseCourse, id: 'deadline-course-2', title: 'Deadline Course 2' },
@@ -428,21 +431,25 @@ describe('Dashboard', () => {
       },
     ]
 
-    render(
-      <Dashboard
-        currentUser={baseUser}
-        upcomingSessions={[]}
-        notifications={[]}
-        enrollments={enrollments}
-        courses={courses}
-        onNavigate={vi.fn()}
-      />
-    )
+    try {
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={courses}
+          onNavigate={vi.fn()}
+        />
+      )
 
-    const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
+      const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
 
-    expect(within(deadlineWatchCard).getByText(/^overdue$/i)).toBeInTheDocument()
-    expect(within(deadlineWatchCard).getByText(/^due soon$/i)).toBeInTheDocument()
+      expect(within(deadlineWatchCard).getByText(/^overdue$/i)).toBeInTheDocument()
+      expect(within(deadlineWatchCard).getByText(/^due soon$/i)).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('renders engagement watch insights and navigates to course details', async () => {

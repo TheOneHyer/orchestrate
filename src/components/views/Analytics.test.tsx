@@ -690,4 +690,64 @@ describe('Analytics', () => {
 
     expect(screen.getByText(/no stalled learners in the current filter scope/i)).toBeInTheDocument()
   })
+
+  it('shows escalation metadata when notifications include learner reminder records', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-02T00:00:00.000Z'))
+
+    const users: User[] = [
+      createUser({ id: 'trainer-1', name: 'Trainer One', role: 'trainer', department: 'Ops' }),
+      createUser({ id: 'learner-1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+    ]
+
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 'trainer-1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-stalled',
+        userId: 'learner-1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 10,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    const notifications = [
+      {
+        id: 'n-learner-reminder',
+        userId: 'learner-1',
+        type: 'reminder' as const,
+        title: 'Critical Learning Stall — Safety',
+        message: 'Reminder sent',
+        read: false,
+        createdAt: '2026-03-15T00:00:00.000Z',
+        metadata: {
+          engagementReminderKey: 'e-stalled:critical-stall',
+          enrollmentId: 'e-stalled',
+          ownerUserId: 'trainer-1',
+        },
+      },
+    ]
+
+    try {
+      render(
+        <Analytics
+          users={users}
+          courses={courses}
+          sessions={[]}
+          enrollments={enrollments}
+          notifications={notifications}
+        />
+      )
+
+      const card = screen.getByTestId('intervention-e-stalled')
+      expect(card).toHaveTextContent(/owner:\s*trainer one/i)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

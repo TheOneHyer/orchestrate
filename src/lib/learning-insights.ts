@@ -1,3 +1,5 @@
+import { differenceInDays } from 'date-fns'
+
 import { Course, Enrollment } from '@/lib/types'
 
 /** Represents the urgency level for an in-progress enrollment. */
@@ -72,13 +74,12 @@ export function buildLearningFocusItems(
             }
 
             const enrolledAt = new Date(enrollment.enrolledAt)
-            const enrolledAtTime = enrolledAt.getTime()
-            if (!Number.isFinite(enrolledAtTime)) {
+            if (Number.isNaN(enrolledAt.getTime())) {
                 return null
             }
             const daysSinceEnrollment = Math.max(
                 0,
-                Math.floor((now.getTime() - enrolledAtTime) / (1000 * 60 * 60 * 24))
+                differenceInDays(now, enrolledAt)
             )
             const expectedProgress = Math.min(100, Math.round((daysSinceEnrollment / SIXTY_DAY_COMPLETION_WINDOW) * 100))
             const progressGap = Math.max(0, expectedProgress - enrollment.progress)

@@ -45,6 +45,7 @@ export interface LearningDeadlineInsight {
  *
  * @param enrollment - Enrollment record to inspect.
  * @param fallbackDays - Number of days after enrollment to use when no explicit target exists.
+ * @param baseDate - Reference date used as the fallback origin when both explicit target and enrolledAt are invalid.
  * @returns A Date representing the target completion deadline.
  */
 export function resolveEnrollmentTargetDate(

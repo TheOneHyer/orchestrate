@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -112,12 +112,12 @@ function getFirstNudgeAt(reminders: Notification[]): string | null {
  * @param firstNudgeAt - Timestamp of first nudge.
  * @returns Escalation age in days.
  */
-function getEscalationAgeDays(firstNudgeAt: string | null): number {
+function getEscalationAgeDays(firstNudgeAt: string | null, now: Date = new Date()): number {
   if (!firstNudgeAt) {
     return 0
   }
 
-  return Math.max(0, Math.floor((Date.now() - new Date(firstNudgeAt).getTime()) / (1000 * 60 * 60 * 24)))
+  return Math.max(0, Math.floor((now.getTime() - new Date(firstNudgeAt).getTime()) / (1000 * 60 * 60 * 24)))
 }
 
 /**
@@ -130,6 +130,13 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
   const [courseFilter, setCourseFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+  const now = useMemo(() => new Date(nowMs), [nowMs])
 
   const departmentOptions = useMemo(() => {
     return Array.from(new Set(users.map((user) => user.department))).sort((left, right) => left.localeCompare(right))
@@ -220,12 +227,12 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
 
   const atRiskCourses = fullCourses.filter((course) => course.completionRate < 60 || course.avgScore < 75)
   const deadlineInsights = useMemo(
-    () => buildLearningDeadlineInsights(filteredEnrollments, filteredCourses),
-    [filteredCourses, filteredEnrollments]
+    () => buildLearningDeadlineInsights(filteredEnrollments, filteredCourses, now),
+    [filteredCourses, filteredEnrollments, now]
   )
   const engagementInsights = useMemo(
-    () => buildLearningEngagementItems(filteredEnrollments, filteredCourses),
-    [filteredCourses, filteredEnrollments]
+    () => buildLearningEngagementItems(filteredEnrollments, filteredCourses, now),
+    [filteredCourses, filteredEnrollments, now]
   )
   const overdueEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'overdue').length
   const dueSoonEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'due-soon').length
@@ -281,10 +288,10 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
           learnerName: userById.get(insight.userId)?.name ?? 'Unknown learner',
           ownerName: getOwnerNameFromReminders(reminders, userById),
           firstNudgeAt,
-          escalationAgeDays: getEscalationAgeDays(firstNudgeAt),
+          escalationAgeDays: getEscalationAgeDays(firstNudgeAt, now),
         }
       }),
-    [engagementInsights, engagementRemindersByEnrollment, userById]
+    [engagementInsights, engagementRemindersByEnrollment, now, userById]
   )
 
   return (

@@ -133,6 +133,26 @@ describe('learning-engagement', () => {
         expect(items[0].daysSinceProgress).toBe(12)
     })
 
+    it('falls back to enrolledAt when lastProgressAt is a non-empty invalid date', () => {
+        const now = new Date('2026-04-01T00:00:00.000Z')
+        const enrollments: Enrollment[] = [
+            {
+                id: 'malformed-progress-enrollment',
+                userId: 'learner-1',
+                courseId: 'course-1',
+                status: 'in-progress',
+                progress: 15,
+                enrolledAt: '2026-03-20T00:00:00.000Z',
+                lastProgressAt: 'not-a-valid-date',
+            },
+        ]
+
+        const items = buildLearningEngagementItems(enrollments, courses, now)
+
+        expect(items).toHaveLength(1)
+        expect(items[0].daysSinceProgress).toBe(12)
+    })
+
     it('skips enrollments for unknown courses or invalid dates', () => {
         const now = new Date('2026-04-01T00:00:00.000Z')
         const enrollments: Enrollment[] = [

@@ -1,5 +1,3 @@
-import { describe, expect, it } from 'vitest'
-
 import { buildLearningPathRecommendations, getMissingCertificationsForUser } from './competency-insights'
 import type { Course, Enrollment, User } from './types'
 

@@ -39,6 +39,10 @@ export function reconcileSessionEnrollments(options: ReconcileSessionEnrollments
         targetCompletionDays = DEFAULT_TARGET_COMPLETION_DAYS,
     } = options
 
+    if (sessions.length === 0) {
+        return enrollments
+    }
+
     const activeSessionMembership = new Map<string, { sessionId: string; userId: string; courseId: string }>()
 
     sessions.forEach((session) => {
@@ -77,13 +81,19 @@ export function reconcileSessionEnrollments(options: ReconcileSessionEnrollments
         if (existingEnrollment) {
             const baseDate = new Date(existingEnrollment.enrolledAt)
             const resolvedBaseDate = Number.isNaN(baseDate.getTime()) ? new Date(nowIso) : baseDate
-            const targetCompletionDate = existingEnrollment.targetCompletionDate
-                ?? addDays(resolvedBaseDate, targetCompletionDays).toISOString()
+            const existingTarget = existingEnrollment.targetCompletionDate
+            const parsedExistingTarget = existingTarget ? new Date(existingTarget) : null
+            const hasValidExistingTarget =
+                parsedExistingTarget !== null && !Number.isNaN(parsedExistingTarget.getTime())
+            const targetCompletionDate = hasValidExistingTarget
+                ? existingTarget!
+                : addDays(resolvedBaseDate, targetCompletionDays).toISOString()
 
             reconciledSessionEnrollments.push({
                 ...existingEnrollment,
                 courseId,
                 targetCompletionDate,
+                lastProgressAt: existingEnrollment.lastProgressAt ?? nowIso,
             })
             return
         }

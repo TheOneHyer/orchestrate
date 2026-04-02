@@ -391,7 +391,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Button variant="ghost" size="sm" tabIndex={-1} aria-hidden="true">
+                              <Button variant="ghost" size="sm" tabIndex={-1}>
                                 View Profile
                               </Button>
                             </TableCell>

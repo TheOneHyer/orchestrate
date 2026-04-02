@@ -62,8 +62,13 @@ export function buildLearningEngagementItems(
                 return null
             }
 
-            const activityTimestamp = enrollment.lastProgressAt || enrollment.enrolledAt
-            const activityDate = new Date(activityTimestamp)
+            const lastProgressDate = enrollment.lastProgressAt
+                ? new Date(enrollment.lastProgressAt)
+                : null
+            const activityDate =
+                lastProgressDate && !Number.isNaN(lastProgressDate.getTime())
+                    ? lastProgressDate
+                    : new Date(enrollment.enrolledAt)
             if (Number.isNaN(activityDate.getTime())) {
                 return null
             }
