@@ -178,7 +178,7 @@ describe('People', () => {
             throw new Error('Expected employee row to exist')
         }
 
-        expect(employeeRow).toHaveTextContent('1 certs')
+        expect(employeeRow).toHaveTextContent('1 cert')
         expect(employeeRow).toHaveTextContent('2 gaps')
     })
 

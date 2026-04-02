@@ -380,9 +380,11 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                             </TableCell>
                             <TableCell>
                               <div className="text-sm text-muted-foreground space-y-1">
-                                <div>{certificationGapStats.certificationCount} certs</div>
+                                <div>
+                                  {certificationGapStats.certificationCount} {certificationGapStats.certificationCount === 1 ? 'cert' : 'certs'}
+                                </div>
                                 <div className={certificationGapStats.missingCount > 0 ? 'text-amber-700 dark:text-amber-400' : ''}>
-                                  {certificationGapStats.missingCount} gaps
+                                  {certificationGapStats.missingCount} {certificationGapStats.missingCount === 1 ? 'gap' : 'gaps'}
                                 </div>
                               </div>
                             </TableCell>

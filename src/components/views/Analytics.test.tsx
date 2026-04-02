@@ -803,4 +803,54 @@ describe('Analytics', () => {
     const card = screen.getByTestId('intervention-e-hr-stall')
     expect(card).toHaveTextContent(/owner:\s*owner ops/i)
   })
+
+  it('ignores malformed engagement reminder metadata enrollmentId without breaking intervention rendering', () => {
+    const users: User[] = [
+      createUser({ id: 'learner-1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+      createUser({ id: 'manager-1', name: 'Manager One', role: 'admin', department: 'Ops' }),
+    ]
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 'manager-1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-critical-stall',
+        userId: 'learner-1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Analytics
+        users={users}
+        courses={courses}
+        sessions={[]}
+        enrollments={enrollments}
+        notifications={[
+          {
+            id: 'n-malformed-engagement-reminder',
+            userId: 'learner-1',
+            type: 'reminder',
+            title: 'Critical Learning Stall — Safety',
+            message: 'Malformed reminder metadata',
+            read: false,
+            createdAt: '2026-03-15T00:00:00.000Z',
+            metadata: {
+              engagementReminderKey: 'e-critical-stall:critical-stall',
+              enrollmentId: null,
+              ownerUserId: 'manager-1',
+            },
+          },
+        ]}
+      />,
+    )
+
+    const card = screen.getByTestId('intervention-e-critical-stall')
+    expect(card).toBeInTheDocument()
+    expect(card).toHaveTextContent(/owner:\s*unassigned/i)
+  })
 })

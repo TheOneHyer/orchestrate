@@ -1,3 +1,5 @@
+import { isValid, parseISO } from 'date-fns'
+
 import type { Course, Enrollment, Notification } from './types'
 
 import { buildLearningEngagementItems } from './learning-engagement'
@@ -50,8 +52,8 @@ export function buildLearningEngagementReminderCandidates(
                 return false
             }
 
-            const parsedLastProgressAt = new Date(lastProgressAt)
-            return !Number.isNaN(parsedLastProgressAt.getTime())
+            const parsedLastProgressAt = parseISO(lastProgressAt)
+            return isValid(parsedLastProgressAt)
         })
         .map((item) => {
             const reminderKey = `${item.enrollmentId}:${item.severity}`

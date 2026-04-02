@@ -4014,5 +4014,86 @@ describe('App', () => {
 
             expect(kvState['emitted-learning-reminder-keys']).toEqual(['enrollment-reminder-1:due-soon'])
         })
+
+        it('emits an engagement reminder once and records its key history', async () => {
+            utilizationNotified = true
+            kvSeed['active-user-id'] = 'admin-1'
+            kvSeed['notifications'] = []
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-engagement-1',
+                    userId: 'employee-1',
+                    courseId: 'course-reminder',
+                    status: 'in-progress',
+                    progress: 10,
+                    enrolledAt: '2026-03-01T00:00:00.000Z',
+                    lastProgressAt: '2026-03-10T00:00:00.000Z',
+                },
+            ]
+            reminderBuilderControls.engagementCandidates = [
+                {
+                    reminderKey: 'enrollment-engagement-1:critical-stall',
+                    userId: 'employee-1',
+                    enrollmentId: 'enrollment-engagement-1',
+                    courseId: 'course-reminder',
+                    title: 'Critical Learning Stall — Safety',
+                    message: 'No learning activity detected for 14 days.',
+                    priority: 'high',
+                },
+            ]
+
+            render(<App />)
+
+            await waitFor(() => {
+                const notifications = (kvState['notifications'] as Array<{ metadata?: { engagementReminderKey?: string } }>) || []
+                const reminderNotifications = notifications.filter(
+                    (notification) => notification.metadata?.engagementReminderKey === 'enrollment-engagement-1:critical-stall',
+                )
+                expect(reminderNotifications).toHaveLength(1)
+            })
+
+            expect(kvState['emitted-engagement-reminder-keys']).toEqual(['enrollment-engagement-1:critical-stall'])
+        })
+
+        it('does not re-emit dismissed engagement reminders when emitted key history already contains the key', async () => {
+            utilizationNotified = true
+            kvSeed['active-user-id'] = 'admin-1'
+            kvSeed['notifications'] = []
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-engagement-1',
+                    userId: 'employee-1',
+                    courseId: 'course-reminder',
+                    status: 'in-progress',
+                    progress: 10,
+                    enrolledAt: '2026-03-01T00:00:00.000Z',
+                    lastProgressAt: '2026-03-10T00:00:00.000Z',
+                },
+            ]
+            kvSeed['emitted-engagement-reminder-keys'] = ['enrollment-engagement-1:critical-stall']
+            reminderBuilderControls.engagementCandidates = [
+                {
+                    reminderKey: 'enrollment-engagement-1:critical-stall',
+                    userId: 'employee-1',
+                    enrollmentId: 'enrollment-engagement-1',
+                    courseId: 'course-reminder',
+                    title: 'Critical Learning Stall — Safety',
+                    message: 'No learning activity detected for 14 days.',
+                    priority: 'high',
+                },
+            ]
+
+            render(<App />)
+
+            await waitFor(() => {
+                const notifications = (kvState['notifications'] as Array<{ metadata?: { engagementReminderKey?: string } }>) || []
+                const reminderNotifications = notifications.filter(
+                    (notification) => notification.metadata?.engagementReminderKey === 'enrollment-engagement-1:critical-stall',
+                )
+                expect(reminderNotifications).toHaveLength(0)
+            })
+
+            expect(kvState['emitted-engagement-reminder-keys']).toEqual(['enrollment-engagement-1:critical-stall'])
+        })
     })
 })

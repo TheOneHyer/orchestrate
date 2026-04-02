@@ -172,7 +172,7 @@ describe('learning-deadlines', () => {
         })
 
         it('treats same-day passed times as due-soon, not overdue', () => {
-            const now = new Date('2026-04-02T08:00:00')
+            const now = new Date('2026-04-02T20:00:00.000Z')
             const enrollments: Enrollment[] = [
                 {
                     id: 'same-day-target',
@@ -181,7 +181,7 @@ describe('learning-deadlines', () => {
                     status: 'in-progress',
                     progress: 55,
                     enrolledAt: '2026-03-15T00:00:00.000Z',
-                    targetCompletionDate: '2026-04-02T00:01:00',
+                    targetCompletionDate: '2026-04-02T12:01:00.000Z',
                 },
             ]
 
@@ -190,6 +190,28 @@ describe('learning-deadlines', () => {
             expect(insights[0].daysUntilDue).toBe(0)
             expect(insights[0].isOverdue).toBe(false)
             expect(insights[0].urgency).toBe('due-soon')
+        })
+
+        it('classifies enrollments as on-track when due date is beyond threshold', () => {
+            const now = new Date('2026-04-01T00:00:00.000Z')
+            const enrollments: Enrollment[] = [
+                {
+                    id: 'on-track-enrollment',
+                    userId: 'user-1',
+                    courseId: 'course-1',
+                    status: 'in-progress',
+                    progress: 20,
+                    enrolledAt: '2026-03-01T00:00:00.000Z',
+                    targetCompletionDate: '2026-04-20T00:00:00.000Z',
+                },
+            ]
+
+            const insights = buildLearningDeadlineInsights(enrollments, courses, now)
+            expect(insights).toHaveLength(1)
+            expect(insights[0].daysUntilDue).toBe(19)
+            expect(insights[0].isOverdue).toBe(false)
+            expect(insights[0].isDueSoon).toBe(false)
+            expect(insights[0].urgency).toBe('on-track')
         })
 
         it('includes only active enrollment statuses with known courses', () => {
