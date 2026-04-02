@@ -45,7 +45,13 @@ export function buildLearningEngagementReminderCandidates(
     return buildLearningEngagementItems(enrollments, courses, now)
         .filter((item) => {
             const enrollment = enrollmentById.get(item.enrollmentId)
-            return typeof enrollment?.lastProgressAt === 'string' && enrollment.lastProgressAt.length > 0
+            const lastProgressAt = enrollment?.lastProgressAt
+            if (typeof lastProgressAt !== 'string' || lastProgressAt.length === 0) {
+                return false
+            }
+
+            const parsedLastProgressAt = new Date(lastProgressAt)
+            return !Number.isNaN(parsedLastProgressAt.getTime())
         })
         .map((item) => {
             const reminderKey = `${item.enrollmentId}:${item.severity}`

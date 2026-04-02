@@ -93,11 +93,61 @@ const SESSION_DEMO_MARKER_STORAGE_KEY = 'orchestrate-demo-seeded-in-tab'
 const DEMO_MODE_LEASE_STORAGE_KEY = 'orchestrate-demo-seed-lease'
 const DEMO_MODE_LEASE_DURATION_MS = 30 * 60 * 1000
 const DEMO_MODE_LEASE_RENEW_INTERVAL_MS = 60 * 1000
+const REMINDER_REFRESH_INTERVAL_MS = 60 * 1000
+const MAX_EMITTED_REMINDER_KEYS = 2000
 
 type DemoModeLease = {
   expiresAtMs: number
   demoModeEnabled: true
   demoSessionUserId: string
+}
+
+function areStringArraysEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+function getEnrollmentIdFromReminderKey(reminderKey: string): string {
+  const separatorIndex = reminderKey.indexOf(':')
+  return separatorIndex > 0 ? reminderKey.slice(0, separatorIndex) : ''
+}
+
+function pruneReminderHistoryKeys(
+  keys: string[],
+  activeEnrollmentIds: Set<string>,
+  maxSize: number = MAX_EMITTED_REMINDER_KEYS,
+): string[] {
+  const seen = new Set<string>()
+  const retainedNewestFirst: string[] = []
+
+  for (let index = keys.length - 1; index >= 0; index -= 1) {
+    const key = keys[index]
+    if (seen.has(key)) {
+      continue
+    }
+
+    const enrollmentId = getEnrollmentIdFromReminderKey(key)
+    if (!enrollmentId || !activeEnrollmentIds.has(enrollmentId)) {
+      continue
+    }
+
+    seen.add(key)
+    retainedNewestFirst.push(key)
+    if (retainedNewestFirst.length >= maxSize) {
+      break
+    }
+  }
+
+  return retainedNewestFirst.reverse()
 }
 
 /**
@@ -821,10 +871,12 @@ function App() {
   const safeCourses = useMemo(() => courses || [], [courses])
   const safeEnrollments = useMemo(() => enrollments || [], [enrollments])
   const safeNotifications = useMemo(() => notifications || [], [notifications])
+  const activeEnrollmentIds = useMemo(() => new Set(safeEnrollments.map((enrollment) => enrollment.id)), [safeEnrollments])
+  const [reminderNowMs, setReminderNowMs] = useState(() => Date.now())
+  const reminderNow = useMemo(() => new Date(reminderNowMs), [reminderNowMs])
   const learningReminderHistory = useMemo(() => new Set(emittedLearningReminderKeys || []), [emittedLearningReminderKeys])
   const engagementReminderHistory = useMemo(() => new Set(emittedEngagementReminderKeys || []), [emittedEngagementReminderKeys])
   const sessionsRef = useRef<Session[]>(safeSessions)
-  const notificationsRef = useRef<Notification[]>(safeNotifications)
   const activeUserIdRef = useRef(activeUserId)
   const processedLearningReminderKeysRef = useRef<Set<string>>(new Set())
   const processedEngagementReminderKeysRef = useRef<Set<string>>(new Set())
@@ -841,12 +893,13 @@ function App() {
   }, [safeSessions])
 
   useEffect(() => {
-    notificationsRef.current = safeNotifications
-  }, [safeNotifications])
-
-  useEffect(() => {
     activeUserIdRef.current = activeUserId
   }, [activeUserId])
+
+  useEffect(() => {
+    const id = window.setInterval(() => setReminderNowMs(Date.now()), REMINDER_REFRESH_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [])
 
   useEffect(() => {
     if ((emittedLearningReminderKeys || []).length === 0) {
@@ -859,6 +912,20 @@ function App() {
       processedEngagementReminderKeysRef.current = new Set()
     }
   }, [emittedEngagementReminderKeys])
+
+  useEffect(() => {
+    setEmittedLearningReminderKeys((currentKeys) => {
+      const safeCurrentKeys = currentKeys || []
+      const prunedKeys = pruneReminderHistoryKeys(safeCurrentKeys, activeEnrollmentIds)
+      return areStringArraysEqual(prunedKeys, safeCurrentKeys) ? safeCurrentKeys : prunedKeys
+    })
+
+    setEmittedEngagementReminderKeys((currentKeys) => {
+      const safeCurrentKeys = currentKeys || []
+      const prunedKeys = pruneReminderHistoryKeys(safeCurrentKeys, activeEnrollmentIds)
+      return areStringArraysEqual(prunedKeys, safeCurrentKeys) ? safeCurrentKeys : prunedKeys
+    })
+  }, [activeEnrollmentIds, setEmittedEngagementReminderKeys, setEmittedLearningReminderKeys])
 
   const sideEffectsEnabled = !shouldClearStaleDemoData && (localPreviewMode || Boolean(activeUserId))
   const sideEffectUsers = sideEffectsEnabled ? safeUsers : []
@@ -972,7 +1039,7 @@ function App() {
       return
     }
 
-    const reminders = buildLearningReminderCandidates(safeEnrollments, safeCourses, safeNotifications)
+    const reminders = buildLearningReminderCandidates(safeEnrollments, safeCourses, safeNotifications, reminderNow)
     if (reminders.length === 0) {
       return
     }
@@ -989,10 +1056,11 @@ function App() {
       processedLearningReminderKeysRef.current.add(reminder.reminderKey)
       setEmittedLearningReminderKeys((currentKeys) => {
         const safeCurrentKeys = currentKeys || []
-        if (safeCurrentKeys.includes(reminder.reminderKey)) {
+        const prunedKeys = pruneReminderHistoryKeys([...safeCurrentKeys, reminder.reminderKey], activeEnrollmentIds)
+        if (areStringArraysEqual(prunedKeys, safeCurrentKeys)) {
           return safeCurrentKeys
         }
-        return [...safeCurrentKeys, reminder.reminderKey]
+        return prunedKeys
       })
       handleCreateNotification({
         userId: reminder.userId,
@@ -1008,14 +1076,14 @@ function App() {
         },
       })
     })
-  }, [handleCreateNotification, learningReminderHistory, reminderNotificationSnapshot, safeCourses, safeEnrollments, safeNotifications, setEmittedLearningReminderKeys, sideEffectsEnabled])
+  }, [activeEnrollmentIds, handleCreateNotification, learningReminderHistory, reminderNotificationSnapshot, reminderNow, safeCourses, safeEnrollments, safeNotifications, setEmittedLearningReminderKeys, sideEffectsEnabled])
 
   useEffect(() => {
     if (!sideEffectsEnabled) {
       return
     }
 
-    const reminders = buildLearningEngagementReminderCandidates(safeEnrollments, safeCourses, safeNotifications)
+    const reminders = buildLearningEngagementReminderCandidates(safeEnrollments, safeCourses, safeNotifications, reminderNow)
     if (reminders.length === 0) {
       return
     }
@@ -1032,10 +1100,11 @@ function App() {
       processedEngagementReminderKeysRef.current.add(reminder.reminderKey)
       setEmittedEngagementReminderKeys((currentKeys) => {
         const safeCurrentKeys = currentKeys || []
-        if (safeCurrentKeys.includes(reminder.reminderKey)) {
+        const prunedKeys = pruneReminderHistoryKeys([...safeCurrentKeys, reminder.reminderKey], activeEnrollmentIds)
+        if (areStringArraysEqual(prunedKeys, safeCurrentKeys)) {
           return safeCurrentKeys
         }
-        return [...safeCurrentKeys, reminder.reminderKey]
+        return prunedKeys
       })
       handleCreateNotification({
         userId: reminder.userId,
@@ -1053,7 +1122,7 @@ function App() {
         },
       })
     })
-  }, [engagementReminderHistory, handleCreateNotification, reminderNotificationSnapshot, safeCourses, safeEnrollments, safeNotifications, setEmittedEngagementReminderKeys, sideEffectsEnabled])
+  }, [activeEnrollmentIds, engagementReminderHistory, handleCreateNotification, reminderNotificationSnapshot, reminderNow, safeCourses, safeEnrollments, safeNotifications, setEmittedEngagementReminderKeys, sideEffectsEnabled])
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 

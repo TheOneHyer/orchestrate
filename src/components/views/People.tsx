@@ -315,19 +315,15 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                         return (
                           <TableRow
                             key={user.id}
-                            className="cursor-pointer hover:bg-secondary"
-                            onClick={() => handleUserClick(user)}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault()
-                                handleUserClick(user)
-                              }
-                            }}
-                            tabIndex={0}
-                            aria-label={`View profile for ${user.name}`}
+                            className="hover:bg-secondary"
                           >
                             <TableCell>
-                              <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-label={`View profile for ${user.name}`}
+                                onClick={() => handleUserClick(user)}
+                              >
                                 <Avatar>
                                   <AvatarFallback className="bg-primary text-primary-foreground">
                                     {user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
@@ -351,7 +347,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                                   </div>
                                   <div className="text-sm text-muted-foreground">{user.email}</div>
                                 </div>
-                              </div>
+                              </button>
                             </TableCell>
                             <TableCell>
                               <Badge variant={user.role === 'admin' ? 'default' : 'outline'}>
@@ -391,7 +387,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Button variant="ghost" size="sm" tabIndex={-1}>
+                              <Button variant="ghost" size="sm" onClick={() => handleUserClick(user)}>
                                 View Profile
                               </Button>
                             </TableCell>

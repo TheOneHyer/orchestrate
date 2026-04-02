@@ -23,6 +23,25 @@ const scoringControls = vi.hoisted(() => ({
         Promise.resolve(storedHash === `__hash__${password}`)
     ),
 }))
+const reminderBuilderControls = vi.hoisted(() => ({
+    learningCandidates: [] as Array<{
+        reminderKey: string
+        userId: string
+        courseId: string
+        title: string
+        message: string
+        priority: 'medium' | 'high'
+    }>,
+    engagementCandidates: [] as Array<{
+        reminderKey: string
+        userId: string
+        enrollmentId: string
+        courseId: string
+        title: string
+        message: string
+        priority: 'medium' | 'high'
+    }>,
+}))
 let utilizationNotified = false
 function createUtilizationNotificationPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
@@ -559,6 +578,14 @@ vi.mock('@/lib/scoring', async () => {
     }
 })
 
+vi.mock('@/lib/learning-reminders', () => ({
+    buildLearningReminderCandidates: vi.fn(() => reminderBuilderControls.learningCandidates),
+}))
+
+vi.mock('@/lib/learning-engagement-reminders', () => ({
+    buildLearningEngagementReminderCandidates: vi.fn(() => reminderBuilderControls.engagementCandidates),
+}))
+
 import App from './App'
 
 describe('App', () => {
@@ -568,6 +595,8 @@ describe('App', () => {
         utilizationNotificationPayload = createUtilizationNotificationPayload()
         scoringControls.applyScoreImpl = null
         scoringControls.shouldNotifyCompletionImpl = null
+        reminderBuilderControls.learningCandidates = []
+        reminderBuilderControls.engagementCandidates = []
         getPreviewSeedModeMock.mockReturnValue('off')
         isPreviewSeedEnabledMock.mockReturnValue(false)
         Object.keys(kvSeed).forEach((key) => delete kvSeed[key])
@@ -3907,6 +3936,83 @@ describe('App', () => {
             } finally {
                 window.removeEventListener('error', errorHandler)
             }
+        })
+
+        it('emits a learning reminder once and records its key history', async () => {
+            utilizationNotified = true
+            kvSeed['active-user-id'] = 'admin-1'
+            kvSeed['notifications'] = []
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-reminder-1',
+                    userId: 'employee-1',
+                    courseId: 'course-reminder',
+                    status: 'in-progress',
+                    progress: 25,
+                    enrolledAt: '2026-03-01T00:00:00.000Z',
+                },
+            ]
+            reminderBuilderControls.learningCandidates = [
+                {
+                    reminderKey: 'enrollment-reminder-1:due-soon',
+                    userId: 'employee-1',
+                    courseId: 'course-reminder',
+                    title: 'Due Soon — Safety',
+                    message: 'Complete this training soon.',
+                    priority: 'medium',
+                },
+            ]
+
+            render(<App />)
+
+            await waitFor(() => {
+                const notifications = (kvState['notifications'] as Array<{ metadata?: { learningReminderKey?: string } }>) || []
+                const reminderNotifications = notifications.filter(
+                    (notification) => notification.metadata?.learningReminderKey === 'enrollment-reminder-1:due-soon',
+                )
+                expect(reminderNotifications).toHaveLength(1)
+            })
+
+            expect(kvState['emitted-learning-reminder-keys']).toEqual(['enrollment-reminder-1:due-soon'])
+        })
+
+        it('does not re-emit dismissed learning reminders when emitted key history already contains the key', async () => {
+            utilizationNotified = true
+            kvSeed['active-user-id'] = 'admin-1'
+            kvSeed['notifications'] = []
+            kvSeed['enrollments'] = [
+                {
+                    id: 'enrollment-reminder-1',
+                    userId: 'employee-1',
+                    courseId: 'course-reminder',
+                    status: 'in-progress',
+                    progress: 25,
+                    enrolledAt: '2026-03-01T00:00:00.000Z',
+                },
+            ]
+            kvSeed['emitted-learning-reminder-keys'] = ['enrollment-reminder-1:due-soon']
+            reminderBuilderControls.learningCandidates = [
+                {
+                    reminderKey: 'enrollment-reminder-1:due-soon',
+                    userId: 'employee-1',
+                    courseId: 'course-reminder',
+                    title: 'Due Soon — Safety',
+                    message: 'Complete this training soon.',
+                    priority: 'medium',
+                },
+            ]
+
+            render(<App />)
+
+            await waitFor(() => {
+                const notifications = (kvState['notifications'] as Array<{ metadata?: { learningReminderKey?: string } }>) || []
+                const reminderNotifications = notifications.filter(
+                    (notification) => notification.metadata?.learningReminderKey === 'enrollment-reminder-1:due-soon',
+                )
+                expect(reminderNotifications).toHaveLength(0)
+            })
+
+            expect(kvState['emitted-learning-reminder-keys']).toEqual(['enrollment-reminder-1:due-soon'])
         })
     })
 })

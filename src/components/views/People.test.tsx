@@ -215,12 +215,12 @@ describe('People', () => {
         expect(screen.queryByText('Employee User')).toBeNull()
     })
 
-    it('opens a profile from keyboard row interaction', async () => {
+    it('opens a profile from keyboard button interaction', async () => {
         const user = userEvent.setup()
         renderPeople()
 
-        const trainerRow = screen.getByRole('row', { name: /trainer user/i })
-        trainerRow.focus()
+        const profileButton = screen.getByRole('button', { name: /view profile for trainer user/i })
+        profileButton.focus()
         await user.keyboard('{Enter}')
 
         expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User')
