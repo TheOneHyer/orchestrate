@@ -750,4 +750,58 @@ describe('Analytics', () => {
       vi.useRealTimers()
     }
   })
+
+  it('keeps owner attribution when department filter hides the owner user', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    const users: User[] = [
+      createUser({ id: 'learner-hr', name: 'Learner HR', role: 'employee', department: 'HR' }),
+      createUser({ id: 'owner-ops', name: 'Owner Ops', role: 'admin', department: 'Ops' }),
+    ]
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 'owner-ops', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-hr-stall',
+        userId: 'learner-hr',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 10,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Analytics
+        users={users}
+        courses={courses}
+        sessions={[]}
+        enrollments={enrollments}
+        notifications={[
+          {
+            id: 'n-owner-cross-dept',
+            userId: 'learner-hr',
+            type: 'reminder',
+            title: 'Critical Learning Stall — Safety',
+            message: 'Reminder sent',
+            read: false,
+            createdAt: '2026-03-15T00:00:00.000Z',
+            metadata: {
+              engagementReminderKey: 'e-hr-stall:critical-stall',
+              enrollmentId: 'e-hr-stall',
+              ownerUserId: 'owner-ops',
+            },
+          },
+        ]}
+      />,
+    )
+
+    await user.click(screen.getByRole('combobox', { name: /filter by department/i }))
+    await user.click(screen.getByRole('option', { name: /^hr$/i }))
+
+    const card = screen.getByTestId('intervention-e-hr-stall')
+    expect(card).toHaveTextContent(/owner:\s*owner ops/i)
+  })
 })

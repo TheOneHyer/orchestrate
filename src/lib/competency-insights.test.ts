@@ -250,7 +250,17 @@ describe('competency-insights', () => {
                 },
             ]
 
-            const recommendations = buildLearningPathRecommendations({ ...user, certifications: [] }, courses, enrollments)
+            const coursesWithPublishedEnrolledTarget = courses.map((course) =>
+                course.id === 'course-c'
+                    ? { ...course, published: true }
+                    : course,
+            )
+
+            const recommendations = buildLearningPathRecommendations(
+                { ...user, certifications: [] },
+                coursesWithPublishedEnrolledTarget,
+                enrollments,
+            )
             expect(recommendations).toEqual([])
         })
     })

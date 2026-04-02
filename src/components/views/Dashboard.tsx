@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -60,12 +60,19 @@ export function Dashboard({
   onMarkNotificationAsRead,
   onDismissNotification
 }: DashboardProps) {
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+  const now = useMemo(() => new Date(nowMs), [nowMs])
+
   const unreadNotifications = notifications.filter(n => !n.read)
   const activeEnrollments = enrollments.filter(e => e.status === 'in-progress')
   const completedCount = enrollments.filter(e => e.status === 'completed').length
-  const learningFocusItems = useMemo(() => buildLearningFocusItems(enrollments, courses), [courses, enrollments])
-  const learningDeadlineItems = useMemo(() => buildLearningDeadlineInsights(enrollments, courses), [courses, enrollments])
-  const learningEngagementItems = useMemo(() => buildLearningEngagementItems(enrollments, courses), [courses, enrollments])
+  const learningFocusItems = useMemo(() => buildLearningFocusItems(enrollments, courses, now), [courses, enrollments, now])
+  const learningDeadlineItems = useMemo(() => buildLearningDeadlineInsights(enrollments, courses, now), [courses, enrollments, now])
+  const learningEngagementItems = useMemo(() => buildLearningEngagementItems(enrollments, courses, now), [courses, enrollments, now])
   const learningPathRecommendations = useMemo(
     () => buildLearningPathRecommendations(currentUser, courses, enrollments),
     [courses, currentUser, enrollments]

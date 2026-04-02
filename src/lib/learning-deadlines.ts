@@ -1,4 +1,4 @@
-import { addDays, differenceInDays } from 'date-fns'
+import { addDays, differenceInCalendarDays } from 'date-fns'
 
 import { Course, Enrollment } from '@/lib/types'
 
@@ -92,8 +92,8 @@ export function buildLearningDeadlineInsights(
             }
 
             const targetDate = resolveEnrollmentTargetDate(enrollment, DEFAULT_TARGET_COMPLETION_DAYS, now)
-            const daysUntilDue = differenceInDays(targetDate, now)
-            const isOverdue = daysUntilDue <= 0 && targetDate < now
+            const daysUntilDue = differenceInCalendarDays(targetDate, now)
+            const isOverdue = daysUntilDue < 0
             const isDueSoon = !isOverdue && daysUntilDue <= DUE_SOON_THRESHOLD_DAYS
 
             const urgency: LearningDeadlineUrgency = isOverdue ? 'overdue' : isDueSoon ? 'due-soon' : 'on-track'

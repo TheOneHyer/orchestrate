@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
-import { format } from 'date-fns'
+import { differenceInDays, format } from 'date-fns'
 import { AttendanceRecord, User, Enrollment, Session, Course, Notification } from '@/lib/types'
 import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
 import { getMissingCertificationsForUser } from '@/lib/competency-insights'
@@ -117,7 +117,12 @@ function getEscalationAgeDays(firstNudgeAt: string | null, now: Date = new Date(
     return 0
   }
 
-  return Math.max(0, Math.floor((now.getTime() - new Date(firstNudgeAt).getTime()) / (1000 * 60 * 60 * 24)))
+  const firstNudgeDate = new Date(firstNudgeAt)
+  if (Number.isNaN(firstNudgeDate.getTime())) {
+    return 0
+  }
+
+  return Math.max(0, differenceInDays(now, firstNudgeDate))
 }
 
 /**
@@ -270,7 +275,8 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
 
     return top ? `${top[0]} (${top[1]})` : 'None'
   }, [missingCertificationsByEmployee])
-  const userById = useMemo(() => new Map(filteredUsers.map((user) => [user.id, user])), [filteredUsers])
+  const visibleUserById = useMemo(() => new Map(filteredUsers.map((user) => [user.id, user])), [filteredUsers])
+  const allUsersById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users])
   const engagementRemindersByEnrollment = useMemo(
     () => buildEngagementRemindersByEnrollment(notifications),
     [notifications]
@@ -285,13 +291,13 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
 
         return {
           ...insight,
-          learnerName: userById.get(insight.userId)?.name ?? 'Unknown learner',
-          ownerName: getOwnerNameFromReminders(reminders, userById),
+          learnerName: visibleUserById.get(insight.userId)?.name ?? 'Unknown learner',
+          ownerName: getOwnerNameFromReminders(reminders, allUsersById),
           firstNudgeAt,
           escalationAgeDays: getEscalationAgeDays(firstNudgeAt, now),
         }
       }),
-    [engagementInsights, engagementRemindersByEnrollment, now, userById]
+    [allUsersById, engagementInsights, engagementRemindersByEnrollment, now, visibleUserById]
   )
 
   return (
