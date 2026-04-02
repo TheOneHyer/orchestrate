@@ -72,7 +72,14 @@ export function buildLearningFocusItems(
       }
 
       const enrolledAt = new Date(enrollment.enrolledAt)
-      const daysSinceEnrollment = Math.max(0, Math.floor((now.getTime() - enrolledAt.getTime()) / (1000 * 60 * 60 * 24)))
+      const enrolledAtTime = enrolledAt.getTime()
+      if (!Number.isFinite(enrolledAtTime)) {
+        return null
+      }
+      const daysSinceEnrollment = Math.max(
+        0,
+        Math.floor((now.getTime() - enrolledAtTime) / (1000 * 60 * 60 * 24))
+      )
       const expectedProgress = Math.min(100, Math.round((daysSinceEnrollment / SIXTY_DAY_COMPLETION_WINDOW) * 100))
       const progressGap = Math.max(0, expectedProgress - enrollment.progress)
       const riskLevel = classifyLearningRisk(enrollment.progress, daysSinceEnrollment)
