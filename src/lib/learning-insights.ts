@@ -71,18 +71,18 @@ export function buildLearningFocusItems(
                 return null
             }
 
-                        const enrolledAt = new Date(enrollment.enrolledAt)
-                        const enrolledAtTime = enrolledAt.getTime()
-                        if (!Number.isFinite(enrolledAtTime)) {
-                                return null
-                        }
-                        const daysSinceEnrollment = Math.max(
-                                0,
-                                Math.floor((now.getTime() - enrolledAtTime) / (1000 * 60 * 60 * 24))
-                        )
-                        const expectedProgress = Math.min(100, Math.round((daysSinceEnrollment / SIXTY_DAY_COMPLETION_WINDOW) * 100))
-                        const progressGap = Math.max(0, expectedProgress - enrollment.progress)
-                        const riskLevel = classifyLearningRisk(enrollment.progress, daysSinceEnrollment)
+            const enrolledAt = new Date(enrollment.enrolledAt)
+            const enrolledAtTime = enrolledAt.getTime()
+            if (!Number.isFinite(enrolledAtTime)) {
+                return null
+            }
+            const daysSinceEnrollment = Math.max(
+                0,
+                Math.floor((now.getTime() - enrolledAtTime) / (1000 * 60 * 60 * 24))
+            )
+            const expectedProgress = Math.min(100, Math.round((daysSinceEnrollment / SIXTY_DAY_COMPLETION_WINDOW) * 100))
+            const progressGap = Math.max(0, expectedProgress - enrollment.progress)
+            const riskLevel = classifyLearningRisk(enrollment.progress, daysSinceEnrollment)
 
             const recommendedAction = riskLevel === 'at-risk'
                 ? 'Schedule a check-in and assign a short recovery milestone.'
