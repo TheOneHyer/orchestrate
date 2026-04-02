@@ -155,18 +155,22 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
   const dueSoonEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'due-soon').length
   const stalledEnrollments = engagementInsights.filter((insight) => insight.severity === 'stalled').length
   const criticalStalledEnrollments = engagementInsights.filter((insight) => insight.severity === 'critical-stall').length
-  const employeesWithGaps = filteredUsers
+  const employeeMissingCertifications = filteredUsers
     .filter((user) => user.role === 'employee')
-    .filter((employee) => getMissingCertificationsForUser(employee, filteredCourses).length > 0).length
+    .map((employee) => ({
+      employee,
+      missingCertifications: getMissingCertificationsForUser(employee, filteredCourses),
+    }))
+  const employeesWithGaps = employeeMissingCertifications.filter(
+    ({ missingCertifications }) => missingCertifications.length > 0,
+  ).length
   const topMissingCertification = (() => {
     const counts = new Map<string, number>()
-    filteredUsers
-      .filter((user) => user.role === 'employee')
-      .forEach((employee) => {
-        getMissingCertificationsForUser(employee, filteredCourses).forEach((certification) => {
-          counts.set(certification, (counts.get(certification) || 0) + 1)
-        })
+    employeeMissingCertifications.forEach(({ missingCertifications }) => {
+      missingCertifications.forEach((certification) => {
+        counts.set(certification, (counts.get(certification) || 0) + 1)
       })
+    })
 
     const top = Array.from(counts.entries()).sort((left, right) => {
       const countDiff = right[1] - left[1]
