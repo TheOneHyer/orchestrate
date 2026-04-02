@@ -300,52 +300,60 @@ describe('Dashboard', () => {
   })
 
   it('renders deadline watch indicators for due-soon and overdue enrollments', () => {
-    const courses: Course[] = [
-      { ...baseCourse, id: 'deadline-course-1', title: 'Deadline Course 1' },
-      { ...baseCourse, id: 'deadline-course-2', title: 'Deadline Course 2' },
-    ]
+    vi.useFakeTimers()
 
-    const enrollments: Enrollment[] = [
-      {
-        id: 'deadline-overdue',
-        userId: baseUser.id,
-        courseId: 'deadline-course-1',
-        status: 'in-progress',
-        progress: 20,
-        enrolledAt: '2026-02-01T00:00:00.000Z',
-        targetCompletionDate: '2026-03-15T00:00:00.000Z',
-      },
-      {
-        id: 'deadline-soon',
-        userId: baseUser.id,
-        courseId: 'deadline-course-2',
-        status: 'enrolled',
-        progress: 10,
-        enrolledAt: '2026-03-15T00:00:00.000Z',
-        targetCompletionDate: '2026-04-05T00:00:00.000Z',
-      },
-    ]
+    try {
+      vi.setSystemTime(new Date('2026-03-25T00:00:00.000Z'))
 
-    render(
-      <Dashboard
-        currentUser={baseUser}
-        upcomingSessions={[]}
-        notifications={[]}
-        enrollments={enrollments}
-        courses={courses}
-        onNavigate={vi.fn()}
-      />
-    )
+      const courses: Course[] = [
+        { ...baseCourse, id: 'deadline-course-1', title: 'Deadline Course 1' },
+        { ...baseCourse, id: 'deadline-course-2', title: 'Deadline Course 2' },
+      ]
 
-    const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
-    expect(deadlineWatchCard).not.toBeNull()
+      const enrollments: Enrollment[] = [
+        {
+          id: 'deadline-overdue',
+          userId: baseUser.id,
+          courseId: 'deadline-course-1',
+          status: 'in-progress',
+          progress: 20,
+          enrolledAt: '2026-02-01T00:00:00.000Z',
+          targetCompletionDate: '2026-03-15T00:00:00.000Z',
+        },
+        {
+          id: 'deadline-soon',
+          userId: baseUser.id,
+          courseId: 'deadline-course-2',
+          status: 'enrolled',
+          progress: 10,
+          enrolledAt: '2026-03-15T00:00:00.000Z',
+          targetCompletionDate: '2026-04-05T00:00:00.000Z',
+        },
+      ]
 
-    if (!deadlineWatchCard) {
-      throw new Error('Expected deadline watch card to exist')
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={courses}
+          onNavigate={vi.fn()}
+        />
+      )
+
+      const deadlineWatchCard = screen.getByText(/^deadline watch$/i).closest('[data-slot="card"]')
+      expect(deadlineWatchCard).not.toBeNull()
+
+      if (!deadlineWatchCard) {
+        throw new Error('Expected deadline watch card to exist')
+      }
+
+      expect(within(deadlineWatchCard).getByText(/^overdue$/i)).toBeInTheDocument()
+      expect(within(deadlineWatchCard).getByText(/^due soon$/i)).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
     }
-
-    expect(within(deadlineWatchCard).getByText(/^overdue$/i)).toBeInTheDocument()
-    expect(within(deadlineWatchCard).getByText(/^due soon$/i)).toBeInTheDocument()
   })
 
   it('renders engagement watch insights and navigates to course details', async () => {
