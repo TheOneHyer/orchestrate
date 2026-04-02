@@ -853,4 +853,54 @@ describe('Analytics', () => {
     expect(card).toBeInTheDocument()
     expect(card).toHaveTextContent(/owner:\s*unassigned/i)
   })
+
+  it('ignores reminders with invalid createdAt when deriving first nudge timestamps', () => {
+    const users: User[] = [
+      createUser({ id: 'learner-1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+      createUser({ id: 'manager-1', name: 'Manager One', role: 'admin', department: 'Ops' }),
+    ]
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 'manager-1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-critical-stall',
+        userId: 'learner-1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Analytics
+        users={users}
+        courses={courses}
+        sessions={[]}
+        enrollments={enrollments}
+        notifications={[
+          {
+            id: 'n-invalid-created-at',
+            userId: 'learner-1',
+            type: 'reminder',
+            title: 'Critical Learning Stall — Safety',
+            message: 'Malformed timestamp',
+            read: false,
+            createdAt: 'not-a-date',
+            metadata: {
+              engagementReminderKey: 'e-critical-stall:critical-stall',
+              enrollmentId: 'e-critical-stall',
+              ownerUserId: 'manager-1',
+            },
+          },
+        ]}
+      />,
+    )
+
+    const card = screen.getByTestId('intervention-e-critical-stall')
+    expect(card).toBeInTheDocument()
+    expect(card).toHaveTextContent(/first nudge:\s*none/i)
+  })
 })

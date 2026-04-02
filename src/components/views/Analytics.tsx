@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
-import { differenceInDays, format } from 'date-fns'
+import { differenceInDays, format, isValid, parseISO } from 'date-fns'
 import { AttendanceRecord, User, Enrollment, Session, Course, Notification } from '@/lib/types'
 import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
 import { getMissingCertificationsForUser } from '@/lib/competency-insights'
@@ -102,7 +102,11 @@ function getFirstNudgeAt(reminders: Notification[]): string | null {
 
   const first = reminders
     .map((notification) => notification.createdAt)
-    .sort((left, right) => new Date(left).getTime() - new Date(right).getTime())[0]
+    .filter((createdAt) => {
+      const parsedDate = parseISO(createdAt)
+      return isValid(parsedDate)
+    })
+    .sort((left, right) => parseISO(left).getTime() - parseISO(right).getTime())[0]
 
   return first || null
 }
