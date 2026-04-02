@@ -1575,19 +1575,24 @@ function App() {
    */
   const handleUpdateSession = useCallback((id: string, updates: Partial<Session>) => {
     const affectsEnrollmentMembership = updates.enrolledStudents !== undefined || updates.courseId !== undefined
-    const nextSessions = (sessionsRef.current || []).map((session) => applySessionUpdates(session, id, updates))
-    setSessions(nextSessions)
-    if (affectsEnrollmentMembership) {
-      const nowIso = new Date().toISOString()
-      setEnrollments((currentEnrollments) =>
-        reconcileSessionEnrollments({
-          enrollments: currentEnrollments || [],
-          sessions: nextSessions,
-          nowIso,
-          createEnrollmentId: () => createEntityId('enrollment'),
-        })
-      )
-    }
+    setSessions((currentSessions) => {
+      const baseSessions = currentSessions || []
+      const updatedSessions = baseSessions.map((session) => applySessionUpdates(session, id, updates))
+
+      if (affectsEnrollmentMembership) {
+        const nowIso = new Date().toISOString()
+        setEnrollments((currentEnrollments) =>
+          reconcileSessionEnrollments({
+            enrollments: currentEnrollments || [],
+            sessions: updatedSessions,
+            nowIso,
+            createEnrollmentId: () => createEntityId('enrollment'),
+          }),
+        )
+      }
+
+      return updatedSessions
+    })
   }, [applySessionUpdates, setEnrollments, setSessions])
 
   /**
