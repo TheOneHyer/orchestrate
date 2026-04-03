@@ -117,6 +117,23 @@ describe('learning-engagement-reminders', () => {
         expect(buildLearningEngagementReminderCandidates(enrollments, courses, [], now)).toEqual([])
     })
 
+    it('does not generate engagement reminders for empty progress timestamps', () => {
+        const now = new Date('2026-04-01T00:00:00.000Z')
+        const enrollments: Enrollment[] = [
+            {
+                id: 'enrollment-with-empty-progress-time',
+                userId: 'user-1',
+                courseId: 'course-1',
+                status: 'in-progress',
+                progress: 30,
+                enrolledAt: '2026-02-01T00:00:00.000Z',
+                lastProgressAt: '',
+            },
+        ]
+
+        expect(buildLearningEngagementReminderCandidates(enrollments, courses, [], now)).toEqual([])
+    })
+
     it('returns an empty array when enrollments are empty', () => {
         const now = new Date('2026-04-01T00:00:00.000Z')
         expect(buildLearningEngagementReminderCandidates([], courses, [], now)).toEqual([])

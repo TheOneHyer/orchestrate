@@ -8,7 +8,6 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MagnifyingGlass, Plus, UserCircle, ArrowLeft, WarningCircle } from '@phosphor-icons/react'
 import { User, Enrollment, Course, Session } from '@/lib/types'
-import { getMissingCertificationsForUser } from '@/lib/competency-insights'
 import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
 import { AddPersonDialog } from '@/components/AddPersonDialog'
@@ -155,18 +154,50 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
         .filter((certification) => certification.length > 0),
     ).size
 
+  const publishedCourseCertificationCatalog = useMemo(
+    () => new Set(
+      courses
+        .filter((course) => course.published)
+        .flatMap((course) => course.certifications.map((certification) => certification.trim()))
+        .filter((certification) => certification.length > 0),
+    ),
+    [courses],
+  )
+
+  /**
+   * Returns the number of missing certifications for a user based on the published course catalog.
+   *
+   * @param user - User whose certification gaps are being evaluated.
+   * @returns Count of certifications in the catalog that the user does not currently hold.
+   */
+  const getMissingCertificationCountForUser = (user: User) => {
+    const normalizedUserCertifications = new Set(
+      user.certifications
+        .map((certification) => certification.trim())
+        .filter((certification) => certification.length > 0),
+    )
+
+    let missingCount = 0
+    publishedCourseCertificationCatalog.forEach((certification) => {
+      if (!normalizedUserCertifications.has(certification)) {
+        missingCount += 1
+      }
+    })
+
+    return missingCount
+  }
+
   const certificationGapStatsByUserId = useMemo(() => {
     const map = new Map<string, { certificationCount: number; missingCount: number }>()
     users.forEach((user) => {
-      const missingCertifications = getMissingCertificationsForUser(user, courses)
       map.set(user.id, {
         certificationCount: getNormalizedCertificationCount(user.certifications),
-        missingCount: missingCertifications.length,
+        missingCount: getMissingCertificationCountForUser(user),
       })
     })
 
     return map
-  }, [courses, users])
+  }, [users, publishedCourseCertificationCatalog])
 
   /**
    * Returns certification coverage summary for the given user.
@@ -177,7 +208,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
   const getUserCertificationGapStats = (user: User) => {
     return certificationGapStatsByUserId.get(user.id) || {
       certificationCount: getNormalizedCertificationCount(user.certifications),
-      missingCount: getMissingCertificationsForUser(user, courses).length,
+      missingCount: getMissingCertificationCountForUser(user),
     }
   }
 
@@ -343,7 +374,12 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                               <button
                                 type="button"
                                 className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                aria-label={`View profile for ${user.name}${isTrainerWithoutSchedule ? ', schedule not configured' : ''}`}
+                                aria-labelledby={`user-${user.id}-name`}
+                                aria-describedby={
+                                  isTrainerWithoutSchedule
+                                    ? `user-${user.id}-email user-${user.id}-schedule-status`
+                                    : `user-${user.id}-email`
+                                }
                                 onClick={() => handleUserClick(user)}
                               >
                                 <Avatar>
@@ -353,15 +389,15 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                                 </Avatar>
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-medium">{user.name}</span>
+                                    <span id={`user-${user.id}-name`} className="font-medium">{user.name}</span>
                                     {isTrainerWithoutSchedule && (
                                       <>
                                         <WarningCircle size={16} weight="fill" className="text-amber-600 dark:text-amber-500" aria-hidden="true" />
-                                        <span className="sr-only">Schedule not configured</span>
+                                        <span id={`user-${user.id}-schedule-status`} className="sr-only">Schedule not configured</span>
                                       </>
                                     )}
                                   </div>
-                                  <div className="text-sm text-muted-foreground">{user.email}</div>
+                                  <div id={`user-${user.id}-email`} className="text-sm text-muted-foreground">{user.email}</div>
                                 </div>
                               </button>
                             </TableCell>
@@ -405,7 +441,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Button variant="ghost" size="sm" onClick={() => handleUserClick(user)}>
+                              <Button variant="ghost" size="sm" aria-label={`View Profile for ${user.name}`} onClick={() => handleUserClick(user)}>
                                 View Profile
                               </Button>
                             </TableCell>

@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { addDays, subDays } from 'date-fns'
 
 import { Dashboard } from './Dashboard'
 import type { User, Course, Session, Notification, Enrollment } from '@/lib/types'
@@ -454,8 +454,6 @@ describe('Dashboard', () => {
 
   it('renders engagement watch insights and navigates to course details', async () => {
     const user = userEvent.setup()
-    const msPerDay = 24 * 60 * 60 * 1000
-    const nowMs = Date.now()
 
     const onNavigate = vi.fn()
     const courses: Course[] = [
@@ -470,8 +468,8 @@ describe('Dashboard', () => {
         courseId: 'engagement-course-1',
         status: 'in-progress',
         progress: 25,
-        enrolledAt: new Date(nowMs - (45 * msPerDay)).toISOString(),
-        lastProgressAt: new Date(nowMs - (35 * msPerDay)).toISOString(),
+        enrolledAt: subDays(new Date(), 45).toISOString(),
+        lastProgressAt: subDays(new Date(), 35).toISOString(),
       },
       {
         id: 'engagement-stalled',
@@ -479,8 +477,8 @@ describe('Dashboard', () => {
         courseId: 'engagement-course-2',
         status: 'enrolled',
         progress: 5,
-        enrolledAt: new Date(nowMs - (20 * msPerDay)).toISOString(),
-        lastProgressAt: new Date(nowMs - (10 * msPerDay)).toISOString(),
+        enrolledAt: subDays(new Date(), 20).toISOString(),
+        lastProgressAt: subDays(new Date(), 10).toISOString(),
       },
     ]
 
@@ -498,16 +496,18 @@ describe('Dashboard', () => {
     const engagementCard = getCardByHeading(/^engagement watch$/i)
 
     expect(within(engagementCard).getByText(/engagement course 1/i)).toBeInTheDocument()
+    expect(within(engagementCard).getByText(/engagement course 2/i)).toBeInTheDocument()
     expect(within(engagementCard).getByText(/critical stall/i)).toBeInTheDocument()
+    expect(within(engagementCard).getByText(/^stalled$/i)).toBeInTheDocument()
 
     await user.click(within(engagementCard).getByRole('button', { name: /engagement course 1/i }))
+    await user.click(within(engagementCard).getByRole('button', { name: /engagement course 2/i }))
     expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'engagement-course-1' })
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'engagement-course-2' })
   })
 
   it('navigates from deadline watch items to course details', async () => {
     const user = userEvent.setup()
-    const msPerDay = 24 * 60 * 60 * 1000
-    const nowMs = Date.now()
 
     const onNavigate = vi.fn()
     const deadlineCourse: Course = {
@@ -523,8 +523,8 @@ describe('Dashboard', () => {
         courseId: 'deadline-course-nav',
         status: 'in-progress',
         progress: 40,
-        enrolledAt: new Date(nowMs - (30 * msPerDay)).toISOString(),
-        targetCompletionDate: new Date(nowMs - msPerDay).toISOString(),
+        enrolledAt: subDays(new Date(), 30).toISOString(),
+        targetCompletionDate: subDays(new Date(), 1).toISOString(),
       },
     ]
 
@@ -547,8 +547,6 @@ describe('Dashboard', () => {
 
   it('opens notifications pre-filtered to learning reminders from deadline watch', async () => {
     const user = userEvent.setup()
-    const msPerDay = 24 * 60 * 60 * 1000
-    const nowMs = Date.now()
 
     const onNavigate = vi.fn()
     const deadlineCourse: Course = {
@@ -564,8 +562,8 @@ describe('Dashboard', () => {
         courseId: 'deadline-alert-course',
         status: 'in-progress',
         progress: 25,
-        enrolledAt: new Date(nowMs - (30 * msPerDay)).toISOString(),
-        targetCompletionDate: new Date(nowMs + (2 * msPerDay)).toISOString(),
+        enrolledAt: subDays(new Date(), 30).toISOString(),
+        targetCompletionDate: addDays(new Date(), 2).toISOString(),
       },
     ]
 
@@ -607,8 +605,8 @@ describe('Dashboard', () => {
         courseId: 'deadline-trainer-course',
         status: 'in-progress',
         progress: 45,
-        enrolledAt: new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString(),
-        targetCompletionDate: new Date(Date.now() + (2 * 24 * 60 * 60 * 1000)).toISOString(),
+        enrolledAt: subDays(new Date(), 30).toISOString(),
+        targetCompletionDate: addDays(new Date(), 2).toISOString(),
       },
     ]
 
