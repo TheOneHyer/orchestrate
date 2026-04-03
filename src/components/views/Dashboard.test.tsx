@@ -453,6 +453,10 @@ describe('Dashboard', () => {
   })
 
   it('renders engagement watch insights and navigates to course details', async () => {
+    const user = userEvent.setup()
+    const msPerDay = 24 * 60 * 60 * 1000
+    const nowMs = Date.now()
+
     const onNavigate = vi.fn()
     const courses: Course[] = [
       { ...baseCourse, id: 'engagement-course-1', title: 'Engagement Course 1' },
@@ -466,8 +470,8 @@ describe('Dashboard', () => {
         courseId: 'engagement-course-1',
         status: 'in-progress',
         progress: 25,
-        enrolledAt: '2026-02-01T00:00:00.000Z',
-        lastProgressAt: '2026-03-01T00:00:00.000Z',
+        enrolledAt: new Date(nowMs - (45 * msPerDay)).toISOString(),
+        lastProgressAt: new Date(nowMs - (35 * msPerDay)).toISOString(),
       },
       {
         id: 'engagement-stalled',
@@ -475,8 +479,8 @@ describe('Dashboard', () => {
         courseId: 'engagement-course-2',
         status: 'enrolled',
         progress: 5,
-        enrolledAt: '2026-03-15T00:00:00.000Z',
-        lastProgressAt: '2026-03-23T00:00:00.000Z',
+        enrolledAt: new Date(nowMs - (20 * msPerDay)).toISOString(),
+        lastProgressAt: new Date(nowMs - (10 * msPerDay)).toISOString(),
       },
     ]
 
@@ -496,11 +500,15 @@ describe('Dashboard', () => {
     expect(within(engagementCard).getByText(/engagement course 1/i)).toBeInTheDocument()
     expect(within(engagementCard).getByText(/critical stall/i)).toBeInTheDocument()
 
-    await userEvent.click(within(engagementCard).getByRole('button', { name: /engagement course 1/i }))
+    await user.click(within(engagementCard).getByRole('button', { name: /engagement course 1/i }))
     expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'engagement-course-1' })
   })
 
   it('navigates from deadline watch items to course details', async () => {
+    const user = userEvent.setup()
+    const msPerDay = 24 * 60 * 60 * 1000
+    const nowMs = Date.now()
+
     const onNavigate = vi.fn()
     const deadlineCourse: Course = {
       ...baseCourse,
@@ -515,8 +523,8 @@ describe('Dashboard', () => {
         courseId: 'deadline-course-nav',
         status: 'in-progress',
         progress: 40,
-        enrolledAt: '2026-03-01T00:00:00.000Z',
-        targetCompletionDate: '2026-04-04T00:00:00.000Z',
+        enrolledAt: new Date(nowMs - (30 * msPerDay)).toISOString(),
+        targetCompletionDate: new Date(nowMs - msPerDay).toISOString(),
       },
     ]
 
@@ -533,11 +541,15 @@ describe('Dashboard', () => {
 
     const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
 
-    await userEvent.click(within(deadlineWatchCard).getByRole('button', { name: /deadline navigation course/i }))
+    await user.click(within(deadlineWatchCard).getByRole('button', { name: /deadline navigation course/i }))
     expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'deadline-course-nav' })
   })
 
   it('opens notifications pre-filtered to learning reminders from deadline watch', async () => {
+    const user = userEvent.setup()
+    const msPerDay = 24 * 60 * 60 * 1000
+    const nowMs = Date.now()
+
     const onNavigate = vi.fn()
     const deadlineCourse: Course = {
       ...baseCourse,
@@ -552,8 +564,8 @@ describe('Dashboard', () => {
         courseId: 'deadline-alert-course',
         status: 'in-progress',
         progress: 25,
-        enrolledAt: '2026-03-01T00:00:00.000Z',
-        targetCompletionDate: '2026-04-04T00:00:00.000Z',
+        enrolledAt: new Date(nowMs - (30 * msPerDay)).toISOString(),
+        targetCompletionDate: new Date(nowMs + (2 * msPerDay)).toISOString(),
       },
     ]
 
@@ -570,7 +582,7 @@ describe('Dashboard', () => {
 
     const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
 
-    await userEvent.click(within(deadlineWatchCard).getByRole('button', { name: /open learning alerts/i }))
+    await user.click(within(deadlineWatchCard).getByRole('button', { name: /open learning alerts/i }))
     expect(onNavigate).toHaveBeenCalledWith('notifications', { tab: 'learning-reminders' })
   })
 
@@ -595,8 +607,8 @@ describe('Dashboard', () => {
         courseId: 'deadline-trainer-course',
         status: 'in-progress',
         progress: 45,
-        enrolledAt: '2026-03-01T00:00:00.000Z',
-        targetCompletionDate: '2026-04-04T00:00:00.000Z',
+        enrolledAt: new Date(Date.now() - (30 * 24 * 60 * 60 * 1000)).toISOString(),
+        targetCompletionDate: new Date(Date.now() + (2 * 24 * 60 * 60 * 1000)).toISOString(),
       },
     ]
 

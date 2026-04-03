@@ -1,4 +1,5 @@
 import { buildLearningEngagementReminderCandidates } from './learning-engagement-reminders'
+import { DEFAULT_CRITICAL_STALL_DAYS, DEFAULT_STALL_DAYS } from './learning-engagement'
 import type { Course, Enrollment, Notification } from './types'
 
 const courses: Course[] = [
@@ -158,6 +159,8 @@ describe('learning-engagement-reminders', () => {
 
     it('handles boundary inactivity values at 6, 7, 13, and 30 days', () => {
         const now = new Date('2026-04-01T00:00:00.000Z')
+        const msPerDay = 24 * 60 * 60 * 1000
+        const toIsoDaysAgo = (days: number) => new Date(now.getTime() - (days * msPerDay)).toISOString()
         const enrollments: Enrollment[] = [
             {
                 id: 'enrollment-seven-days',
@@ -166,7 +169,7 @@ describe('learning-engagement-reminders', () => {
                 status: 'in-progress',
                 progress: 20,
                 enrolledAt: '2026-03-20T00:00:00.000Z',
-                lastProgressAt: '2026-03-25T00:00:00.000Z',
+                lastProgressAt: toIsoDaysAgo(DEFAULT_STALL_DAYS),
             },
             {
                 id: 'enrollment-thirty-days',
@@ -175,7 +178,7 @@ describe('learning-engagement-reminders', () => {
                 status: 'in-progress',
                 progress: 10,
                 enrolledAt: '2026-02-01T00:00:00.000Z',
-                lastProgressAt: '2026-03-02T00:00:00.000Z',
+                lastProgressAt: toIsoDaysAgo(DEFAULT_CRITICAL_STALL_DAYS + 16),
             },
         ]
 
@@ -187,7 +190,7 @@ describe('learning-engagement-reminders', () => {
                 status: 'in-progress',
                 progress: 15,
                 enrolledAt: '2026-03-20T00:00:00.000Z',
-                lastProgressAt: '2026-03-26T00:00:00.000Z',
+                lastProgressAt: toIsoDaysAgo(DEFAULT_STALL_DAYS - 1),
             },
         ]
 
@@ -199,7 +202,7 @@ describe('learning-engagement-reminders', () => {
                 status: 'in-progress',
                 progress: 10,
                 enrolledAt: '2026-02-01T00:00:00.000Z',
-                lastProgressAt: '2026-03-19T00:00:00.000Z',
+                lastProgressAt: toIsoDaysAgo(DEFAULT_CRITICAL_STALL_DAYS - 1),
             },
         ]
 

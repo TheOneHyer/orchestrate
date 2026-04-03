@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { MagnifyingGlass, Plus, UserCircle, ArrowLeft, WarningCircle } from '@phosphor-icons/react'
 import { User, Enrollment, Course, Session } from '@/lib/types'
 import { getMissingCertificationsForUser } from '@/lib/competency-insights'
@@ -247,7 +246,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
   const existingEmails = users.map(u => u.email.toLowerCase())
 
   return (
-    <section className="p-6 space-y-6" aria-labelledby="people-heading">
+    <section className="p-6 space-y-6" aria-labelledby={selectedUser ? undefined : 'people-heading'}>
       {selectedUser ? (
         <div className="space-y-4">
           <Button variant="ghost" onClick={() => {
@@ -344,7 +343,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                               <button
                                 type="button"
                                 className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                aria-label={`View profile for ${user.name}`}
+                                aria-label={`View profile for ${user.name}${isTrainerWithoutSchedule ? ', schedule not configured' : ''}`}
                                 onClick={() => handleUserClick(user)}
                               >
                                 <Avatar>
@@ -356,18 +355,10 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                                   <div className="flex items-center gap-2">
                                     <span className="font-medium">{user.name}</span>
                                     {isTrainerWithoutSchedule && (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <span aria-label={`Schedule not configured for ${user.name}`}>
-                                              <WarningCircle size={16} weight="fill" className="text-amber-600 dark:text-amber-500" />
-                                            </span>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            Schedule not configured
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
+                                      <>
+                                        <WarningCircle size={16} weight="fill" className="text-amber-600 dark:text-amber-500" aria-hidden="true" />
+                                        <span className="sr-only">Schedule not configured</span>
+                                      </>
                                     )}
                                   </div>
                                   <div className="text-sm text-muted-foreground">{user.email}</div>
