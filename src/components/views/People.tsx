@@ -191,7 +191,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
     })
 
     return map
-  }, [users, getMissingCertificationCountForUser])
+  }, [users, getMissingCertificationCountForUser, getNormalizedCertificationCount])
 
   /**
    * Returns certification coverage summary for the given user.
