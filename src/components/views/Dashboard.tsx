@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -6,6 +7,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Clock, CheckCircle, Warning, X, Check } from '@phosphor-icons/react'
 import { User, Session, Notification, Enrollment, Course } from '@/lib/types'
 import { formatDuration } from '@/lib/helpers'
+import { buildLearningFocusItems } from '@/lib/learning-insights'
+import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
+import { buildLearningPathRecommendations } from '@/lib/competency-insights'
+import { buildLearningEngagementItems } from '@/lib/learning-engagement'
 import { format } from 'date-fns'
 
 /** Props for the Dashboard home view component. */
@@ -55,9 +60,24 @@ export function Dashboard({
   onMarkNotificationAsRead,
   onDismissNotification
 }: DashboardProps) {
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+  const now = useMemo(() => new Date(nowMs), [nowMs])
+
   const unreadNotifications = notifications.filter(n => !n.read)
+  const canOpenLearningAlerts = currentUser.role !== 'trainer'
   const activeEnrollments = enrollments.filter(e => e.status === 'in-progress')
   const completedCount = enrollments.filter(e => e.status === 'completed').length
+  const learningFocusItems = useMemo(() => buildLearningFocusItems(enrollments, courses, now), [courses, enrollments, now])
+  const learningDeadlineItems = useMemo(() => buildLearningDeadlineInsights(enrollments, courses, now), [courses, enrollments, now])
+  const learningEngagementItems = useMemo(() => buildLearningEngagementItems(enrollments, courses, now), [courses, enrollments, now])
+  const learningPathRecommendations = useMemo(
+    () => buildLearningPathRecommendations(currentUser, courses, enrollments),
+    [courses, currentUser, enrollments]
+  )
 
   return (
     <div className="p-6 space-y-6">
@@ -121,6 +141,139 @@ export function Dashboard({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {learningPathRecommendations.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Recommended Learning Path</CardTitle>
+              <CardDescription>Next-best courses to close certification gaps</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {learningPathRecommendations.slice(0, 3).map((recommendation) => (
+                <button
+                  key={recommendation.courseId}
+                  type="button"
+                  onClick={() => onNavigate('courses', { courseId: recommendation.courseId })}
+                  className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-foreground">{recommendation.courseTitle}</p>
+                    <Badge variant="secondary">{recommendation.gapClosureCount} gap{recommendation.gapClosureCount === 1 ? '' : 's'}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{recommendation.reason}</p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {learningDeadlineItems.length > 0 && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle>Deadline Watch</CardTitle>
+                {canOpenLearningAlerts && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onNavigate('notifications', { tab: 'learning-reminders' })}
+                  >
+                    Open Learning Alerts
+                  </Button>
+                )}
+              </div>
+              <CardDescription>Upcoming and overdue learner completion targets</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {learningDeadlineItems.slice(0, 3).map((item) => (
+                <button
+                  key={item.enrollmentId}
+                  type="button"
+                  onClick={() => onNavigate('courses', { courseId: item.courseId })}
+                  className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-foreground">{item.courseTitle}</p>
+                    <Badge variant={item.urgency === 'overdue' ? 'destructive' : item.urgency === 'due-soon' ? 'secondary' : 'outline'}>
+                      {item.urgency === 'overdue' ? 'overdue' : item.urgency === 'due-soon' ? 'due soon' : 'on track'}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {item.isOverdue
+                      ? `${Math.abs(item.daysUntilDue)} day${Math.abs(item.daysUntilDue) === 1 ? '' : 's'} overdue`
+                      : `Due in ${item.daysUntilDue} day${item.daysUntilDue === 1 ? '' : 's'}`}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.progress}% complete</p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {learningFocusItems.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Learning Focus</CardTitle>
+              <CardDescription>Prioritized actions to keep learners on track</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {learningFocusItems.slice(0, 3).map((item) => {
+                const badgeVariant = item.riskLevel === 'at-risk' ? 'destructive' : item.riskLevel === 'watch' ? 'secondary' : 'outline'
+                return (
+                  <button
+                    key={item.enrollmentId}
+                    type="button"
+                    onClick={() => onNavigate('courses', { courseId: item.courseId })}
+                    className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-foreground">{item.courseTitle}</p>
+                      <Badge variant={badgeVariant}>{item.riskLevel}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {item.progress}% complete • {item.daysSinceEnrollment} days active
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Gap to expected pace: {item.progressGap}%
+                    </p>
+                    <p className="mt-2 text-sm">{item.recommendedAction}</p>
+                  </button>
+                )
+              })}
+            </CardContent>
+          </Card>
+        )}
+
+        {learningEngagementItems.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Engagement Watch</CardTitle>
+              <CardDescription>Learners with stalled progress that need a nudge</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {learningEngagementItems.slice(0, 3).map((item) => (
+                <button
+                  key={item.enrollmentId}
+                  type="button"
+                  onClick={() => onNavigate('courses', { courseId: item.courseId })}
+                  className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium text-foreground">{item.courseTitle}</p>
+                    <Badge variant={item.severity === 'critical-stall' ? 'destructive' : 'secondary'}>
+                      {item.severity === 'critical-stall' ? 'critical stall' : 'stalled'}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    No progress for {item.daysSinceProgress} day{item.daysSinceProgress === 1 ? '' : 's'}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{item.progress}% complete</p>
+                  <p className="mt-2 text-sm">{item.recommendedAction}</p>
+                </button>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Upcoming Sessions</CardTitle>

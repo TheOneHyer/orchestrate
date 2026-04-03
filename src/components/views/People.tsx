@@ -1,14 +1,14 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { MagnifyingGlass, Plus, UserCircle, ArrowLeft, WarningCircle } from '@phosphor-icons/react'
 import { User, Enrollment, Course, Session } from '@/lib/types'
+import { normalizeCertifications } from '@/lib/competency-insights'
 import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
 import { AddPersonDialog } from '@/components/AddPersonDialog'
@@ -54,12 +54,22 @@ function hasUserIdPayload(value: unknown): value is { userId: string } {
 }
 
 /**
- * Renders the People management view.
+ * Renders the People management interface, showing a searchable, role-filterable list and a detailed profile view when a user is selected.
  *
- * Shows a searchable, role-filterable table of all users. Admins can add or delete users
- * and edit trainer profiles. Clicking a row expands a detailed profile sheet using
- * {@link TrainerProfileView}. Trainers without configured shift schedules are highlighted
- * with a warning icon.
+ * Provides admin controls to add and delete users and to edit trainer profiles. Highlights trainers missing shift schedules and displays per-user enrollment and certification summaries.
+ *
+ * @param users - Full user directory shown in the people table and used for profile selection.
+ * @param enrollments - Enrollment records used to compute per-user progress totals.
+ * @param courses - Course catalog used for certification gap calculations.
+ * @param sessions - Session records used to flag trainers missing schedule configuration.
+ * @param currentUser - Signed-in user context used to gate admin-only actions.
+ * @param onUpdateUser - Optional callback fired when profile edits are saved.
+ * @param onAddUser - Optional callback fired when a new user is created.
+ * @param onDeleteUser - Optional callback fired when a user deletion is confirmed.
+ * @param navigationPayload - Optional deep-link payload that can preselect a user.
+ * @param onNavigationPayloadConsumed - Optional callback fired after consuming a deep-link payload.
+ * @returns The People management view.
+ * @throws {Error} Propagates errors thrown by optional mutation callbacks during save or delete actions.
  */
 export function People({ users, enrollments, courses, sessions, currentUser, onUpdateUser, onAddUser, onDeleteUser, navigationPayload, onNavigationPayloadConsumed }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
@@ -133,6 +143,70 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
   }
 
   /**
+   * Returns the count of unique, non-empty certifications after trimming whitespace.
+   *
+   * @param certifications - Raw certification strings from a user profile.
+   * @returns The normalized unique certification count.
+   */
+  const getNormalizedCertificationCount = useCallback(
+    (certifications: string[]) => normalizeCertifications(certifications).size,
+    [],
+  )
+
+  const publishedCourseCertificationCatalog = useMemo(
+    () => normalizeCertifications(
+      courses
+        .filter((course) => course.published)
+        .flatMap((course) => course.certifications),
+    ),
+    [courses],
+  )
+
+  /**
+   * Returns the number of missing certifications for a user based on the published course catalog.
+   *
+   * @param user - User whose certification gaps are being evaluated.
+   * @returns Count of certifications in the catalog that the user does not currently hold.
+   */
+  const getMissingCertificationCountForUser = useCallback((user: User) => {
+    const normalizedUserCertifications = normalizeCertifications(user.certifications)
+
+    let missingCount = 0
+    publishedCourseCertificationCatalog.forEach((certification) => {
+      if (!normalizedUserCertifications.has(certification)) {
+        missingCount += 1
+      }
+    })
+
+    return missingCount
+  }, [publishedCourseCertificationCatalog])
+
+  const certificationGapStatsByUserId = useMemo(() => {
+    const map = new Map<string, { certificationCount: number; missingCount: number }>()
+    users.forEach((user) => {
+      map.set(user.id, {
+        certificationCount: getNormalizedCertificationCount(user.certifications),
+        missingCount: getMissingCertificationCountForUser(user),
+      })
+    })
+
+    return map
+  }, [users, getMissingCertificationCountForUser, getNormalizedCertificationCount])
+
+  /**
+   * Returns certification coverage summary for the given user.
+   *
+   * @param user - User whose certification gaps are being evaluated.
+   * @returns Existing certification count and missing certification count.
+   */
+  const getUserCertificationGapStats = (user: User) => {
+    return certificationGapStatsByUserId.get(user.id) || {
+      certificationCount: getNormalizedCertificationCount(user.certifications),
+      missingCount: getMissingCertificationCountForUser(user),
+    }
+  }
+
+  /**
    * Sets the selected user to display in the detail panel.
    *
    * @param user - The user to select.
@@ -197,9 +271,10 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
   const existingEmails = users.map(u => u.email.toLowerCase())
 
   return (
-    <div className="p-6 space-y-6">
+    <section className="p-6 space-y-6" aria-labelledby={selectedUser ? 'person-detail-heading' : 'people-heading'}>
       {selectedUser ? (
         <div className="space-y-4">
+          <h1 id="person-detail-heading" className="sr-only">Person detail view</h1>
           <Button variant="ghost" onClick={() => {
             setSelectedUser(null)
             processedUserIdRef.current = null
@@ -228,7 +303,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
         <>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-semibold text-foreground">People</h1>
+              <h1 id="people-heading" className="text-3xl font-semibold text-foreground">People</h1>
               <p className="text-muted-foreground mt-1">Manage employees and training profiles</p>
             </div>
             {currentUser.role === 'admin' && (
@@ -246,13 +321,14 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                 placeholder="Search people..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search people"
                 className="pl-10"
               />
             </div>
           </div>
 
           <Tabs value={roleFilter} onValueChange={(v) => setRoleFilter(v as 'all' | 'admin' | 'trainer' | 'employee')}>
-            <TabsList>
+            <TabsList aria-label="Filter people by role">
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="employee">Employees</TabsTrigger>
               <TabsTrigger value="trainer">Trainers</TabsTrigger>
@@ -262,28 +338,45 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
             <TabsContent value={roleFilter} className="mt-6">
               <Card>
                 <CardContent className="pt-6">
-                  <Table>
+                  <Table aria-label="People directory">
+                    <TableCaption className="sr-only">
+                      People directory with role, department, schedule, enrollment, and certification status.
+                    </TableCaption>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Role</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Shifts</TableHead>
-                        <TableHead>Enrollments</TableHead>
-                        <TableHead>Certifications</TableHead>
-                        <TableHead></TableHead>
+                        <TableHead scope="col">Name</TableHead>
+                        <TableHead scope="col">Role</TableHead>
+                        <TableHead scope="col">Department</TableHead>
+                        <TableHead scope="col">Shifts</TableHead>
+                        <TableHead scope="col">Enrollments</TableHead>
+                        <TableHead scope="col">Certifications</TableHead>
+                        <TableHead scope="col"><span className="sr-only">Actions</span></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredUsers.map(user => {
                         const stats = getUserEnrollmentStats(user.id)
+                        const certificationGapStats = getUserCertificationGapStats(user)
                         const isTrainerWithoutSchedule = user.role === 'trainer' &&
                           (!user.trainerProfile?.shiftSchedules || user.trainerProfile.shiftSchedules.length === 0)
 
                         return (
-                          <TableRow key={user.id} className="cursor-pointer hover:bg-secondary" onClick={() => handleUserClick(user)}>
+                          <TableRow
+                            key={user.id}
+                            className="hover:bg-secondary"
+                          >
                             <TableCell>
-                              <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-secondary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                aria-labelledby={`user-${user.id}-name`}
+                                aria-describedby={
+                                  isTrainerWithoutSchedule
+                                    ? `user-${user.id}-email user-${user.id}-schedule-status`
+                                    : `user-${user.id}-email`
+                                }
+                                onClick={() => handleUserClick(user)}
+                              >
                                 <Avatar>
                                   <AvatarFallback className="bg-primary text-primary-foreground">
                                     {user.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
@@ -291,23 +384,17 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                                 </Avatar>
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <span className="font-medium">{user.name}</span>
+                                    <span id={`user-${user.id}-name`} className="font-medium">{user.name}</span>
                                     {isTrainerWithoutSchedule && (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger>
-                                            <WarningCircle size={16} weight="fill" className="text-amber-600 dark:text-amber-500" />
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            Schedule not configured
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
+                                      <>
+                                        <WarningCircle size={16} weight="fill" className="text-amber-600 dark:text-amber-500" aria-hidden="true" />
+                                        <span id={`user-${user.id}-schedule-status`} className="sr-only">Schedule not configured</span>
+                                      </>
                                     )}
                                   </div>
-                                  <div className="text-sm text-muted-foreground">{user.email}</div>
+                                  <div id={`user-${user.id}-email`} className="text-sm text-muted-foreground">{user.email}</div>
                                 </div>
-                              </div>
+                              </button>
                             </TableCell>
                             <TableCell>
                               <Badge variant={user.role === 'admin' ? 'default' : 'outline'}>
@@ -339,12 +426,17 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="text-sm text-muted-foreground">
-                                {user.certifications.length} certs
+                              <div className="text-sm text-muted-foreground space-y-1">
+                                <div>
+                                  {certificationGapStats.certificationCount} {certificationGapStats.certificationCount === 1 ? 'cert' : 'certs'}
+                                </div>
+                                <div className={certificationGapStats.missingCount > 0 ? 'text-amber-700 dark:text-amber-400' : ''}>
+                                  {certificationGapStats.missingCount} {certificationGapStats.missingCount === 1 ? 'gap' : 'gaps'}
+                                </div>
                               </div>
                             </TableCell>
                             <TableCell>
-                              <Button variant="ghost" size="sm">
+                              <Button variant="ghost" size="sm" aria-label={`View Profile for ${user.name}`} onClick={() => handleUserClick(user)}>
                                 View Profile
                               </Button>
                             </TableCell>
@@ -380,6 +472,6 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
           />
         </>
       )}
-    </div>
+    </section>
   )
 }

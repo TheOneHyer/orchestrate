@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +44,51 @@ interface NotificationsProps {
    * @param data - Optional payload passed to the target view.
    */
   onNavigate: (view: string, data?: unknown) => void
+  /** Optional one-time payload used to select a starting tab. */
+  navigationPayload?: unknown
+  /** Optional callback invoked once a navigation payload has been consumed. */
+  onNavigationPayloadConsumed?: () => void
+}
+
+const NOTIFICATION_TABS = [
+  'all',
+  'unread',
+  'read',
+  'session',
+  'assignment',
+  'reminder',
+  'learning-reminders',
+  'engagement-reminders',
+  'system',
+  'workload',
+  'high-priority',
+] as const
+
+type NotificationsTab = typeof NOTIFICATION_TABS[number]
+
+/**
+ * Determines whether a runtime value is one of the supported notifications tab keys.
+ *
+ * @param value - The value to test.
+ * @returns `true` if `value` is a supported notifications tab key, `false` otherwise.
+ */
+function isNotificationsTab(value: unknown): value is NotificationsTab {
+  return typeof value === 'string' && NOTIFICATION_TABS.includes(value as NotificationsTab)
+}
+
+/**
+ * Attempts to extract a notifications tab key from arbitrary navigation payload data.
+ *
+ * @param payload - Unknown navigation payload.
+ * @returns The requested tab, or null when no valid tab is present.
+ */
+function getTabFromPayload(payload: unknown): NotificationsTab | null {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  const tabValue = (payload as { tab?: unknown }).tab
+  return isNotificationsTab(tabValue) ? tabValue : null
 }
 
 /** Maps each notification type to the Tailwind colour class used for its icon. */
@@ -70,14 +115,32 @@ export function Notifications({
   onMarkAllAsRead,
   onDismiss,
   onDismissAll,
-  onNavigate
+  onNavigate,
+  navigationPayload,
+  onNavigationPayloadConsumed,
 }: NotificationsProps) {
-  const [activeTab, setActiveTab] = useState('all')
+  const [activeTab, setActiveTab] = useState<NotificationsTab>('all')
   const [showDismissAllDialog, setShowDismissAllDialog] = useState(false)
   const [dismissAllFilter, setDismissAllFilter] = useState<'all' | 'read'>('all')
 
   const unreadNotifications = notifications.filter(n => !n.read)
   const readNotifications = notifications.filter(n => n.read)
+  const learningReminderNotifications = notifications.filter((notification) =>
+    typeof notification.metadata?.learningReminderKey === 'string'
+  )
+  const engagementReminderNotifications = notifications.filter((notification) =>
+    typeof notification.metadata?.engagementReminderKey === 'string'
+  )
+
+  useEffect(() => {
+    const nextTab = getTabFromPayload(navigationPayload)
+    if (!nextTab) {
+      return
+    }
+
+    setActiveTab(nextTab)
+    onNavigationPayloadConsumed?.()
+  }, [navigationPayload, onNavigationPayloadConsumed])
 
   const getFilteredNotifications = () => {
     let filtered = notifications
@@ -103,6 +166,12 @@ export function Notifications({
         break
       case 'workload':
         filtered = notifications.filter(n => n.type === 'workload')
+        break
+      case 'learning-reminders':
+        filtered = learningReminderNotifications
+        break
+      case 'engagement-reminders':
+        filtered = engagementReminderNotifications
         break
       case 'high-priority':
         filtered = notifications.filter(n =>
@@ -235,6 +304,17 @@ export function Notifications({
     setShowDismissAllDialog(false)
   }
 
+  /**
+   * Updates the active notifications tab when the selected value is supported.
+   *
+   * @param value - Incoming tab key from the tabs component.
+   */
+  const handleTabChange = (value: string) => {
+    if (isNotificationsTab(value)) {
+      setActiveTab(value)
+    }
+  }
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
@@ -290,8 +370,8 @@ export function Notifications({
       ) : (
         <Card>
           <CardHeader>
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-4 lg:grid-cols-9 gap-2 h-auto">
+            <Tabs value={activeTab} onValueChange={handleTabChange}>
+              <TabsList className="grid grid-cols-4 lg:grid-cols-11 gap-2 h-auto">
                 <TabsTrigger value="all" className="text-xs">
                   All
                   <Badge variant="secondary" className="ml-2">
@@ -323,6 +403,22 @@ export function Notifications({
                 </TabsTrigger>
                 <TabsTrigger value="reminder" className="text-xs">
                   Reminders
+                </TabsTrigger>
+                <TabsTrigger value="learning-reminders" className="text-xs">
+                  Learning
+                  {learningReminderNotifications.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {learningReminderNotifications.length}
+                    </Badge>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="engagement-reminders" className="text-xs">
+                  Engagement
+                  {engagementReminderNotifications.length > 0 && (
+                    <Badge variant="secondary" className="ml-2">
+                      {engagementReminderNotifications.length}
+                    </Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="workload" className="text-xs">
                   Workload

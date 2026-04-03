@@ -150,6 +150,47 @@ describe('People', () => {
         expect(screen.getByText('1 in progress')).toBeInTheDocument()
     })
 
+    it('shows certification gap counts for users', () => {
+        const users: User[] = [
+            createUser({ id: 'u-admin', name: 'Admin User', role: 'admin', certifications: ['Safety', 'Leadership'] }),
+            createUser({ id: 'u-employee', name: 'Employee User', role: 'employee', certifications: ['Safety'] }),
+        ]
+
+        const courses: Course[] = [
+            { ...baseCourse, id: 'c1', certifications: ['Safety'] },
+            { ...baseCourse, id: 'c2', certifications: ['Leadership'] },
+            { ...baseCourse, id: 'c3', certifications: ['Quality'] },
+        ]
+
+        render(
+            <People
+                users={users}
+                enrollments={[]}
+                courses={courses}
+                sessions={[baseSession]}
+                currentUser={createUser({ id: 'u-admin', role: 'admin' })}
+            />
+        )
+
+        const employeeRow = screen.getByText('Employee User').closest('tr')
+        expect(employeeRow).not.toBeNull()
+        if (!employeeRow) {
+            throw new Error('Expected employee row to exist')
+        }
+
+        expect(employeeRow).toHaveTextContent('1 cert')
+        expect(employeeRow).toHaveTextContent('2 gaps')
+
+        const adminRow = screen.getByText('Admin User').closest('tr')
+        expect(adminRow).not.toBeNull()
+        if (!adminRow) {
+            throw new Error('Expected admin row to exist')
+        }
+
+        expect(adminRow).toHaveTextContent('2 certs')
+        expect(adminRow).toHaveTextContent('1 gap')
+    })
+
     it('filters people by search query across name, email, and department', async () => {
         const user = userEvent.setup()
         renderPeople()
@@ -167,6 +208,9 @@ describe('People', () => {
         const user = userEvent.setup()
         renderPeople()
 
+        expect(screen.getByRole('tablist', { name: /filter people by role/i })).toBeInTheDocument()
+        expect(screen.getByRole('table', { name: /people directory/i })).toBeInTheDocument()
+
         await user.click(screen.getByRole('tab', { name: /trainers/i }))
 
         expect(screen.getByText('Trainer User')).toBeInTheDocument()
@@ -178,6 +222,17 @@ describe('People', () => {
         expect(screen.getByText('Admin User')).toBeInTheDocument()
         expect(screen.queryByText('Trainer User')).toBeNull()
         expect(screen.queryByText('Employee User')).toBeNull()
+    })
+
+    it('opens a profile from keyboard button interaction', async () => {
+        const user = userEvent.setup()
+        renderPeople()
+
+        const profileButton = screen.getByRole('button', { name: /view profile for trainer user/i })
+        profileButton.focus()
+        await user.keyboard('{Enter}')
+
+        expect(screen.getByTestId('profile-name')).toHaveTextContent('Trainer User')
     })
 
     it('opens selected profile view and returns to people list', async () => {
@@ -192,6 +247,17 @@ describe('People', () => {
 
         expect(screen.getByText('Manage employees and training profiles')).toBeInTheDocument()
         expect(screen.getByText('Trainer User')).toBeInTheDocument()
+    })
+
+    it('keeps a labeled region when showing selected user details', async () => {
+        const user = userEvent.setup()
+        renderPeople()
+
+        expect(screen.getByRole('region', { name: /people/i })).toBeInTheDocument()
+
+        await user.click(screen.getByText('Trainer User'))
+
+        expect(screen.getByRole('region', { name: /person detail view/i })).toBeInTheDocument()
     })
 
     it('executes add-person flow and calls onAddUser when current user is admin', async () => {

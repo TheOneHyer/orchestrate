@@ -47,6 +47,9 @@ import { normalizeNavigationValue } from '@/lib/navigation-utils'
 import { canAccessSession } from '@/lib/helpers'
 import { applyScore, shouldNotifyCompletion } from '@/lib/scoring'
 import { hashPassword, verifyPassword } from '@/lib/auth-utils'
+import { reconcileSessionEnrollments } from '@/lib/enrollment-sync'
+import { buildLearningReminderCandidates } from '@/lib/learning-reminders'
+import { buildLearningEngagementReminderCandidates } from '@/lib/learning-engagement-reminders'
 import { AppRuntimeEnvOverrides, AppTestHooks } from '@/test-support'
 
 const VIEW_ACCESS: Record<string, Array<User['role']>> = {
@@ -90,11 +93,80 @@ const SESSION_DEMO_MARKER_STORAGE_KEY = 'orchestrate-demo-seeded-in-tab'
 const DEMO_MODE_LEASE_STORAGE_KEY = 'orchestrate-demo-seed-lease'
 const DEMO_MODE_LEASE_DURATION_MS = 30 * 60 * 1000
 const DEMO_MODE_LEASE_RENEW_INTERVAL_MS = 60 * 1000
+const REMINDER_REFRESH_INTERVAL_MS = 60 * 1000
+const MAX_EMITTED_REMINDER_KEYS = 2000
 
 type DemoModeLease = {
   expiresAtMs: number
   demoModeEnabled: true
   demoSessionUserId: string
+}
+
+/**
+ * Check whether two string arrays contain the same elements in the same order.
+ *
+ * @returns `true` if both arrays have equal length and each element at the same index is strictly equal, `false` otherwise.
+ */
+function areStringArraysEqual(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) {
+    return false
+  }
+
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) {
+      return false
+    }
+  }
+
+  return true
+}
+
+/**
+ * Extracts the enrollment id encoded at the start of a reminder key.
+ *
+ * @param reminderKey - Reminder key formatted as "<enrollmentId>:<rest>".
+ * @returns The enrollment id before the first `:` in `reminderKey`, or `''` if no separator is present.
+ */
+function getEnrollmentIdFromReminderKey(reminderKey: string): string {
+  const separatorIndex = reminderKey.indexOf(':')
+  return separatorIndex > 0 ? reminderKey.slice(0, separatorIndex) : ''
+}
+
+/**
+ * Prunes and deduplicates a list of reminder keys, keeping the most recent keys that reference active enrollments.
+ *
+ * @param keys - Reminder keys ordered oldest-to-newest.
+ * @param activeEnrollmentIds - Set of enrollment IDs considered active; keys referencing other enrollments are discarded.
+ * @param maxSize - Maximum number of keys to retain (defaults to `MAX_EMITTED_REMINDER_KEYS`).
+ * @returns The filtered, deduplicated keys (limited to `maxSize`) returned ordered oldest-to-newest.
+ */
+function pruneReminderHistoryKeys(
+  keys: string[],
+  activeEnrollmentIds: Set<string>,
+  maxSize: number = MAX_EMITTED_REMINDER_KEYS,
+): string[] {
+  const seen = new Set<string>()
+  const retainedNewestFirst: string[] = []
+
+  for (let index = keys.length - 1; index >= 0; index -= 1) {
+    const key = keys[index]
+    if (seen.has(key)) {
+      continue
+    }
+
+    const enrollmentId = getEnrollmentIdFromReminderKey(key)
+    if (!enrollmentId || !activeEnrollmentIds.has(enrollmentId)) {
+      continue
+    }
+
+    seen.add(key)
+    retainedNewestFirst.push(key)
+    if (retainedNewestFirst.length >= maxSize) {
+      break
+    }
+  }
+
+  return retainedNewestFirst.reverse()
 }
 
 /**
@@ -393,6 +465,8 @@ function App() {
   const [enrollments, setEnrollments] = useKV<Enrollment[]>('enrollments', [])
   const [attendanceRecords, setAttendanceRecords] = useKV<AttendanceRecord[]>('attendance-records', [])
   const [notifications, setNotifications] = useKV<Notification[]>('notifications', [])
+  const [emittedLearningReminderKeys, setEmittedLearningReminderKeys] = useKV<string[]>('emitted-learning-reminder-keys', [])
+  const [emittedEngagementReminderKeys, setEmittedEngagementReminderKeys] = useKV<string[]>('emitted-engagement-reminder-keys', [])
   const [, setWellnessCheckIns] = useKV<WellnessCheckIn[]>('wellness-check-ins', [])
   const [, setRecoveryPlans] = useKV<RecoveryPlan[]>('recovery-plans', [])
   const [, setCheckInSchedules] = useKV<CheckInSchedule[]>('check-in-schedules', [])
@@ -582,6 +656,8 @@ function App() {
     setTargetTrainerCoverage(4)
     setPreviewSeedVersion('')
     setPersistedActiveUserId('')
+    setEmittedLearningReminderKeys([])
+    setEmittedEngagementReminderKeys([])
     setDemoSessionState(false, '')
     writeSessionStorageValue(SESSION_DEMO_MARKER_STORAGE_KEY, '')
     writeLocalStorageFlag(DEMO_MODE_SEEDED_STORAGE_KEY, false)
@@ -620,6 +696,8 @@ function App() {
     setTargetTrainerCoverage,
     setPreviewSeedVersion,
     setPersistedActiveUserId,
+    setEmittedLearningReminderKeys,
+    setEmittedEngagementReminderKeys,
     setDemoSessionState,
   ])
 
@@ -812,6 +890,65 @@ function App() {
   const safeCourses = useMemo(() => courses || [], [courses])
   const safeEnrollments = useMemo(() => enrollments || [], [enrollments])
   const safeNotifications = useMemo(() => notifications || [], [notifications])
+  const activeEnrollmentIds = useMemo(
+    () => new Set(
+      safeEnrollments
+        .filter((enrollment) => enrollment.status === 'enrolled' || enrollment.status === 'in-progress')
+        .map((enrollment) => enrollment.id),
+    ),
+    [safeEnrollments],
+  )
+  const [reminderNowMs, setReminderNowMs] = useState(() => Date.now())
+  const reminderNow = useMemo(() => new Date(reminderNowMs), [reminderNowMs])
+  const learningReminderHistory = useMemo(() => new Set(emittedLearningReminderKeys || []), [emittedLearningReminderKeys])
+  const engagementReminderHistory = useMemo(() => new Set(emittedEngagementReminderKeys || []), [emittedEngagementReminderKeys])
+  const sessionsRef = useRef<Session[]>(safeSessions)
+  const activeUserIdRef = useRef(activeUserId)
+  const processedLearningReminderKeysRef = useRef<Set<string>>(new Set())
+  const processedEngagementReminderKeysRef = useRef<Set<string>>(new Set())
+  const reminderNotificationSnapshot = useMemo(
+    () => safeNotifications
+      .map((notification) => `${notification.id}:${notification.metadata?.learningReminderKey ?? ''}:${notification.metadata?.engagementReminderKey ?? ''}`)
+      .sort()
+      .join('|'),
+    [safeNotifications]
+  )
+
+  useEffect(() => {
+    sessionsRef.current = safeSessions
+  }, [safeSessions])
+
+  useEffect(() => {
+    activeUserIdRef.current = activeUserId
+  }, [activeUserId])
+
+  useEffect(() => {
+    const id = window.setInterval(() => setReminderNowMs(Date.now()), REMINDER_REFRESH_INTERVAL_MS)
+    return () => window.clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    processedLearningReminderKeysRef.current = new Set(emittedLearningReminderKeys || [])
+  }, [emittedLearningReminderKeys])
+
+  useEffect(() => {
+    processedEngagementReminderKeysRef.current = new Set(emittedEngagementReminderKeys || [])
+  }, [emittedEngagementReminderKeys])
+
+  useEffect(() => {
+    setEmittedLearningReminderKeys((currentKeys) => {
+      const safeCurrentKeys = currentKeys || []
+      const prunedKeys = pruneReminderHistoryKeys(safeCurrentKeys, activeEnrollmentIds)
+      return areStringArraysEqual(prunedKeys, safeCurrentKeys) ? safeCurrentKeys : prunedKeys
+    })
+
+    setEmittedEngagementReminderKeys((currentKeys) => {
+      const safeCurrentKeys = currentKeys || []
+      const prunedKeys = pruneReminderHistoryKeys(safeCurrentKeys, activeEnrollmentIds)
+      return areStringArraysEqual(prunedKeys, safeCurrentKeys) ? safeCurrentKeys : prunedKeys
+    })
+  }, [activeEnrollmentIds, setEmittedEngagementReminderKeys, setEmittedLearningReminderKeys])
+
   const sideEffectsEnabled = !shouldClearStaleDemoData && (localPreviewMode || Boolean(activeUserId))
   const sideEffectUsers = sideEffectsEnabled ? safeUsers : []
   const sideEffectSessions = sideEffectsEnabled ? safeSessions : []
@@ -919,6 +1056,101 @@ function App() {
 
   useCertificationNotifications(sideEffectUsers, handleCreateNotification, setUsers)
 
+  useEffect(() => {
+    if (!sideEffectsEnabled) {
+      return
+    }
+
+    const reminders = buildLearningReminderCandidates(safeEnrollments, safeCourses, safeNotifications, reminderNow)
+    if (reminders.length === 0) {
+      return
+    }
+
+    reminders.forEach((reminder) => {
+      if (learningReminderHistory.has(reminder.reminderKey)) {
+        return
+      }
+
+      if (processedLearningReminderKeysRef.current.has(reminder.reminderKey)) {
+        return
+      }
+
+      processedLearningReminderKeysRef.current.add(reminder.reminderKey)
+      setEmittedLearningReminderKeys((currentKeys) => {
+        const safeCurrentKeys = currentKeys || []
+        const prunedKeys = pruneReminderHistoryKeys([...safeCurrentKeys, reminder.reminderKey], activeEnrollmentIds)
+        if (areStringArraysEqual(prunedKeys, safeCurrentKeys)) {
+          return safeCurrentKeys
+        }
+        return prunedKeys
+      })
+      handleCreateNotification({
+        userId: reminder.userId,
+        type: 'reminder',
+        title: reminder.title,
+        message: reminder.message,
+        link: 'courses',
+        priority: reminder.priority,
+        read: false,
+        metadata: {
+          learningReminderKey: reminder.reminderKey,
+          courseId: reminder.courseId,
+        },
+      })
+    })
+  }, [activeEnrollmentIds, handleCreateNotification, learningReminderHistory, reminderNotificationSnapshot, reminderNow, safeCourses, safeEnrollments, safeNotifications, setEmittedLearningReminderKeys, sideEffectsEnabled])
+
+  useEffect(() => {
+    if (!sideEffectsEnabled) {
+      return
+    }
+
+    const activeActor = safeUsers.find((user) => user.id === activeUserIdRef.current)
+    const ownerUserId = activeActor && (activeActor.role === 'admin' || activeActor.role === 'trainer')
+      ? activeActor.id
+      : undefined
+
+    const reminders = buildLearningEngagementReminderCandidates(safeEnrollments, safeCourses, safeNotifications, reminderNow)
+    if (reminders.length === 0) {
+      return
+    }
+
+    reminders.forEach((reminder) => {
+      if (engagementReminderHistory.has(reminder.reminderKey)) {
+        return
+      }
+
+      if (processedEngagementReminderKeysRef.current.has(reminder.reminderKey)) {
+        return
+      }
+
+      processedEngagementReminderKeysRef.current.add(reminder.reminderKey)
+      setEmittedEngagementReminderKeys((currentKeys) => {
+        const safeCurrentKeys = currentKeys || []
+        const prunedKeys = pruneReminderHistoryKeys([...safeCurrentKeys, reminder.reminderKey], activeEnrollmentIds)
+        if (areStringArraysEqual(prunedKeys, safeCurrentKeys)) {
+          return safeCurrentKeys
+        }
+        return prunedKeys
+      })
+      handleCreateNotification({
+        userId: reminder.userId,
+        type: 'reminder',
+        title: reminder.title,
+        message: reminder.message,
+        link: 'courses',
+        priority: reminder.priority,
+        read: false,
+        metadata: {
+          engagementReminderKey: reminder.reminderKey,
+          enrollmentId: reminder.enrollmentId,
+          courseId: reminder.courseId,
+          ...(ownerUserId ? { ownerUserId } : {}),
+        },
+      })
+    })
+  }, [activeEnrollmentIds, engagementReminderHistory, handleCreateNotification, reminderNotificationSnapshot, reminderNow, safeCourses, safeEnrollments, safeNotifications, safeUsers, setEmittedEngagementReminderKeys, sideEffectsEnabled])
+
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 
   const safeAttendanceRecords = useMemo(() => attendanceRecords || [], [attendanceRecords])
@@ -993,6 +1225,14 @@ function App() {
     .slice(0, 10)
 
   const unreadNotifications = visibleNotifications.filter(n => !n.read)
+
+  const analyticsNotifications = useMemo(() => {
+    if (currentUser.role === 'admin') {
+      return safeNotifications
+    }
+    const visibleEnrollmentUserIds = new Set(visibleEnrollments.map((e) => e.userId))
+    return safeNotifications.filter((n) => visibleEnrollmentUserIds.has(n.userId))
+  }, [currentUser.role, safeNotifications, visibleEnrollments])
 
   const handleSwitchUser = useCallback((userId: string) => {
     setSessionUserId(userId)
@@ -1239,7 +1479,7 @@ function App() {
    * @param updates - Partial session fields to merge in.
    * @returns The updated session with a fresh `updatedAt` timestamp.
    */
-  const applySessionUpdates = (session: Session, id: string, updates: Partial<Session>): Session => {
+  const applySessionUpdates = useCallback((session: Session, id: string, updates: Partial<Session>): Session => {
     if (session.id !== id) {
       return session
     }
@@ -1254,7 +1494,7 @@ function App() {
     }
 
     return { ...session, ...sessionUpdates, updatedAt: new Date().toISOString() }
-  }
+  }, [])
 
   /**
    * Applies partial updates to a user, returning a new user object.
@@ -1454,11 +1694,25 @@ function App() {
    * @param id - The unique identifier of the session to update.
    * @param updates - The fields to merge into the existing session record.
    */
-  const handleUpdateSession = (id: string, updates: Partial<Session>) => {
-    setSessions((currentSessions) =>
-      (currentSessions || []).map((session) => applySessionUpdates(session, id, updates))
-    )
-  }
+  const handleUpdateSession = useCallback((id: string, updates: Partial<Session>) => {
+    const affectsEnrollmentMembership = updates.enrolledStudents !== undefined || updates.courseId !== undefined
+    const baseSessions = sessionsRef.current || []
+    const updatedSessions = baseSessions.map((session) => applySessionUpdates(session, id, updates))
+    sessionsRef.current = updatedSessions
+    setSessions(updatedSessions)
+
+    if (affectsEnrollmentMembership) {
+      const nowIso = new Date().toISOString()
+      setEnrollments((currentEnrollments) =>
+        reconcileSessionEnrollments({
+          enrollments: currentEnrollments || [],
+          sessions: updatedSessions,
+          nowIso,
+          createEnrollmentId: () => createEntityId('enrollment'),
+        }),
+      )
+    }
+  }, [applySessionUpdates, setEnrollments, setSessions])
 
   /**
    * Deletes a single session and any enrollment rows bound to its `sessionId`.
@@ -1969,6 +2223,8 @@ function App() {
             sessions={visibleSessions}
             courses={visibleCourses}
             attendanceRecords={visibleAttendanceRecords}
+            notifications={analyticsNotifications}
+            onNavigate={handleNavigate}
           />
         )
       case 'trainer-availability':
@@ -2023,6 +2279,8 @@ function App() {
             onDismiss={handleDismissNotification}
             onDismissAll={handleDismissAllNotifications}
             onNavigate={handleNavigate}
+            navigationPayload={navigationPayload}
+            onNavigationPayloadConsumed={clearNavigationPayload}
           />
         )
       case 'user-guide':

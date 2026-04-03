@@ -1,9 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TrendUp, Users as UsersIcon, GraduationCap, CheckCircle, Clock } from '@phosphor-icons/react'
-import { AttendanceRecord, User, Enrollment, Session, Course } from '@/lib/types'
+import { differenceInDays, format, isValid, parseISO } from 'date-fns'
+import { AttendanceRecord, User, Enrollment, Session, Course, Notification } from '@/lib/types'
+import { buildLearningDeadlineInsights } from '@/lib/learning-deadlines'
+import { getMissingCertificationsForUser } from '@/lib/competency-insights'
+import { buildLearningEngagementItems } from '@/lib/learning-engagement'
 
 /** Props for the Analytics view component. */
 interface AnalyticsProps {
@@ -17,6 +22,10 @@ interface AnalyticsProps {
   courses: Course[]
   /** First-class attendance records used to compute attendance metrics. */
   attendanceRecords?: AttendanceRecord[]
+  /** Notifications used to derive intervention reminder SLA metadata. */
+  notifications?: Notification[]
+  /** Optional navigation callback for action links in queue cards. */
+  onNavigate?: (view: string, data?: unknown) => void
 }
 
 /**
@@ -34,24 +43,121 @@ function toStableSlug(value: string): string {
 }
 
 /**
- * Returns a human-readable label describing a trainer count, handling singular/plural form.
- * @param count - Number of trainers.
- * @returns A formatted string such as "1 trainer" or "3 trainers".
+ * Produce a human-readable label for a trainer count with correct singular or plural form.
+ *
+ * @param count - The number of trainers
+ * @returns `"<n> trainer"` when `count` is 1, `"<n> trainers"` otherwise
  */
 function trainerLabel(count: number): string {
   return `${count} trainer${count === 1 ? '' : 's'}`
 }
 
 /**
+ * Group engagement reminder notifications by their enrollment ID.
+ *
+ * Filters to notifications whose `metadata.engagementReminderKey` is a string and only groups those with a string `metadata.enrollmentId`.
+ *
+ * @param reminders - Notification records that may contain engagement reminder metadata
+ * @returns A Map where keys are enrollment IDs and values are arrays of related reminder notifications
+ */
+function buildEngagementRemindersByEnrollment(reminders: Notification[]): Map<string, Notification[]> {
+  return reminders
+    .filter((notification) => typeof notification.metadata?.engagementReminderKey === 'string')
+    .reduce((map, notification) => {
+      const enrollmentId = notification.metadata?.enrollmentId
+      if (typeof enrollmentId !== 'string') {
+        return map
+      }
+
+      const list = map.get(enrollmentId) || []
+      list.push(notification)
+      map.set(enrollmentId, list)
+      return map
+    }, new Map<string, Notification[]>())
+}
+
+/**
+ * Resolves the owner display name from reminder metadata and user lookup map.
+ * @param reminders - Reminders associated with one enrollment.
+ * @param userById - Lookup map for known users.
+ * @returns Owner display name or fallback.
+ */
+function getOwnerNameFromReminders(reminders: Notification[], userById: Map<string, User>): string {
+  const reminderOwnerId = reminders
+    .map((notification) => notification.metadata?.ownerUserId)
+    .find((ownerId): ownerId is string => typeof ownerId === 'string')
+
+  if (!reminderOwnerId) {
+    return 'Unassigned'
+  }
+
+  return userById.get(reminderOwnerId)?.name ?? 'Unassigned'
+}
+
+/**
+ * Return the earliest valid `createdAt` timestamp from a list of reminder notifications.
+ *
+ * @param reminders - Reminder notifications for a single enrollment
+ * @returns The earliest `createdAt` string found, or `null` if no valid dates are present
+ */
+function getFirstNudgeAt(reminders: Notification[]): string | null {
+  if (reminders.length === 0) {
+    return null
+  }
+
+  const first = reminders
+    .map((notification) => notification.createdAt)
+    .filter((createdAt) => {
+      const parsedDate = parseISO(createdAt)
+      return isValid(parsedDate)
+    })
+    .sort((left, right) => parseISO(left).getTime() - parseISO(right).getTime())[0]
+
+  return first || null
+}
+
+/**
+ * Calculate how many full days have elapsed since the first nudge.
+ *
+ * @param firstNudgeAt - ISO timestamp string of the first nudge, or `null` if unavailable
+ * @returns `0` when `firstNudgeAt` is missing or invalid, otherwise the number of full days between `firstNudgeAt` and `now` (clamped to a minimum of `0`)
+ */
+function getEscalationAgeDays(firstNudgeAt: string | null, now: Date = new Date()): number {
+  if (!firstNudgeAt) {
+    return 0
+  }
+
+  const firstNudgeDate = new Date(firstNudgeAt)
+  if (Number.isNaN(firstNudgeDate.getTime())) {
+    return 0
+  }
+
+  return Math.max(0, differenceInDays(now, firstNudgeDate))
+}
+
+/**
  * Render the Analytics view showing training performance metrics and operational insights.
  *
+ * @param users - All users in scope for analytics filtering and display.
+ * @param enrollments - Enrollment records used to compute completion, engagement, and deadline insights.
+ * @param sessions - Session records used to compute schedule and completion metrics.
+ * @param courses - Course records used to compute per-course performance and insight context.
  * @param attendanceRecords - Optional attendance marks used to compute attendance KPIs; filtered to the currently visible sessions. Defaults to an empty array.
+ * @param notifications - Optional notification records used to derive intervention reminder SLA metadata.
+ * @param onNavigate - Optional callback used by intervention actions to navigate to related course or learner views.
  * @returns A React element representing the Analytics page UI.
  */
-export function Analytics({ users, enrollments, sessions, courses, attendanceRecords = [] }: AnalyticsProps) {
+export function Analytics({ users, enrollments, sessions, courses, attendanceRecords = [], notifications = [], onNavigate }: AnalyticsProps) {
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
   const [courseFilter, setCourseFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [])
+  const now = useMemo(() => new Date(nowMs), [nowMs])
 
   const departmentOptions = useMemo(() => {
     return Array.from(new Set(users.map((user) => user.department))).sort((left, right) => left.localeCompare(right))
@@ -141,6 +247,74 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
     .slice(0, 5)
 
   const atRiskCourses = fullCourses.filter((course) => course.completionRate < 60 || course.avgScore < 75)
+  const deadlineInsights = useMemo(
+    () => buildLearningDeadlineInsights(filteredEnrollments, filteredCourses, now),
+    [filteredCourses, filteredEnrollments, now]
+  )
+  const engagementInsights = useMemo(
+    () => buildLearningEngagementItems(filteredEnrollments, filteredCourses, now),
+    [filteredCourses, filteredEnrollments, now]
+  )
+  const overdueEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'overdue').length
+  const dueSoonEnrollments = deadlineInsights.filter((insight) => insight.urgency === 'due-soon').length
+  const stalledEnrollments = engagementInsights.filter((insight) => insight.severity === 'stalled').length
+  const criticalStalledEnrollments = engagementInsights.filter((insight) => insight.severity === 'critical-stall').length
+  const missingCertificationsByEmployee = useMemo(() => {
+    const map = new Map<string, string[]>()
+    filteredUsers
+      .filter((user) => user.role === 'employee')
+      .forEach((employee) => {
+        map.set(employee.id, getMissingCertificationsForUser(employee, filteredCourses))
+      })
+    return map
+  }, [filteredCourses, filteredUsers])
+  const employeesWithGaps = useMemo(
+    () => Array.from(missingCertificationsByEmployee.values()).filter((missing) => missing.length > 0).length,
+    [missingCertificationsByEmployee]
+  )
+  const topMissingCertification = useMemo(() => {
+    const counts = new Map<string, number>()
+    missingCertificationsByEmployee.forEach((missingCertifications) => {
+      missingCertifications.forEach((certification) => {
+        counts.set(certification, (counts.get(certification) || 0) + 1)
+      })
+    })
+
+    const top = Array.from(counts.entries()).sort((left, right) => {
+      const countDiff = right[1] - left[1]
+      if (countDiff !== 0) {
+        return countDiff
+      }
+
+      return left[0].localeCompare(right[0])
+    })[0]
+
+    return top ? `${top[0]} (${top[1]})` : 'None'
+  }, [missingCertificationsByEmployee])
+  const visibleUserById = useMemo(() => new Map(filteredUsers.map((user) => [user.id, user])), [filteredUsers])
+  const allUsersById = useMemo(() => new Map(users.map((user) => [user.id, user])), [users])
+  const engagementRemindersByEnrollment = useMemo(
+    () => buildEngagementRemindersByEnrollment(notifications),
+    [notifications]
+  )
+
+  const interventionQueue = useMemo(
+    () => engagementInsights
+      .slice(0, 5)
+      .map((insight) => {
+        const reminders = engagementRemindersByEnrollment.get(insight.enrollmentId) || []
+        const firstNudgeAt = getFirstNudgeAt(reminders)
+
+        return {
+          ...insight,
+          learnerName: visibleUserById.get(insight.userId)?.name ?? 'Unknown learner',
+          ownerName: getOwnerNameFromReminders(reminders, allUsersById),
+          firstNudgeAt,
+          escalationAgeDays: getEscalationAgeDays(firstNudgeAt, now),
+        }
+      }),
+    [allUsersById, engagementInsights, engagementRemindersByEnrollment, now, visibleUserById]
+  )
 
   return (
     <div className="p-6 space-y-6">
@@ -272,7 +446,7 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
           <CardTitle>Operational Highlights</CardTitle>
           <CardDescription>Focus areas based on the current filters</CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
+        <CardContent className="grid gap-4 md:grid-cols-3 lg:grid-cols-9">
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Filtered enrollments</div>
             <div data-testid="filtered-enrollments-value" className="mt-1 text-2xl font-semibold">{totalEnrollments}</div>
@@ -284,6 +458,30 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
           <div className="rounded-lg border p-4">
             <div className="text-sm text-muted-foreground">Open sessions</div>
             <div className="mt-1 text-2xl font-semibold">{filteredSessions.filter((session) => session.status === 'scheduled' || session.status === 'in-progress').length}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Due soon enrollments</div>
+            <div data-testid="due-soon-enrollments-value" className="mt-1 text-2xl font-semibold">{dueSoonEnrollments}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Overdue enrollments</div>
+            <div data-testid="overdue-enrollments-value" className="mt-1 text-2xl font-semibold">{overdueEnrollments}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Stalled enrollments</div>
+            <div data-testid="stalled-enrollments-value" className="mt-1 text-2xl font-semibold">{stalledEnrollments}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Critical stalls</div>
+            <div data-testid="critical-stalled-enrollments-value" className="mt-1 text-2xl font-semibold">{criticalStalledEnrollments}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Learners with skill gaps</div>
+            <div data-testid="learners-with-gaps-value" className="mt-1 text-2xl font-semibold">{employeesWithGaps}</div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="text-sm text-muted-foreground">Top missing certification</div>
+            <div data-testid="top-missing-certification-value" className="mt-1 text-sm font-semibold">{topMissingCertification}</div>
           </div>
         </CardContent>
       </Card>
@@ -313,6 +511,71 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
               <Progress value={rate} className="h-2" />
             </div>
           ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Intervention Queue</CardTitle>
+          <CardDescription>Stalled learners ranked for coaching follow-up</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {interventionQueue.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No stalled learners in the current filter scope.</p>
+          ) : (
+            interventionQueue.map((item) => (
+              <div key={item.enrollmentId} className="rounded-lg border p-3" data-testid={`intervention-${item.enrollmentId}`}>
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="font-medium text-foreground">{item.learnerName}</div>
+                    <div className="text-sm text-muted-foreground">{item.courseTitle}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {item.severity === 'critical-stall' ? 'Critical stall' : 'Stalled'}
+                    </div>
+                    <div className="text-sm font-medium">{item.daysSinceProgress}d inactive</div>
+                  </div>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{item.recommendedAction}</p>
+                <div className="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-3">
+                  <div>
+                    <span className="font-medium">Owner:</span> {item.ownerName}
+                  </div>
+                  <div>
+                    <span className="font-medium">First nudge:</span>{' '}
+                    {item.firstNudgeAt ? format(new Date(item.firstNudgeAt), 'MMM d, yyyy') : 'None'}
+                  </div>
+                  <div>
+                    <span className="font-medium">Escalation age:</span>{' '}
+                    {item.escalationAgeDays}d
+                  </div>
+                </div>
+                {onNavigate ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => onNavigate('courses', { courseId: item.courseId })}
+                    >
+                      Open Course
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => onNavigate('people', { userId: item.userId })}
+                    >
+                      Open Learner
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
 

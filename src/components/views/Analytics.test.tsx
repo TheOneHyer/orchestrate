@@ -1,6 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
 
 import { Analytics } from './Analytics'
 import type { User, Course, Session, Enrollment } from '@/lib/types'
@@ -86,8 +85,12 @@ describe('Analytics', () => {
     expect(screen.getByTestId('completion-rate')).toHaveTextContent('50%')
     expect(screen.getByTestId('average-score')).toHaveTextContent('86%')
     expect(screen.getByTestId('sessions-completed')).toHaveTextContent('1/2')
-    expect(screen.getByText(/course performance/i)).toBeInTheDocument()
-    expect(screen.getByText(/compliance 101/i)).toBeInTheDocument()
+    const coursePerformanceCard = screen.getByText(/course performance/i).closest('[data-slot="card"]')
+    expect(coursePerformanceCard).not.toBeNull()
+    if (!coursePerformanceCard) {
+      throw new Error('Expected Course Performance card to exist')
+    }
+    expect(within(coursePerformanceCard).getByText(/compliance 101/i)).toBeInTheDocument()
     expect(screen.getByText(/department distribution/i)).toBeInTheDocument()
     expect(screen.getByText(/trainer schedule status/i)).toBeInTheDocument()
   })
@@ -224,9 +227,9 @@ describe('Analytics', () => {
     render(<Analytics users={[]} courses={courses} sessions={[]} enrollments={enrollments} />)
 
     // Component should handle multiple courses
-    expect(screen.getByText('Analytics Course 1')).toBeInTheDocument()
-    expect(screen.getByText('Analytics Course 2')).toBeInTheDocument()
-    expect(screen.getByText('Analytics Course 3')).toBeInTheDocument()
+    expect(screen.getAllByText('Analytics Course 1').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Analytics Course 2').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Analytics Course 3').length).toBeGreaterThan(0)
   })
 
   it('handles departments with single trainer correctly', () => {
@@ -492,5 +495,416 @@ describe('Analytics', () => {
 
     expect(screen.getByTestId('attendance-rate')).toHaveTextContent('67%')
     expect(screen.getByText(/2 present\/late of 3 marks/i)).toBeInTheDocument()
+  })
+
+  it('shows due-soon and overdue enrollment counts in operational highlights', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-02T00:00:00.000Z'))
+
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+      { id: 'c2', title: 'Leadership', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-02', published: true, passScore: 80 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-overdue',
+        userId: 'u1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 15,
+        score: 0,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        targetCompletionDate: '2026-03-10T00:00:00.000Z',
+      },
+      {
+        id: 'e-due-soon',
+        userId: 'u2',
+        courseId: 'c2',
+        status: 'enrolled',
+        progress: 5,
+        score: 0,
+        enrolledAt: '2026-03-20T00:00:00.000Z',
+        targetCompletionDate: '2026-04-06T00:00:00.000Z',
+      },
+    ]
+
+    try {
+      render(<Analytics users={[]} courses={courses} sessions={[]} enrollments={enrollments} />)
+
+      expect(screen.getByTestId('due-soon-enrollments-value')).toHaveTextContent('1')
+      expect(screen.getByTestId('overdue-enrollments-value')).toHaveTextContent('1')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows learner skill-gap metrics in operational highlights', () => {
+    const users: User[] = [
+      createUser({ id: 'u1', role: 'employee', certifications: ['Safety'], department: 'Ops' }),
+      createUser({ id: 'u2', role: 'employee', certifications: ['Safety', 'Leadership'], department: 'Ops' }),
+      createUser({ id: 'u3', role: 'employee', certifications: ['Safety'], department: 'Ops' }),
+    ]
+
+    const courses: Course[] = [
+      { id: 'c1', title: 'Leadership Path', description: 'Desc', modules: [], duration: 60, certifications: ['Leadership'], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+      { id: 'c2', title: 'Quality Path', description: 'Desc', modules: [], duration: 60, certifications: ['Quality'], createdBy: 't1', createdAt: '2026-01-02', published: true, passScore: 80 },
+    ]
+
+    render(<Analytics users={users} courses={courses} sessions={[]} enrollments={[]} />)
+
+    expect(screen.getByTestId('learners-with-gaps-value')).toHaveTextContent('3')
+    expect(screen.getByTestId('top-missing-certification-value')).toHaveTextContent('Quality (3)')
+  })
+
+  it('shows stalled and critical stalled enrollment engagement metrics', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-02T00:00:00.000Z'))
+
+    const users: User[] = [
+      createUser({ id: 'u1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+      createUser({ id: 'u2', name: 'Learner Two', role: 'employee', department: 'Ops' }),
+    ]
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+      { id: 'c2', title: 'Leadership', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-02', published: true, passScore: 80 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-critical-stall',
+        userId: 'u1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 20,
+        score: 0,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+      {
+        id: 'e-stall',
+        userId: 'u2',
+        courseId: 'c2',
+        status: 'enrolled',
+        progress: 8,
+        score: 0,
+        enrolledAt: '2026-03-10T00:00:00.000Z',
+        lastProgressAt: '2026-03-24T00:00:00.000Z',
+      },
+    ]
+
+    try {
+      render(<Analytics users={users} courses={courses} sessions={[]} enrollments={enrollments} />)
+
+      expect(screen.getByTestId('stalled-enrollments-value')).toHaveTextContent('1')
+      expect(screen.getByTestId('critical-stalled-enrollments-value')).toHaveTextContent('1')
+      expect(screen.getByText(/intervention queue/i)).toBeInTheDocument()
+      expect(screen.getByTestId('intervention-e-critical-stall')).toHaveTextContent('Learner One')
+      expect(screen.getByTestId('intervention-e-critical-stall')).toHaveTextContent('Critical stall')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows intervention SLA fields and triggers playbook navigation actions', async () => {
+    const user = userEvent.setup()
+    const onNavigate = vi.fn()
+    const users: User[] = [
+      createUser({ id: 'u1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+      createUser({ id: 'manager-1', name: 'Manager One', role: 'admin', department: 'Ops' }),
+    ]
+
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-critical-stall',
+        userId: 'u1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Analytics
+        users={users}
+        courses={courses}
+        sessions={[]}
+        enrollments={enrollments}
+        notifications={[
+          {
+            id: 'n-engagement-1',
+            userId: 'u1',
+            type: 'reminder',
+            title: 'Critical Learning Stall — Safety',
+            message: 'Reminder sent',
+            read: false,
+            createdAt: '2026-03-15T00:00:00.000Z',
+            metadata: {
+              engagementReminderKey: 'e-critical-stall:critical-stall',
+              enrollmentId: 'e-critical-stall',
+              ownerUserId: 'manager-1',
+            },
+          },
+        ]}
+        onNavigate={onNavigate}
+      />,
+    )
+
+    const card = screen.getByTestId('intervention-e-critical-stall')
+    expect(card).toHaveTextContent(/owner:\s*manager one/i)
+    expect(card).toHaveTextContent(/first nudge:/i)
+    expect(card).toHaveTextContent(/escalation age:/i)
+
+    await user.click(screen.getByRole('button', { name: /open course/i }))
+    await user.click(screen.getByRole('button', { name: /open learner/i }))
+
+    expect(onNavigate).toHaveBeenNthCalledWith(1, 'courses', { courseId: 'c1' })
+    expect(onNavigate).toHaveBeenNthCalledWith(2, 'people', { userId: 'u1' })
+  })
+
+  it('shows an empty intervention queue message when no stalled learners exist', () => {
+    const users: User[] = [
+      createUser({ id: 'u1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+    ]
+
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-active',
+        userId: 'u1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 70,
+        enrolledAt: '2026-03-20T00:00:00.000Z',
+        lastProgressAt: '2026-03-30T00:00:00.000Z',
+      },
+    ]
+
+    render(<Analytics users={users} courses={courses} sessions={[]} enrollments={enrollments} />)
+
+    expect(screen.getByText(/no stalled learners in the current filter scope/i)).toBeInTheDocument()
+  })
+
+  it('shows escalation metadata when notifications include learner reminder records', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-02T00:00:00.000Z'))
+
+    const users: User[] = [
+      createUser({ id: 'trainer-1', name: 'Trainer One', role: 'trainer', department: 'Ops' }),
+      createUser({ id: 'learner-1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+    ]
+
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 'trainer-1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-stalled',
+        userId: 'learner-1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 10,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    const notifications = [
+      {
+        id: 'n-learner-reminder',
+        userId: 'learner-1',
+        type: 'reminder' as const,
+        title: 'Critical Learning Stall — Safety',
+        message: 'Reminder sent',
+        read: false,
+        createdAt: '2026-03-15T00:00:00.000Z',
+        metadata: {
+          engagementReminderKey: 'e-stalled:critical-stall',
+          enrollmentId: 'e-stalled',
+          ownerUserId: 'trainer-1',
+        },
+      },
+    ]
+
+    try {
+      render(
+        <Analytics
+          users={users}
+          courses={courses}
+          sessions={[]}
+          enrollments={enrollments}
+          notifications={notifications}
+        />
+      )
+
+      const card = screen.getByTestId('intervention-e-stalled')
+      expect(card).toHaveTextContent(/owner:\s*trainer one/i)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps owner attribution when department filter hides the owner user', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    const users: User[] = [
+      createUser({ id: 'learner-hr', name: 'Learner HR', role: 'employee', department: 'HR' }),
+      createUser({ id: 'owner-ops', name: 'Owner Ops', role: 'admin', department: 'Ops' }),
+    ]
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 'owner-ops', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-hr-stall',
+        userId: 'learner-hr',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 10,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Analytics
+        users={users}
+        courses={courses}
+        sessions={[]}
+        enrollments={enrollments}
+        notifications={[
+          {
+            id: 'n-owner-cross-dept',
+            userId: 'learner-hr',
+            type: 'reminder',
+            title: 'Critical Learning Stall — Safety',
+            message: 'Reminder sent',
+            read: false,
+            createdAt: '2026-03-15T00:00:00.000Z',
+            metadata: {
+              engagementReminderKey: 'e-hr-stall:critical-stall',
+              enrollmentId: 'e-hr-stall',
+              ownerUserId: 'owner-ops',
+            },
+          },
+        ]}
+      />,
+    )
+
+    await user.click(screen.getByRole('combobox', { name: /filter by department/i }))
+    await user.click(screen.getByRole('option', { name: /^hr$/i }))
+
+    const card = screen.getByTestId('intervention-e-hr-stall')
+    expect(card).toHaveTextContent(/owner:\s*owner ops/i)
+  })
+
+  it('ignores malformed engagement reminder metadata enrollmentId without breaking intervention rendering', () => {
+    const users: User[] = [
+      createUser({ id: 'learner-1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+      createUser({ id: 'manager-1', name: 'Manager One', role: 'admin', department: 'Ops' }),
+    ]
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 'manager-1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-critical-stall',
+        userId: 'learner-1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Analytics
+        users={users}
+        courses={courses}
+        sessions={[]}
+        enrollments={enrollments}
+        notifications={[
+          {
+            id: 'n-malformed-engagement-reminder',
+            userId: 'learner-1',
+            type: 'reminder',
+            title: 'Critical Learning Stall — Safety',
+            message: 'Malformed reminder metadata',
+            read: false,
+            createdAt: '2026-03-15T00:00:00.000Z',
+            metadata: {
+              engagementReminderKey: 'e-critical-stall:critical-stall',
+              enrollmentId: null,
+              ownerUserId: 'manager-1',
+            },
+          },
+        ]}
+      />,
+    )
+
+    const card = screen.getByTestId('intervention-e-critical-stall')
+    expect(card).toBeInTheDocument()
+    expect(card).toHaveTextContent(/owner:\s*unassigned/i)
+  })
+
+  it('ignores reminders with invalid createdAt when deriving first nudge timestamps', () => {
+    const users: User[] = [
+      createUser({ id: 'learner-1', name: 'Learner One', role: 'employee', department: 'Ops' }),
+      createUser({ id: 'manager-1', name: 'Manager One', role: 'admin', department: 'Ops' }),
+    ]
+    const courses: Course[] = [
+      { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 'manager-1', createdAt: '2026-01-01', published: true, passScore: 80 },
+    ]
+    const enrollments: Enrollment[] = [
+      {
+        id: 'e-critical-stall',
+        userId: 'learner-1',
+        courseId: 'c1',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        lastProgressAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Analytics
+        users={users}
+        courses={courses}
+        sessions={[]}
+        enrollments={enrollments}
+        notifications={[
+          {
+            id: 'n-invalid-created-at',
+            userId: 'learner-1',
+            type: 'reminder',
+            title: 'Critical Learning Stall — Safety',
+            message: 'Malformed timestamp',
+            read: false,
+            createdAt: 'not-a-date',
+            metadata: {
+              engagementReminderKey: 'e-critical-stall:critical-stall',
+              enrollmentId: 'e-critical-stall',
+              ownerUserId: 'manager-1',
+            },
+          },
+        ]}
+      />,
+    )
+
+    const card = screen.getByTestId('intervention-e-critical-stall')
+    expect(card).toBeInTheDocument()
+    expect(card).toHaveTextContent(/first nudge:\s*none/i)
   })
 })

@@ -66,6 +66,17 @@ describe('Layout', () => {
         expect(screen.getByText(/^settings$/i)).toBeInTheDocument()
     })
 
+    it('renders accessibility landmarks and skip link', () => {
+        render(
+            <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="admin" notificationCount={0}>
+                <div>Page Content</div>
+            </Layout>
+        )
+
+        expect(screen.getByRole('navigation', { name: /primary navigation/i })).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: /skip to main content/i })).toBeInTheDocument()
+    })
+
     it('shows notification count', () => {
         const onNavigate = vi.fn()
         render(

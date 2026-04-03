@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { addDays, subDays } from 'date-fns'
 
 import { Dashboard } from './Dashboard'
 import type { User, Course, Session, Notification, Enrollment } from '@/lib/types'
@@ -26,6 +26,21 @@ const baseCourse: Course = {
   createdAt: '2026-03-16T08:00:00.000Z',
   published: true,
   passScore: 80,
+}
+
+/**
+ * Returns the dashboard card element for a section heading.
+ * @param headingText - Heading text matcher used to locate the card title.
+ * @returns The enclosing card element.
+ * @throws {Error} If no element with data-slot="card" enclosing the matched heading is found.
+ */
+function getCardByHeading(headingText: RegExp): HTMLElement {
+  const card = screen.getByText(headingText).closest('[data-slot="card"]')
+  if (!(card instanceof HTMLElement)) {
+    throw new Error(`Expected card container for heading ${headingText.toString()}`)
+  }
+
+  return card
 }
 
 describe('Dashboard', () => {
@@ -203,9 +218,508 @@ describe('Dashboard', () => {
     expect(screen.getByText(/^2$/)).toBeInTheDocument()
     expect(screen.getByText(/1 completed/i)).toBeInTheDocument()
     expect(screen.getByText(/^in progress$/i)).toBeInTheDocument()
-    expect(screen.getByText('Course 1')).toBeInTheDocument()
-    expect(screen.getByText('Course 2')).toBeInTheDocument()
+    const inProgressCard = getCardByHeading(/^in progress$/i)
+    expect(within(inProgressCard).getByRole('button', { name: /course 1/i })).toBeInTheDocument()
+    expect(within(inProgressCard).getByRole('button', { name: /course 2/i })).toBeInTheDocument()
     expect(screen.queryByText('Course 3')).not.toBeInTheDocument()
+  })
+
+  it('renders learning focus cards for in-progress enrollments', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+
+    const courses: Course[] = [
+      { ...baseCourse, id: 'focus-course-1', title: 'Focus Course 1' },
+      { ...baseCourse, id: 'focus-course-2', title: 'Focus Course 2' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'focus-enrollment-risk',
+        userId: baseUser.id,
+        courseId: 'focus-course-1',
+        status: 'in-progress',
+        progress: 15,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+      },
+      {
+        id: 'focus-enrollment-watch',
+        userId: baseUser.id,
+        courseId: 'focus-course-2',
+        status: 'in-progress',
+        progress: 40,
+        enrolledAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    try {
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={courses}
+          onNavigate={vi.fn()}
+        />
+      )
+
+      expect(screen.getByText(/^learning focus$/i)).toBeInTheDocument()
+      const learningFocusCard = getCardByHeading(/^learning focus$/i)
+
+      expect(within(learningFocusCard).getByText(/focus course 1/i)).toBeInTheDocument()
+      expect(within(learningFocusCard).getByText(/focus course 2/i)).toBeInTheDocument()
+      expect(within(learningFocusCard).queryAllByText(/gap to expected pace/i).length).toBeGreaterThan(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not render learning focus when there are no in-progress enrollments with known courses', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+
+    const courses: Course[] = [
+      { ...baseCourse, id: 'focus-known', title: 'Known Focus Course' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'completed-enrollment',
+        userId: baseUser.id,
+        courseId: 'focus-known',
+        status: 'completed',
+        progress: 100,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        completedAt: '2026-03-01T00:00:00.000Z',
+      },
+      {
+        id: 'missing-course-in-progress',
+        userId: baseUser.id,
+        courseId: 'focus-missing',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-03-01T00:00:00.000Z',
+      },
+    ]
+
+    try {
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={courses}
+          onNavigate={vi.fn()}
+        />
+      )
+
+      expect(screen.queryByText(/^learning focus$/i)).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('limits learning focus panel to three items', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+
+    const courses: Course[] = [
+      { ...baseCourse, id: 'focus-cap-1', title: 'Focus Cap Course 1' },
+      { ...baseCourse, id: 'focus-cap-2', title: 'Focus Cap Course 2' },
+      { ...baseCourse, id: 'focus-cap-3', title: 'Focus Cap Course 3' },
+      { ...baseCourse, id: 'focus-cap-4', title: 'Focus Cap Course 4' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'focus-cap-enrollment-1',
+        userId: baseUser.id,
+        courseId: 'focus-cap-1',
+        status: 'in-progress',
+        progress: 5,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+      },
+      {
+        id: 'focus-cap-enrollment-2',
+        userId: baseUser.id,
+        courseId: 'focus-cap-2',
+        status: 'in-progress',
+        progress: 10,
+        enrolledAt: '2026-02-05T00:00:00.000Z',
+      },
+      {
+        id: 'focus-cap-enrollment-3',
+        userId: baseUser.id,
+        courseId: 'focus-cap-3',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-10T00:00:00.000Z',
+      },
+      {
+        id: 'focus-cap-enrollment-4',
+        userId: baseUser.id,
+        courseId: 'focus-cap-4',
+        status: 'in-progress',
+        progress: 30,
+        enrolledAt: '2026-02-15T00:00:00.000Z',
+      },
+    ]
+
+    try {
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={courses}
+          onNavigate={vi.fn()}
+        />
+      )
+
+      const learningFocusCard = getCardByHeading(/^learning focus$/i)
+      expect(within(learningFocusCard).getAllByRole('button', { name: /focus cap course/i })).toHaveLength(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('navigates to course details from learning focus cards', async () => {
+    const onNavigate = vi.fn()
+
+    const focusCourse: Course = {
+      ...baseCourse,
+      id: 'focus-course',
+      title: 'Focus Course Navigation',
+    }
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'focus-enrollment',
+        userId: baseUser.id,
+        courseId: 'focus-course',
+        status: 'in-progress',
+        progress: 12,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={[focusCourse]}
+        onNavigate={onNavigate}
+      />
+    )
+
+    const learningFocusCard = getCardByHeading(/^learning focus$/i)
+
+    await userEvent.click(within(learningFocusCard).getByRole('button', { name: /focus course navigation/i }))
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'focus-course' })
+  })
+
+  it('renders deadline watch indicators for due-soon and overdue enrollments', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-02T00:00:00.000Z'))
+
+    const courses: Course[] = [
+      { ...baseCourse, id: 'deadline-course-1', title: 'Deadline Course 1' },
+      { ...baseCourse, id: 'deadline-course-2', title: 'Deadline Course 2' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'deadline-overdue',
+        userId: baseUser.id,
+        courseId: 'deadline-course-1',
+        status: 'in-progress',
+        progress: 20,
+        enrolledAt: '2026-02-01T00:00:00.000Z',
+        targetCompletionDate: '2026-03-15T00:00:00.000Z',
+      },
+      {
+        id: 'deadline-soon',
+        userId: baseUser.id,
+        courseId: 'deadline-course-2',
+        status: 'enrolled',
+        progress: 10,
+        enrolledAt: '2026-03-15T00:00:00.000Z',
+        targetCompletionDate: '2026-04-05T00:00:00.000Z',
+      },
+    ]
+
+    try {
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={courses}
+          onNavigate={vi.fn()}
+        />
+      )
+
+      const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
+      const dueSoonDeadlineItem = within(deadlineWatchCard).getByRole('button', { name: /deadline course 2/i })
+
+      expect(within(deadlineWatchCard).getByText(/^overdue$/i)).toBeInTheDocument()
+      expect(within(dueSoonDeadlineItem).getByText(/^due soon$/i)).toBeInTheDocument()
+
+      act(() => {
+        vi.setSystemTime(new Date('2026-04-06T00:00:00.000Z'))
+        vi.advanceTimersByTime(60_000)
+      })
+
+      const updatedDeadlineItem = within(deadlineWatchCard).getByRole('button', { name: /deadline course 2/i })
+      expect(within(updatedDeadlineItem).getByText(/^overdue$/i)).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('renders engagement watch insights and navigates to course details', async () => {
+    const user = userEvent.setup()
+
+    const onNavigate = vi.fn()
+    const courses: Course[] = [
+      { ...baseCourse, id: 'engagement-course-1', title: 'Engagement Course 1' },
+      { ...baseCourse, id: 'engagement-course-2', title: 'Engagement Course 2' },
+    ]
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'engagement-critical',
+        userId: baseUser.id,
+        courseId: 'engagement-course-1',
+        status: 'in-progress',
+        progress: 25,
+        enrolledAt: subDays(new Date(), 45).toISOString(),
+        lastProgressAt: subDays(new Date(), 35).toISOString(),
+      },
+      {
+        id: 'engagement-stalled',
+        userId: baseUser.id,
+        courseId: 'engagement-course-2',
+        status: 'enrolled',
+        progress: 5,
+        enrolledAt: subDays(new Date(), 20).toISOString(),
+        lastProgressAt: subDays(new Date(), 10).toISOString(),
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={courses}
+        onNavigate={onNavigate}
+      />
+    )
+
+    const engagementCard = getCardByHeading(/^engagement watch$/i)
+
+    expect(within(engagementCard).getByText(/engagement course 1/i)).toBeInTheDocument()
+    expect(within(engagementCard).getByText(/engagement course 2/i)).toBeInTheDocument()
+    expect(within(engagementCard).getByText(/critical stall/i)).toBeInTheDocument()
+    expect(within(engagementCard).getByText(/^stalled$/i)).toBeInTheDocument()
+
+    await user.click(within(engagementCard).getByRole('button', { name: /engagement course 1/i }))
+    await user.click(within(engagementCard).getByRole('button', { name: /engagement course 2/i }))
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'engagement-course-1' })
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'engagement-course-2' })
+  })
+
+  it('navigates from deadline watch items to course details', async () => {
+    const user = userEvent.setup()
+
+    const onNavigate = vi.fn()
+    const deadlineCourse: Course = {
+      ...baseCourse,
+      id: 'deadline-course-nav',
+      title: 'Deadline Navigation Course',
+    }
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'deadline-navigation-enrollment',
+        userId: baseUser.id,
+        courseId: 'deadline-course-nav',
+        status: 'in-progress',
+        progress: 40,
+        enrolledAt: '2025-12-01T00:00:00.000Z',
+        targetCompletionDate: '2025-12-31T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={[deadlineCourse]}
+        onNavigate={onNavigate}
+      />
+    )
+
+    const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
+
+    await user.click(within(deadlineWatchCard).getByRole('button', { name: /deadline navigation course/i }))
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'deadline-course-nav' })
+  })
+
+  it('opens notifications pre-filtered to learning reminders from deadline watch', async () => {
+    const user = userEvent.setup()
+
+    const onNavigate = vi.fn()
+    const deadlineCourse: Course = {
+      ...baseCourse,
+      id: 'deadline-alert-course',
+      title: 'Deadline Alert Course',
+    }
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'deadline-alert-enrollment',
+        userId: baseUser.id,
+        courseId: 'deadline-alert-course',
+        status: 'in-progress',
+        progress: 25,
+        enrolledAt: subDays(new Date(), 30).toISOString(),
+        targetCompletionDate: addDays(new Date(), 2).toISOString(),
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={[deadlineCourse]}
+        onNavigate={onNavigate}
+      />
+    )
+
+    const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
+
+    await user.click(within(deadlineWatchCard).getByRole('button', { name: /open learning alerts/i }))
+    expect(onNavigate).toHaveBeenCalledWith('notifications', { tab: 'learning-reminders' })
+  })
+
+  it('hides the learning alerts CTA for trainer users', () => {
+    vi.useFakeTimers()
+    const fixedNow = new Date('2026-04-02T00:00:00.000Z')
+    vi.setSystemTime(fixedNow)
+
+    const trainerUser: User = {
+      ...baseUser,
+      id: 'deadline-trainer',
+      name: 'Taylor Trainer',
+      role: 'trainer',
+    }
+
+    const deadlineCourse: Course = {
+      ...baseCourse,
+      id: 'deadline-trainer-course',
+      title: 'Deadline Trainer Course',
+    }
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'deadline-trainer-enrollment',
+        userId: trainerUser.id,
+        courseId: 'deadline-trainer-course',
+        status: 'in-progress',
+        progress: 45,
+        enrolledAt: subDays(fixedNow, 30).toISOString(),
+        targetCompletionDate: addDays(fixedNow, 2).toISOString(),
+      },
+    ]
+
+    try {
+      render(
+        <Dashboard
+          currentUser={trainerUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={[deadlineCourse]}
+          onNavigate={vi.fn()}
+        />
+      )
+
+      const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
+      expect(within(deadlineWatchCard).queryByRole('button', { name: /open learning alerts/i })).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('renders recommended learning path items for missing certifications', () => {
+    const courses: Course[] = [
+      {
+        ...baseCourse,
+        id: 'learning-path-course-1',
+        title: 'Leadership Pathway',
+        certifications: ['Leadership'],
+      },
+      {
+        ...baseCourse,
+        id: 'learning-path-course-2',
+        title: 'Quality Pathway',
+        certifications: ['Quality'],
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={{ ...baseUser, certifications: ['Safety'] }}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={[]}
+        courses={courses}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    const learningPathCard = getCardByHeading(/^recommended learning path$/i)
+    expect(within(learningPathCard).getByText(/leadership pathway/i)).toBeInTheDocument()
+    expect(within(learningPathCard).getByText(/quality pathway/i)).toBeInTheDocument()
+  })
+
+  it('navigates to a course from recommended learning path', async () => {
+    const onNavigate = vi.fn()
+    const recommendedCourse: Course = {
+      ...baseCourse,
+      id: 'learning-path-nav-course',
+      title: 'Leadership Navigation Path',
+      certifications: ['Leadership'],
+    }
+
+    render(
+      <Dashboard
+        currentUser={{ ...baseUser, certifications: ['Safety'] }}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={[]}
+        courses={[recommendedCourse]}
+        onNavigate={onNavigate}
+      />
+    )
+
+    const learningPathCard = getCardByHeading(/^recommended learning path$/i)
+
+    await userEvent.click(within(learningPathCard).getByRole('button', { name: /leadership navigation path/i }))
+    expect(onNavigate).toHaveBeenCalledWith('courses', { courseId: 'learning-path-nav-course' })
   })
 
   it('displays active vs completed enrollments appropriately', () => {
@@ -237,8 +751,9 @@ describe('Dashboard', () => {
     expect(screen.getByText(/^active courses$/i)).toBeInTheDocument()
     expect(screen.getByText(/^2$/)).toBeInTheDocument()
     expect(screen.getByText(/1 completed/i)).toBeInTheDocument()
-    expect(screen.getByText('Active Course 1')).toBeInTheDocument()
-    expect(screen.getByText('Active Course 2')).toBeInTheDocument()
+    const inProgressCard = getCardByHeading(/^in progress$/i)
+    expect(within(inProgressCard).getByRole('button', { name: /active course 1/i })).toBeInTheDocument()
+    expect(within(inProgressCard).getByRole('button', { name: /active course 2/i })).toBeInTheDocument()
     expect(screen.queryByText('Completed Course')).not.toBeInTheDocument()
     expect(screen.queryByText('Failed Course')).not.toBeInTheDocument()
   })

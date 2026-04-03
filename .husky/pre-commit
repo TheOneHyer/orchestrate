@@ -1,8 +1,4 @@
 #!/usr/bin/env sh
-hook_dir="$(dirname -- "$0")"
-if [ -f "$hook_dir/_/husky.sh" ]; then
-  . "$hook_dir/_/husky.sh"
-fi
 set -e
 
 pnpm lint

@@ -270,8 +270,8 @@ describe('TrainerProfileDialog', () => {
             throw new Error('Specialization badge was not found')
         }
 
-        await user.click(within(roleBadge).getByRole('button'))
-        await user.click(within(specBadge).getByRole('button'))
+        await user.click(within(roleBadge).getByRole('button', { name: /remove authorized role safety instructor/i }))
+        await user.click(within(specBadge).getByRole('button', { name: /remove specialization incident response/i }))
         await user.click(screen.getByRole('button', { name: /save changes/i }))
 
         expect(onSave).toHaveBeenCalledWith(

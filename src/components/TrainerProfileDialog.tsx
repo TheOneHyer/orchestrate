@@ -42,13 +42,18 @@ const DAYS_OF_WEEK: { value: DayOfWeek; label: string }[] = [
 ]
 
 /**
- * Dialog for editing a trainer's profile, including shift schedules, authorised roles,
- * specializations, certifications, and miscellaneous settings.
+ * Renders a modal dialog for viewing and editing a trainer's profile (shift schedules, authorized roles,
+ * specializations, certifications, and additional settings).
  *
- * If the user lacks a `trainerProfile`, one is automatically scaffolded from their hire date
- * when the component mounts. All edits are kept in local state and only committed to the
- * parent when the user clicks "Save Changes". The embedded {@link ManageCertificationsDialog}
- * opens as a nested dialog for full certification CRUD.
+ * Edits are kept in local component state and are applied to the parent via `onSave` when the user saves.
+ * When opened and the user lacks a `trainerProfile`, a minimal profile is scaffolded from the user's hire date.
+ *
+ * @param user - The trainer being edited.
+ * @param open - Controls whether the dialog is visible.
+ * @param onOpenChange - Called with the new open state when the dialog is opened or closed.
+ * @param onSave - Called with the committed user object when the user saves changes.
+ * @returns The Trainer Profile dialog element.
+ * @throws {RangeError} If an invalid hire date reaches date formatting calculations.
  */
 export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: TrainerProfileDialogProps) {
   const [editedUser, setEditedUser] = useState<User>(user)
@@ -448,6 +453,8 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                   <Badge key={role} variant="default" className="text-sm px-3 py-1">
                     {role}
                     <button
+                      type="button"
+                      aria-label={`Remove authorized role ${role}`}
                       onClick={() => removeAuthorizedRole(role)}
                       className="ml-2 hover:text-destructive"
                     >
@@ -485,6 +492,8 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
                   <Badge key={spec} variant="secondary" className="text-sm px-3 py-1">
                     {spec}
                     <button
+                      type="button"
+                      aria-label={`Remove specialization ${spec}`}
                       onClick={() => removeSpecialization(spec)}
                       className="ml-2 hover:text-destructive"
                     >

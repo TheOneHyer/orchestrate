@@ -88,13 +88,19 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
 
   return (
     <div className="flex h-screen bg-secondary">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-foreground focus:shadow-md"
+      >
+        Skip to main content
+      </a>
       <aside className="w-64 bg-card border-r border-border flex flex-col">
         <div className="p-6 border-b border-border">
           <h1 className="text-2xl font-semibold text-primary">Orchestrate</h1>
           <p className="text-sm text-muted-foreground mt-1">Training Management</p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1.5" aria-label="Primary navigation">
           {filteredNavItems.map(item => {
             const Icon = item.icon
             const isActive = activeView === item.id
@@ -103,6 +109,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   'w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200',
                   isActive
@@ -117,9 +124,10 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
           })}
         </nav>
 
-        <div className="p-4 border-t border-border space-y-1">
+        <div className="px-3 py-4 border-t border-border space-y-1.5">
           <button
             onClick={() => onNavigate('notifications')}
+            aria-label="Open notifications"
             className={cn(
               'w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200 relative',
               activeView === 'notifications'
@@ -159,7 +167,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto flex flex-col">
+      <main id="main-content" className="flex-1 overflow-auto flex flex-col" aria-label="Main content">
         <header className="border-b border-border bg-card px-6 py-4 flex items-center justify-end gap-2">
           {currentUser && (
             <DropdownMenu>
@@ -241,6 +249,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
             onClick={() => setShowNotificationSettings(true)}
             className="rounded-lg"
             title="Notification Settings"
+            aria-label="Notification settings"
           >
             <SpeakerHigh size={20} weight="regular" />
           </Button>
@@ -259,7 +268,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
             )}
           </Button>
         </header>
-        <div className="flex-1">
+        <div className="flex-1 pb-6">
           {children}
         </div>
 
