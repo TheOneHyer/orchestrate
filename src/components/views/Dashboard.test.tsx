@@ -362,7 +362,7 @@ describe('Dashboard', () => {
     )
 
     const learningFocusCard = getCardByHeading(/^learning focus$/i)
-    expect(within(learningFocusCard).getAllByRole('button')).toHaveLength(3)
+    expect(within(learningFocusCard).getAllByRole('button', { name: /focus cap course/i })).toHaveLength(3)
   })
 
   it('navigates to course details from learning focus cards', async () => {
@@ -653,9 +653,9 @@ describe('Dashboard', () => {
       />
     )
 
-    expect(screen.getByText(/^recommended learning path$/i)).toBeInTheDocument()
-    expect(screen.getByText(/leadership pathway/i)).toBeInTheDocument()
-    expect(screen.getByText(/quality pathway/i)).toBeInTheDocument()
+    const learningPathCard = getCardByHeading(/^recommended learning path$/i)
+    expect(within(learningPathCard).getByText(/leadership pathway/i)).toBeInTheDocument()
+    expect(within(learningPathCard).getByText(/quality pathway/i)).toBeInTheDocument()
   })
 
   it('navigates to a course from recommended learning path', async () => {
