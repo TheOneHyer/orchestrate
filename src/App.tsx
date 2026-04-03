@@ -902,15 +902,11 @@ function App() {
   }, [])
 
   useEffect(() => {
-    if ((emittedLearningReminderKeys || []).length === 0) {
-      processedLearningReminderKeysRef.current = new Set()
-    }
+    processedLearningReminderKeysRef.current = new Set(emittedLearningReminderKeys || [])
   }, [emittedLearningReminderKeys])
 
   useEffect(() => {
-    if ((emittedEngagementReminderKeys || []).length === 0) {
-      processedEngagementReminderKeysRef.current = new Set()
-    }
+    processedEngagementReminderKeysRef.current = new Set(emittedEngagementReminderKeys || [])
   }, [emittedEngagementReminderKeys])
 
   useEffect(() => {

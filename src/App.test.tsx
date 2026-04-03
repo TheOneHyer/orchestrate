@@ -3966,11 +3966,17 @@ describe('App', () => {
             render(<App />)
 
             await waitFor(() => {
-                const notifications = (kvState['notifications'] as Array<{ metadata?: { learningReminderKey?: string } }>) || []
+                const notifications = (kvState['notifications'] as Array<{ metadata?: { learningReminderKey?: string; courseId?: string } }>) || []
                 const reminderNotifications = notifications.filter(
                     (notification) => notification.metadata?.learningReminderKey === 'enrollment-reminder-1:due-soon',
                 )
                 expect(reminderNotifications).toHaveLength(1)
+                expect(reminderNotifications[0]?.metadata).toEqual(
+                    expect.objectContaining({
+                        learningReminderKey: 'enrollment-reminder-1:due-soon',
+                        courseId: 'course-reminder',
+                    }),
+                )
             })
 
             expect(kvState['emitted-learning-reminder-keys']).toEqual(['enrollment-reminder-1:due-soon'])
@@ -4045,11 +4051,19 @@ describe('App', () => {
             render(<App />)
 
             await waitFor(() => {
-                const notifications = (kvState['notifications'] as Array<{ metadata?: { engagementReminderKey?: string } }>) || []
+                const notifications = (kvState['notifications'] as Array<{ metadata?: { engagementReminderKey?: string; enrollmentId?: string; courseId?: string; ownerUserId?: string } }>) || []
                 const reminderNotifications = notifications.filter(
                     (notification) => notification.metadata?.engagementReminderKey === 'enrollment-engagement-1:critical-stall',
                 )
                 expect(reminderNotifications).toHaveLength(1)
+                expect(reminderNotifications[0]?.metadata).toEqual(
+                    expect.objectContaining({
+                        engagementReminderKey: 'enrollment-engagement-1:critical-stall',
+                        enrollmentId: 'enrollment-engagement-1',
+                        courseId: 'course-reminder',
+                        ownerUserId: 'admin-1',
+                    }),
+                )
             })
 
             expect(kvState['emitted-engagement-reminder-keys']).toEqual(['enrollment-engagement-1:critical-stall'])

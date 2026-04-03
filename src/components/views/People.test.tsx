@@ -180,6 +180,15 @@ describe('People', () => {
 
         expect(employeeRow).toHaveTextContent('1 cert')
         expect(employeeRow).toHaveTextContent('2 gaps')
+
+        const adminRow = screen.getByText('Admin User').closest('tr')
+        expect(adminRow).not.toBeNull()
+        if (!adminRow) {
+            throw new Error('Expected admin row to exist')
+        }
+
+        expect(adminRow).toHaveTextContent('2 certs')
+        expect(adminRow).toHaveTextContent('1 gap')
     })
 
     it('filters people by search query across name, email, and department', async () => {

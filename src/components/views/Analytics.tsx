@@ -132,7 +132,13 @@ function getEscalationAgeDays(firstNudgeAt: string | null, now: Date = new Date(
 /**
  * Render the Analytics view showing training performance metrics and operational insights.
  *
+ * @param users - All users in scope for analytics filtering and display.
+ * @param enrollments - Enrollment records used to compute completion, engagement, and deadline insights.
+ * @param sessions - Session records used to compute schedule and completion metrics.
+ * @param courses - Course records used to compute per-course performance and insight context.
  * @param attendanceRecords - Optional attendance marks used to compute attendance KPIs; filtered to the currently visible sessions. Defaults to an empty array.
+ * @param notifications - Optional notification records used to derive intervention reminder SLA metadata.
+ * @param onNavigate - Optional callback used by intervention actions to navigate to related course or learner views.
  * @returns A React element representing the Analytics page UI.
  */
 export function Analytics({ users, enrollments, sessions, courses, attendanceRecords = [], notifications = [], onNavigate }: AnalyticsProps) {
@@ -539,26 +545,28 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
                     {item.escalationAgeDays}d
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => onNavigate?.('courses', { courseId: item.courseId })}
-                  >
-                    Open Course
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => onNavigate?.('people', { userId: item.userId })}
-                  >
-                    Open Learner
-                  </Button>
-                </div>
+                {onNavigate ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => onNavigate('courses', { courseId: item.courseId })}
+                    >
+                      Open Course
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={() => onNavigate('people', { userId: item.userId })}
+                    >
+                      Open Learner
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             ))
           )}

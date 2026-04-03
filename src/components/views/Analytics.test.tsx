@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { Analytics } from './Analytics'
@@ -85,8 +85,12 @@ describe('Analytics', () => {
     expect(screen.getByTestId('completion-rate')).toHaveTextContent('50%')
     expect(screen.getByTestId('average-score')).toHaveTextContent('86%')
     expect(screen.getByTestId('sessions-completed')).toHaveTextContent('1/2')
-    expect(screen.getByText(/course performance/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/compliance 101/i)).not.toHaveLength(0)
+    const coursePerformanceCard = screen.getByText(/course performance/i).closest('[data-slot="card"]')
+    expect(coursePerformanceCard).not.toBeNull()
+    if (!coursePerformanceCard) {
+      throw new Error('Expected Course Performance card to exist')
+    }
+    expect(within(coursePerformanceCard).getByText(/compliance 101/i)).toBeInTheDocument()
     expect(screen.getByText(/department distribution/i)).toBeInTheDocument()
     expect(screen.getByText(/trainer schedule status/i)).toBeInTheDocument()
   })
