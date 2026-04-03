@@ -67,10 +67,10 @@ const NOTIFICATION_TABS = [
 type NotificationsTab = typeof NOTIFICATION_TABS[number]
 
 /**
- * Returns true when the value is a valid notifications tab key.
+ * Determines whether a runtime value is one of the supported notifications tab keys.
  *
- * @param value - Arbitrary runtime value.
- * @returns True when the value is a supported notifications tab key.
+ * @param value - The value to test.
+ * @returns `true` if `value` is a supported notifications tab key, `false` otherwise.
  */
 function isNotificationsTab(value: unknown): value is NotificationsTab {
   return typeof value === 'string' && NOTIFICATION_TABS.includes(value as NotificationsTab)

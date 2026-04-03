@@ -43,18 +43,22 @@ function toStableSlug(value: string): string {
 }
 
 /**
- * Returns a human-readable label describing a trainer count, handling singular/plural form.
- * @param count - Number of trainers.
- * @returns A formatted string such as "1 trainer" or "3 trainers".
+ * Produce a human-readable label for a trainer count with correct singular or plural form.
+ *
+ * @param count - The number of trainers
+ * @returns `"<n> trainer"` when `count` is 1, `"<n> trainers"` otherwise
  */
 function trainerLabel(count: number): string {
   return `${count} trainer${count === 1 ? '' : 's'}`
 }
 
 /**
- * Groups engagement reminders by enrollment identifier.
- * @param reminders - Notification records that may include engagement reminder metadata.
- * @returns A map keyed by enrollment ID containing related reminder notifications.
+ * Group engagement reminder notifications by their enrollment ID.
+ *
+ * Filters to notifications whose `metadata.engagementReminderKey` is a string and only groups those with a string `metadata.enrollmentId`.
+ *
+ * @param reminders - Notification records that may contain engagement reminder metadata
+ * @returns A Map where keys are enrollment IDs and values are arrays of related reminder notifications
  */
 function buildEngagementRemindersByEnrollment(reminders: Notification[]): Map<string, Notification[]> {
   return reminders
@@ -91,9 +95,10 @@ function getOwnerNameFromReminders(reminders: Notification[], userById: Map<stri
 }
 
 /**
- * Resolves the first reminder timestamp for an enrollment, if one exists.
- * @param reminders - Reminders associated with one enrollment.
- * @returns Earliest reminder timestamp or null.
+ * Return the earliest valid `createdAt` timestamp from a list of reminder notifications.
+ *
+ * @param reminders - Reminder notifications for a single enrollment
+ * @returns The earliest `createdAt` string found, or `null` if no valid dates are present
  */
 function getFirstNudgeAt(reminders: Notification[]): string | null {
   if (reminders.length === 0) {
@@ -112,9 +117,10 @@ function getFirstNudgeAt(reminders: Notification[]): string | null {
 }
 
 /**
- * Computes escalation age in full days since first nudge.
- * @param firstNudgeAt - Timestamp of first nudge.
- * @returns Escalation age in days.
+ * Calculate how many full days have elapsed since the first nudge.
+ *
+ * @param firstNudgeAt - ISO timestamp string of the first nudge, or `null` if unavailable
+ * @returns `0` when `firstNudgeAt` is missing or invalid, otherwise the number of full days between `firstNudgeAt` and `now` (clamped to a minimum of `0`)
  */
 function getEscalationAgeDays(firstNudgeAt: string | null, now: Date = new Date()): number {
   if (!firstNudgeAt) {

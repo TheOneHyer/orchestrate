@@ -102,6 +102,11 @@ type DemoModeLease = {
   demoSessionUserId: string
 }
 
+/**
+ * Check whether two string arrays contain the same elements in the same order.
+ *
+ * @returns `true` if both arrays have equal length and each element at the same index is strictly equal, `false` otherwise.
+ */
 function areStringArraysEqual(left: string[], right: string[]): boolean {
   if (left.length !== right.length) {
     return false
@@ -116,11 +121,25 @@ function areStringArraysEqual(left: string[], right: string[]): boolean {
   return true
 }
 
+/**
+ * Extracts the enrollment id encoded at the start of a reminder key.
+ *
+ * @param reminderKey - Reminder key formatted as "<enrollmentId>:<rest>".
+ * @returns The enrollment id before the first `:` in `reminderKey`, or `''` if no separator is present.
+ */
 function getEnrollmentIdFromReminderKey(reminderKey: string): string {
   const separatorIndex = reminderKey.indexOf(':')
   return separatorIndex > 0 ? reminderKey.slice(0, separatorIndex) : ''
 }
 
+/**
+ * Prunes and deduplicates a list of reminder keys, keeping the most recent keys that reference active enrollments.
+ *
+ * @param keys - Reminder keys ordered oldest-to-newest.
+ * @param activeEnrollmentIds - Set of enrollment IDs considered active; keys referencing other enrollments are discarded.
+ * @param maxSize - Maximum number of keys to retain (defaults to `MAX_EMITTED_REMINDER_KEYS`).
+ * @returns The filtered, deduplicated keys (limited to `maxSize`) returned ordered oldest-to-newest.
+ */
 function pruneReminderHistoryKeys(
   keys: string[],
   activeEnrollmentIds: Set<string>,

@@ -32,11 +32,11 @@ export interface LearningFocusItem {
 const SIXTY_DAY_COMPLETION_WINDOW = 60
 
 /**
- * Classifies risk for an enrollment using progress and time elapsed since enrollment.
+ * Determine the learning risk level from enrollment progress and elapsed days.
  *
- * @param progress - Current completion percentage in the range 0 to 100.
- * @param daysSinceEnrollment - Full days since enrollment started.
- * @returns The derived risk level for the enrollment.
+ * @param progress - Current completion percentage (0–100)
+ * @param daysSinceEnrollment - Full days elapsed since enrollment
+ * @returns `'at-risk'` when `progress < 25` and `daysSinceEnrollment >= 21`, or `progress < 50` and `daysSinceEnrollment >= 45`; `'watch'` when `progress < 50` and `daysSinceEnrollment >= 14`, or `progress < 80` and `daysSinceEnrollment >= 35`; otherwise `'on-track'`
  */
 export function classifyLearningRisk(progress: number, daysSinceEnrollment: number): LearningRiskLevel {
     if ((progress < 25 && daysSinceEnrollment >= 21) || (progress < 50 && daysSinceEnrollment >= 45)) {
@@ -51,12 +51,12 @@ export function classifyLearningRisk(progress: number, daysSinceEnrollment: numb
 }
 
 /**
- * Builds prioritized enrollment insights that highlight stalled learner progress.
+ * Produce prioritized learning-focus entries for active enrollments to surface stalled progress.
  *
- * @param enrollments - Enrollment records to evaluate.
+ * @param enrollments - Enrollment records to evaluate (only `status === 'in-progress'` are considered).
  * @param courses - Course catalog used to resolve course titles.
- * @param now - Reference date used to calculate elapsed days.
- * @returns Sorted learning focus items from highest to lowest urgency.
+ * @param now - Reference date used to calculate days since enrollment.
+ * @returns An array of `LearningFocusItem` objects sorted by urgency: higher risk levels first, then larger `progressGap`, then greater `daysSinceEnrollment`.
  */
 export function buildLearningFocusItems(
     enrollments: Enrollment[],

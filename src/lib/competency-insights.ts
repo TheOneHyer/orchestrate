@@ -17,11 +17,11 @@ export interface LearningPathRecommendation {
 }
 
 /**
- * Returns the set of certification names the user still needs based on published course outcomes.
+ * Compute certification names present in published courses that the user does not have.
  *
- * @param user - The learner being evaluated.
- * @param courses - Course catalog used to infer required and available certifications.
- * @returns Unique missing certification names sorted alphabetically.
+ * @param user - The learner whose certifications are compared.
+ * @param courses - Course catalog used to derive available certifications (only published courses are considered).
+ * @returns Unique certification names present in published courses but not in the user's certifications, sorted alphabetically.
  */
 export function getMissingCertificationsForUser(user: User, courses: Course[]): string[] {
     const userCertSet = new Set(
@@ -42,14 +42,15 @@ export function getMissingCertificationsForUser(user: User, courses: Course[]): 
 }
 
 /**
- * Builds ranked learning-path recommendations that close current certification gaps.
+ * Generate ranked learning-path recommendations that close the user's current certification gaps.
+ *
+ * Recommendations exclude courses the user is already enrolled in or has completed/in progress.
  *
  * @param user - The learner for whom recommendations are generated.
- * @param courses - Course catalog used to evaluate recommendation candidates.
- * @param enrollments - Existing enrollments used to avoid duplicate active/completed recommendations.
- * @param maxRecommendations - Maximum number of recommendations to return.
- * @returns Ordered recommendation list, highest impact first.
- */
+ * @param courses - Course catalog used to evaluate candidate courses.
+ * @param enrollments - Existing enrollments used to exclude courses with statuses `in-progress`, `completed`, or `enrolled`.
+ * @param maxRecommendations - Maximum number of recommendations to return (defaults to 3).
+ * @returns An array of LearningPathRecommendation objects ordered by descending gapClosureCount, then by shorter course duration, then by alphabetical courseTitle.
 export function buildLearningPathRecommendations(
     user: User,
     courses: Course[],

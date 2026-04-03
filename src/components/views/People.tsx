@@ -55,12 +55,9 @@ function hasUserIdPayload(value: unknown): value is { userId: string } {
 }
 
 /**
- * Renders the People management view.
+ * Renders the People management interface, showing a searchable, role-filterable list and a detailed profile view when a user is selected.
  *
- * Shows a searchable, role-filterable table of all users. Admins can add or delete users
- * and edit trainer profiles. Clicking a row expands a detailed profile sheet using
- * {@link TrainerProfileView}. Trainers without configured shift schedules are highlighted
- * with a warning icon.
+ * Provides admin controls to add and delete users and to edit trainer profiles. Highlights trainers missing shift schedules and displays per-user enrollment and certification summaries.
  */
 export function People({ users, enrollments, courses, sessions, currentUser, onUpdateUser, onAddUser, onDeleteUser, navigationPayload, onNavigationPayloadConsumed }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
