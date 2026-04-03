@@ -120,10 +120,10 @@ export function BurnoutDashboard({ users, sessions, courses }: BurnoutDashboardP
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-semibold flex items-center gap-3">
+          <h1 className="text-2xl md:text-3xl font-semibold flex items-center gap-3">
             <Heart weight="fill" className="text-accent" />
             Trainer Burnout Risk Dashboard
           </h1>

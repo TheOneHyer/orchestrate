@@ -154,10 +154,10 @@ export function ScheduleTemplates({ courses, onCreateSessions }: ScheduleTemplat
   const categories = ['all', ...Array.from(new Set((templates || []).map((t) => t.category)))]
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6 p-4 md:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold">Schedule Templates</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold">Schedule Templates</h1>
           <p className="text-muted-foreground mt-1">Create and manage reusable training schedule templates</p>
         </div>
         <Button onClick={() => setTemplateDialogOpen(true)}>
