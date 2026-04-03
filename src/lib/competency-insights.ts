@@ -5,6 +5,7 @@ import { Course, Enrollment, User } from '@/lib/types'
  *
  * @param certifications - Raw certification strings to normalize.
  * @returns A set of unique, non-empty certification labels.
+ * @throws {TypeError} When `certifications` is not an array of strings and string operations are attempted during normalization.
  */
 export function normalizeCertifications(certifications: string[]): Set<string> {
     return new Set(
@@ -36,6 +37,7 @@ export interface LearningPathRecommendation {
  * @param user - The learner whose certifications are compared.
  * @param courses - Course catalog used to derive available certifications (only published courses are considered).
  * @returns Unique certification names present in published courses but not in the user's certifications, sorted alphabetically.
+ * @throws {TypeError} When `user.certifications` or any published course `certifications` value is not a string array and normalization cannot be completed.
  */
 export function getMissingCertificationsForUser(user: User, courses: Course[]): string[] {
     const userCertSet = normalizeCertifications(user.certifications)
@@ -60,6 +62,7 @@ export function getMissingCertificationsForUser(user: User, courses: Course[]): 
  * @param enrollments - Existing enrollments used to exclude courses with statuses `in-progress`, `completed`, or `enrolled`.
  * @param maxRecommendations - Maximum number of recommendations to return (defaults to 3).
  * @returns An array of LearningPathRecommendation objects ordered by descending gapClosureCount, then by shorter course duration, then by alphabetical courseTitle.
+ * @throws {TypeError} When `user`, `courses`, or `enrollments` contain malformed values (such as non-string certification entries) that break lookups or normalization.
  */
 export function buildLearningPathRecommendations(
     user: User,
