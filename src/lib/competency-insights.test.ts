@@ -1,4 +1,4 @@
-import { buildLearningPathRecommendations, getMissingCertificationsForUser } from './competency-insights'
+import { buildLearningPathRecommendations, getMissingCertificationsForUser, normalizeCertifications } from './competency-insights'
 import type { Course, Enrollment, User } from './types'
 
 const user: User = {
@@ -51,6 +51,19 @@ const courses: Course[] = [
 ]
 
 describe('competency-insights', () => {
+    describe('normalizeCertifications', () => {
+        it('trims values, removes empties, and deduplicates', () => {
+            expect(Array.from(normalizeCertifications([' Safety ', '', 'Safety', '  ', 'Quality']))).toEqual([
+                'Safety',
+                'Quality',
+            ])
+        })
+
+        it('returns an empty set for empty input', () => {
+            expect(normalizeCertifications([]).size).toBe(0)
+        })
+    })
+
     describe('getMissingCertificationsForUser', () => {
         it('returns unique missing certifications from published course outcomes', () => {
             expect(getMissingCertificationsForUser(user, courses)).toEqual(['Leadership', 'Quality'])

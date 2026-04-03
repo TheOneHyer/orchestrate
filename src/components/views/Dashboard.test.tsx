@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { addDays, subDays } from 'date-fns'
 
@@ -466,9 +466,18 @@ describe('Dashboard', () => {
       )
 
       const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
+      const dueSoonDeadlineItem = within(deadlineWatchCard).getByRole('button', { name: /deadline course 2/i })
 
       expect(within(deadlineWatchCard).getByText(/^overdue$/i)).toBeInTheDocument()
-      expect(within(deadlineWatchCard).getByText(/^due soon$/i)).toBeInTheDocument()
+      expect(within(dueSoonDeadlineItem).getByText(/^due soon$/i)).toBeInTheDocument()
+
+      act(() => {
+        vi.setSystemTime(new Date('2026-04-06T00:00:00.000Z'))
+        vi.advanceTimersByTime(60_000)
+      })
+
+      const updatedDeadlineItem = within(deadlineWatchCard).getByRole('button', { name: /deadline course 2/i })
+      expect(within(updatedDeadlineItem).getByText(/^overdue$/i)).toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }

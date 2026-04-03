@@ -249,6 +249,17 @@ describe('People', () => {
         expect(screen.getByText('Trainer User')).toBeInTheDocument()
     })
 
+    it('keeps a labeled region when showing selected user details', async () => {
+        const user = userEvent.setup()
+        renderPeople()
+
+        expect(screen.getByRole('region', { name: /people/i })).toBeInTheDocument()
+
+        await user.click(screen.getByText('Trainer User'))
+
+        expect(screen.getByRole('region', { name: /person detail view/i })).toBeInTheDocument()
+    })
+
     it('executes add-person flow and calls onAddUser when current user is admin', async () => {
         const user = userEvent.setup()
         const onAddUser = vi.fn()

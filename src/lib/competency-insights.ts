@@ -1,6 +1,20 @@
 import { Course, Enrollment, User } from '@/lib/types'
 
 /**
+ * Normalize certification labels by trimming whitespace, removing empties, and deduplicating values.
+ *
+ * @param certifications - Raw certification strings to normalize.
+ * @returns A set of unique, non-empty certification labels.
+ */
+export function normalizeCertifications(certifications: string[]): Set<string> {
+    return new Set(
+        certifications
+            .map((certification) => certification.trim())
+            .filter((certification) => certification.length > 0)
+    )
+}
+
+/**
  * A ranked recommendation for the next course in a user's learning path.
  */
 export interface LearningPathRecommendation {
@@ -24,16 +38,11 @@ export interface LearningPathRecommendation {
  * @returns Unique certification names present in published courses but not in the user's certifications, sorted alphabetically.
  */
 export function getMissingCertificationsForUser(user: User, courses: Course[]): string[] {
-    const userCertSet = new Set(
-        user.certifications
-            .map((certification) => certification.trim())
-            .filter((certification) => certification.length > 0)
-    )
-    const availableCertifications = new Set(
+    const userCertSet = normalizeCertifications(user.certifications)
+    const availableCertifications = normalizeCertifications(
         courses
             .filter((course) => course.published)
-            .flatMap((course) => course.certifications.map((certification) => certification.trim()))
-            .filter((certification) => certification.length > 0)
+            .flatMap((course) => course.certifications)
     )
 
     return Array.from(availableCertifications)
@@ -74,11 +83,8 @@ export function buildLearningPathRecommendations(
         .filter((course) => course.published)
         .filter((course) => !alreadyActiveOrCompletedCourseIds.has(course.id))
         .map((course) => {
-            const matchingCertifications = course.certifications
-                .map((certification) => certification.trim())
-                .filter((certification) => certification.length > 0)
+            const matchingCertifications = Array.from(normalizeCertifications(course.certifications))
                 .filter((certification) => missingCertifications.has(certification))
-                .filter((certification, index, certifications) => certifications.indexOf(certification) === index)
                 .sort((left, right) => left.localeCompare(right))
 
             if (matchingCertifications.length === 0) {

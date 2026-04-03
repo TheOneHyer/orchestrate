@@ -8,6 +8,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { MagnifyingGlass, Plus, UserCircle, ArrowLeft, WarningCircle } from '@phosphor-icons/react'
 import { User, Enrollment, Course, Session } from '@/lib/types'
+import { normalizeCertifications } from '@/lib/competency-insights'
 import { TrainerProfileView } from '@/components/TrainerProfileView'
 import { TrainerProfileDialog } from '@/components/TrainerProfileDialog'
 import { AddPersonDialog } from '@/components/AddPersonDialog'
@@ -148,18 +149,13 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
    * @returns The normalized unique certification count.
    */
   const getNormalizedCertificationCount = (certifications: string[]) =>
-    new Set(
-      certifications
-        .map((certification) => certification.trim())
-        .filter((certification) => certification.length > 0),
-    ).size
+    normalizeCertifications(certifications).size
 
   const publishedCourseCertificationCatalog = useMemo(
-    () => new Set(
+    () => normalizeCertifications(
       courses
         .filter((course) => course.published)
-        .flatMap((course) => course.certifications.map((certification) => certification.trim()))
-        .filter((certification) => certification.length > 0),
+        .flatMap((course) => course.certifications),
     ),
     [courses],
   )
@@ -171,11 +167,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
    * @returns Count of certifications in the catalog that the user does not currently hold.
    */
   const getMissingCertificationCountForUser = useCallback((user: User) => {
-    const normalizedUserCertifications = new Set(
-      user.certifications
-        .map((certification) => certification.trim())
-        .filter((certification) => certification.length > 0),
-    )
+    const normalizedUserCertifications = normalizeCertifications(user.certifications)
 
     let missingCount = 0
     publishedCourseCertificationCatalog.forEach((certification) => {
@@ -277,9 +269,10 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
   const existingEmails = users.map(u => u.email.toLowerCase())
 
   return (
-    <section className="p-6 space-y-6" aria-labelledby={selectedUser ? undefined : 'people-heading'}>
+    <section className="p-6 space-y-6" aria-labelledby={selectedUser ? 'person-detail-heading' : 'people-heading'}>
       {selectedUser ? (
         <div className="space-y-4">
+          <h1 id="person-detail-heading" className="sr-only">Person detail view</h1>
           <Button variant="ghost" onClick={() => {
             setSelectedUser(null)
             processedUserIdRef.current = null
