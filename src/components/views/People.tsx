@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -170,7 +170,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
    * @param user - User whose certification gaps are being evaluated.
    * @returns Count of certifications in the catalog that the user does not currently hold.
    */
-  const getMissingCertificationCountForUser = (user: User) => {
+  const getMissingCertificationCountForUser = useCallback((user: User) => {
     const normalizedUserCertifications = new Set(
       user.certifications
         .map((certification) => certification.trim())
@@ -185,7 +185,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
     })
 
     return missingCount
-  }
+  }, [publishedCourseCertificationCatalog])
 
   const certificationGapStatsByUserId = useMemo(() => {
     const map = new Map<string, { certificationCount: number; missingCount: number }>()
@@ -197,7 +197,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
     })
 
     return map
-  }, [users, publishedCourseCertificationCatalog])
+  }, [users, getMissingCertificationCountForUser])
 
   /**
    * Returns certification coverage summary for the given user.

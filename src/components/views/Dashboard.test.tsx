@@ -225,6 +225,9 @@ describe('Dashboard', () => {
   })
 
   it('renders learning focus cards for in-progress enrollments', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+
     const courses: Course[] = [
       { ...baseCourse, id: 'focus-course-1', title: 'Focus Course 1' },
       { ...baseCourse, id: 'focus-course-2', title: 'Focus Course 2' },
@@ -249,26 +252,33 @@ describe('Dashboard', () => {
       },
     ]
 
-    render(
-      <Dashboard
-        currentUser={baseUser}
-        upcomingSessions={[]}
-        notifications={[]}
-        enrollments={enrollments}
-        courses={courses}
-        onNavigate={vi.fn()}
-      />
-    )
+    try {
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={courses}
+          onNavigate={vi.fn()}
+        />
+      )
 
-    expect(screen.getByText(/^learning focus$/i)).toBeInTheDocument()
-    const learningFocusCard = getCardByHeading(/^learning focus$/i)
+      expect(screen.getByText(/^learning focus$/i)).toBeInTheDocument()
+      const learningFocusCard = getCardByHeading(/^learning focus$/i)
 
-    expect(within(learningFocusCard).getByText(/focus course 1/i)).toBeInTheDocument()
-    expect(within(learningFocusCard).getByText(/focus course 2/i)).toBeInTheDocument()
-    expect(within(learningFocusCard).queryAllByText(/gap to expected pace/i).length).toBeGreaterThan(0)
+      expect(within(learningFocusCard).getByText(/focus course 1/i)).toBeInTheDocument()
+      expect(within(learningFocusCard).getByText(/focus course 2/i)).toBeInTheDocument()
+      expect(within(learningFocusCard).queryAllByText(/gap to expected pace/i).length).toBeGreaterThan(0)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('does not render learning focus when there are no in-progress enrollments with known courses', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+
     const courses: Course[] = [
       { ...baseCourse, id: 'focus-known', title: 'Known Focus Course' },
     ]
@@ -293,21 +303,28 @@ describe('Dashboard', () => {
       },
     ]
 
-    render(
-      <Dashboard
-        currentUser={baseUser}
-        upcomingSessions={[]}
-        notifications={[]}
-        enrollments={enrollments}
-        courses={courses}
-        onNavigate={vi.fn()}
-      />
-    )
+    try {
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={courses}
+          onNavigate={vi.fn()}
+        />
+      )
 
-    expect(screen.queryByText(/^learning focus$/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/^learning focus$/i)).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('limits learning focus panel to three items', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-03-15T00:00:00.000Z'))
+
     const courses: Course[] = [
       { ...baseCourse, id: 'focus-cap-1', title: 'Focus Cap Course 1' },
       { ...baseCourse, id: 'focus-cap-2', title: 'Focus Cap Course 2' },
@@ -350,19 +367,23 @@ describe('Dashboard', () => {
       },
     ]
 
-    render(
-      <Dashboard
-        currentUser={baseUser}
-        upcomingSessions={[]}
-        notifications={[]}
-        enrollments={enrollments}
-        courses={courses}
-        onNavigate={vi.fn()}
-      />
-    )
+    try {
+      render(
+        <Dashboard
+          currentUser={baseUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={courses}
+          onNavigate={vi.fn()}
+        />
+      )
 
-    const learningFocusCard = getCardByHeading(/^learning focus$/i)
-    expect(within(learningFocusCard).getAllByRole('button', { name: /focus cap course/i })).toHaveLength(3)
+      const learningFocusCard = getCardByHeading(/^learning focus$/i)
+      expect(within(learningFocusCard).getAllByRole('button', { name: /focus cap course/i })).toHaveLength(3)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('navigates to course details from learning focus cards', async () => {
@@ -524,8 +545,8 @@ describe('Dashboard', () => {
         courseId: 'deadline-course-nav',
         status: 'in-progress',
         progress: 40,
-        enrolledAt: subDays(new Date(), 30).toISOString(),
-        targetCompletionDate: subDays(new Date(), 1).toISOString(),
+        enrolledAt: '2025-12-01T00:00:00.000Z',
+        targetCompletionDate: '2025-12-31T00:00:00.000Z',
       },
     ]
 
@@ -586,6 +607,10 @@ describe('Dashboard', () => {
   })
 
   it('hides the learning alerts CTA for trainer users', () => {
+    vi.useFakeTimers()
+    const fixedNow = new Date('2026-04-02T00:00:00.000Z')
+    vi.setSystemTime(fixedNow)
+
     const trainerUser: User = {
       ...baseUser,
       id: 'deadline-trainer',
@@ -606,24 +631,28 @@ describe('Dashboard', () => {
         courseId: 'deadline-trainer-course',
         status: 'in-progress',
         progress: 45,
-        enrolledAt: subDays(new Date(), 30).toISOString(),
-        targetCompletionDate: addDays(new Date(), 2).toISOString(),
+        enrolledAt: subDays(fixedNow, 30).toISOString(),
+        targetCompletionDate: addDays(fixedNow, 2).toISOString(),
       },
     ]
 
-    render(
-      <Dashboard
-        currentUser={trainerUser}
-        upcomingSessions={[]}
-        notifications={[]}
-        enrollments={enrollments}
-        courses={[deadlineCourse]}
-        onNavigate={vi.fn()}
-      />
-    )
+    try {
+      render(
+        <Dashboard
+          currentUser={trainerUser}
+          upcomingSessions={[]}
+          notifications={[]}
+          enrollments={enrollments}
+          courses={[deadlineCourse]}
+          onNavigate={vi.fn()}
+        />
+      )
 
-    const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
-    expect(within(deadlineWatchCard).queryByRole('button', { name: /open learning alerts/i })).not.toBeInTheDocument()
+      const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
+      expect(within(deadlineWatchCard).queryByRole('button', { name: /open learning alerts/i })).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('renders recommended learning path items for missing certifications', () => {
