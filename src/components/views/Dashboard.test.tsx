@@ -574,6 +574,47 @@ describe('Dashboard', () => {
     expect(onNavigate).toHaveBeenCalledWith('notifications', { tab: 'learning-reminders' })
   })
 
+  it('hides the learning alerts CTA for trainer users', () => {
+    const trainerUser: User = {
+      ...baseUser,
+      id: 'deadline-trainer',
+      name: 'Taylor Trainer',
+      role: 'trainer',
+    }
+
+    const deadlineCourse: Course = {
+      ...baseCourse,
+      id: 'deadline-trainer-course',
+      title: 'Deadline Trainer Course',
+    }
+
+    const enrollments: Enrollment[] = [
+      {
+        id: 'deadline-trainer-enrollment',
+        userId: trainerUser.id,
+        courseId: 'deadline-trainer-course',
+        status: 'in-progress',
+        progress: 45,
+        enrolledAt: '2026-03-01T00:00:00.000Z',
+        targetCompletionDate: '2026-04-04T00:00:00.000Z',
+      },
+    ]
+
+    render(
+      <Dashboard
+        currentUser={trainerUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={enrollments}
+        courses={[deadlineCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+
+    const deadlineWatchCard = getCardByHeading(/^deadline watch$/i)
+    expect(within(deadlineWatchCard).queryByRole('button', { name: /open learning alerts/i })).not.toBeInTheDocument()
+  })
+
   it('renders recommended learning path items for missing certifications', () => {
     const courses: Course[] = [
       {

@@ -68,6 +68,7 @@ export function Dashboard({
   const now = useMemo(() => new Date(nowMs), [nowMs])
 
   const unreadNotifications = notifications.filter(n => !n.read)
+  const canOpenLearningAlerts = currentUser.role !== 'trainer'
   const activeEnrollments = enrollments.filter(e => e.status === 'in-progress')
   const completedCount = enrollments.filter(e => e.status === 'completed').length
   const learningFocusItems = useMemo(() => buildLearningFocusItems(enrollments, courses, now), [courses, enrollments, now])
@@ -170,13 +171,15 @@ export function Dashboard({
             <CardHeader>
               <div className="flex items-center justify-between gap-2">
                 <CardTitle>Deadline Watch</CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onNavigate('notifications', { tab: 'learning-reminders' })}
-                >
-                  Open Learning Alerts
-                </Button>
+                {canOpenLearningAlerts && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onNavigate('notifications', { tab: 'learning-reminders' })}
+                  >
+                    Open Learning Alerts
+                  </Button>
+                )}
               </div>
               <CardDescription>Upcoming and overdue learner completion targets</CardDescription>
             </CardHeader>

@@ -143,17 +143,25 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
     }
   }
 
+  /**
+   * Returns the count of unique, non-empty certifications after trimming whitespace.
+   *
+   * @param certifications - Raw certification strings from a user profile.
+   * @returns The normalized unique certification count.
+   */
+  const getNormalizedCertificationCount = (certifications: string[]) =>
+    new Set(
+      certifications
+        .map((certification) => certification.trim())
+        .filter((certification) => certification.length > 0),
+    ).size
+
   const certificationGapStatsByUserId = useMemo(() => {
     const map = new Map<string, { certificationCount: number; missingCount: number }>()
     users.forEach((user) => {
-      const normalizedCertificationCount = new Set(
-        user.certifications
-          .map((certification) => certification.trim())
-          .filter((certification) => certification.length > 0),
-      ).size
       const missingCertifications = getMissingCertificationsForUser(user, courses)
       map.set(user.id, {
-        certificationCount: normalizedCertificationCount,
+        certificationCount: getNormalizedCertificationCount(user.certifications),
         missingCount: missingCertifications.length,
       })
     })
@@ -168,14 +176,8 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
    * @returns Existing certification count and missing certification count.
    */
   const getUserCertificationGapStats = (user: User) => {
-    const normalizedCertificationCount = new Set(
-      user.certifications
-        .map((certification) => certification.trim())
-        .filter((certification) => certification.length > 0),
-    ).size
-
     return certificationGapStatsByUserId.get(user.id) || {
-      certificationCount: normalizedCertificationCount,
+      certificationCount: getNormalizedCertificationCount(user.certifications),
       missingCount: getMissingCertificationsForUser(user, courses).length,
     }
   }
