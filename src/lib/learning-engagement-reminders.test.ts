@@ -1,5 +1,3 @@
-import { describe, expect, it } from 'vitest'
-
 import { buildLearningEngagementReminderCandidates } from './learning-engagement-reminders'
 import type { Course, Enrollment, Notification } from './types'
 

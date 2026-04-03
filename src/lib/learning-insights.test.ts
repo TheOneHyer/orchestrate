@@ -1,5 +1,3 @@
-import { describe, expect, it } from 'vitest'
-
 import { buildLearningFocusItems, classifyLearningRisk } from './learning-insights'
 import type { Course, Enrollment } from './types'
 

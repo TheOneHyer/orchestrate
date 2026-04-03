@@ -150,6 +150,7 @@ export function Dashboard({
               {learningPathRecommendations.slice(0, 3).map((recommendation) => (
                 <button
                   key={recommendation.courseId}
+                  type="button"
                   onClick={() => onNavigate('courses', { courseId: recommendation.courseId })}
                   className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
                 >
@@ -183,6 +184,7 @@ export function Dashboard({
               {learningDeadlineItems.slice(0, 3).map((item) => (
                 <button
                   key={item.enrollmentId}
+                  type="button"
                   onClick={() => onNavigate('courses', { courseId: item.courseId })}
                   className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
                 >
@@ -216,6 +218,7 @@ export function Dashboard({
                 return (
                   <button
                     key={item.enrollmentId}
+                    type="button"
                     onClick={() => onNavigate('courses', { courseId: item.courseId })}
                     className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
                   >
@@ -247,6 +250,7 @@ export function Dashboard({
               {learningEngagementItems.slice(0, 3).map((item) => (
                 <button
                   key={item.enrollmentId}
+                  type="button"
                   onClick={() => onNavigate('courses', { courseId: item.courseId })}
                   className="w-full rounded-lg border border-border p-3 text-left hover:bg-secondary transition-colors"
                 >

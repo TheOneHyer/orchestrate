@@ -1098,6 +1098,11 @@ function App() {
       return
     }
 
+    const activeActor = safeUsers.find((user) => user.id === activeUserIdRef.current)
+    const ownerUserId = activeActor && (activeActor.role === 'admin' || activeActor.role === 'trainer')
+      ? activeActor.id
+      : undefined
+
     const reminders = buildLearningEngagementReminderCandidates(safeEnrollments, safeCourses, safeNotifications, reminderNow)
     if (reminders.length === 0) {
       return
@@ -1133,11 +1138,11 @@ function App() {
           engagementReminderKey: reminder.reminderKey,
           enrollmentId: reminder.enrollmentId,
           courseId: reminder.courseId,
-          ...(activeUserIdRef.current ? { ownerUserId: activeUserIdRef.current } : {}),
+          ...(ownerUserId ? { ownerUserId } : {}),
         },
       })
     })
-  }, [activeEnrollmentIds, engagementReminderHistory, handleCreateNotification, reminderNotificationSnapshot, reminderNow, safeCourses, safeEnrollments, safeNotifications, setEmittedEngagementReminderKeys, sideEffectsEnabled])
+  }, [activeEnrollmentIds, engagementReminderHistory, handleCreateNotification, reminderNotificationSnapshot, reminderNow, safeCourses, safeEnrollments, safeNotifications, safeUsers, setEmittedEngagementReminderKeys, sideEffectsEnabled])
 
   const currentUser: User = safeUsers.find((user) => user.id === activeUserId) || safeUsers[0] || fallbackUser
 

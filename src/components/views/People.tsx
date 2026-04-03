@@ -58,6 +58,19 @@ function hasUserIdPayload(value: unknown): value is { userId: string } {
  * Renders the People management interface, showing a searchable, role-filterable list and a detailed profile view when a user is selected.
  *
  * Provides admin controls to add and delete users and to edit trainer profiles. Highlights trainers missing shift schedules and displays per-user enrollment and certification summaries.
+ *
+ * @param users - Full user directory shown in the people table and used for profile selection.
+ * @param enrollments - Enrollment records used to compute per-user progress totals.
+ * @param courses - Course catalog used for certification gap calculations.
+ * @param sessions - Session records used to flag trainers missing schedule configuration.
+ * @param currentUser - Signed-in user context used to gate admin-only actions.
+ * @param onUpdateUser - Optional callback fired when profile edits are saved.
+ * @param onAddUser - Optional callback fired when a new user is created.
+ * @param onDeleteUser - Optional callback fired when a user deletion is confirmed.
+ * @param navigationPayload - Optional deep-link payload that can preselect a user.
+ * @param onNavigationPayloadConsumed - Optional callback fired after consuming a deep-link payload.
+ * @returns The People management view.
+ * @throws {Error} Propagates errors thrown by optional mutation callbacks during save or delete actions.
  */
 export function People({ users, enrollments, courses, sessions, currentUser, onUpdateUser, onAddUser, onDeleteUser, navigationPayload, onNavigationPayloadConsumed }: PeopleProps) {
   const [searchQuery, setSearchQuery] = useState('')
