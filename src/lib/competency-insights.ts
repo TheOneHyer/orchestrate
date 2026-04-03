@@ -51,6 +51,7 @@ export function getMissingCertificationsForUser(user: User, courses: Course[]): 
  * @param enrollments - Existing enrollments used to exclude courses with statuses `in-progress`, `completed`, or `enrolled`.
  * @param maxRecommendations - Maximum number of recommendations to return (defaults to 3).
  * @returns An array of LearningPathRecommendation objects ordered by descending gapClosureCount, then by shorter course duration, then by alphabetical courseTitle.
+ */
 export function buildLearningPathRecommendations(
     user: User,
     courses: Course[],

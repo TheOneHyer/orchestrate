@@ -1133,7 +1133,7 @@ function App() {
           engagementReminderKey: reminder.reminderKey,
           enrollmentId: reminder.enrollmentId,
           courseId: reminder.courseId,
-          ownerUserId: activeUserIdRef.current || reminder.userId,
+          ...(activeUserIdRef.current ? { ownerUserId: activeUserIdRef.current } : {}),
         },
       })
     })
@@ -1684,24 +1684,22 @@ function App() {
    */
   const handleUpdateSession = useCallback((id: string, updates: Partial<Session>) => {
     const affectsEnrollmentMembership = updates.enrolledStudents !== undefined || updates.courseId !== undefined
-    setSessions((currentSessions) => {
-      const baseSessions = currentSessions || []
-      const updatedSessions = baseSessions.map((session) => applySessionUpdates(session, id, updates))
+    const baseSessions = sessionsRef.current || []
+    const updatedSessions = baseSessions.map((session) => applySessionUpdates(session, id, updates))
+    sessionsRef.current = updatedSessions
+    setSessions(updatedSessions)
 
-      if (affectsEnrollmentMembership) {
-        const nowIso = new Date().toISOString()
-        setEnrollments((currentEnrollments) =>
-          reconcileSessionEnrollments({
-            enrollments: currentEnrollments || [],
-            sessions: updatedSessions,
-            nowIso,
-            createEnrollmentId: () => createEntityId('enrollment'),
-          }),
-        )
-      }
-
-      return updatedSessions
-    })
+    if (affectsEnrollmentMembership) {
+      const nowIso = new Date().toISOString()
+      setEnrollments((currentEnrollments) =>
+        reconcileSessionEnrollments({
+          enrollments: currentEnrollments || [],
+          sessions: updatedSessions,
+          nowIso,
+          createEnrollmentId: () => createEntityId('enrollment'),
+        }),
+      )
+    }
   }, [applySessionUpdates, setEnrollments, setSessions])
 
   /**

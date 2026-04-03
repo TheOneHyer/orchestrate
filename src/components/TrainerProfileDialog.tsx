@@ -53,6 +53,7 @@ const DAYS_OF_WEEK: { value: DayOfWeek; label: string }[] = [
  * @param onOpenChange - Called with the new open state when the dialog is opened or closed.
  * @param onSave - Called with the committed user object when the user saves changes.
  * @returns The Trainer Profile dialog element.
+ * @throws {RangeError} If an invalid hire date reaches date formatting calculations.
  */
 export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: TrainerProfileDialogProps) {
   const [editedUser, setEditedUser] = useState<User>(user)
