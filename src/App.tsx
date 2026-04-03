@@ -890,7 +890,14 @@ function App() {
   const safeCourses = useMemo(() => courses || [], [courses])
   const safeEnrollments = useMemo(() => enrollments || [], [enrollments])
   const safeNotifications = useMemo(() => notifications || [], [notifications])
-  const activeEnrollmentIds = useMemo(() => new Set(safeEnrollments.map((enrollment) => enrollment.id)), [safeEnrollments])
+  const activeEnrollmentIds = useMemo(
+    () => new Set(
+      safeEnrollments
+        .filter((enrollment) => enrollment.status === 'enrolled' || enrollment.status === 'in-progress')
+        .map((enrollment) => enrollment.id),
+    ),
+    [safeEnrollments],
+  )
   const [reminderNowMs, setReminderNowMs] = useState(() => Date.now())
   const reminderNow = useMemo(() => new Date(reminderNowMs), [reminderNowMs])
   const learningReminderHistory = useMemo(() => new Set(emittedLearningReminderKeys || []), [emittedLearningReminderKeys])
