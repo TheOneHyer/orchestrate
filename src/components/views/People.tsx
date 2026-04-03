@@ -148,8 +148,10 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
    * @param certifications - Raw certification strings from a user profile.
    * @returns The normalized unique certification count.
    */
-  const getNormalizedCertificationCount = (certifications: string[]) =>
-    normalizeCertifications(certifications).size
+  const getNormalizedCertificationCount = useCallback(
+    (certifications: string[]) => normalizeCertifications(certifications).size,
+    [],
+  )
 
   const publishedCourseCertificationCatalog = useMemo(
     () => normalizeCertifications(
