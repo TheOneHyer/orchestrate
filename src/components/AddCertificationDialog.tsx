@@ -113,7 +113,7 @@ export function AddCertificationDialog({ users, onAddCertification }: AddCertifi
           Add Certification
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Certification</DialogTitle>
           <DialogDescription>

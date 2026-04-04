@@ -213,13 +213,13 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
           </div>
         </header>
 
-        {/* Scrollable main content */}
-        <main id="main-content" className="flex-1 overflow-auto" aria-label="Main content">
+        {/* Scrollable main content — extra bottom padding reserves space beneath the floating nav */}
+        <main id="main-content" className="flex-1 overflow-auto pb-[4.5rem]" aria-label="Main content">
           {children}
         </main>
 
-        {/* Bottom navigation bar */}
-        <nav className="shrink-0 bg-card border-t border-border" aria-label="Bottom navigation">
+        {/* Floating bottom navigation bar — fixed so it hovers over content */}
+        <nav className="fixed bottom-0 inset-x-0 z-10 bg-card border-t border-border shadow-[0_-2px_8px_rgba(0,0,0,0.08)]" aria-label="Bottom navigation">
           <div className="flex items-center justify-around px-2 py-2">
             {bottomNavItems.map((item) => {
               const Icon = item.icon

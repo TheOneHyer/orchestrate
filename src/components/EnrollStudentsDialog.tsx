@@ -228,7 +228,7 @@ export function EnrollStudentsDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[90dvh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus size={24} />
@@ -239,7 +239,7 @@ export function EnrollStudentsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+        <div className="space-y-4 flex-1 min-h-0 overflow-hidden flex flex-col">
           <div className="flex items-center justify-between gap-3">
             <div className="relative flex-1">
               <MagnifyingGlass size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -352,7 +352,7 @@ export function EnrollStudentsDialog({
             </Alert>
           )}
 
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
             <div className="space-y-2">
               {filteredStudents.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">

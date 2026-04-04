@@ -1512,7 +1512,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
           }
         }}
       >
-        <DialogContent className="max-w-xl">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Edit Session</DialogTitle>
             <DialogDescription>
@@ -1604,7 +1604,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
       </Dialog>
 
       <Dialog open={autoSchedulerOpen} onOpenChange={setAutoSchedulerOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-4xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Automatic Trainer Scheduler</DialogTitle>
             <DialogDescription>
@@ -1621,7 +1621,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
       </Dialog>
 
       <Dialog open={guidedSchedulerOpen} onOpenChange={setGuidedSchedulerOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-6xl max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Guided Trainer Scheduler</DialogTitle>
             <DialogDescription>

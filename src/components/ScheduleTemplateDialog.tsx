@@ -282,7 +282,7 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
   }
 
   return (
-    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+    <DialogContent className="sm:max-w-3xl max-h-[90dvh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>{template ? 'Edit Schedule Template' : 'Create Schedule Template'}</DialogTitle>
         <DialogDescription>
