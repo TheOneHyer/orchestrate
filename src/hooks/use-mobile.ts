@@ -6,13 +6,16 @@ const MOBILE_BREAKPOINT = 768
 /**
  * Hook that returns whether the current viewport width is below the mobile breakpoint (768 px).
  *
- * Listens to `window.matchMedia` change events so the value updates reactively
- * whenever the user resizes the browser window.
+ * State is initialized synchronously from `window.innerWidth` on first render so that the
+ * correct layout is selected immediately without a flash of the wrong layout. A
+ * `window.matchMedia` change listener keeps the value reactive whenever the user resizes.
  *
  * @returns `true` when the viewport is narrower than {@link MOBILE_BREAKPOINT}, `false` otherwise.
  */
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = useState<boolean | undefined>(undefined)
+  const [isMobile, setIsMobile] = useState<boolean>(
+    () => typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT
+  )
 
   useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
@@ -20,9 +23,10 @@ export function useIsMobile() {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
     mql.addEventListener("change", onChange)
+    // Re-sync in case the viewport changed between initial render and effect execution.
     setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     return () => mql.removeEventListener("change", onChange)
   }, [])
 
-  return !!isMobile
+  return isMobile
 }

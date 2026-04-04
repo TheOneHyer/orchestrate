@@ -312,8 +312,8 @@ describe('Layout', () => {
             expect(screen.getByRole('button', { name: /^home$/i })).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /^schedule$/i })).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /^courses$/i })).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /open notifications/i })).toBeInTheDocument()
-            expect(screen.getByRole('button', { name: /open navigation menu/i })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument()
         })
 
         it('highlights the active bottom-nav item', () => {
@@ -344,7 +344,7 @@ describe('Layout', () => {
             await userEvent.click(screen.getByRole('button', { name: /^courses$/i }))
             expect(onNavigate).toHaveBeenCalledWith('courses')
 
-            await userEvent.click(screen.getByRole('button', { name: /open notifications/i }))
+            await userEvent.click(screen.getByRole('button', { name: 'Notifications' }))
             expect(onNavigate).toHaveBeenCalledWith('notifications')
         })
 
@@ -375,7 +375,7 @@ describe('Layout', () => {
                 </Layout>
             )
 
-            await userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }))
+            await userEvent.click(screen.getByRole('button', { name: 'More' }))
 
             const nav = screen.getByRole('navigation', { name: /primary navigation/i })
             expect(within(nav).getByRole('button', { name: /burnout risk/i })).toBeInTheDocument()
@@ -391,7 +391,7 @@ describe('Layout', () => {
                 </Layout>
             )
 
-            await userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }))
+            await userEvent.click(screen.getByRole('button', { name: 'More' }))
 
             const nav = screen.getByRole('navigation', { name: /primary navigation/i })
             await userEvent.click(within(nav).getByRole('button', { name: /^schedule$/i }))
@@ -405,7 +405,7 @@ describe('Layout', () => {
                 </Layout>
             )
 
-            await userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }))
+            await userEvent.click(screen.getByRole('button', { name: 'More' }))
 
             expect(screen.queryByRole('button', { name: /burnout risk/i })).not.toBeInTheDocument()
             expect(screen.queryByRole('button', { name: /^settings$/i })).not.toBeInTheDocument()
@@ -418,7 +418,7 @@ describe('Layout', () => {
                 </Layout>
             )
 
-            await userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }))
+            await userEvent.click(screen.getByRole('button', { name: 'More' }))
 
             expect(screen.getByRole('button', { name: /^settings$/i })).toBeInTheDocument()
         })
@@ -431,7 +431,7 @@ describe('Layout', () => {
                 </Layout>
             )
 
-            await userEvent.click(screen.getByRole('button', { name: /open navigation menu/i }))
+            await userEvent.click(screen.getByRole('button', { name: 'More' }))
             await userEvent.click(screen.getByRole('button', { name: /^settings$/i }))
             expect(onNavigate).toHaveBeenCalledWith('settings')
         })

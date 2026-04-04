@@ -244,7 +244,6 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
             {/* Notifications with badge */}
             <button
               onClick={() => onNavigate('notifications')}
-              aria-label="Open notifications"
               aria-current={activeView === 'notifications' ? 'page' : undefined}
               className={cn(
                 'flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg transition-colors relative min-w-[3.5rem]',
@@ -262,7 +261,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
                   </span>
                 )}
               </div>
-              <span className="text-xs font-medium">Alerts</span>
+              <span className="text-xs font-medium">Notifications</span>
             </button>
 
             {/* More / full-navigation trigger */}
@@ -313,7 +312,7 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
               <div className="px-3 py-4 border-t border-border space-y-1.5">
                 <button
                   onClick={() => { onNavigate('notifications'); setIsMobileMenuOpen(false) }}
-                  aria-label="Open notifications"
+                  aria-current={activeView === 'notifications' ? 'page' : undefined}
                   className={cn(
                     'w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all duration-200',
                     activeView === 'notifications'
