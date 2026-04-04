@@ -268,7 +268,6 @@ export function Layout({ children, activeView, onNavigate, notificationCount = 0
             {/* More / full-navigation trigger */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Open navigation menu"
               className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg transition-colors text-muted-foreground min-w-[3.5rem]"
             >
               <List size={22} weight="regular" />
