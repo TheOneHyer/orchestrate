@@ -749,7 +749,7 @@ export function Courses({
       )}
 
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{selectedCourse?.title || 'Course details'}</DialogTitle>
             <DialogDescription>{selectedCourse?.description}</DialogDescription>
@@ -843,7 +843,7 @@ export function Courses({
           handleCloseEditor()
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+        <DialogContent className="max-h-[90dvh] sm:max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingCourse ? 'Edit Course' : 'Create Course'}</DialogTitle>
             <DialogDescription>

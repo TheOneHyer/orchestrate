@@ -281,7 +281,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Trainer Profile: {user.name}</DialogTitle>
           <DialogDescription>
