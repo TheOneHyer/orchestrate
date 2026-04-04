@@ -1191,14 +1191,14 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold text-foreground">Schedule</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Schedule</h1>
           <p className="text-muted-foreground mt-1">Manage training sessions and schedules</p>
         </div>
         {canManageSchedule && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setAutoSchedulerOpen(true)}>
               <Robot size={18} weight="bold" className="mr-2" />
               Auto-Schedule

@@ -271,7 +271,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
   const existingEmails = users.map(u => u.email.toLowerCase())
 
   return (
-    <section className="p-6 space-y-6" aria-labelledby={selectedUser ? 'person-detail-heading' : 'people-heading'}>
+    <section className="p-4 md:p-6 space-y-6" aria-labelledby={selectedUser ? 'person-detail-heading' : 'people-heading'}>
       {selectedUser ? (
         <div className="space-y-4">
           <h1 id="person-detail-heading" className="sr-only">Person detail view</h1>
@@ -301,9 +301,9 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 id="people-heading" className="text-3xl font-semibold text-foreground">People</h1>
+              <h1 id="people-heading" className="text-2xl md:text-3xl font-semibold text-foreground">People</h1>
               <p className="text-muted-foreground mt-1">Manage employees and training profiles</p>
             </div>
             {currentUser.role === 'admin' && (
@@ -338,6 +338,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
             <TabsContent value={roleFilter} className="mt-6">
               <Card>
                 <CardContent className="pt-6">
+                  <div className="overflow-x-auto">
                   <Table aria-label="People directory">
                     <TableCaption className="sr-only">
                       People directory with role, department, schedule, enrollment, and certification status.
@@ -445,6 +446,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
                       })}
                     </TableBody>
                   </Table>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

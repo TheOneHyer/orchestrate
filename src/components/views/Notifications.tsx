@@ -316,15 +316,15 @@ export function Notifications({
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold text-foreground">Notifications</h1>
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Notifications</h1>
           <p className="text-muted-foreground mt-1">
             {unreadNotifications.length} unread • {notifications.length} total
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {unreadNotifications.length > 0 && (
             <Button
               variant="outline"

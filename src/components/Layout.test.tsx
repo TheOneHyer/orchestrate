@@ -7,9 +7,14 @@ import type { User } from '@/lib/types'
 
 const mockToggleTheme = vi.fn()
 const mockUseTheme = vi.fn()
+const mockUseIsMobile = vi.fn()
 
 vi.mock('@/hooks/use-theme', () => ({
     useTheme: () => mockUseTheme(),
+}))
+
+vi.mock('@/hooks/use-mobile', () => ({
+    useIsMobile: () => mockUseIsMobile(),
 }))
 
 vi.mock('@/components/NotificationSettingsDialog', () => ({
@@ -50,6 +55,8 @@ describe('Layout', () => {
         mockToggleTheme.mockReset()
         mockUseTheme.mockReset()
         mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: mockToggleTheme })
+        mockUseIsMobile.mockReset()
+        mockUseIsMobile.mockReturnValue(false)
     })
 
     it('filters navigation by role and shows admin settings', () => {
@@ -278,5 +285,246 @@ describe('Layout', () => {
 
         expect(screen.getAllByText(/trainer/i).length).toBeGreaterThan(0)
         expect(screen.getAllByText(/trainer one/i)).toHaveLength(2)
+    })
+
+    describe('mobile layout', () => {
+        beforeEach(() => {
+            mockUseIsMobile.mockReturnValue(true)
+        })
+
+        it('renders the app title in the mobile header', () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="admin">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            expect(screen.getByText('Orchestrate')).toBeInTheDocument()
+        })
+
+        it('renders the bottom navigation with primary items', () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="employee">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            expect(screen.getByRole('button', { name: /^home$/i })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /^schedule$/i })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: /^courses$/i })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Notifications' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'More' })).toBeInTheDocument()
+        })
+
+        it('highlights the active bottom-nav item', () => {
+            render(
+                <Layout activeView="schedule" onNavigate={vi.fn()} userRole="employee">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            const scheduleBtn = screen.getByRole('button', { name: /^schedule$/i })
+            expect(scheduleBtn).toHaveAttribute('aria-current', 'page')
+
+            const homeBtn = screen.getByRole('button', { name: /^home$/i })
+            expect(homeBtn).not.toHaveAttribute('aria-current', 'page')
+        })
+
+        it('navigates when a bottom-nav item is clicked', async () => {
+            const onNavigate = vi.fn()
+            render(
+                <Layout activeView="dashboard" onNavigate={onNavigate} userRole="employee">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            await userEvent.click(screen.getByRole('button', { name: /^schedule$/i }))
+            expect(onNavigate).toHaveBeenCalledWith('schedule')
+
+            await userEvent.click(screen.getByRole('button', { name: /^courses$/i }))
+            expect(onNavigate).toHaveBeenCalledWith('courses')
+
+            await userEvent.click(screen.getByRole('button', { name: 'Notifications' }))
+            expect(onNavigate).toHaveBeenCalledWith('notifications')
+        })
+
+        it('shows notification count badge in the bottom navigation', () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="admin" notificationCount={5}>
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            expect(screen.getByTestId('notification-count')).toHaveTextContent('5')
+        })
+
+        it('displays 9+ for notification counts above 9', () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="admin" notificationCount={12}>
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            expect(screen.getByTestId('notification-count')).toHaveTextContent('9+')
+        })
+
+        it('opens the navigation Sheet when "More" is clicked and shows primary nav items', async () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="admin">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            await userEvent.click(screen.getByRole('button', { name: 'More' }))
+
+            const nav = screen.getByRole('navigation', { name: /primary navigation/i })
+            expect(within(nav).getByRole('button', { name: /burnout risk/i })).toBeInTheDocument()
+            expect(within(nav).getByRole('button', { name: /wellness & recovery/i })).toBeInTheDocument()
+            expect(within(nav).getByRole('button', { name: /certifications/i })).toBeInTheDocument()
+        })
+
+        it('navigates from the Sheet and closes it', async () => {
+            const onNavigate = vi.fn()
+            render(
+                <Layout activeView="dashboard" onNavigate={onNavigate} userRole="admin">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            await userEvent.click(screen.getByRole('button', { name: 'More' }))
+
+            const nav = screen.getByRole('navigation', { name: /primary navigation/i })
+            await userEvent.click(within(nav).getByRole('button', { name: /^schedule$/i }))
+            expect(onNavigate).toHaveBeenCalledWith('schedule')
+        })
+
+        it('hides admin-only Sheet items for employees', async () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="employee">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            await userEvent.click(screen.getByRole('button', { name: 'More' }))
+
+            expect(screen.queryByRole('button', { name: /burnout risk/i })).not.toBeInTheDocument()
+            expect(screen.queryByRole('button', { name: /^settings$/i })).not.toBeInTheDocument()
+        })
+
+        it('shows the settings button in the Sheet for admin', async () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="admin">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            await userEvent.click(screen.getByRole('button', { name: 'More' }))
+
+            expect(screen.getByRole('button', { name: /^settings$/i })).toBeInTheDocument()
+        })
+
+        it('navigates to settings from the Sheet for admin', async () => {
+            const onNavigate = vi.fn()
+            render(
+                <Layout activeView="dashboard" onNavigate={onNavigate} userRole="admin">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            await userEvent.click(screen.getByRole('button', { name: 'More' }))
+            await userEvent.click(screen.getByRole('button', { name: /^settings$/i }))
+            expect(onNavigate).toHaveBeenCalledWith('settings')
+        })
+
+        it('toggles theme from mobile header', async () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="trainer">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            await userEvent.click(screen.getByRole('button', { name: /toggle theme/i }))
+            expect(mockToggleTheme).toHaveBeenCalledOnce()
+        })
+
+        it('renders theme icons for dark and light themes in mobile header', () => {
+            mockUseTheme.mockReturnValue({ theme: 'dark', toggleTheme: mockToggleTheme })
+
+            const { rerender } = render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="trainer">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            expect(screen.getByTestId('theme-icon-sun')).toBeInTheDocument()
+
+            mockUseTheme.mockReturnValue({ theme: 'light', toggleTheme: mockToggleTheme })
+            rerender(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="trainer">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            expect(screen.getByTestId('theme-icon-moon')).toBeInTheDocument()
+        })
+
+        it('opens notification settings from mobile header', async () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="admin">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            expect(screen.getByTestId('notification-settings-dialog')).toHaveAttribute('data-open', 'false')
+
+            await userEvent.click(screen.getByRole('button', { name: /notification settings/i }))
+            expect(screen.getByTestId('notification-settings-dialog')).toHaveAttribute('data-open', 'true')
+        })
+
+        it('opens the active user menu from the mobile avatar button', async () => {
+            const onSwitchUser = vi.fn()
+            const onLogout = vi.fn()
+
+            render(
+                <Layout
+                    activeView="dashboard"
+                    onNavigate={vi.fn()}
+                    userRole="admin"
+                    currentUser={adminUser}
+                    users={[adminUser, trainerUser]}
+                    onSwitchUser={onSwitchUser}
+                    onLogout={onLogout}
+                >
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            await userEvent.click(screen.getByRole('button', { name: /open active user menu/i }))
+            expect(screen.getByText(/active session/i)).toBeInTheDocument()
+            expect(screen.getByText(/trainer one/i)).toBeInTheDocument()
+
+            await userEvent.click(screen.getByText('Trainer One'))
+            expect(onSwitchUser).toHaveBeenCalledWith('trainer-1')
+        })
+
+        it('renders skip link in mobile layout', () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="employee">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            expect(screen.getByRole('link', { name: /skip to main content/i })).toBeInTheDocument()
+        })
+
+        it('renders bottom navigation landmark', () => {
+            render(
+                <Layout activeView="dashboard" onNavigate={vi.fn()} userRole="employee">
+                    <div>Page Content</div>
+                </Layout>
+            )
+
+            expect(screen.getByRole('navigation', { name: /bottom navigation/i })).toBeInTheDocument()
+        })
     })
 })

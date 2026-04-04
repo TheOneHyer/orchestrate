@@ -822,9 +822,9 @@ export function UserGuide({ initialSection = 'overview' }: UserGuideProps) {
   const current = getSectionOrFallback(sections, activeSection)
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold text-foreground">User Guide</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">User Guide</h1>
         <p className="text-muted-foreground mt-1">
           A complete reference for every feature in Orchestrate
         </p>

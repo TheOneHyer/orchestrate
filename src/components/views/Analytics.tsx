@@ -317,9 +317,9 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
   )
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold text-foreground">Analytics</h1>
+        <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Analytics</h1>
         <p className="text-muted-foreground mt-1">Training performance and insights</p>
       </div>
 
