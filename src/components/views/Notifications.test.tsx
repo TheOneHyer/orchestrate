@@ -45,6 +45,8 @@ describe('Notifications', () => {
 
     expect(screen.getByText(/all caught up!/i)).toBeInTheDocument()
     expect(screen.getByText(/you don't have any notifications right now/i)).toBeInTheDocument()
+    const { axe } = await import('vitest-axe');
+    expect(await axe(document.body)).toHaveNoViolations();
   })
 
   it('marks unread items as read and navigates when a linked notification is clicked', async () => {

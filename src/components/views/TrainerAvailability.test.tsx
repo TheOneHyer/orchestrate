@@ -161,6 +161,9 @@ describe('TrainerAvailability', () => {
 
         await user.click(screen.getByRole('button', { name: /view schedule/i }))
         expect(onNavigate).toHaveBeenCalledWith('schedule')
+
+        const { axe } = await import('vitest-axe')
+        expect(await axe(document.body)).toHaveNoViolations()
     })
 
     it('filters trainers by search query and shows empty state', async () => {

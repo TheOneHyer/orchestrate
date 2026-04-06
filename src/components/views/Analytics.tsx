@@ -508,7 +508,7 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
                   </div>
                 </div>
               </div>
-              <Progress value={rate} className="h-2" />
+              <Progress value={rate} className="h-2" aria-label={`Completion rate for ${course.title}`} />
             </div>
           ))}
         </CardContent>
@@ -600,7 +600,7 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
                     <span className="font-medium text-foreground">{dept}</span>
                     <span className="text-sm text-muted-foreground">{count} employees • {Math.round(percentage)}%</span>
                   </div>
-                  <Progress value={percentage} className="h-2" />
+                  <Progress value={percentage} className="h-2" aria-label={`Employee distribution percentage for ${dept}`} />
                 </div>
               ))}
           </CardContent>
@@ -629,14 +629,14 @@ export function Analytics({ users, enrollments, sessions, courses, attendanceRec
                       <span className="font-medium text-foreground">Configured</span>
                       <span data-testid="configured-trainers" className="text-sm text-muted-foreground">{trainerLabel(trainersWithSchedules.length)} • {Math.round(configuredPercentage)}%</span>
                     </div>
-                    <Progress value={configuredPercentage} className="h-2" />
+                    <Progress value={configuredPercentage} className="h-2" aria-label="Percentage of configured trainers" />
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-foreground">Not Configured</span>
                       <span data-testid="unconfigured-trainers" className="text-sm text-muted-foreground">{trainerLabel(trainersWithoutSchedules)} • {Math.round(unconfiguredPercentage)}%</span>
                     </div>
-                    <Progress value={unconfiguredPercentage} className="h-2" />
+                    <Progress value={unconfiguredPercentage} className="h-2" aria-label="Percentage of unconfigured trainers" />
                   </div>
                 </>
               )

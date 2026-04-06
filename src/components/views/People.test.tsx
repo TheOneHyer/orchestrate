@@ -140,6 +140,12 @@ function renderPeople(options?: {
 }
 
 describe('People', () => {
+    it('has no basic accessibility violations', async () => {
+        renderPeople()
+        const { axe } = await import('vitest-axe')
+        expect(await axe(document.body)).toHaveNoViolations()
+    })
+
     it('renders people list and enrollment stats', () => {
         renderPeople()
 

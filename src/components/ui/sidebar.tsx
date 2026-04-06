@@ -72,6 +72,14 @@ function SidebarProvider({
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = useState(defaultOpen)
+  const [cookieState, setCookieState] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (cookieState !== null) {
+      document.cookie = `${SIDEBAR_COOKIE_NAME}=${cookieState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+    }
+  }, [cookieState])
+
   const open = openProp ?? _open
   const setOpen = useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -82,8 +90,7 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      setCookieState(openState)
     },
     [setOpenProp, open]
   )
@@ -608,6 +615,7 @@ function SidebarMenuSkeleton({
 }) {
   // Random width between 50 to 90%.
   const width = useMemo(() => {
+    // eslint-disable-next-line react-hooks/purity
     return `${Math.floor(Math.random() * 40) + 50}%`
   }, [])
 

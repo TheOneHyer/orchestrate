@@ -64,8 +64,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   const [selectedRecommendation, setSelectedRecommendation] = useState<WorkloadRecommendation | null>(null)
   const [recommendationDialogOpen, setRecommendationDialogOpen] = useState(false)
 
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const weekStart = useMemo(() => startOfWeek(currentWeek, { weekStartsOn: 1 }), [currentWeek])
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
 
   const trainers = useMemo(() =>
     users.filter(u => u.role === 'trainer'),
@@ -218,8 +218,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="inline-flex" tabIndex={0} aria-label="Schedule not configured indicator">
-                            <WarningCircle size={14} weight="fill" className="text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                          <span className="inline-flex" aria-label="Schedule not configured indicator">
+                            <WarningCircle size={14} weight="fill" className="text-amber-600 dark:text-amber-500 shrink-0" />
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>Schedule not configured</TooltipContent>

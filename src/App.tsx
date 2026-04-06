@@ -770,11 +770,7 @@ function App() {
       window.removeEventListener('focus', renewDemoLease)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-    // demoSessionUserId is intentionally captured as a stable snapshot (leaseOwnerId)
-    // at effect-run time so the interval keeps renewing even if the session user ID
-    // later becomes empty while demoModeEnabled remains true.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [demoModeEnabled])
+  }, [demoModeEnabled, demoSessionUserId])
 
   useEffect(() => {
     if (!previewSeedEnabled || suppressAutoSeedAfterReset) {

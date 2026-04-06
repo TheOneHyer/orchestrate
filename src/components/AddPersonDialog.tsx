@@ -11,6 +11,10 @@ import { User, UserRole, ShiftType } from '@/lib/types'
 import { X } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
+function generateUserId() {
+  return `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
 /**
  * Props for the {@link AddPersonDialog} component.
  */
@@ -108,7 +112,7 @@ export function AddPersonDialog({ open, onOpenChange, onSave, existingEmails }: 
     }
 
     const newUser: User = {
-      id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: generateUserId(),
       name: formData.name.trim(),
       email: formData.email.toLowerCase().trim(),
       role: formData.role,

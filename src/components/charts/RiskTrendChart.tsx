@@ -48,6 +48,54 @@ interface TooltipPointPayload {
 
 
 
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload?: TooltipPointPayload }>;
+  showUtilization?: boolean;
+}
+
+const CustomTooltip = ({ active, payload, showUtilization }: CustomTooltipProps) => {
+  const point = payload?.[0]?.payload
+  if (active && point) {
+    return (
+      <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+        <p className="font-semibold mb-2">{point.fullDate}</p>
+        <div className="space-y-1 text-sm">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted-foreground">Risk Score:</span>
+            <span className="font-bold">{point['Risk Score']}</span>
+          </div>
+          {showUtilization && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Utilization:</span>
+              <span className="font-semibold">{point['Utilization %']?.toFixed(1)}%</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted-foreground">Sessions:</span>
+            <span className="font-semibold">{point.sessions}</span>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted-foreground">Hours:</span>
+            <span className="font-semibold">{point.hours}h</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 pt-1 border-t border-border mt-2">
+            <span className="text-muted-foreground">Risk Level:</span>
+            <span className={`font-bold uppercase text-xs px-2 py-0.5 rounded ${point.riskLevel === 'critical' ? 'bg-destructive/20 text-destructive' :
+              point.riskLevel === 'high' ? 'bg-orange-500/20 text-orange-500' :
+                point.riskLevel === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
+                  'bg-green-500/20 text-green-500'
+              }`}>
+              {point.riskLevel}
+            </span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  return null
+}
+
 /**
  * Area/line chart that visualises a trainer's burnout risk score trend over time.
  *
@@ -90,48 +138,6 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
 
     return `Utilization average ${average.toFixed(1)}% trend ${trendDirection}`
   }, [chartData, showUtilization])
-
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload?: TooltipPointPayload }> }) => {
-    const point = payload?.[0]?.payload
-    if (active && point) {
-      return (
-        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-semibold mb-2">{point.fullDate}</p>
-          <div className="space-y-1 text-sm">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Risk Score:</span>
-              <span className="font-bold">{point['Risk Score']}</span>
-            </div>
-            {showUtilization && (
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground">Utilization:</span>
-                <span className="font-semibold">{point['Utilization %']?.toFixed(1)}%</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Sessions:</span>
-              <span className="font-semibold">{point.sessions}</span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-muted-foreground">Hours:</span>
-              <span className="font-semibold">{point.hours}h</span>
-            </div>
-            <div className="flex items-center justify-between gap-4 pt-1 border-t border-border mt-2">
-              <span className="text-muted-foreground">Risk Level:</span>
-              <span className={`font-bold uppercase text-xs px-2 py-0.5 rounded ${point.riskLevel === 'critical' ? 'bg-destructive/20 text-destructive' :
-                point.riskLevel === 'high' ? 'bg-orange-500/20 text-orange-500' :
-                  point.riskLevel === 'medium' ? 'bg-yellow-500/20 text-yellow-500' :
-                    'bg-green-500/20 text-green-500'
-                }`}>
-                {point.riskLevel}
-              </span>
-            </div>
-          </div>
-        </div>
-      )
-    }
-    return null
-  }
 
   if (data.length === 0) {
     return (
@@ -179,7 +185,7 @@ export function RiskTrendChart({ data, trainerName, showUtilization = false }: R
             tickMargin={8}
             domain={[0, 100]}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip showUtilization={showUtilization} />} />
           <Legend
             wrapperStyle={{ fontSize: '13px', paddingTop: '12px' }}
             iconType="circle"

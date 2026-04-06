@@ -216,6 +216,9 @@ describe('Schedule', () => {
     await user.click(screen.getByRole('button', { name: /auto-schedule/i }))
     expect(screen.getByText(/automatic trainer scheduler/i)).toBeInTheDocument()
     expect(screen.getByText(/autoscheduler mock/i)).toBeInTheDocument()
+
+    const { axe } = await import('vitest-axe')
+    expect(await axe(document.body)).toHaveNoViolations()
   })
 
   it('opens target session details from navigation payload sessionId', async () => {

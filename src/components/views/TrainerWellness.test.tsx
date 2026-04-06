@@ -302,7 +302,7 @@ describe('TrainerWellness', () => {
         vi.unstubAllGlobals()
     })
 
-    it('renders overview cards and trainer wellness rows', () => {
+    it('renders overview cards and trainer wellness rows', async () => {
         renderTrainerWellness(users[0])
 
         expect(screen.getByText(/trainer wellness & recovery/i)).toBeInTheDocument()
@@ -310,6 +310,10 @@ describe('TrainerWellness', () => {
         expect(screen.getByText(/critical status/i)).toBeInTheDocument()
         expect(screen.getByText('Taylor Trainer')).toBeInTheDocument()
         expect(screen.getByText('Uma Trainer')).toBeInTheDocument()
+
+        // Test accessibility
+        const { axe } = await import('vitest-axe')
+        expect(await axe(document.body)).toHaveNoViolations()
     })
 
     it('allows admin to create a new check-in', async () => {

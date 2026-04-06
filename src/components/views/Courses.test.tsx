@@ -74,6 +74,19 @@ async function fillValidCourseForm(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('Courses', () => {
+    it('has no basic accessibility violations', async () => {
+        const { container } = render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={vi.fn()}
+            />
+        )
+        const { axe } = await import('vitest-axe')
+        expect(await axe(container)).toHaveNoViolations()
+    })
+
     it('shows an error when navigation payload references a missing course id', () => {
         render(
             <Courses

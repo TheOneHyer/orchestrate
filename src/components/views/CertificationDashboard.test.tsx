@@ -77,6 +77,19 @@ describe('CertificationDashboard', () => {
         vi.useRealTimers()
     })
 
+    it('has no basic accessibility violations', async () => {
+        vi.useRealTimers()
+        const { container } = render(
+            <CertificationDashboard
+                users={[]}
+                onNavigate={vi.fn()}
+                onAddCertification={vi.fn()}
+            />
+        )
+        const { axe } = await import('vitest-axe')
+        expect(await axe(container)).toHaveNoViolations()
+    })
+
     it('renders summary metrics for certifications', () => {
         const users: User[] = [
             createTrainer(

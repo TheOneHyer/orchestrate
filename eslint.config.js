@@ -4,6 +4,8 @@ import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
+import reactCompiler from 'eslint-plugin-react-compiler'
 
 export default tseslint.config(
     { ignores: ['dist', 'coverage'] },
@@ -13,6 +15,10 @@ export default tseslint.config(
     },
     {
         ...react.configs.flat['jsx-runtime'],
+        files: ['**/*.{ts,tsx}'],
+    },
+    {
+        ...jsxA11y.flatConfigs.recommended,
         files: ['**/*.{ts,tsx}'],
     },
     {
@@ -35,8 +41,10 @@ export default tseslint.config(
         plugins: {
             'react-hooks': reactHooks,
             'react-refresh': reactRefresh,
+            'react-compiler': reactCompiler,
         },
         rules: {
+            'react-compiler/react-compiler': 'error',
             ...reactHooks.configs.recommended.rules,
             'react-refresh/only-export-components': [
                 'warn',
@@ -44,11 +52,6 @@ export default tseslint.config(
             ],
             // TypeScript handles prop typing, so runtime prop-types checks are redundant.
             'react/prop-types': 'off',
-            // These React Compiler-oriented rules are too strict for existing patterns in this codebase.
-            'react-hooks/set-state-in-effect': 'off',
-            'react-hooks/static-components': 'off',
-            'react-hooks/purity': 'off',
-            'react-hooks/preserve-manual-memoization': 'off',
             'react/no-unescaped-entities': 'off',
             '@typescript-eslint/no-unused-vars': ['warn', {
                 argsIgnorePattern: '^_',

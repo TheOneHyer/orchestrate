@@ -288,7 +288,7 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
               Visual representation of trainer coverage by hour of the day
             </CardDescription>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             {!onCertificationChange && allCertifications.length > 0 && (
               <div className="flex items-center gap-2">
                 <Select value={certFilter} onValueChange={setCertFilter}>
@@ -335,7 +335,6 @@ export function TrainerCoverageHeatmap({ users, selectedCertification, onCertifi
                   value={tempTarget}
                   onChange={(e) => setTempTarget(e.target.value)}
                   className="w-20 h-8"
-                  autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       handleSaveTarget()

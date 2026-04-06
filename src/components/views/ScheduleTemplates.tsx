@@ -198,7 +198,7 @@ export function ScheduleTemplates({ courses, onCreateSessions }: ScheduleTemplat
               <Repeat size={32} className="text-muted-foreground" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg">No Templates Found</h3>
+              <h2 className="font-semibold text-lg">No Templates Found</h2>
               <p className="text-muted-foreground text-sm mt-1">
                 {searchQuery || categoryFilter !== 'all'
                   ? 'Try adjusting your filters'
@@ -227,12 +227,12 @@ export function ScheduleTemplates({ courses, onCreateSessions }: ScheduleTemplat
                 <div className="flex flex-col gap-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <h3 className="font-semibold text-lg">{template.name}</h3>
+                      <h2 className="font-semibold text-lg">{template.name}</h2>
                       <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{template.description}</p>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={`Actions for ${template.name}`}>
                           <DotsThree size={20} />
                         </Button>
                       </DropdownMenuTrigger>

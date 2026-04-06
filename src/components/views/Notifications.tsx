@@ -138,6 +138,7 @@ export function Notifications({
       return
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveTab(nextTab)
     onNavigationPayloadConsumed?.()
   }, [navigationPayload, onNavigationPayloadConsumed])
@@ -360,7 +361,7 @@ export function Notifications({
           <CardContent className="py-16">
             <div className="text-center">
               <CheckCircle size={64} className="mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-xl font-semibold mb-2">All caught up!</h3>
+              <h2 className="text-xl font-semibold mb-2">All caught up!</h2>
               <p className="text-muted-foreground">
                 You don't have any notifications right now.
               </p>
@@ -457,9 +458,17 @@ export function Notifications({
                           <div
                             onClick={() => handleNotificationClick(notification)}
                             className="flex items-start gap-4 flex-1 min-w-0"
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleNotificationClick(notification);
+                              }
+                            }}
                           >
                             <div className={cn(
-                              'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
+                              'w-10 h-10 rounded-lg flex items-center justify-center shrink-0',
                               notification.type === 'reminder' || notification.type === 'workload'
                                 ? 'bg-accent/10'
                                 : 'bg-primary/10'
@@ -473,7 +482,7 @@ export function Notifications({
                                 </div>
                                 {getPriorityBadge(notification.priority)}
                                 {!notification.read && (
-                                  <div className="w-2 h-2 rounded-full bg-accent flex-shrink-0 mt-2" />
+                                  <div className="w-2 h-2 rounded-full bg-accent shrink-0 mt-2" />
                                 )}
                               </div>
                               <div className="text-sm text-muted-foreground mb-2">

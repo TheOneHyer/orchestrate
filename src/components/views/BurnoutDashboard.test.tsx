@@ -183,6 +183,18 @@ describe('BurnoutDashboard', () => {
         getBurnoutRiskLevelMock.mockReturnValue('high')
     })
 
+    it('has no basic accessibility violations', async () => {
+        const { container } = render(
+            <BurnoutDashboard
+                users={users}
+                sessions={sessions}
+                courses={courses}
+            />
+        )
+        const { axe } = await import('vitest-axe')
+        expect(await axe(container)).toHaveNoViolations()
+    })
+
     it('renders top-level metrics and high-risk alert', () => {
         render(
             <BurnoutDashboard

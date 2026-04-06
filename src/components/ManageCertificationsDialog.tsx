@@ -73,6 +73,7 @@ export function ManageCertificationsDialog({
     const wasOpen = prevOpenRef.current
 
     if (open && !wasOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLocalCerts(certifications)
       setEditingIndex(null)
       setFormData(getEmptyFormData())

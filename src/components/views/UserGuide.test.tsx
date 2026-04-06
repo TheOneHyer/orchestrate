@@ -128,4 +128,11 @@ describe('UserGuide', () => {
 
     expect(screen.getByText(/what is orchestrate/i)).toBeInTheDocument()
   })
+
+  it('has no basic accessibility violations', async () => {
+    const { axe } = await import('vitest-axe')
+    const { container } = render(<UserGuide />)
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
+  })
 })

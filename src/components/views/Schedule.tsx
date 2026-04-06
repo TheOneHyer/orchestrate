@@ -298,6 +298,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
       if (processedPayloadRef.current === '__create__') {
         return
       }
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGuidedSchedulerPrefilledDate(null)
       setGuidedSchedulerOpen(true)
       processedPayloadRef.current = '__create__'
@@ -785,6 +786,16 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
               handleOpenGuidedScheduler(currentDate)
             }
           }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              if (canManageSchedule) {
+                handleOpenGuidedScheduler(currentDate);
+              }
+            }
+          }}
         >
           {hasConflict && (
             <div className="mb-4 p-3 bg-destructive/20 border border-destructive rounded-lg">
@@ -813,6 +824,15 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
                     onClick={(e) => {
                       e.stopPropagation()
                       handleSessionClick(session)
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleSessionClick(session);
+                      }
                     }}
                     className="w-full text-left p-4 rounded-lg border border-border bg-card hover:bg-secondary transition-colors cursor-move"
                   >
@@ -912,6 +932,16 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
                     handleOpenGuidedScheduler(day)
                   }
                 }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    if (canManageSchedule) {
+                      handleOpenGuidedScheduler(day);
+                    }
+                  }
+                }}
               >
                 <div className={`text-sm font-medium mb-2 ${isToday ? 'text-primary' : 'text-foreground'}`}>
                   {format(day, 'EEE')}
@@ -935,6 +965,15 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
                         onClick={(e) => {
                           e.stopPropagation()
                           handleSessionClick(session)
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSessionClick(session);
+                          }
                         }}
                         className="w-full text-left p-2 rounded bg-primary text-primary-foreground text-xs hover:opacity-90 transition-opacity cursor-move"
                       >
@@ -1023,6 +1062,16 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
                       handleOpenGuidedScheduler(day)
                     }
                   }}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      if (canManageSchedule) {
+                        handleOpenGuidedScheduler(day);
+                      }
+                    }
+                  }}
                 >
                   <div className={`text-sm font-medium mb-1 ${isToday ? 'text-primary font-bold' : isCurrentMonth ? 'text-foreground' : 'text-muted-foreground'
                     }`}>
@@ -1043,6 +1092,15 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
                         onClick={(e) => {
                           e.stopPropagation()
                           handleSessionClick(session)
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleSessionClick(session);
+                          }
                         }}
                         className="w-full text-left px-1 py-0.5 rounded bg-primary text-primary-foreground text-xs hover:opacity-90 transition-opacity truncate cursor-move"
                       >

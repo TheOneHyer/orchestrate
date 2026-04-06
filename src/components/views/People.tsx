@@ -82,6 +82,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
   const processedUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedUser((currentSelectedUser) => {
       if (!currentSelectedUser) {
         return currentSelectedUser
@@ -109,6 +110,7 @@ export function People({ users, enrollments, courses, sessions, currentUser, onU
 
     const targetUser = users.find((user) => user.id === navigationPayload.userId)
     if (targetUser) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedUser(targetUser)
       setRoleFilter('all')
       setSearchQuery('')
