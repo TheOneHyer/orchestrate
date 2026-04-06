@@ -669,6 +669,9 @@ describe('Analytics', () => {
   })
 
   it('shows an empty intervention queue message when no stalled learners exist', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-03T00:00:00.000Z'))
+
     const users: User[] = [
       createUser({ id: 'u1', name: 'Learner One', role: 'employee', department: 'Ops' }),
     ]
@@ -689,9 +692,13 @@ describe('Analytics', () => {
       },
     ]
 
-    render(<Analytics users={users} courses={courses} sessions={[]} enrollments={enrollments} />)
+    try {
+      render(<Analytics users={users} courses={courses} sessions={[]} enrollments={enrollments} />)
 
-    expect(screen.getByText(/no stalled learners in the current filter scope/i)).toBeInTheDocument()
+      expect(screen.getByText(/no stalled learners in the current filter scope/i)).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows escalation metadata when notifications include learner reminder records', () => {
