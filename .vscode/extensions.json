@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "bradlc.vscode-tailwindcss",
+    "dbaeumer.vscode-eslint",
+    "vitest.explorer",
+    "usernamehw.errorlens",
+    "yoavbls.pretty-ts-errors",
+    "christian-kohler.npm-intellisense",
+    "github.vscode-github-actions",
+    "github.vscode-pull-request-github"
+  ]
+}
