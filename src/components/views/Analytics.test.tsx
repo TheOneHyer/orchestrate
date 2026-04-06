@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { Analytics } from './Analytics'
+import { DEFAULT_STALL_DAYS } from '@/lib/learning-engagement'
 import type { User, Course, Session, Enrollment } from '@/lib/types'
 
 function createUser(overrides: Partial<User> = {}): User {
@@ -669,9 +670,6 @@ describe('Analytics', () => {
   })
 
   it('shows an empty intervention queue message when no stalled learners exist', () => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-04-02T00:00:00.000Z'))
-
     const users: User[] = [
       createUser({ id: 'u1', name: 'Learner One', role: 'employee', department: 'Ops' }),
     ]
@@ -679,6 +677,9 @@ describe('Analytics', () => {
     const courses: Course[] = [
       { id: 'c1', title: 'Safety', description: 'Desc', modules: [], duration: 60, certifications: [], createdBy: 't1', createdAt: '2026-01-01', published: true, passScore: 80 },
     ]
+
+    const msPerDay = 24 * 60 * 60 * 1000
+    const lastProgressAt = new Date(Date.now() - (DEFAULT_STALL_DAYS - 2) * msPerDay).toISOString()
 
     const enrollments: Enrollment[] = [
       {
@@ -688,17 +689,13 @@ describe('Analytics', () => {
         status: 'in-progress',
         progress: 70,
         enrolledAt: '2026-03-20T00:00:00.000Z',
-        lastProgressAt: '2026-03-30T00:00:00.000Z',
+        lastProgressAt,
       },
     ]
 
-    try {
-      render(<Analytics users={users} courses={courses} sessions={[]} enrollments={enrollments} />)
+    render(<Analytics users={users} courses={courses} sessions={[]} enrollments={enrollments} />)
 
-      expect(screen.getByText(/no stalled learners in the current filter scope/i)).toBeInTheDocument()
-    } finally {
-      vi.useRealTimers()
-    }
+    expect(screen.getByText(/no stalled learners in the current filter scope/i)).toBeInTheDocument()
   })
 
   it('shows escalation metadata when notifications include learner reminder records', () => {
