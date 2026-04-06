@@ -679,7 +679,7 @@ describe('Analytics', () => {
     ]
 
     const msPerDay = 24 * 60 * 60 * 1000
-    const lastProgressAt = new Date(Date.now() - (DEFAULT_STALL_DAYS - 1) * msPerDay).toISOString()
+    const lastProgressAt = new Date(Date.now() - (DEFAULT_STALL_DAYS - 2) * msPerDay).toISOString()
 
     const enrollments: Enrollment[] = [
       {
