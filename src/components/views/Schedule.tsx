@@ -1360,7 +1360,7 @@ export function Schedule({ sessions, courses, users, currentUser, enrollments, a
                   {format(new Date(selectedSession.startTime), 'EEEE, MMMM d, yyyy')}
                 </SheetDescription>
               </SheetHeader>
-              <div className="space-y-4 mt-6">
+              <div className="space-y-6 mt-6">
                 <div>
                   <Label>Time</Label>
                   <div className="text-sm text-muted-foreground mt-1">
