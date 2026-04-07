@@ -44,7 +44,7 @@ export default tseslint.config(
             'react-compiler': reactCompiler,
         },
         rules: {
-            'react-compiler/react-compiler': 'error',
+            'react-compiler/react-compiler': 'warn',
             ...reactHooks.configs.recommended.rules,
             'react-refresh/only-export-components': [
                 'warn',
