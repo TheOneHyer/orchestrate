@@ -177,7 +177,7 @@ export function ScheduleTemplates({ courses, onCreateSessions }: ScheduleTemplat
           />
         </div>
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-48" aria-label="Filter by category">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>

@@ -218,7 +218,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <span className="inline-flex" aria-label="Schedule not configured indicator">
+                          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- TooltipTrigger asChild requires the child to be focusable for keyboard accessibility */}
+                          <span className="inline-flex" tabIndex={0} aria-label="Schedule not configured indicator">
                             <WarningCircle size={14} weight="fill" className="text-amber-600 dark:text-amber-500 shrink-0" />
                           </span>
                         </TooltipTrigger>

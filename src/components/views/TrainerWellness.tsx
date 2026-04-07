@@ -332,7 +332,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
           </Select>
 
           {currentUser.role === 'admin' && (
-            <Button onClick={() => setCheckInDialogOpen(true)} aria-label="Create new wellness check-in">
+            <Button onClick={() => setCheckInDialogOpen(true)}>
               <Plus className="mr-2" />
               New Check-In
             </Button>

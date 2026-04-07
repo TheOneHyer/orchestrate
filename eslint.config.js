@@ -70,9 +70,17 @@ export default tseslint.config(
     },
     {
         // shadcn/ui files intentionally co-export component factories and helpers.
+        // These files must not be modified manually (only via the shadcn CLI), so
+        // rules that would require manual edits are suppressed here instead.
         files: ['src/components/ui/**/*.{ts,tsx}'],
         rules: {
             'react-refresh/only-export-components': 'off',
+            // shadcn/ui uses Math.random() in useMemo for skeleton width; this is
+            // intentional upstream behaviour we cannot change without forking.
+            'react-hooks/purity': 'off',
+            // shadcn/ui PaginationLink spreads children via props onto a self-closing
+            // <a> element; axe-core validates runtime output not static JSX.
+            'jsx-a11y/anchor-has-content': 'off',
         },
     },
 )

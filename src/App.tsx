@@ -742,12 +742,21 @@ function App() {
     clearPreviewDataState(false)
   }, [clearPreviewDataState, shouldClearStaleDemoData])
 
+  // Tracks the latest demoSessionUserId without triggering lease-renewal re-runs.
+  const demoSessionUserIdRef = useRef(demoSessionUserId)
+  useEffect(() => {
+    demoSessionUserIdRef.current = demoSessionUserId
+  }, [demoSessionUserId])
+
   useEffect(() => {
     if (!demoModeEnabled) {
       return
     }
 
-    const leaseOwnerId = demoSessionUserId
+    // Snapshot the owner ID at effect-run time so that lease renewals keep
+    // writing the same ID even if demoSessionUserId later becomes empty while
+    // demoModeEnabled remains true.
+    const leaseOwnerId = demoSessionUserIdRef.current
 
     const renewDemoLease = () => {
       writeLocalStorageValue(DEMO_MODE_LEASE_STORAGE_KEY, createDemoLease(leaseOwnerId))
@@ -770,7 +779,7 @@ function App() {
       window.removeEventListener('focus', renewDemoLease)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [demoModeEnabled, demoSessionUserId])
+  }, [demoModeEnabled])
 
   useEffect(() => {
     if (!previewSeedEnabled || suppressAutoSeedAfterReset) {

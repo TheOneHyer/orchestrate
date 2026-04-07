@@ -23,13 +23,8 @@ export function useIsMobile() {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
     mql.addEventListener("change", onChange)
-    // Re-sync in case the viewport changed between initial render and effect execution.
-    const current = window.innerWidth < MOBILE_BREAKPOINT
-    if (current !== isMobile) {
-      setIsMobile(current)
-    }
     return () => mql.removeEventListener("change", onChange)
-  }, [isMobile])
+  }, [])
 
   return isMobile
 }

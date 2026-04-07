@@ -72,18 +72,6 @@ function SidebarProvider({
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = useState(defaultOpen)
-  const [cookieState, setCookieState] = useState<boolean | null>(null)
-
-  // SHADCN OVERRIDE: Cookie persistence added to shadcn sidebar component.
-  // This deviates from the canonical shadcn/ui sidebar by writing to document.cookie.
-  // To maintain consistency, either revert this and move cookie logic to the parent component,
-  // or apply changes via shadcn CLI. Date: 2026-04-07
-  useEffect(() => {
-    if (cookieState !== null) {
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${cookieState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
-    }
-  }, [cookieState])
-
   const open = openProp ?? _open
   const setOpen = useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -94,7 +82,8 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
-      setCookieState(openState)
+      // This sets the cookie to keep the sidebar state.
+      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
     },
     [setOpenProp, open]
   )
@@ -618,7 +607,9 @@ function SidebarMenuSkeleton({
   showIcon?: boolean
 }) {
   // Random width between 50 to 90%.
-  const [width] = useState(() => `${Math.floor(Math.random() * 40) + 50}%`)
+  const width = useMemo(() => {
+    return `${Math.floor(Math.random() * 40) + 50}%`
+  }, [])
 
   return (
     <div

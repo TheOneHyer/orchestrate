@@ -32,21 +32,23 @@ const twoNotifications: Notification[] = [
 describe('Notifications', () => {
   it('renders empty state when there are no notifications', async () => {
     render(
-      <Notifications
-        notifications={[]}
-        onMarkAsRead={vi.fn()}
-        onMarkAsUnread={vi.fn()}
-        onMarkAllAsRead={vi.fn()}
-        onDismiss={vi.fn()}
-        onDismissAll={vi.fn()}
-        onNavigate={vi.fn()}
-      />
+      <main>
+        <Notifications
+          notifications={[]}
+          onMarkAsRead={vi.fn()}
+          onMarkAsUnread={vi.fn()}
+          onMarkAllAsRead={vi.fn()}
+          onDismiss={vi.fn()}
+          onDismissAll={vi.fn()}
+          onNavigate={vi.fn()}
+        />
+      </main>
     )
 
     expect(screen.getByText(/all caught up!/i)).toBeInTheDocument()
     expect(screen.getByText(/you don't have any notifications right now/i)).toBeInTheDocument()
-    const { axe } = await import('vitest-axe');
-    expect(await axe(document.body)).toHaveNoViolations();
+    const { axe } = await import('vitest-axe')
+    expect(await axe(document.body)).toHaveNoViolations()
   })
 
   it('marks unread items as read and navigates when a linked notification is clicked', async () => {
