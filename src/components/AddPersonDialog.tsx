@@ -12,7 +12,7 @@ import { X } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 
 function generateUserId() {
-  return `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  return `user-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`
 }
 
 /**
