@@ -37,6 +37,13 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
   const criticalAlerts = expiringAlerts.filter(a => a.urgency === 'critical')
   const highAlerts = expiringAlerts.filter(a => a.urgency === 'high')
 
+  const handleKeyboardNavigation = (userId: string) => (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onNavigate('people', { userId })
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -148,12 +155,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                 onClick={() => onNavigate('people', { userId: alert.userId })}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onNavigate('people', { userId: alert.userId });
-                  }
-                }}
+                onKeyDown={handleKeyboardNavigation(alert.userId)}
               >
                 <div className="flex-1">
                   <p className="font-medium text-foreground">{alert.userName}</p>
@@ -193,12 +195,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                 onClick={() => onNavigate('people', { userId: alert.userId })}
                 role="button"
                 tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    onNavigate('people', { userId: alert.userId });
-                  }
-                }}
+                onKeyDown={handleKeyboardNavigation(alert.userId)}
               >
                 <div className="flex-1">
                   <p className="font-medium text-foreground">{alert.userName}</p>

@@ -30,7 +30,7 @@ const twoNotifications: Notification[] = [
 ]
 
 describe('Notifications', () => {
-  it('renders empty state when there are no notifications', () => {
+  it('renders empty state when there are no notifications', async () => {
     render(
       <Notifications
         notifications={[]}

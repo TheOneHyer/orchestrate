@@ -320,7 +320,7 @@ function ScheduleTemplateDialogBody({ onOpenChange, template, onSave, courses }:
                 value={courseId || UNASSIGNED_COURSE_VALUE}
                 onValueChange={(value) => setCourseId(value === UNASSIGNED_COURSE_VALUE ? '' : value)}
               >
-                <SelectTrigger id="template-course">
+                <SelectTrigger id="template-course" aria-label="Select course">
                   <SelectValue placeholder="Select course or leave unassigned" />
                 </SelectTrigger>
                 <SelectContent>

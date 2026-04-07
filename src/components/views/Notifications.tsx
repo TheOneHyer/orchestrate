@@ -138,6 +138,8 @@ export function Notifications({
       return
     }
 
+    // Synchronizes external navigationPayload prop to local activeTab state (valid external-system-to-React sync).
+    // onNavigationPayloadConsumed() must run after consuming the payload to clear navigation state.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setActiveTab(nextTab)
     onNavigationPayloadConsumed?.()
@@ -460,6 +462,7 @@ export function Notifications({
                             className="flex items-start gap-4 flex-1 min-w-0"
                             role="button"
                             tabIndex={0}
+                            aria-label={`Open notification: ${notification.title}`}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();

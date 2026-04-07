@@ -549,19 +549,21 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <main className="p-4 md:p-6 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Trainer Availability</h1>
           <p className="text-muted-foreground mt-1">View certified trainers' schedules across all shifts</p>
         </div>
-        <Button onClick={() => onNavigate('schedule')}>
+        <Button onClick={() => onNavigate('schedule')} aria-label="View Schedule">
           <CalendarBlank size={18} weight="bold" className="mr-2" />
           View Schedule
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <section aria-labelledby="trainer-stats-heading">
+        <h2 id="trainer-stats-heading" className="sr-only">Trainer Statistics</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card data-testid="active-trainers-card">
           <CardHeader className="pb-3">
             <CardDescription className="flex items-center gap-2">
@@ -605,7 +607,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
             </CardTitle>
           </CardHeader>
         </Card>
-      </div>
+        </div>
+      </section>
 
       <Tabs defaultValue="calendar" className="space-y-6">
         <TabsList className="grid w-full max-w-2xl grid-cols-3">
@@ -638,7 +641,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                 </div>
 
                 <Select value={selectedCertification} onValueChange={setSelectedCertification}>
-                  <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectTrigger className="w-full sm:w-[200px]" aria-label="Filter by certification">
                     <SelectValue placeholder="Filter by certification" />
                   </SelectTrigger>
                   <SelectContent>
@@ -706,9 +709,9 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                     Next
                   </Button>
                 </div>
-                <h3 className="text-lg font-medium">
+                <h2 className="text-lg font-medium">
                   {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
-                </h3>
+                </h2>
               </div>
             </CardHeader>
 
@@ -772,7 +775,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                 </div>
 
                 <Select value={selectedCertification} onValueChange={setSelectedCertification}>
-                  <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectTrigger className="w-full sm:w-[200px]" aria-label="Filter by certification">
                     <SelectValue placeholder="Filter by certification" />
                   </SelectTrigger>
                   <SelectContent>
@@ -979,6 +982,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
         onViewTrainer={handleViewTrainer}
         onOpenScheduleContext={handleOpenRecommendationScheduleContext}
       />
-    </div>
+    </main>
   )
 }

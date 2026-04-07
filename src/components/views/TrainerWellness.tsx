@@ -307,7 +307,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <main className="p-4 md:p-6 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold flex items-center gap-3">
@@ -321,7 +321,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
 
         <div className="flex items-center gap-3">
           <Select value={timeRange} onValueChange={(v) => setTimeRange(v as 'week' | 'month' | 'quarter')}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px]" aria-label="Select time range">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -332,7 +332,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
           </Select>
 
           {currentUser.role === 'admin' && (
-            <Button onClick={() => setCheckInDialogOpen(true)}>
+            <Button onClick={() => setCheckInDialogOpen(true)} aria-label="Create new wellness check-in">
               <Plus className="mr-2" />
               New Check-In
             </Button>
@@ -352,7 +352,9 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
         </Alert>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <section aria-labelledby="wellness-overview-heading">
+        <h2 id="wellness-overview-heading" className="sr-only">Wellness Overview</h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Average Wellness</CardTitle>
@@ -406,7 +408,8 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
             </p>
           </CardContent>
         </Card>
-      </div>
+        </div>
+      </section>
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
@@ -481,6 +484,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
                             <Button
                               variant="outline"
                               size="sm"
+                              aria-label={`Create check-in for ${trainer.name}`}
                               onClick={() => {
                                 setSelectedTrainer(trainer.id)
                                 setCheckInDialogOpen(true)
@@ -492,6 +496,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
                               <Button
                                 variant="default"
                                 size="sm"
+                                aria-label={`Create recovery plan for ${trainer.name}`}
                                 onClick={() => {
                                   setSelectedTrainer(trainer.id)
                                   setRecoveryPlanDialogOpen(true)
@@ -514,7 +519,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
         <TabsContent value="schedules" className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Automated Check-In Schedules</h3>
+              <h2 className="text-lg font-semibold">Automated Check-In Schedules</h2>
               <p className="text-sm text-muted-foreground">Set up periodic wellness check-ins for trainers</p>
             </div>
             {currentUser.role === 'admin' && (
@@ -1124,6 +1129,6 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
           />
         </>
       )}
-    </div>
+    </main>
   )
 }

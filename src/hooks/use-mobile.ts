@@ -24,10 +24,12 @@ export function useIsMobile() {
     }
     mql.addEventListener("change", onChange)
     // Re-sync in case the viewport changed between initial render and effect execution.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
+    const current = window.innerWidth < MOBILE_BREAKPOINT
+    if (current !== isMobile) {
+      setIsMobile(current)
+    }
     return () => mql.removeEventListener("change", onChange)
-  }, [])
+  }, [isMobile])
 
   return isMobile
 }

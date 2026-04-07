@@ -74,6 +74,10 @@ function SidebarProvider({
   const [_open, _setOpen] = useState(defaultOpen)
   const [cookieState, setCookieState] = useState<boolean | null>(null)
 
+  // SHADCN OVERRIDE: Cookie persistence added to shadcn sidebar component.
+  // This deviates from the canonical shadcn/ui sidebar by writing to document.cookie.
+  // To maintain consistency, either revert this and move cookie logic to the parent component,
+  // or apply changes via shadcn CLI. Date: 2026-04-07
   useEffect(() => {
     if (cookieState !== null) {
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${cookieState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`

@@ -89,6 +89,7 @@ export function RecoveryPlanDialog({
     if (!open) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTriggerReasonTouched(false)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSubmitAttempted(false)
 
     if (latestCheckIn) {

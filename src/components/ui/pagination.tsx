@@ -47,6 +47,8 @@ function PaginationLink({
   ...props
 }: PaginationLinkProps) {
   return (
+    // SHADCN OVERRIDE: Modified to render props.children directly instead of using the default implementation.
+    // This deviates from the canonical shadcn/ui pagination component. Date: 2026-04-07
     <a
       aria-current={isActive ? "page" : undefined}
       data-slot="pagination-link"

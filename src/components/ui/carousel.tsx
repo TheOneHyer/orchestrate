@@ -96,6 +96,9 @@ function Carousel({
 
   useEffect(() => {
     if (!api) return
+    // SHADCN OVERRIDE: Manual modification to call onSelect(api) on mount.
+    // This deviates from the canonical shadcn/ui carousel component to ensure
+    // scroll state is initialized properly. Date: 2026-04-07
     // eslint-disable-next-line react-hooks/set-state-in-effect
     onSelect(api)
     api.on("reInit", onSelect)

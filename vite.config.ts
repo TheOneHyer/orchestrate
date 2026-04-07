@@ -1,8 +1,7 @@
 /// <reference types="node" />
 
 import tailwindcss from "@tailwindcss/vite";
-import react, { reactCompilerPreset } from "@vitejs/plugin-react";
-import babel from "@rolldown/plugin-babel";
+import react from "@vitejs/plugin-react-swc";
 import type { PluginOption } from "vite";
 import { coverageConfigDefaults, defineConfig } from "vitest/config";
 
@@ -23,9 +22,6 @@ const isTest = Boolean(process.env.VITEST)
 export default defineConfig({
   plugins: [
     react(),
-    babel({
-      presets: [reactCompilerPreset()]
-    }),
     tailwindcss(),
     // DO NOT REMOVE (excluded in test mode to prevent react-swc preamble conflicts)
     ...(isTest ? [] : [createIconImportProxy() as PluginOption, sparkPlugin() as PluginOption]),

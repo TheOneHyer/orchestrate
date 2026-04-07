@@ -159,10 +159,9 @@ describe('AutoScheduler', () => {
         const { container } = render(
             <AutoScheduler users={users} courses={courses} onSessionsCreated={vi.fn()} />
         )
-    const { axe } = await import('vitest-axe')
-    const results = await axe(container)
-    expect(results).toHaveNoViolations()
-
+        const { axe } = await import('vitest-axe')
+        const results = await axe(container)
+        expect(results).toHaveNoViolations()
 
         expect(screen.getByText(/automatic trainer scheduler/i)).toBeInTheDocument()
         expect(screen.getByRole('button', { name: /analyze feasibility/i })).toBeDisabled()

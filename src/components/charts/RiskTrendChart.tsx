@@ -57,6 +57,7 @@ interface CustomTooltipProps {
 const CustomTooltip = ({ active, payload, showUtilization }: CustomTooltipProps) => {
   const point = payload?.[0]?.payload
   if (active && point) {
+    const util = point['Utilization %']
     return (
       <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
         <p className="font-semibold mb-2">{point.fullDate}</p>
@@ -68,7 +69,7 @@ const CustomTooltip = ({ active, payload, showUtilization }: CustomTooltipProps)
           {showUtilization && (
             <div className="flex items-center justify-between gap-4">
               <span className="text-muted-foreground">Utilization:</span>
-              <span className="font-semibold">{point['Utilization %']?.toFixed(1)}%</span>
+              <span className="font-semibold">{util != null ? `${util.toFixed(1)}%` : '—'}</span>
             </div>
           )}
           <div className="flex items-center justify-between gap-4">

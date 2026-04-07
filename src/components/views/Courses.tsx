@@ -646,7 +646,7 @@ export function Courses({
           />
         </div>
         <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | 'draft' | 'published')}>
-          <SelectTrigger>
+          <SelectTrigger aria-label="Filter courses by status">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
