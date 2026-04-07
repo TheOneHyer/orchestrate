@@ -1,57 +1,7 @@
 
-/home/theonehyer/orchestrate/src/components/AddPersonDialog.tsx
-  111:19  error  Error: Cannot call impure function during render
-
-`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
-
-/home/theonehyer/orchestrate/src/components/AddPersonDialog.tsx:111:19
-  109 |
-  110 |     const newUser: User = {
-> 111 |       id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      |                   ^^^^^^^^^^ Cannot call impure function
-  112 |       name: formData.name.trim(),
-  113 |       email: formData.email.toLowerCase().trim(),
-  114 |       role: formData.role,                      react-hooks/purity
-  111:33  error  Error: Cannot call impure function during render
-
-`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
-
-/home/theonehyer/orchestrate/src/components/AddPersonDialog.tsx:111:33
-  109 |
-  110 |     const newUser: User = {
-> 111 |       id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      |                                 ^^^^^^^^^^^^^ Cannot call impure function
-  112 |       name: formData.name.trim(),
-  113 |       email: formData.email.toLowerCase().trim(),
-  114 |       role: formData.role,  react-hooks/purity
-
-/home/theonehyer/orchestrate/src/components/ManageCertificationsDialog.tsx
-  76:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
-
-Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
-* Update external systems with the latest state from React.
 * Subscribe for updates from some external system, calling setState in a callback function when external state changes.
 
 Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
-
-/home/theonehyer/orchestrate/src/components/ManageCertificationsDialog.tsx:76:7
-  74 |
-  75 |     if (open && !wasOpen) {
-> 76 |       setLocalCerts(certifications)
-     |       ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
-  77 |       setEditingIndex(null)
-  78 |       setFormData(getEmptyFormData())
-  79 |     }  react-hooks/set-state-in-effect
-
-/home/theonehyer/orchestrate/src/components/RecoveryPlanDialog.tsx
-  90:5  error  Error: Calling setState synchronously within an effect can trigger cascading renders
-
-Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
-* Update external systems with the latest state from React.
-* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
-
-Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
-
 /home/theonehyer/orchestrate/src/components/RecoveryPlanDialog.tsx:90:5
   88 |   useEffect(() => {
   89 |     if (!open) return
