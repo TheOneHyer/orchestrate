@@ -89,6 +89,9 @@ export default tseslint.config(
         files: ['src/components/ui/sidebar.tsx'],
         rules: {
             '@typescript-eslint/no-unused-vars': 'off',
+            // sidebar.tsx mutates document.cookie in an event callback, which
+            // triggers react-compiler in generated shadcn code we do not edit manually.
+            'react-compiler/react-compiler': 'off',
         },
     },
 )
