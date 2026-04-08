@@ -1,4 +1,4 @@
-import { Module } from '@/lib/types'
+import type { Module } from '@/lib/types'
 
 /**
  * Error payload used when a course save operation is blocked by missing access or callbacks.

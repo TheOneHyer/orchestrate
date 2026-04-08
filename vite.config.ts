@@ -23,7 +23,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // DO NOT REMOVE (excluded in test mode to prevent react-swc preamble conflicts)
+    // DO NOT REMOVE (excluded in test mode to avoid Spark/browser-only plugin side effects)
     ...(isTest ? [] : [createIconImportProxy() as PluginOption, sparkPlugin() as PluginOption]),
   ],
   base: '/orchestrate/',
@@ -32,28 +32,30 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (!id.includes('node_modules')) {
+          const normalizedId = id.replace(/\\/g, '/')
+
+          if (!normalizedId.includes('node_modules')) {
             return undefined
           }
 
-          if (id.includes('/react/') || id.includes('/react-dom/')) {
+          if (normalizedId.includes('/react/') || normalizedId.includes('/react-dom/')) {
             return 'vendor-react'
           }
 
-          if (id.includes('/@radix-ui/')) {
+          if (normalizedId.includes('/@radix-ui/')) {
             return 'vendor-radix'
           }
 
           if (
-            id.includes('/d3') ||
-            id.includes('/recharts') ||
-            id.includes('/framer-motion') ||
-            id.includes('/three')
+            normalizedId.includes('/d3') ||
+            normalizedId.includes('/recharts') ||
+            normalizedId.includes('/framer-motion') ||
+            normalizedId.includes('/three')
           ) {
             return 'vendor-viz'
           }
 
-          if (id.includes('/@octokit/') || id.includes('/octokit/')) {
+          if (normalizedId.includes('/@octokit/') || normalizedId.includes('/octokit/')) {
             return 'vendor-octokit'
           }
 
