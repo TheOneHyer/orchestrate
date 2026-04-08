@@ -204,12 +204,14 @@ const sessions: Session[] = [
 
 function renderTrainerWellness(currentUser: User) {
     return render(
-        <TrainerWellness
-            users={users}
-            sessions={sessions}
-            currentUser={currentUser}
-            onNavigate={vi.fn()}
-        />
+        <main>
+            <TrainerWellness
+                users={users}
+                sessions={sessions}
+                currentUser={currentUser}
+                onNavigate={vi.fn()}
+            />
+        </main>
     )
 }
 

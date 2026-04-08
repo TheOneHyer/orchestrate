@@ -550,7 +550,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   }
 
   return (
-    <main className="p-4 md:p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Trainer Availability</h1>
@@ -565,49 +565,49 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
       <section aria-labelledby="trainer-stats-heading">
         <h2 id="trainer-stats-heading" className="sr-only">Trainer Statistics</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card data-testid="active-trainers-card">
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <UsersIcon size={16} />
-              Active Trainers
-            </CardDescription>
-            <CardTitle className="text-3xl">{stats.totalTrainers}</CardTitle>
-          </CardHeader>
-        </Card>
+          <Card data-testid="active-trainers-card">
+            <CardHeader className="pb-3">
+              <CardDescription className="flex items-center gap-2">
+                <UsersIcon size={16} />
+                Active Trainers
+              </CardDescription>
+              <CardTitle className="text-3xl">{stats.totalTrainers}</CardTitle>
+            </CardHeader>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <ChartBar size={16} />
-              Avg Utilization
-            </CardDescription>
-            <CardTitle className={`text-3xl ${getUtilizationColor(stats.avgUtilization)}`}>
-              {stats.avgUtilization.toFixed(0)}%
-            </CardTitle>
-          </CardHeader>
-        </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription className="flex items-center gap-2">
+                <ChartBar size={16} />
+                Avg Utilization
+              </CardDescription>
+              <CardTitle className={`text-3xl ${getUtilizationColor(stats.avgUtilization)}`}>
+                {stats.avgUtilization.toFixed(0)}%
+              </CardTitle>
+            </CardHeader>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <Clock size={16} />
-              Available Hours
-            </CardDescription>
-            <CardTitle className="text-3xl">{stats.totalAvailableHours.toFixed(0)}h</CardTitle>
-          </CardHeader>
-        </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription className="flex items-center gap-2">
+                <Clock size={16} />
+                Available Hours
+              </CardDescription>
+              <CardTitle className="text-3xl">{stats.totalAvailableHours.toFixed(0)}h</CardTitle>
+            </CardHeader>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <UsersIcon size={16} />
-              Over-Utilized
-            </CardDescription>
-            <CardTitle className={`text-3xl ${stats.overutilizedCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {stats.overutilizedCount}
-            </CardTitle>
-          </CardHeader>
-        </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription className="flex items-center gap-2">
+                <UsersIcon size={16} />
+                Over-Utilized
+              </CardDescription>
+              <CardTitle className={`text-3xl ${stats.overutilizedCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {stats.overutilizedCount}
+              </CardTitle>
+            </CardHeader>
+          </Card>
         </div>
       </section>
 
@@ -983,6 +983,6 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
         onViewTrainer={handleViewTrainer}
         onOpenScheduleContext={handleOpenRecommendationScheduleContext}
       />
-    </main>
+    </div>
   )
 }

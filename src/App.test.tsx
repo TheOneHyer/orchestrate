@@ -751,6 +751,7 @@ describe('App', () => {
     })
 
     afterEach(() => {
+        vi.useRealTimers()
         vi.unstubAllGlobals()
         setAppRuntimeEnv(undefined)
         globalThis.__ORCHESTRATE_APP_TEST_HOOKS__ = undefined

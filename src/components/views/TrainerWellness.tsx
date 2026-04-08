@@ -307,7 +307,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
   }
 
   return (
-    <main className="p-4 md:p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-semibold flex items-center gap-3">
@@ -355,59 +355,59 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
       <section aria-labelledby="wellness-overview-heading">
         <h2 id="wellness-overview-heading" className="sr-only">Wellness Overview</h2>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Wellness</CardTitle>
-            <Heart className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{avgWellnessScore.toFixed(0)}/100</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Across all trainers
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Average Wellness</CardTitle>
+              <Heart className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{avgWellnessScore.toFixed(0)}/100</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Across all trainers
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Critical Status</CardTitle>
-            <Warning className="h-5 w-5 text-destructive" weight="fill" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-destructive">
-              {criticalTrainers.length}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Requires intervention
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Critical Status</CardTitle>
+              <Warning className="h-5 w-5 text-destructive" weight="fill" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-destructive">
+                {criticalTrainers.length}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Requires intervention
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Recovery Plans</CardTitle>
-            <FirstAid className="h-5 w-5 text-muted-foreground" weight="fill" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{totalActiveRecoveryPlans}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Currently in progress
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Recovery Plans</CardTitle>
+              <FirstAid className="h-5 w-5 text-muted-foreground" weight="fill" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{totalActiveRecoveryPlans}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Currently in progress
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Follow-ups</CardTitle>
-            <ClipboardText className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{pendingFollowUps}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Awaiting action
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Follow-ups</CardTitle>
+              <ClipboardText className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{pendingFollowUps}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Awaiting action
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
@@ -1129,6 +1129,6 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
           />
         </>
       )}
-    </main>
+    </div>
   )
 }

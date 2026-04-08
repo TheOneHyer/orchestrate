@@ -148,12 +148,14 @@ describe('TrainerAvailability', () => {
         const onNavigate = vi.fn()
 
         render(
-            <TrainerAvailability
-                users={users}
-                sessions={sessions}
-                courses={courses}
-                onNavigate={onNavigate}
-            />
+            <main>
+                <TrainerAvailability
+                    users={users}
+                    sessions={sessions}
+                    courses={courses}
+                    onNavigate={onNavigate}
+                />
+            </main>
         )
 
         const activeTrainerCard = screen.getByTestId('active-trainers-card')
