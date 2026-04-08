@@ -83,4 +83,12 @@ export default tseslint.config(
             'jsx-a11y/anchor-has-content': 'off',
         },
     },
+    {
+        // Sidebar constants are part of upstream shadcn template internals.
+        // Keep this scoped to sidebar.tsx to avoid broad no-unused-vars suppression.
+        files: ['src/components/ui/sidebar.tsx'],
+        rules: {
+            '@typescript-eslint/no-unused-vars': 'off',
+        },
+    },
 )

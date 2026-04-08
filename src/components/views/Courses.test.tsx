@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { canDeleteSelectedCourse, canMoveModule, canPublishSelectedCourse, Courses, getCourseSavePermissionError, getFirstQuizQuestion, mergeModuleUpdates, validateModuleContentByType } from './Courses'
+import { Courses } from './Courses'
+import { canDeleteSelectedCourse, canMoveModule, canPublishSelectedCourse, getCourseSavePermissionError, getFirstQuizQuestion, mergeModuleUpdates, validateModuleContentByType } from './courses-helpers'
 import type { Course, Enrollment, Module, User } from '@/lib/types'
 
 const toastError = vi.fn()
