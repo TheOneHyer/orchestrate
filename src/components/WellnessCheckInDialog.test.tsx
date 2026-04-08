@@ -215,6 +215,62 @@ describe('WellnessCheckInDialog', () => {
     )
   })
 
+  it('toggles concern row with Enter and Space keyboard keys', async () => {
+    const onSubmit = vi.fn()
+    render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} />)
+
+    const concernLabel = COMMON_CONCERNS.find(c => c === 'Too many sessions scheduled')!
+    const concernRow = screen.getByTestId('concern-row-too-many-sessions-scheduled')
+
+    fireEvent.keyDown(concernRow, { key: 'Enter' })
+    fireEvent.keyDown(concernRow, { key: ' ' })
+    fireEvent.keyDown(concernRow, { key: 'Enter' })
+
+    await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ concerns: [concernLabel] })
+    )
+  })
+
+  it('does not double-toggle concern when checkbox click bubbles are stopped', async () => {
+    const onSubmit = vi.fn()
+    render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} />)
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /too many sessions scheduled/i }))
+    await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ concerns: ['Too many sessions scheduled'] })
+    )
+  })
+
+  it('toggles concern once when clicking label text directly', async () => {
+    const onSubmit = vi.fn()
+    render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} />)
+
+    await userEvent.click(screen.getByText('Too many sessions scheduled'))
+    await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ concerns: ['Too many sessions scheduled'] })
+    )
+  })
+
+  it('does not toggle concern row for non-activation keyboard keys', async () => {
+    const onSubmit = vi.fn()
+    render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} />)
+
+    const concernRow = screen.getByTestId('concern-row-too-many-sessions-scheduled')
+    fireEvent.keyDown(concernRow, { key: 'ArrowDown' })
+
+    await userEvent.click(screen.getByRole('button', { name: /submit check-in/i }))
+
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ concerns: undefined })
+    )
+  })
+
   it('updates all slider values via keyboard navigation and submits updated values', async () => {
     const onSubmit = vi.fn()
     render(<WellnessCheckInDialog {...defaultProps} onSubmit={onSubmit} />)

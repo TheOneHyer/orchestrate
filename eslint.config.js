@@ -4,6 +4,8 @@ import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
+import jsxA11y from 'eslint-plugin-jsx-a11y'
+import reactCompiler from 'eslint-plugin-react-compiler'
 
 export default tseslint.config(
     { ignores: ['dist', 'coverage'] },
@@ -13,6 +15,10 @@ export default tseslint.config(
     },
     {
         ...react.configs.flat['jsx-runtime'],
+        files: ['**/*.{ts,tsx}'],
+    },
+    {
+        ...jsxA11y.flatConfigs.recommended,
         files: ['**/*.{ts,tsx}'],
     },
     {
@@ -35,8 +41,10 @@ export default tseslint.config(
         plugins: {
             'react-hooks': reactHooks,
             'react-refresh': reactRefresh,
+            'react-compiler': reactCompiler,
         },
         rules: {
+            'react-compiler/react-compiler': 'warn',
             ...reactHooks.configs.recommended.rules,
             'react-refresh/only-export-components': [
                 'warn',
@@ -44,11 +52,6 @@ export default tseslint.config(
             ],
             // TypeScript handles prop typing, so runtime prop-types checks are redundant.
             'react/prop-types': 'off',
-            // These React Compiler-oriented rules are too strict for existing patterns in this codebase.
-            'react-hooks/set-state-in-effect': 'off',
-            'react-hooks/static-components': 'off',
-            'react-hooks/purity': 'off',
-            'react-hooks/preserve-manual-memoization': 'off',
             'react/no-unescaped-entities': 'off',
             '@typescript-eslint/no-unused-vars': ['warn', {
                 argsIgnorePattern: '^_',
@@ -67,9 +70,28 @@ export default tseslint.config(
     },
     {
         // shadcn/ui files intentionally co-export component factories and helpers.
+        // These files must not be modified manually (only via the shadcn CLI), so
+        // rules that would require manual edits are suppressed here instead.
         files: ['src/components/ui/**/*.{ts,tsx}'],
         rules: {
             'react-refresh/only-export-components': 'off',
+            // shadcn/ui uses Math.random() in useMemo for skeleton width; this is
+            // intentional upstream behaviour we cannot change without forking.
+            'react-hooks/purity': 'off',
+            // shadcn/ui PaginationLink spreads children via props onto a self-closing
+            // <a> element; axe-core validates runtime output not static JSX.
+            'jsx-a11y/anchor-has-content': 'off',
+        },
+    },
+    {
+        // Sidebar constants are part of upstream shadcn template internals.
+        // Keep this scoped to sidebar.tsx to avoid broad no-unused-vars suppression.
+        files: ['src/components/ui/sidebar.tsx'],
+        rules: {
+            '@typescript-eslint/no-unused-vars': 'off',
+            // sidebar.tsx mutates document.cookie in an event callback, which
+            // triggers react-compiler in generated shadcn code we do not edit manually.
+            'react-compiler/react-compiler': 'off',
         },
     },
 )

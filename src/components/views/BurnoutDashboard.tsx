@@ -278,6 +278,15 @@ export function BurnoutDashboard({ users, sessions, courses }: BurnoutDashboardP
                         setSelectedTrainer(trainer.trainerId)
                         setActiveTab('trainers')
                       }}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setSelectedTrainer(trainer.trainerId);
+                          setActiveTab('trainers');
+                        }
+                      }}
                     >
                       <div className="flex items-center gap-4">
                         {getRiskIcon(trainer.riskLevel)}

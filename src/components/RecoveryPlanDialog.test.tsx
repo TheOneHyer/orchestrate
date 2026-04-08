@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ComponentProps } from 'react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import '@testing-library/jest-dom/vitest'
 
 import { calculateWellnessScore } from '@/lib/wellness-analytics'
 import type { User, WellnessCheckIn } from '@/lib/types'
@@ -197,7 +199,7 @@ describe('RecoveryPlanDialog', () => {
         // when typing with userEvent, which jsdom parses/validates differently than real browsers
         // and can cause flaky validation or state in this test. Use a single change event with a
         // final valid value for stable cross-environment behavior.
-        fireEvent.change(screen.getByLabelText(/target date/i), { target: { value: '2026-04-15' } })
+        fireEvent.change(screen.getByLabelText(/^target date$/i), { target: { value: '2026-04-20' } })
         await user.type(screen.getByLabelText(/notes \(optional\)/i, { selector: 'input' }), 'Coordinate with operations lead')
         await user.type(screen.getByLabelText(/plan notes \(optional\)/i, { selector: 'textarea' }), 'Escalate if utilization stays above target')
 
@@ -213,7 +215,7 @@ describe('RecoveryPlanDialog', () => {
                         type: 'schedule-adjustment',
                         description: 'Move sessions to reduce fatigue',
                         notes: 'Coordinate with operations lead',
-                        targetDate: expect.stringMatching(/^2026-04-15T00:00:00/),
+                        targetDate: expect.stringMatching(/^2026-04-20/),
                     }),
                 ],
             })

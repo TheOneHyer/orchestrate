@@ -321,7 +321,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
 
         <div className="flex items-center gap-3">
           <Select value={timeRange} onValueChange={(v) => setTimeRange(v as 'week' | 'month' | 'quarter')}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-[180px]" aria-label="Select time range">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -352,61 +352,64 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
         </Alert>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Wellness</CardTitle>
-            <Heart className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{avgWellnessScore.toFixed(0)}/100</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Across all trainers
-            </p>
-          </CardContent>
-        </Card>
+      <section aria-labelledby="wellness-overview-heading">
+        <h2 id="wellness-overview-heading" className="sr-only">Wellness Overview</h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Average Wellness</CardTitle>
+              <Heart className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{avgWellnessScore.toFixed(0)}/100</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Across all trainers
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Critical Status</CardTitle>
-            <Warning className="h-5 w-5 text-destructive" weight="fill" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-destructive">
-              {criticalTrainers.length}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Requires intervention
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Critical Status</CardTitle>
+              <Warning className="h-5 w-5 text-destructive" weight="fill" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-destructive">
+                {criticalTrainers.length}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Requires intervention
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Recovery Plans</CardTitle>
-            <FirstAid className="h-5 w-5 text-muted-foreground" weight="fill" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{totalActiveRecoveryPlans}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Currently in progress
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Active Recovery Plans</CardTitle>
+              <FirstAid className="h-5 w-5 text-muted-foreground" weight="fill" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{totalActiveRecoveryPlans}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Currently in progress
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Follow-ups</CardTitle>
-            <ClipboardText className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{pendingFollowUps}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Awaiting action
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Follow-ups</CardTitle>
+              <ClipboardText className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{pendingFollowUps}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Awaiting action
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
 
       <Tabs defaultValue="overview" className="space-y-6">
         <TabsList>
@@ -481,6 +484,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
                             <Button
                               variant="outline"
                               size="sm"
+                              aria-label={`Create check-in for ${trainer.name}`}
                               onClick={() => {
                                 setSelectedTrainer(trainer.id)
                                 setCheckInDialogOpen(true)
@@ -492,6 +496,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
                               <Button
                                 variant="default"
                                 size="sm"
+                                aria-label={`Create recovery plan for ${trainer.name}`}
                                 onClick={() => {
                                   setSelectedTrainer(trainer.id)
                                   setRecoveryPlanDialogOpen(true)
@@ -514,7 +519,7 @@ export function TrainerWellness({ users, sessions, currentUser, onNavigate: _onN
         <TabsContent value="schedules" className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold">Automated Check-In Schedules</h3>
+              <h2 className="text-lg font-semibold">Automated Check-In Schedules</h2>
               <p className="text-sm text-muted-foreground">Set up periodic wellness check-ins for trainers</p>
             </div>
             {currentUser.role === 'admin' && (

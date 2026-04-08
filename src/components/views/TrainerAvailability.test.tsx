@@ -148,12 +148,14 @@ describe('TrainerAvailability', () => {
         const onNavigate = vi.fn()
 
         render(
-            <TrainerAvailability
-                users={users}
-                sessions={sessions}
-                courses={courses}
-                onNavigate={onNavigate}
-            />
+            <main>
+                <TrainerAvailability
+                    users={users}
+                    sessions={sessions}
+                    courses={courses}
+                    onNavigate={onNavigate}
+                />
+            </main>
         )
 
         const activeTrainerCard = screen.getByTestId('active-trainers-card')
@@ -161,6 +163,9 @@ describe('TrainerAvailability', () => {
 
         await user.click(screen.getByRole('button', { name: /view schedule/i }))
         expect(onNavigate).toHaveBeenCalledWith('schedule')
+
+        const { axe } = await import('vitest-axe')
+        expect(await axe(document.body)).toHaveNoViolations()
     })
 
     it('filters trainers by search query and shows empty state', async () => {

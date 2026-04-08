@@ -192,6 +192,12 @@ describe('ScheduleTemplates', () => {
         })
     })
 
+    it('has no basic accessibility violations', async () => {
+        const { container } = render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
+        const { axe } = await import('vitest-axe')
+        expect(await axe(container)).toHaveNoViolations()
+    })
+
     it('renders active templates and hides inactive templates', () => {
         render(<ScheduleTemplates courses={courses} onCreateSessions={vi.fn()} />)
 

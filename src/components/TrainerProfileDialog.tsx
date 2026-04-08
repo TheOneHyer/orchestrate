@@ -73,6 +73,7 @@ export function TrainerProfileDialog({ user, open, onOpenChange, onSave }: Train
     const hireDate = parseISO(user.hireDate)
 
     if (user.trainerProfile) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEditedUser(user)
     } else {
       const yearsOfService = differenceInYears(now, hireDate)

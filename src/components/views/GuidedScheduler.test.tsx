@@ -159,6 +159,12 @@ describe('GuidedScheduler', () => {
         await user.tab()
     }
 
+    it('has no basic accessibility violations', async () => {
+        const { container } = renderGuidedScheduler()
+        const { axe } = await import('vitest-axe')
+        expect(await axe(container)).toHaveNoViolations()
+    })
+
     it('prefills start date when prefilledDate is provided', () => {
         renderGuidedScheduler({ prefilledDate: new Date('2026-03-20T12:00:00.000Z') })
 

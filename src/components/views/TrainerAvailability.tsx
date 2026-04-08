@@ -64,8 +64,8 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
   const [selectedRecommendation, setSelectedRecommendation] = useState<WorkloadRecommendation | null>(null)
   const [recommendationDialogOpen, setRecommendationDialogOpen] = useState(false)
 
-  const weekStart = startOfWeek(currentWeek, { weekStartsOn: 1 })
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const weekStart = useMemo(() => startOfWeek(currentWeek, { weekStartsOn: 1 }), [currentWeek])
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart])
 
   const trainers = useMemo(() =>
     users.filter(u => u.role === 'trainer'),
@@ -218,8 +218,9 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
+                          {/* eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- TooltipTrigger asChild requires the child to be focusable for keyboard accessibility */}
                           <span className="inline-flex" tabIndex={0} aria-label="Schedule not configured indicator">
-                            <WarningCircle size={14} weight="fill" className="text-amber-600 dark:text-amber-500 flex-shrink-0" />
+                            <WarningCircle size={14} weight="fill" className="text-amber-600 dark:text-amber-500 shrink-0" />
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>Schedule not configured</TooltipContent>
@@ -555,57 +556,60 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
           <h1 className="text-2xl md:text-3xl font-semibold text-foreground">Trainer Availability</h1>
           <p className="text-muted-foreground mt-1">View certified trainers' schedules across all shifts</p>
         </div>
-        <Button onClick={() => onNavigate('schedule')}>
+        <Button onClick={() => onNavigate('schedule')} aria-label="View Schedule">
           <CalendarBlank size={18} weight="bold" className="mr-2" />
           View Schedule
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card data-testid="active-trainers-card">
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <UsersIcon size={16} />
-              Active Trainers
-            </CardDescription>
-            <CardTitle className="text-3xl">{stats.totalTrainers}</CardTitle>
-          </CardHeader>
-        </Card>
+      <section aria-labelledby="trainer-stats-heading">
+        <h2 id="trainer-stats-heading" className="sr-only">Trainer Statistics</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card data-testid="active-trainers-card">
+            <CardHeader className="pb-3">
+              <CardDescription className="flex items-center gap-2">
+                <UsersIcon size={16} />
+                Active Trainers
+              </CardDescription>
+              <CardTitle className="text-3xl">{stats.totalTrainers}</CardTitle>
+            </CardHeader>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <ChartBar size={16} />
-              Avg Utilization
-            </CardDescription>
-            <CardTitle className={`text-3xl ${getUtilizationColor(stats.avgUtilization)}`}>
-              {stats.avgUtilization.toFixed(0)}%
-            </CardTitle>
-          </CardHeader>
-        </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription className="flex items-center gap-2">
+                <ChartBar size={16} />
+                Avg Utilization
+              </CardDescription>
+              <CardTitle className={`text-3xl ${getUtilizationColor(stats.avgUtilization)}`}>
+                {stats.avgUtilization.toFixed(0)}%
+              </CardTitle>
+            </CardHeader>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <Clock size={16} />
-              Available Hours
-            </CardDescription>
-            <CardTitle className="text-3xl">{stats.totalAvailableHours.toFixed(0)}h</CardTitle>
-          </CardHeader>
-        </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription className="flex items-center gap-2">
+                <Clock size={16} />
+                Available Hours
+              </CardDescription>
+              <CardTitle className="text-3xl">{stats.totalAvailableHours.toFixed(0)}h</CardTitle>
+            </CardHeader>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardDescription className="flex items-center gap-2">
-              <UsersIcon size={16} />
-              Over-Utilized
-            </CardDescription>
-            <CardTitle className={`text-3xl ${stats.overutilizedCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {stats.overutilizedCount}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardDescription className="flex items-center gap-2">
+                <UsersIcon size={16} />
+                Over-Utilized
+              </CardDescription>
+              <CardTitle className={`text-3xl ${stats.overutilizedCount > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                {stats.overutilizedCount}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+      </section>
 
       <Tabs defaultValue="calendar" className="space-y-6">
         <TabsList className="grid w-full max-w-2xl grid-cols-3">
@@ -638,7 +642,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                 </div>
 
                 <Select value={selectedCertification} onValueChange={setSelectedCertification}>
-                  <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectTrigger className="w-full sm:w-[200px]" aria-label="Filter by certification">
                     <SelectValue placeholder="Filter by certification" />
                   </SelectTrigger>
                   <SelectContent>
@@ -706,9 +710,9 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                     Next
                   </Button>
                 </div>
-                <h3 className="text-lg font-medium">
+                <h2 className="text-lg font-medium">
                   {format(weekStart, 'MMM d')} - {format(addDays(weekStart, 6), 'MMM d, yyyy')}
-                </h3>
+                </h2>
               </div>
             </CardHeader>
 
@@ -772,7 +776,7 @@ export function TrainerAvailability({ users, sessions, courses, onNavigate }: Tr
                 </div>
 
                 <Select value={selectedCertification} onValueChange={setSelectedCertification}>
-                  <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectTrigger className="w-full sm:w-[200px]" aria-label="Filter by certification">
                     <SelectValue placeholder="Filter by certification" />
                   </SelectTrigger>
                   <SelectContent>

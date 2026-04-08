@@ -454,6 +454,7 @@ describe('TrainerProfileDialog', () => {
 
         const { rerender } = render(
             <TrainerProfileDialog
+                key="initial"
                 user={makeTrainerWithCertification(cert)}
                 open
                 onOpenChange={vi.fn()}
@@ -466,6 +467,7 @@ describe('TrainerProfileDialog', () => {
 
         rerender(
             <TrainerProfileDialog
+                key="expired"
                 user={makeTrainerWithCertification(cert)}
                 open
                 onOpenChange={vi.fn()}
@@ -477,6 +479,7 @@ describe('TrainerProfileDialog', () => {
 
         rerender(
             <TrainerProfileDialog
+                key="unknown"
                 user={makeTrainerWithCertification(cert)}
                 open
                 onOpenChange={vi.fn()}

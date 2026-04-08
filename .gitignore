@@ -37,3 +37,4 @@ pids
 .spark-workbench-id
 
 coverage/
+eslint-results.txt

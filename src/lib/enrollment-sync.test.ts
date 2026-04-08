@@ -299,4 +299,37 @@ describe('reconcileSessionEnrollments', () => {
         expect(reconciled).toHaveLength(1)
         expect(reconciled[0].targetCompletionDate).toBe('2026-04-14T00:00:00.000Z')
     })
+
+    it('uses nowIso as target-date base when existing enrolledAt is invalid', () => {
+        const enrollments: Enrollment[] = [
+            {
+                id: 'invalid-enrolled-at-enrollment',
+                userId: 'user-a',
+                courseId: 'course-a',
+                sessionId: 'session-a',
+                status: 'in-progress',
+                progress: 10,
+                enrolledAt: 'invalid-date',
+                targetCompletionDate: 'also-invalid',
+            },
+        ]
+
+        const sessions: Session[] = [
+            buildSession({
+                id: 'session-a',
+                courseId: 'course-a',
+                enrolledStudents: ['user-a'],
+            }),
+        ]
+
+        const reconciled = reconcileSessionEnrollments({
+            enrollments,
+            sessions,
+            nowIso,
+            createEnrollmentId: () => 'unused-id',
+        })
+
+        expect(reconciled).toHaveLength(1)
+        expect(reconciled[0].targetCompletionDate).toBe('2026-05-01T00:00:00.000Z')
+    })
 })

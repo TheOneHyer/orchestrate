@@ -1,6 +1,9 @@
 import '@testing-library/jest-dom/vitest'
+import * as matchers from 'vitest-axe/matchers'
 import { cleanup } from '@testing-library/react'
-import { afterEach, vi } from 'vitest'
+import { afterEach, expect, vi } from 'vitest'
+
+expect.extend(matchers)
 
 afterEach(() => {
     cleanup()
@@ -278,4 +281,32 @@ if (!Element.prototype.releasePointerCapture) {
 
 if (!Element.prototype.scrollIntoView) {
     Element.prototype.scrollIntoView = () => { }
+}
+
+if (typeof HTMLCanvasElement !== 'undefined') {
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+        fillRect: vi.fn(),
+        clearRect: vi.fn(),
+        getImageData: vi.fn(() => ({ data: new Uint8ClampedArray() })),
+        putImageData: vi.fn(),
+        createImageData: vi.fn(() => ({ data: new Uint8ClampedArray() })),
+        setTransform: vi.fn(),
+        drawImage: vi.fn(),
+        save: vi.fn(),
+        restore: vi.fn(),
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        closePath: vi.fn(),
+        stroke: vi.fn(),
+        translate: vi.fn(),
+        scale: vi.fn(),
+        rotate: vi.fn(),
+        arc: vi.fn(),
+        fill: vi.fn(),
+        measureText: vi.fn(() => ({ width: 0 })),
+        transform: vi.fn(),
+        rect: vi.fn(),
+        clip: vi.fn(),
+    })) as any
 }

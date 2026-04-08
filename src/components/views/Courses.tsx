@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { canDeleteSelectedCourse, canMoveModule, canPublishSelectedCourse, getCourseSavePermissionError, getFirstQuizQuestion, mergeModuleUpdates, validateModuleContentByType } from '@/components/views/courses-helpers'
 import { getFirstValidationErrorMessage } from '@/components/views/courses-utils'
 import { createDefaultModuleContent, normalizeCourseModules, summarizeModuleTitles } from '@/lib/course-modules'
 import { formatDuration } from '@/lib/helpers'
@@ -127,46 +128,6 @@ function createEditorStateFromCourse(course: Course): CourseEditorState {
     published: course.published,
     moduleDetails: normalizeCourseModules(course),
   }
-}
-
-/**
- * Validates whether a module has meaningful content for its type.
- *
- * @param moduleItem - Module entry to validate.
- * @returns True when content is sufficiently populated.
- */
-function validateModuleContentByType(moduleItem: Module): boolean {
-  if (moduleItem.contentType === 'text') {
-    return true
-  }
-
-  if (moduleItem.contentType === 'video') {
-    const content = moduleItem.content as Extract<Module['content'], { url: string }>
-    return content.url.trim().length > 0
-  }
-
-  if (moduleItem.contentType === 'slideshow') {
-    const content = moduleItem.content as Extract<Module['content'], { slides: string[] }>
-    return content.slides.some((slide) => slide.trim().length > 0)
-  }
-
-  const content = moduleItem.content as Extract<Module['content'], { questions: Array<{ prompt: string; choices: string[]; correctIndex: number }> }>
-  if (content.questions.length === 0) {
-    return false
-  }
-
-  return content.questions.every((question) => {
-    if (question.prompt.trim().length === 0) {
-      return false
-    }
-
-    const normalizedChoices = question.choices.map((choice) => choice.trim())
-    const hasEnoughChoices = normalizedChoices.length >= 2
-    const hasOnlyNonEmptyChoices = normalizedChoices.every((choice) => choice.length > 0)
-    const hasValidCorrectIndex = Number.isInteger(question.correctIndex) && question.correctIndex >= 0 && question.correctIndex < normalizedChoices.length
-
-    return hasEnoughChoices && hasOnlyNonEmptyChoices && hasValidCorrectIndex
-  })
 }
 
 /**
@@ -349,11 +310,12 @@ export function Courses({
    */
   const handleModuleChange = (index: number, updates: Partial<Module>) => {
     const currentModule = getValues(`moduleDetails.${index}`)
-    if (!currentModule) {
+    const nextModule = mergeModuleUpdates(currentModule, updates)
+    if (!nextModule) {
       return
     }
 
-    setValue(`moduleDetails.${index}`, { ...currentModule, ...updates }, { shouldDirty: true, shouldValidate: true })
+    setValue(`moduleDetails.${index}`, nextModule, { shouldDirty: true, shouldValidate: true })
   }
 
   /**
@@ -390,10 +352,11 @@ export function Courses({
    * @param direction - `-1` to move up, `1` to move down.
    */
   const handleMoveModule = (index: number, direction: -1 | 1) => {
-    const nextIndex = index + direction
-    if (nextIndex < 0 || nextIndex >= moduleFields.length) {
+    if (!canMoveModule(index, direction, moduleFields.length)) {
       return
     }
+
+    const nextIndex = index + direction
 
     move(index, nextIndex)
     const reordered = getValues('moduleDetails').map((entry, order) => ({ ...entry, order }))
@@ -453,34 +416,19 @@ export function Courses({
       return
     }
 
-    if (editingCourse) {
-      if (!canManageCourse(editingCourse)) {
-        toast.error('Course management unavailable', {
-          description: 'You do not have permission to manage courses.',
-        })
-        return
-      }
+    const savePermissionError = getCourseSavePermissionError({
+      isEditing: Boolean(editingCourse),
+      canManageEditingCourse: editingCourse ? canManageCourse(editingCourse) : false,
+      hasUpdateCallback: typeof onUpdateCourse === 'function',
+      canCreateCourse,
+      hasCreateCallback: typeof onCreateCourse === 'function',
+    })
 
-      if (!onUpdateCourse) {
-        toast.error('Course update unavailable', {
-          description: 'Update callback is not configured.',
-        })
-        return
-      }
-    } else {
-      if (!canCreateCourse) {
-        toast.error('Course management unavailable', {
-          description: 'You do not have permission to manage courses.',
-        })
-        return
-      }
-
-      if (!onCreateCourse) {
-        toast.error('Course creation unavailable', {
-          description: 'Create callback is not configured.',
-        })
-        return
-      }
+    if (savePermissionError) {
+      toast.error(savePermissionError.title, {
+        description: savePermissionError.description,
+      })
+      return
     }
 
     let coursePayload: Omit<Course, 'id'> | Partial<Course>
@@ -530,34 +478,19 @@ export function Courses({
 
   /** Guards against missing permissions and callbacks before triggering the async course save. */
   const handleSaveButtonClick = () => {
-    if (editingCourse) {
-      if (!canManageCourse(editingCourse)) {
-        toast.error('Course management unavailable', {
-          description: 'You do not have permission to manage courses.',
-        })
-        return
-      }
+    const savePermissionError = getCourseSavePermissionError({
+      isEditing: Boolean(editingCourse),
+      canManageEditingCourse: editingCourse ? canManageCourse(editingCourse) : false,
+      hasUpdateCallback: typeof onUpdateCourse === 'function',
+      canCreateCourse,
+      hasCreateCallback: typeof onCreateCourse === 'function',
+    })
 
-      if (!onUpdateCourse) {
-        toast.error('Course update unavailable', {
-          description: 'Update callback is not configured.',
-        })
-        return
-      }
-    } else {
-      if (!canCreateCourse) {
-        toast.error('Course management unavailable', {
-          description: 'You do not have permission to manage courses.',
-        })
-        return
-      }
-
-      if (!onCreateCourse) {
-        toast.error('Course creation unavailable', {
-          description: 'Create callback is not configured.',
-        })
-        return
-      }
+    if (savePermissionError) {
+      toast.error(savePermissionError.title, {
+        description: savePermissionError.description,
+      })
+      return
     }
 
     void handleSaveCourse()
@@ -565,11 +498,22 @@ export function Courses({
 
   /** Confirms and deletes the currently selected course, also removing linked sessions. */
   const handleDeleteSelectedCourse = async () => {
-    if (!selectedCourse || !onDeleteCourse || !canManageCourse(selectedCourse) || isDeleting) {
+    if (!canDeleteSelectedCourse({
+      hasSelectedCourse: Boolean(selectedCourse),
+      hasDeleteCallback: typeof onDeleteCourse === 'function',
+      canManageSelectedCourse: selectedCourse ? canManageCourse(selectedCourse) : false,
+      isDeleting,
+    })) {
       return
     }
 
-    const confirmed = window.confirm(`Delete ${selectedCourse.title}? Related sessions will also be removed.`)
+    const course = selectedCourse
+    const deleteCourse = onDeleteCourse
+    if (!course || !deleteCourse) {
+      return
+    }
+
+    const confirmed = window.confirm(`Delete ${course.title}? Related sessions will also be removed.`)
     if (!confirmed) {
       return
     }
@@ -577,7 +521,7 @@ export function Courses({
     setIsDeleting(true)
 
     try {
-      await Promise.resolve(onDeleteCourse(selectedCourse.id))
+      await Promise.resolve(deleteCourse(course.id))
       setDetailDialogOpen(false)
       setSelectedCourse(null)
       toast.success('Course deleted', {
@@ -596,18 +540,29 @@ export function Courses({
 
   /** Toggles the published state of the selected course and persists the change. */
   const handlePublishToggle = async () => {
-    if (!selectedCourse || !onUpdateCourse || !canManageCourse(selectedCourse) || isPublishing) {
+    if (!canPublishSelectedCourse({
+      hasSelectedCourse: Boolean(selectedCourse),
+      hasUpdateCallback: typeof onUpdateCourse === 'function',
+      canManageSelectedCourse: selectedCourse ? canManageCourse(selectedCourse) : false,
+      isPublishing,
+    })) {
       return
     }
 
-    const nextPublished = !selectedCourse.published
+    const course = selectedCourse
+    const updateCourse = onUpdateCourse
+    if (!course || !updateCourse) {
+      return
+    }
+
+    const nextPublished = !course.published
 
     setIsPublishing(true)
 
     try {
-      await Promise.resolve(onUpdateCourse(selectedCourse.id, { published: nextPublished, updatedAt: selectedCourse.updatedAt }))
+      await Promise.resolve(updateCourse(course.id, { published: nextPublished, updatedAt: course.updatedAt }))
       toast.success(nextPublished ? 'Course published' : 'Course moved to draft', {
-        description: `${selectedCourse.title} is now ${nextPublished ? 'available' : 'hidden from employees'} for scheduling.`,
+        description: `${course.title} is now ${nextPublished ? 'available' : 'hidden from employees'} for scheduling.`,
       })
     } catch (error) {
       toast.error('Status update failed', {
@@ -646,7 +601,7 @@ export function Courses({
           />
         </div>
         <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as 'all' | 'draft' | 'published')}>
-          <SelectTrigger>
+          <SelectTrigger aria-label="Filter courses by status">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
@@ -1069,7 +1024,7 @@ export function Courses({
                       {moduleItem.contentType === 'quiz' && (
                         (() => {
                           const quizContent = moduleItem.content as Extract<Module['content'], { questions: Array<{ prompt: string; choices: string[]; correctIndex: number }> }>
-                          const firstQuestion = quizContent.questions[0] || { prompt: '', choices: ['', ''], correctIndex: 0 }
+                          const firstQuestion = getFirstQuizQuestion(quizContent)
 
                           return (
                             <>

@@ -1,9 +1,10 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { Courses } from './Courses'
-import type { Course, Enrollment, User } from '@/lib/types'
+import { canDeleteSelectedCourse, canMoveModule, canPublishSelectedCourse, getCourseSavePermissionError, getFirstQuizQuestion, mergeModuleUpdates, validateModuleContentByType } from './courses-helpers'
+import type { Course, Enrollment, Module, User } from '@/lib/types'
 
 const toastError = vi.fn()
 const toastSuccess = vi.fn()
@@ -74,6 +75,238 @@ async function fillValidCourseForm(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('Courses', () => {
+    describe('guard helpers', () => {
+        it('returns editing permission errors and success state', () => {
+            expect(getCourseSavePermissionError({
+                isEditing: true,
+                canManageEditingCourse: false,
+                hasUpdateCallback: true,
+                canCreateCourse: true,
+                hasCreateCallback: true,
+            })).toEqual({
+                title: 'Course management unavailable',
+                description: 'You do not have permission to manage courses.',
+            })
+
+            expect(getCourseSavePermissionError({
+                isEditing: true,
+                canManageEditingCourse: true,
+                hasUpdateCallback: false,
+                canCreateCourse: true,
+                hasCreateCallback: true,
+            })).toEqual({
+                title: 'Course update unavailable',
+                description: 'Update callback is not configured.',
+            })
+
+            expect(getCourseSavePermissionError({
+                isEditing: true,
+                canManageEditingCourse: true,
+                hasUpdateCallback: true,
+                canCreateCourse: true,
+                hasCreateCallback: true,
+            })).toBeNull()
+        })
+
+        it('returns create permission errors and success state', () => {
+            expect(getCourseSavePermissionError({
+                isEditing: false,
+                canManageEditingCourse: false,
+                hasUpdateCallback: true,
+                canCreateCourse: false,
+                hasCreateCallback: true,
+            })).toEqual({
+                title: 'Course management unavailable',
+                description: 'You do not have permission to manage courses.',
+            })
+
+            expect(getCourseSavePermissionError({
+                isEditing: false,
+                canManageEditingCourse: false,
+                hasUpdateCallback: true,
+                canCreateCourse: true,
+                hasCreateCallback: false,
+            })).toEqual({
+                title: 'Course creation unavailable',
+                description: 'Create callback is not configured.',
+            })
+
+            expect(getCourseSavePermissionError({
+                isEditing: false,
+                canManageEditingCourse: false,
+                hasUpdateCallback: true,
+                canCreateCourse: true,
+                hasCreateCallback: true,
+            })).toBeNull()
+        })
+
+        it('computes delete guard conditions', () => {
+            expect(canDeleteSelectedCourse({
+                hasSelectedCourse: true,
+                hasDeleteCallback: true,
+                canManageSelectedCourse: true,
+                isDeleting: false,
+            })).toBe(true)
+
+            expect(canDeleteSelectedCourse({
+                hasSelectedCourse: false,
+                hasDeleteCallback: true,
+                canManageSelectedCourse: true,
+                isDeleting: false,
+            })).toBe(false)
+
+            expect(canDeleteSelectedCourse({
+                hasSelectedCourse: true,
+                hasDeleteCallback: false,
+                canManageSelectedCourse: true,
+                isDeleting: false,
+            })).toBe(false)
+
+            expect(canDeleteSelectedCourse({
+                hasSelectedCourse: true,
+                hasDeleteCallback: true,
+                canManageSelectedCourse: true,
+                isDeleting: true,
+            })).toBe(false)
+        })
+
+        it('computes publish guard conditions', () => {
+            expect(canPublishSelectedCourse({
+                hasSelectedCourse: true,
+                hasUpdateCallback: true,
+                canManageSelectedCourse: true,
+                isPublishing: false,
+            })).toBe(true)
+
+            expect(canPublishSelectedCourse({
+                hasSelectedCourse: false,
+                hasUpdateCallback: true,
+                canManageSelectedCourse: true,
+                isPublishing: false,
+            })).toBe(false)
+
+            expect(canPublishSelectedCourse({
+                hasSelectedCourse: true,
+                hasUpdateCallback: false,
+                canManageSelectedCourse: true,
+                isPublishing: false,
+            })).toBe(false)
+
+            expect(canPublishSelectedCourse({
+                hasSelectedCourse: true,
+                hasUpdateCallback: true,
+                canManageSelectedCourse: true,
+                isPublishing: true,
+            })).toBe(false)
+        })
+
+        it('merges module updates only when a module exists', () => {
+            expect(mergeModuleUpdates(undefined, { title: 'Updated' })).toBeNull()
+
+            expect(mergeModuleUpdates(
+                {
+                    id: 'module-1',
+                    title: 'Original',
+                    description: 'desc',
+                    contentType: 'text',
+                    content: { body: 'old' },
+                    duration: 15,
+                    order: 0,
+                },
+                { title: 'Updated' },
+            )).toEqual(expect.objectContaining({ title: 'Updated' }))
+        })
+
+        it('validates module move bounds', () => {
+            expect(canMoveModule(0, -1, 3)).toBe(false)
+            expect(canMoveModule(2, 1, 3)).toBe(false)
+            expect(canMoveModule(1, -1, 3)).toBe(true)
+            expect(canMoveModule(1, 1, 3)).toBe(true)
+        })
+
+        it('returns fallback quiz question when quiz content has no questions', () => {
+            expect(getFirstQuizQuestion({ questions: [] })).toEqual({
+                prompt: '',
+                choices: ['', ''],
+                correctIndex: 0,
+            })
+
+            expect(getFirstQuizQuestion({
+                questions: [{ prompt: 'Prompt', choices: ['A', 'B'], correctIndex: 1 }],
+            })).toEqual({
+                prompt: 'Prompt',
+                choices: ['A', 'B'],
+                correctIndex: 1,
+            })
+        })
+
+        it('validates module content per content type and quiz edge cases', () => {
+            const textModule: Module = {
+                id: 'm1',
+                title: 'Text',
+                description: '',
+                contentType: 'text',
+                content: { body: '' },
+                duration: 10,
+                order: 0,
+            }
+            expect(validateModuleContentByType(textModule)).toBe(true)
+
+            const emptyVideoModule: Module = {
+                ...textModule,
+                id: 'm2',
+                contentType: 'video',
+                content: { url: '   ' },
+            }
+            expect(validateModuleContentByType(emptyVideoModule)).toBe(false)
+
+            const slideshowModule: Module = {
+                ...textModule,
+                id: 'm3',
+                contentType: 'slideshow',
+                content: { slides: ['  ', 'Slide 2'] },
+            }
+            expect(validateModuleContentByType(slideshowModule)).toBe(true)
+
+            const emptyQuizModule: Module = {
+                ...textModule,
+                id: 'm4',
+                contentType: 'quiz',
+                content: { questions: [] },
+            }
+            expect(validateModuleContentByType(emptyQuizModule)).toBe(false)
+
+            const invalidQuizModule: Module = {
+                ...textModule,
+                id: 'm5',
+                contentType: 'quiz',
+                content: {
+                    questions: [
+                        {
+                            prompt: 'Question?',
+                            choices: ['Only one'],
+                            correctIndex: 0,
+                        },
+                    ],
+                },
+            }
+            expect(validateModuleContentByType(invalidQuizModule)).toBe(false)
+        })
+    })
+
+    it('has no basic accessibility violations', async () => {
+        const { container } = render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser()}
+                onNavigate={vi.fn()}
+            />
+        )
+        const { axe } = await import('vitest-axe')
+        expect(await axe(container)).toHaveNoViolations()
+    })
+
     it('shows an error when navigation payload references a missing course id', () => {
         render(
             <Courses
@@ -573,6 +806,30 @@ describe('Courses', () => {
     it('shows a fallback error message when course creation fails without an Error object', async () => {
         const user = userEvent.setup()
         const onCreateCourse = vi.fn().mockRejectedValue('bad gateway')
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await fillValidCourseForm(user)
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Course save failed',
+            expect.objectContaining({ description: 'Please try again after resolving the issue.' })
+        )
+    })
+
+    it('shows a fallback error message when course creation fails with an empty Error message', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn().mockRejectedValue(new Error(''))
 
         render(
             <Courses
@@ -1173,9 +1430,55 @@ describe('Courses', () => {
         )
     })
 
+    it('shows fallback status error text when publish fails with an empty Error message', async () => {
+        const user = userEvent.setup()
+        const onUpdateCourse = vi.fn().mockRejectedValue(new Error(''))
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onUpdateCourse={onUpdateCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /publish course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Status update failed',
+            expect.objectContaining({ description: 'Please try again after resolving the issue.' })
+        )
+    })
+
     it('shows fallback delete error text when delete fails without an Error object', async () => {
         const user = userEvent.setup()
         const onDeleteCourse = vi.fn().mockRejectedValue('delete unavailable')
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onDeleteCourse={onDeleteCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /delete course/i }))
+
+        expect(toastError).toHaveBeenCalledWith(
+            'Delete failed',
+            expect.objectContaining({ description: 'Please try again after resolving the issue.' })
+        )
+    })
+
+    it('shows fallback delete error text when delete fails with an empty Error message', async () => {
+        const user = userEvent.setup()
+        const onDeleteCourse = vi.fn().mockRejectedValue(new Error(''))
 
         render(
             <Courses
@@ -1400,6 +1703,37 @@ describe('Courses', () => {
         expect(screen.getByRole('dialog')).toBeInTheDocument()
     })
 
+    it('hides certifications section in course details when course has no certifications', () => {
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'No Cert Course', certifications: [] })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        expect(screen.getByRole('heading', { name: /no cert course/i })).toBeInTheDocument()
+        expect(screen.queryByText(/^certifications$/i)).toBeNull()
+    })
+
+    it('shows certifications section in course details when certifications exist', () => {
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Cert Course', certifications: ['Safety 101'] })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        expect(screen.getByRole('heading', { name: /cert course/i })).toBeInTheDocument()
+        expect(screen.getByText(/^certifications$/i)).toBeInTheDocument()
+        expect(screen.getAllByText('Safety 101').length).toBeGreaterThan(0)
+    })
+
     it('closes detail dialog when selected course is removed after initial load', () => {
         const payload = { courseId: 'c1' }
         const onNavigate = vi.fn()
@@ -1588,5 +1922,162 @@ describe('Courses', () => {
                 ],
             })
         )
+    })
+
+    it('keeps editor dialog open and prevents duplicate saves while create is in progress', async () => {
+        const user = userEvent.setup()
+        let resolveCreate: (() => void) | undefined
+        const onCreateCourse = vi.fn(() => new Promise<void>((resolve) => {
+            resolveCreate = resolve
+        }))
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await fillValidCourseForm(user)
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+        await user.click(screen.getByRole('button', { name: /saving\.\.\./i }))
+        await user.keyboard('{Escape}')
+
+        expect(onCreateCourse).toHaveBeenCalledTimes(1)
+        expect(screen.getByRole('dialog')).toBeInTheDocument()
+
+        resolveCreate?.()
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog')).toBeNull()
+        })
+    })
+
+    it('prevents duplicate publish requests while publish is already running', async () => {
+        const user = userEvent.setup()
+        let resolveUpdate: (() => void) | undefined
+        const onUpdateCourse = vi.fn(() => new Promise<void>((resolve) => {
+            resolveUpdate = resolve
+        }))
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onUpdateCourse={onUpdateCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /publish course/i }))
+        await user.click(screen.getByRole('button', { name: /updating\.\.\./i }))
+
+        expect(onUpdateCourse).toHaveBeenCalledTimes(1)
+
+        resolveUpdate?.()
+        await waitFor(() => {
+            expect(toastSuccess).toHaveBeenCalledWith(
+                'Course published',
+                expect.objectContaining({ description: expect.stringMatching(/available/i) })
+            )
+        })
+    })
+
+    it('prevents duplicate delete requests while delete is already running', async () => {
+        const user = userEvent.setup()
+        let resolveDelete: (() => void) | undefined
+        const onDeleteCourse = vi.fn(() => new Promise<void>((resolve) => {
+            resolveDelete = resolve
+        }))
+
+        render(
+            <Courses
+                courses={[createCourse({ id: 'c1', title: 'Draft Course', published: false })]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onDeleteCourse={onDeleteCourse}
+                navigationPayload={{ courseId: 'c1' }}
+            />
+        )
+
+        await user.click(screen.getByRole('button', { name: /delete course/i }))
+        await user.click(screen.getByRole('button', { name: /deleting\.\.\./i }))
+
+        expect(onDeleteCourse).toHaveBeenCalledTimes(1)
+
+        resolveDelete?.()
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog')).toBeNull()
+        })
+    })
+
+    it('applies quiz choice updates when no existing question is defined', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'Quiz fallback choice test')
+        await user.type(screen.getByLabelText(/description/i), 'Description')
+        await user.click(screen.getByRole('button', { name: /add module/i }))
+
+        const dialog = screen.getByRole('dialog')
+        await user.click(within(dialog).getAllByRole('combobox')[0])
+        await user.click(screen.getByRole('option', { name: 'Quiz' }))
+
+        await user.type(screen.getByLabelText(/choice b/i), 'Fallback Choice')
+        await user.click(screen.getByRole('button', { name: /save course/i }))
+
+        expect(onCreateCourse).not.toHaveBeenCalled()
+        expect(toastError).toHaveBeenCalledWith(
+            'Course validation failed',
+            expect.objectContaining({ description: expect.stringMatching(/module content must be filled for module type quiz/i) })
+        )
+    })
+
+    it('ignores stale module field updates after a module is removed', async () => {
+        const user = userEvent.setup()
+        const onCreateCourse = vi.fn()
+
+        render(
+            <Courses
+                courses={[]}
+                enrollments={[]}
+                currentUser={createUser({ id: 'admin-1', role: 'admin' })}
+                onNavigate={vi.fn()}
+                onCreateCourse={onCreateCourse}
+                navigationPayload={{ create: true }}
+            />
+        )
+
+        await user.type(screen.getByLabelText(/title/i), 'Stale module test')
+        await user.type(screen.getByLabelText(/description/i), 'Description')
+        await user.click(screen.getByRole('button', { name: /add module/i }))
+
+        const staleModuleTitleInput = screen.getByLabelText(/module name/i)
+        await user.click(screen.getByRole('button', { name: /remove/i }))
+        expect(screen.getByText(/add your first module to start building the course/i)).toBeInTheDocument()
+
+        // Trigger onChange for an element that no longer maps to a module index.
+        await waitFor(() => {
+            fireEvent.change(staleModuleTitleInput, { target: { value: 'Should be ignored' } })
+        })
+
+        expect(onCreateCourse).not.toHaveBeenCalled()
     })
 })

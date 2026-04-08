@@ -37,6 +37,13 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
   const criticalAlerts = expiringAlerts.filter(a => a.urgency === 'critical')
   const highAlerts = expiringAlerts.filter(a => a.urgency === 'high')
 
+  const handleKeyboardNavigation = (userId: string) => (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      onNavigate('people', { userId })
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -130,9 +137,9 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
       {criticalAlerts.length > 0 && (
         <Card className="p-6 border-red-200 bg-red-50">
           <div className="flex items-start gap-3 mb-4">
-            <Warning size={24} weight="duotone" className="text-red-600 flex-shrink-0 mt-1" />
+            <Warning size={24} weight="duotone" className="text-red-600 shrink-0 mt-1" />
             <div>
-              <h3 className="text-lg font-semibold text-red-900">Critical Alerts</h3>
+              <h2 className="text-lg font-semibold text-red-900">Critical Alerts</h2>
               <p className="text-sm text-red-700">
                 {criticalAlerts.length} certification{criticalAlerts.length !== 1 ? 's' : ''} expired or expiring within 14 days
               </p>
@@ -146,6 +153,9 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                 data-testid={`critical-alert-${alert.userId}`}
                 className="flex items-center justify-between p-3 bg-white rounded-lg border border-red-200 cursor-pointer hover:shadow-sm transition-shadow"
                 onClick={() => onNavigate('people', { userId: alert.userId })}
+                role="button"
+                tabIndex={0}
+                onKeyDown={handleKeyboardNavigation(alert.userId)}
               >
                 <div className="flex-1">
                   <p className="font-medium text-foreground">{alert.userName}</p>
@@ -169,7 +179,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
           <div className="flex items-center gap-3 mb-4">
             <Clock size={24} weight="duotone" className="text-amber-600" />
             <div>
-              <h3 className="text-lg font-semibold">High Priority</h3>
+              <h2 className="text-lg font-semibold">High Priority</h2>
               <p className="text-sm text-muted-foreground">
                 {highAlerts.length} certification{highAlerts.length !== 1 ? 's' : ''} expiring within 30 days
               </p>
@@ -183,6 +193,9 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                 data-testid={`high-alert-${alert.userId}`}
                 className="flex items-center justify-between p-3 bg-muted/30 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => onNavigate('people', { userId: alert.userId })}
+                role="button"
+                tabIndex={0}
+                onKeyDown={handleKeyboardNavigation(alert.userId)}
               >
                 <div className="flex-1">
                   <p className="font-medium text-foreground">{alert.userName}</p>
@@ -203,7 +216,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
         <div className="flex items-center gap-3 mb-4">
           <Certificate size={24} weight="duotone" className="text-primary" />
           <div>
-            <h3 className="text-lg font-semibold">All Trainer Certifications</h3>
+            <h2 className="text-lg font-semibold">All Trainer Certifications</h2>
             <p className="text-sm text-muted-foreground">Complete certification tracking for all trainers</p>
           </div>
         </div>
@@ -220,9 +233,12 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                   <div
                     className="flex items-center justify-between mb-3 cursor-pointer"
                     onClick={() => onNavigate('people', { userId: trainer.id })}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={handleKeyboardNavigation(trainer.id)}
                   >
                     <div>
-                      <h4 className="font-semibold text-foreground">{trainer.name}</h4>
+                      <h3 className="font-semibold text-foreground">{trainer.name}</h3>
                       <p className="text-sm text-muted-foreground">{trainer.email}</p>
                     </div>
                     <Badge variant="outline">

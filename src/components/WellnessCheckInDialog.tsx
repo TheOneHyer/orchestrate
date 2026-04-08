@@ -307,6 +307,14 @@ export function WellnessCheckInDialog({
                   data-testid={`concern-row-${concern.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^[-]+|[-]+$/g, '')}`}
                   className="flex items-center space-x-2 border rounded p-2 hover:bg-muted/50 cursor-pointer"
                   onClick={() => toggleConcern(concern)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleConcern(concern);
+                    }
+                  }}
                 >
                   <Checkbox
                     id={concern}

@@ -7,11 +7,11 @@ vi.mock('recharts', async () => {
     const actual = await vi.importActual<typeof import('recharts')>('recharts')
     return {
         ...actual,
-        Tooltip: ({ formatter }: { formatter?: (value: number, name: string) => unknown }) => {
+        Tooltip: ({ formatter }: { formatter?: (value: unknown, name: string) => unknown }) => {
             // Invoke the formatter with all four name values so every branch in the
             // component's formatter callback is exercised during each render.
             if (formatter) {
-                formatter(75, 'utilization')
+                formatter('75', 'utilization')
                 formatter(40, 'hours')
                 formatter(10, 'sessions')
                 formatter(5, 'other')

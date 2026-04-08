@@ -49,7 +49,7 @@ function SectionBadge({ roles }: { roles: string[] }) {
 function GuideSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="space-y-2">
-      <h3 className="text-base font-semibold text-foreground">{title}</h3>
+      <h2 className="text-base font-semibold text-foreground">{title}</h2>
       <div className="text-sm text-muted-foreground leading-relaxed space-y-2">{children}</div>
     </div>
   )

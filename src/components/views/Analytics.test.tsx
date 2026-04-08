@@ -19,7 +19,7 @@ function createUser(overrides: Partial<User> = {}): User {
 }
 
 describe('Analytics', () => {
-  it('calculates and renders top-level metrics from provided data', () => {
+  it('calculates and renders top-level metrics from provided data', async () => {
     const users: User[] = [
       createUser({ id: 'u1', name: 'E1', email: 'e1@example.com', role: 'employee' }),
       createUser({ id: 'u2', name: 'E2', email: 'e2@example.com', role: 'employee' }),
@@ -73,7 +73,7 @@ describe('Analytics', () => {
       { id: 'e2', userId: 'u2', courseId: 'c1', status: 'in-progress', progress: 40, score: 80, enrolledAt: '2026-02-10' },
     ]
 
-    render(
+    const { container } = render(
       <Analytics
         users={users}
         courses={courses}
@@ -81,6 +81,10 @@ describe('Analytics', () => {
         enrollments={enrollments}
       />
     )
+    const { axe } = await import('vitest-axe')
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
+
 
     expect(screen.getByTestId('employee-count')).toHaveTextContent('2')
     expect(screen.getByTestId('completion-rate')).toHaveTextContent('50%')

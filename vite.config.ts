@@ -1,7 +1,7 @@
 /// <reference types="node" />
 
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import type { PluginOption } from "vite";
 import { coverageConfigDefaults, defineConfig } from "vitest/config";
 
@@ -23,10 +23,47 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    // DO NOT REMOVE (excluded in test mode to prevent react-swc preamble conflicts)
+    // DO NOT REMOVE (excluded in test mode to avoid Spark/browser-only plugin side effects)
     ...(isTest ? [] : [createIconImportProxy() as PluginOption, sparkPlugin() as PluginOption]),
   ],
   base: '/orchestrate/',
+  build: {
+    chunkSizeWarningLimit: 550,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          const normalizedId = id.replace(/\\/g, '/')
+
+          if (!normalizedId.includes('node_modules')) {
+            return undefined
+          }
+
+          if (normalizedId.includes('/react/') || normalizedId.includes('/react-dom/')) {
+            return 'vendor-react'
+          }
+
+          if (normalizedId.includes('/@radix-ui/')) {
+            return 'vendor-radix'
+          }
+
+          if (
+            normalizedId.includes('/d3') ||
+            normalizedId.includes('/recharts') ||
+            normalizedId.includes('/framer-motion') ||
+            normalizedId.includes('/three')
+          ) {
+            return 'vendor-viz'
+          }
+
+          if (normalizedId.includes('/@octokit/') || normalizedId.includes('/octokit/')) {
+            return 'vendor-octokit'
+          }
+
+          return 'vendor'
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": resolve(projectRoot, "src"),

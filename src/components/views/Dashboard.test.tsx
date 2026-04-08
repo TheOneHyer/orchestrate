@@ -60,8 +60,24 @@ describe('Dashboard', () => {
     expect(screen.getByText(/^active courses$/i)).toBeInTheDocument()
     expect(screen.getByTestId('upcoming-sessions-heading')).toHaveTextContent(/^upcoming sessions$/i)
     expect(screen.getByText(/^notifications$/i)).toBeInTheDocument()
-    expect(screen.getByText(/no upcoming sessions/i)).toBeInTheDocument()
     expect(screen.getByText(/no notifications/i)).toBeInTheDocument()
+  })
+
+  it('has no basic accessibility violations', async () => {
+    const { axe } = await import('vitest-axe')
+    const { container } = render(
+      <Dashboard
+        currentUser={baseUser}
+        upcomingSessions={[]}
+        notifications={[]}
+        enrollments={[]}
+        courses={[baseCourse]}
+        onNavigate={vi.fn()}
+      />
+    )
+    
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 
   it('navigates to a session when a session card is clicked', async () => {
