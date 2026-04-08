@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -e
 
-pnpm lint
+pnpm lint --max-warnings=0
 pnpm typecheck
 pnpm build
 pnpm test:coverage
