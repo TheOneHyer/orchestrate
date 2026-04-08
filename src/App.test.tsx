@@ -4,8 +4,104 @@ import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppRuntimeEnvOverrides, AppTestHooks } from '@/test-support'
 
-const toastSuccess = vi.fn()
-const toastError = vi.fn()
+const {
+    toastMock,
+    toastSuccess,
+    toastError,
+    createPreviewSeedDataMock,
+    getPreviewSeedModeMock,
+    isPreviewSeedEnabledMock,
+    buildPreviewAuthPasswordsMock,
+    scoringControls,
+    reminderBuilderControls,
+} = vi.hoisted(() => {
+    const ts = vi.fn()
+    const te = vi.fn()
+    return {
+        toastSuccess: ts,
+        toastError: te,
+        toastMock: Object.assign(vi.fn(() => undefined), {
+            success: vi.fn((...args: unknown[]) => ts(...args)),
+            error: vi.fn((...args: unknown[]) => te(...args)),
+        }),
+        createPreviewSeedDataMock: vi.fn(() => ({
+            users: [
+                {
+                    id: 'admin-1',
+                    name: 'Admin User',
+                    email: 'admin@example.com',
+                    role: 'admin',
+                    department: 'Ops',
+                    certifications: [],
+                    hireDate: '2024-01-01T00:00:00.000Z',
+                },
+                {
+                    id: 'trainer-1',
+                    name: 'Trainer One',
+                    email: 'trainer1@example.com',
+                    role: 'trainer',
+                    department: 'Ops',
+                    certifications: [],
+                    hireDate: '2024-01-01T00:00:00.000Z',
+                    trainerProfile: {
+                        authorizedRoles: [],
+                        shiftSchedules: [],
+                        tenure: {
+                            hireDate: '2024-01-01T00:00:00.000Z',
+                            yearsOfService: 1,
+                            monthsOfService: 12,
+                        },
+                        specializations: [],
+                    },
+                },
+            ],
+            sessions: [],
+            courses: [],
+            enrollments: [],
+            notifications: [],
+            wellnessCheckIns: [],
+            recoveryPlans: [],
+            checkInSchedules: [],
+            scheduleTemplates: [],
+            riskHistorySnapshots: [],
+            targetTrainerCoverage: 4,
+            state: {
+                'active-user-id': 'admin-1',
+            },
+        })),
+        getPreviewSeedModeMock: vi.fn(() => 'off'),
+        isPreviewSeedEnabledMock: vi.fn(() => false),
+        PREVIEW_SEED_VERSION: 'preview-seed-v1',
+        buildPreviewAuthPasswordsMock: vi.fn(() => Promise.resolve({})),
+        scoringControls: {
+            applyScoreImpl: null as null | ((score: number, passScore: number, enrollment: unknown) => Record<string, unknown>),
+            shouldNotifyCompletionImpl: null as null | ((status: unknown, score: number, passScore: number) => boolean),
+            hashPasswordMock: vi.fn((password: string) => Promise.resolve(`__hash__${password}`)),
+            verifyPasswordMock: vi.fn((password: string, storedHash: string) =>
+                Promise.resolve(storedHash === `__hash__${password}`)
+            ),
+        },
+        reminderBuilderControls: {
+            learningCandidates: [] as Array<{
+                reminderKey: string
+                userId: string
+                courseId: string
+                title: string
+                message: string
+                priority: 'medium' | 'high'
+            }>,
+            engagementCandidates: [] as Array<{
+                reminderKey: string
+                userId: string
+                enrollmentId: string
+                courseId: string
+                title: string
+                message: string
+                priority: 'medium' | 'high'
+            }>,
+        },
+    }
+})
 
 /** Pass score threshold used for the record-score test course. */
 const RECORD_SCORE_PASS_THRESHOLD = 80
@@ -15,33 +111,6 @@ const RECORD_SCORE_ABOVE_PASS = 90
 const RECORD_SCORE_BELOW_PASS = 50
 
 const sendNotificationMock = vi.fn()
-const scoringControls = vi.hoisted(() => ({
-    applyScoreImpl: null as null | ((score: number, passScore: number, enrollment: unknown) => Record<string, unknown>),
-    shouldNotifyCompletionImpl: null as null | ((status: unknown, score: number, passScore: number) => boolean),
-    hashPasswordMock: vi.fn((password: string) => Promise.resolve(`__hash__${password}`)),
-    verifyPasswordMock: vi.fn((password: string, storedHash: string) =>
-        Promise.resolve(storedHash === `__hash__${password}`)
-    ),
-}))
-const reminderBuilderControls = vi.hoisted(() => ({
-    learningCandidates: [] as Array<{
-        reminderKey: string
-        userId: string
-        courseId: string
-        title: string
-        message: string
-        priority: 'medium' | 'high'
-    }>,
-    engagementCandidates: [] as Array<{
-        reminderKey: string
-        userId: string
-        enrollmentId: string
-        courseId: string
-        title: string
-        message: string
-        priority: 'medium' | 'high'
-    }>,
-}))
 let utilizationNotified = false
 function createUtilizationNotificationPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
@@ -74,50 +143,6 @@ const callbackSpies = {
     onDismissAll: vi.fn(),
 }
 const ensureProfilesMock = vi.fn((users) => users)
-const createPreviewSeedDataMock = vi.fn(() => ({
-    users: [
-        {
-            id: 'admin-1',
-            name: 'Admin User',
-            email: 'admin@example.com',
-            role: 'admin',
-            department: 'Ops',
-            certifications: [],
-            hireDate: '2024-01-01T00:00:00.000Z',
-        },
-        {
-            id: 'trainer-1',
-            name: 'Trainer One',
-            email: 'trainer1@example.com',
-            role: 'trainer',
-            department: 'Ops',
-            certifications: [],
-            hireDate: '2024-01-01T00:00:00.000Z',
-            trainerProfile: {
-                authorizedRoles: [],
-                shiftSchedules: [],
-                tenure: {
-                    hireDate: '2024-01-01T00:00:00.000Z',
-                    yearsOfService: 1,
-                    monthsOfService: 12,
-                },
-                specializations: [],
-            },
-        },
-    ],
-    sessions: [],
-    courses: [],
-    enrollments: [],
-    notifications: [],
-    wellnessCheckIns: [],
-    recoveryPlans: [],
-    checkInSchedules: [],
-    scheduleTemplates: [],
-    riskHistorySnapshots: [],
-    targetTrainerCoverage: 4,
-}))
-const getPreviewSeedModeMock = vi.fn(() => 'off')
-const isPreviewSeedEnabledMock = vi.fn(() => false)
 
 const kvSeed: Record<string, unknown> = {}
 const kvState: Record<string, unknown> = {}
@@ -133,10 +158,7 @@ function installAppTestHooks() {
 }
 
 vi.mock('sonner', () => ({
-    toast: {
-        success: (...args: unknown[]) => toastSuccess(...args),
-        error: (...args: unknown[]) => toastError(...args),
-    },
+    toast: toastMock,
 }))
 
 // DEMO-ONLY test mock: replaces the real SHA-256 hash with a deterministic
@@ -146,6 +168,8 @@ vi.mock('@/lib/auth-utils', () => ({
     verifyPassword: scoringControls.verifyPasswordMock,
 }))
 
+const kvEmitter = new EventTarget()
+
 vi.mock('@github/spark/hooks', async () => {
     const React = await import('react')
 
@@ -154,16 +178,29 @@ vi.mock('@github/spark/hooks', async () => {
             const seeded = Object.prototype.hasOwnProperty.call(kvSeed, key)
                 ? (kvSeed[key] as T)
                 : initialValue
+
             const [value, setValue] = React.useState<T>(seeded)
 
+            // Sync to kvState on mount and whenever value changes
             React.useEffect(() => {
                 kvState[key] = value
             }, [key, value])
+
+            React.useEffect(() => {
+                const handler = (e: any) => {
+                    if (e.detail.key === key) {
+                        setValue(e.detail.value)
+                    }
+                }
+                kvEmitter.addEventListener('kv-update', handler as any)
+                return () => kvEmitter.removeEventListener('kv-update', handler as any)
+            }, [key])
 
             const setter = (next: T | ((current: T) => T)) => {
                 setValue((current) => {
                     const resolvedValue = typeof next === 'function' ? (next as (current: T) => T)(current) : next
                     kvState[key] = resolvedValue
+                    kvEmitter.dispatchEvent(new CustomEvent('kv-update', { detail: { key, value: resolvedValue } }))
                     return resolvedValue
                 })
             }
@@ -559,7 +596,8 @@ vi.mock('@/lib/preview-mode', () => ({
 
 vi.mock('@/lib/preview-seed-data', () => ({
     PREVIEW_SEED_VERSION: 'preview-seed-v1',
-    createPreviewSeedData: () => createPreviewSeedDataMock(),
+    createPreviewSeedData: (mode?: any) => createPreviewSeedDataMock(mode),
+    buildPreviewAuthPasswords: (users: any) => buildPreviewAuthPasswordsMock(users),
 }))
 
 vi.mock('@/lib/scoring', async () => {
@@ -590,7 +628,54 @@ import App from './App'
 
 describe('App', () => {
     beforeEach(() => {
+        vi.useFakeTimers({ shouldAdvanceTime: true })
+        vi.setSystemTime(new Date('2026-03-16T00:00:00.000Z'))
         vi.clearAllMocks()
+        createPreviewSeedDataMock.mockImplementation(() => ({
+            users: [
+                {
+                    id: 'admin-1',
+                    name: 'Admin User',
+                    email: 'admin@example.com',
+                    role: 'admin',
+                    department: 'Ops',
+                    certifications: [],
+                    hireDate: '2024-01-01T00:00:00.000Z',
+                },
+                {
+                    id: 'trainer-1',
+                    name: 'Trainer One',
+                    email: 'trainer1@example.com',
+                    role: 'trainer',
+                    department: 'Ops',
+                    certifications: [],
+                    hireDate: '2024-01-01T00:00:00.000Z',
+                    trainerProfile: {
+                        authorizedRoles: [],
+                        shiftSchedules: [],
+                        tenure: {
+                            hireDate: '2024-01-01T00:00:00.000Z',
+                            yearsOfService: 1,
+                            monthsOfService: 12,
+                        },
+                        specializations: [],
+                    },
+                },
+            ],
+            sessions: [],
+            courses: [],
+            enrollments: [],
+            notifications: [],
+            wellnessCheckIns: [],
+            recoveryPlans: [],
+            checkInSchedules: [],
+            scheduleTemplates: [],
+            riskHistorySnapshots: [],
+            targetTrainerCoverage: 4,
+            state: {
+                'active-user-id': 'admin-1',
+            },
+        }))
         utilizationNotified = false
         utilizationNotificationPayload = createUtilizationNotificationPayload()
         scoringControls.applyScoreImpl = null
@@ -674,9 +759,9 @@ describe('App', () => {
     })
 
     it('renders dashboard by default and supports navigation across views', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
 
@@ -728,10 +813,10 @@ describe('App', () => {
     })
 
     it('warns and ignores navigation when normalizeNavigationValue returns null', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
 
@@ -747,10 +832,10 @@ describe('App', () => {
     })
 
     it('warns and ignores navigation when normalizeNavigationValue throws on malformed path', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
 
@@ -766,7 +851,7 @@ describe('App', () => {
     })
 
     it('handles notification creation and routes on notification click action', async () => {
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(sendNotificationMock).toHaveBeenCalledWith(
@@ -787,7 +872,7 @@ describe('App', () => {
     })
 
     it('resets preview data from settings actions', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = [
             {
                 id: 'admin-1',
@@ -800,7 +885,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
 
@@ -819,10 +904,10 @@ describe('App', () => {
     })
 
     it('requires sign in when there is no active session and allows valid login', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['active-user-id'] = ''
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(screen.getByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
 
@@ -834,9 +919,9 @@ describe('App', () => {
     })
 
     it('lets a newly added user sign in with the default local password', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         await user.click(screen.getByRole('button', { name: /add user/i }))
@@ -854,9 +939,9 @@ describe('App', () => {
     })
 
     it('tracks attendance as first-class session data', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/attendance count:\s*0/i)).toBeInTheDocument()
@@ -869,9 +954,9 @@ describe('App', () => {
     })
 
     it('shows a warning toast when a stale course update is applied', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go courses$/i }))
         await user.click(screen.getByRole('button', { name: /create minimal course/i }))
@@ -886,9 +971,9 @@ describe('App', () => {
     })
 
     it('runs callback actions exposed by child views', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
@@ -1034,9 +1119,9 @@ describe('App', () => {
     })
 
     it('switches roles from settings and blocks restricted navigation for trainers', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         expect(screen.getByText(/local session/i)).toBeInTheDocument()
@@ -1057,9 +1142,9 @@ describe('App', () => {
     })
 
     it('falls back to the first remaining user when the active user is deleted', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /switch to trainer/i }))
         expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
@@ -1073,7 +1158,7 @@ describe('App', () => {
     })
 
     it('reverts to a permitted view and prunes user-owned data when deleting the active user', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
         kvSeed['users'] = [
             {
@@ -1292,7 +1377,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         expect(screen.getByText(/local session/i)).toBeInTheDocument()
@@ -1338,7 +1423,7 @@ describe('App', () => {
     })
 
     it('removes deleted students from session rosters even when they have no stored password entry', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
         kvSeed['users'] = [
             {
@@ -1386,7 +1471,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         await user.click(screen.getByRole('button', { name: /^delete user$/i }))
@@ -1405,9 +1490,9 @@ describe('App', () => {
     })
 
     it('clears one-time people deep-link payload after consumption callback', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go people deep link$/i }))
         expect(screen.getByTestId('people-nav-payload')).toHaveTextContent(JSON.stringify({ userId: 'trainer-1' }))
@@ -1417,7 +1502,7 @@ describe('App', () => {
     })
 
     it('filters visible data for employee sessions, courses, and notifications', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
         kvSeed['users'] = [
             ...(kvSeed['users'] as Array<Record<string, unknown>>),
@@ -1529,7 +1614,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         await user.click(screen.getByRole('button', { name: /switch to employee one/i }))
@@ -1558,7 +1643,7 @@ describe('App', () => {
     })
 
     it('excludes trainer enrollments when both course and session visibility checks fail', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
         kvSeed['courses'] = [
             {
@@ -1605,7 +1690,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /switch to trainer/i }))
         expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
@@ -1615,10 +1700,10 @@ describe('App', () => {
     })
 
     it('does not reset preview data when confirmation is cancelled', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         vi.stubGlobal('confirm', vi.fn(() => false))
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(kvState['users']).toBeDefined()
@@ -1647,7 +1732,7 @@ describe('App', () => {
     })
 
     it('does not auto-reseed after an explicit preview reset in empty mode', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
         getPreviewSeedModeMock.mockReturnValue('empty')
         isPreviewSeedEnabledMock.mockReturnValue(true)
@@ -1657,7 +1742,7 @@ describe('App', () => {
         kvSeed['enrollments'] = []
         kvSeed['preview-seed-version'] = ''
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(createPreviewSeedDataMock).toHaveBeenCalled()
@@ -1680,7 +1765,7 @@ describe('App', () => {
     })
 
     it('prevents seed data write when reset is triggered during seed flow', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         let resolveSeedHash: ((hash: string) => void) | undefined
 
         getPreviewSeedModeMock.mockReturnValue('empty')
@@ -1696,7 +1781,7 @@ describe('App', () => {
             })
         })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         // Wait for seed to start and suspend at async password hashing.
         await waitFor(() => {
@@ -1737,7 +1822,7 @@ describe('App', () => {
         kvSeed['enrollments'] = []
         kvSeed['preview-seed-version'] = ''
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(createPreviewSeedDataMock).toHaveBeenCalled()
@@ -1753,7 +1838,7 @@ describe('App', () => {
         isPreviewSeedEnabledMock.mockReturnValue(true)
         kvSeed['preview-seed-version'] = ''
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
@@ -1769,7 +1854,7 @@ describe('App', () => {
         kvSeed['enrollments'] = []
         kvSeed['preview-seed-version'] = 'preview-seed-v1:empty'
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(createPreviewSeedDataMock).not.toHaveBeenCalled()
@@ -1819,7 +1904,7 @@ describe('App', () => {
     })
 
     it('handles notification actions when multiple notifications exist', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         utilizationNotified = true
         kvSeed['notifications'] = [
             {
@@ -1844,7 +1929,7 @@ describe('App', () => {
             },
         ]
 
-        const { unmount } = render(<App />)
+        const { unmount } = await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
         expect(screen.getByText(/notifications total:\s*2/i)).toBeInTheDocument()
@@ -1876,7 +1961,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
         await user.click(screen.getByRole('button', { name: /^go notifications$/i }))
         await user.click(screen.getByRole('button', { name: /dismiss one/i }))
         await user.click(screen.getByRole('button', { name: /dismiss all/i }))
@@ -1892,7 +1977,7 @@ describe('App', () => {
             link: '/unknown-route',
         })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(sendNotificationMock).toHaveBeenCalledWith(
@@ -1922,7 +2007,7 @@ describe('App', () => {
             link: '/',
         })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(sendNotificationMock).toHaveBeenCalledWith(
@@ -1953,7 +2038,7 @@ describe('App', () => {
             link: '/people/%ZZ',
         })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(sendNotificationMock).toHaveBeenCalledWith(
@@ -1985,7 +2070,7 @@ describe('App', () => {
             link: undefined,
         })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(sendNotificationMock).toHaveBeenCalledWith(
@@ -1998,7 +2083,7 @@ describe('App', () => {
     })
 
     it('handles undefined kv state by using fallback arrays in action handlers', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         utilizationNotified = true
         kvSeed['users'] = undefined
         kvSeed['sessions'] = undefined
@@ -2007,7 +2092,7 @@ describe('App', () => {
         kvSeed['attendance-records'] = undefined
         kvSeed['notifications'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(screen.getByText(/dashboard view/i)).toBeInTheDocument()
         expect(screen.getByText(/notification count:\s*0/i)).toBeInTheDocument()
@@ -2051,7 +2136,7 @@ describe('App', () => {
     })
 
     it('sets an empty active user id when deleting the currently active last user', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = [
             {
                 id: 'admin-1',
@@ -2065,7 +2150,7 @@ describe('App', () => {
         ]
         kvSeed['active-user-id'] = 'admin-1'
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         await user.click(screen.getByRole('button', { name: /^delete active user$/i }))
@@ -2074,7 +2159,7 @@ describe('App', () => {
     })
 
     it('blocks notification deep-link navigation when the active role lacks access', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         utilizationNotificationPayload = createUtilizationNotificationPayload({
             title: 'Restricted Destination',
             link: '/certifications',
@@ -2112,7 +2197,7 @@ describe('App', () => {
     })
 
     it('includes enrollments visible via session visibility even when course visibility is restricted', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = [
             {
                 id: 'trainer-1',
@@ -2175,14 +2260,14 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
         expect(screen.getByText(/dashboard enrollments:\s*1/i)).toBeInTheDocument()
     })
 
     it('updates only the matched attendance record when multiple records exist', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['attendance-records'] = [
             {
                 id: 'attendance-1',
@@ -2202,7 +2287,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         await user.click(screen.getByRole('button', { name: /^mark present$/i }))
@@ -2213,7 +2298,7 @@ describe('App', () => {
     })
 
     it('preserves existing attendance notes when status is updated without notes', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['attendance-records'] = [
             {
                 id: 'attendance-1',
@@ -2226,7 +2311,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/attendance notes:\s*arrived late due to traffic/i)).toBeInTheDocument()
@@ -2236,12 +2321,12 @@ describe('App', () => {
     })
 
     it('handles course update and delete when course/session/enrollment stores are undefined', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['courses'] = undefined
         kvSeed['sessions'] = undefined
         kvSeed['enrollments'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go courses$/i }))
         await user.click(screen.getByRole('button', { name: /^update course$/i }))
@@ -2251,10 +2336,10 @@ describe('App', () => {
     })
 
     it('handles deleting a session when sessions store is undefined', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['sessions'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         await user.click(screen.getByRole('button', { name: /^delete session$/i }))
@@ -2263,12 +2348,12 @@ describe('App', () => {
     })
 
     it('assigns default preview passwords when preview mode is enabled and auth map is empty', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         getPreviewSeedModeMock.mockReturnValue('empty')
         isPreviewSeedEnabledMock.mockReturnValue(true)
         kvSeed['auth-passwords'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         await user.click(screen.getByRole('button', { name: /^sign out$/i }))
@@ -2283,7 +2368,7 @@ describe('App', () => {
     it('creates a notification when notification state is initially undefined', async () => {
         kvSeed['notifications'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(sendNotificationMock).toHaveBeenCalledWith(
@@ -2298,11 +2383,11 @@ describe('App', () => {
     })
 
     it('creates a minimal session with fallback defaults when sessions are undefined', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         utilizationNotified = true
         kvSeed['sessions'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         expect(screen.getByText(/session count:\s*0/i)).toBeInTheDocument()
@@ -2314,11 +2399,11 @@ describe('App', () => {
     })
 
     it('creates minimal template sessions with fallback defaults when sessions are undefined', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         utilizationNotified = true
         kvSeed['sessions'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go schedule templates$/i }))
         await user.click(screen.getByRole('button', { name: /create minimal template sessions/i }))
@@ -2329,12 +2414,12 @@ describe('App', () => {
     })
 
     it('handles deleting users when users and sessions are undefined', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         utilizationNotified = true
         kvSeed['users'] = undefined
         kvSeed['sessions'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
@@ -2345,11 +2430,11 @@ describe('App', () => {
     })
 
     it('uses the fallback empty users array when adding a user from undefined state', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         utilizationNotified = true
         kvSeed['users'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         expect(screen.getByText(/users count:\s*0/i)).toBeInTheDocument()
@@ -2361,11 +2446,11 @@ describe('App', () => {
     })
 
     it('uses the fallback empty users array when adding certifications from undefined state', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         utilizationNotified = true
         kvSeed['users'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go certifications$/i }))
         expect(screen.getByText(/certification records:\s*0/i)).toBeInTheDocument()
@@ -2376,7 +2461,7 @@ describe('App', () => {
     })
 
     it('uses fallback notification arrays for individual actions when notifications are undefined', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         utilizationNotified = true
 
         // Each iteration mounts/unmounts a fresh component instance to isolate actions:
@@ -2413,12 +2498,12 @@ describe('App', () => {
     })
 
     it('removes reminder-* localStorage keys when resetting preview data', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         localStorage.setItem('reminder-schedule-1-2099-01-01T09:00:00.000Z', 'true')
         localStorage.setItem('unrelated-key', 'keep')
         kvSeed['auth-passwords'] = { 'admin-1': 'stale-password' }
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         await user.click(screen.getByRole('button', { name: /reset preview data/i }))
@@ -2429,15 +2514,15 @@ describe('App', () => {
     })
 
     it('shows sign-in errors for missing credentials, unknown users, and wrong passwords', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['active-user-id'] = ''
 
-        render(<App />)
+        await act(async () => render(<App />))
         toastError.mockClear()
 
         await user.click(screen.getByRole('button', { name: /^sign in$/i }))
-        expect(screen.getByText('Email is required')).toBeInTheDocument()
-        expect(screen.getByText('Password is required')).toBeInTheDocument()
+        expect(await screen.findByText('Email is required')).toBeInTheDocument()
+        expect(await screen.findByText('Password is required')).toBeInTheDocument()
 
         await user.type(screen.getByLabelText(/email/i), 'nobody@example.com')
         await user.type(screen.getByLabelText(/password/i), 'password123')
@@ -2459,12 +2544,12 @@ describe('App', () => {
     })
 
     it('shows an incorrect-password error when a local account has no stored password', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['active-user-id'] = ''
         kvSeed['auth-passwords'] = {}
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
 
-        render(<App />)
+        await act(async () => render(<App />))
         toastError.mockClear()
 
         await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
@@ -2478,11 +2563,11 @@ describe('App', () => {
     })
 
     it('shows the first-admin setup form when there are no users and creates an admin account', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(screen.getByRole('button', { name: /^create first admin$/i })).toBeInTheDocument()
 
@@ -2500,21 +2585,21 @@ describe('App', () => {
     })
 
     it('shows a setup-incomplete error when creating the first admin with empty fields', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
 
-        render(<App />)
+        await act(async () => render(<App />))
         toastError.mockClear()
 
         await user.click(screen.getByRole('button', { name: /^create first admin$/i }))
-        expect(screen.getByText('Name is required')).toBeInTheDocument()
-        expect(screen.getByText('Email is required')).toBeInTheDocument()
-        expect(screen.getByText('Password is required')).toBeInTheDocument()
+        expect(await screen.findByText('Name is required')).toBeInTheDocument()
+        expect(await screen.findByText('Email is required')).toBeInTheDocument()
+        expect(await screen.findByText('Password is required')).toBeInTheDocument()
     })
 
     it('shows setup-required messaging and enters demo mode from non-preview runtime', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
@@ -2523,7 +2608,7 @@ describe('App', () => {
         window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
 
         try {
-            render(<App />)
+            await act(async () => render(<App />))
 
             expect(screen.getByText(/setup required/i)).toBeInTheDocument()
             expect(screen.getByText(/no users have been created in this workspace yet/i)).toBeInTheDocument()
@@ -2542,7 +2627,7 @@ describe('App', () => {
     })
 
     it('does not enter demo mode when overwrite confirmation is cancelled', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
@@ -2553,7 +2638,7 @@ describe('App', () => {
         window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
 
         try {
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^enter demo mode$/i }))
 
@@ -2566,7 +2651,7 @@ describe('App', () => {
     })
 
     it('shows a failure toast when applyPreviewSeedData rejects during demo mode entry', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
@@ -2579,7 +2664,7 @@ describe('App', () => {
         window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
 
         try {
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^enter demo mode$/i }))
 
@@ -2597,7 +2682,7 @@ describe('App', () => {
         }
     })
 
-    it('shows demo entry when the demoMode query param is absent', () => {
+    it('shows demo entry when the demoMode query param is absent', async () => {
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
@@ -2606,7 +2691,7 @@ describe('App', () => {
         window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`)
 
         try {
-            render(<App />)
+            await act(async () => render(<App />))
 
             expect(screen.getByText(/setup required/i)).toBeInTheDocument()
             expect(screen.getByRole('button', { name: /^enter demo mode$/i })).toBeInTheDocument()
@@ -2626,7 +2711,7 @@ describe('App', () => {
         sessionStorage.setItem('orchestrate-demo-mode-user-id', 'trainer-1')
         localStorage.setItem('orchestrate-demo-mode-seeded', 'true')
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(await screen.findByText(/dashboard view/i)).toBeInTheDocument()
         expect(screen.getByText(/current user:\s*trainer one/i)).toBeInTheDocument()
@@ -2647,7 +2732,7 @@ describe('App', () => {
             }),
         )
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(await screen.findByRole('button', { name: /^sign in$/i })).toBeInTheDocument()
 
@@ -2671,7 +2756,7 @@ describe('App', () => {
             }),
         )
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(await screen.findByText(/setup required/i)).toBeInTheDocument()
 
@@ -2700,7 +2785,7 @@ describe('App', () => {
         )
         sessionStorage.setItem('orchestrate-demo-seeded-in-tab', 'true')
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(await screen.findByText(/setup required/i)).toBeInTheDocument()
 
@@ -2732,7 +2817,7 @@ describe('App', () => {
 
         createPreviewSeedDataMock.mockClear()
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         expect(await screen.findByText(/setup required/i)).toBeInTheDocument()
 
@@ -2751,7 +2836,7 @@ describe('App', () => {
         const baseNowMs = new Date('2026-01-01T00:00:00.000Z').getTime()
         const renewalNowMs = baseNowMs + 45_000
         const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(baseNowMs)
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
@@ -2761,7 +2846,7 @@ describe('App', () => {
         window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
 
         try {
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^enter demo mode$/i }))
             await screen.findByText(/dashboard view/i)
@@ -2798,16 +2883,47 @@ describe('App', () => {
         isPreviewSeedEnabledMock.mockReturnValue(true)
         sessionStorage.setItem('orchestrate-demo-mode-active', 'true')
 
-        render(<App />)
+        // Mock seeding to be synchronous so App.tsx line 540 doesn't fail
+        createPreviewSeedDataMock.mockReturnValue({
+            users: [],
+            sessions: [],
+            courses: [],
+            enrollments: [],
+            notifications: [],
+            wellnessCheckIns: [],
+            recoveryPlans: [],
+            checkInSchedules: [],
+            scheduleTemplates: [],
+            riskHistorySnapshots: [],
+            targetTrainerCoverage: 4,
+            state: { 'active-user-id': '' },
+        })
 
+        // Mock buildPreviewAuthPasswords to be slow/deferred so we can assert the "loading/setup" state
+        let resolveAuth: (value: any) => void = () => { }
+        const authPromise = new Promise((resolve) => {
+            resolveAuth = resolve
+        })
+        buildPreviewAuthPasswordsMock.mockReturnValue(authPromise)
+
+        await act(async () => {
+            render(<App />)
+        })
+
+        // Should show "Setup Required" while applyPreviewSeedData is awaiting buildPreviewAuthPasswords
         expect(screen.getByText(/setup required/i)).toBeInTheDocument()
         expect(screen.getByText(/no users have been created in this workspace yet/i)).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: /^create first admin$/i })).toBeNull()
         expect(screen.getByRole('button', { name: /enter demo mode/i })).toBeInTheDocument()
+
+        // Resolve auth to cleanup and complete seeding
+        await act(async () => {
+            resolveAuth({})
+        })
     })
 
     it('navigates to demo mode when the Enter Demo Mode button is clicked', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
@@ -2816,7 +2932,7 @@ describe('App', () => {
         window.history.replaceState({}, '', `${window.location.pathname}?demoMode=true${window.location.hash}`)
 
         try {
-            render(<App />)
+            await act(async () => render(<App />))
 
             expect(screen.getByRole('button', { name: /enter demo mode/i })).toBeInTheDocument()
 
@@ -2830,7 +2946,7 @@ describe('App', () => {
     })
 
     it('preserves existing query parameters when entering demo mode', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = []
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
@@ -2839,7 +2955,7 @@ describe('App', () => {
         window.history.replaceState({}, '', `${window.location.pathname}?existing=value&demoMode=true${window.location.hash}`)
 
         try {
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /enter demo mode/i }))
 
@@ -2856,7 +2972,7 @@ describe('App', () => {
     it('does not create a first admin through the test hook when users already exist', async () => {
         const hooks = installAppTestHooks()
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.createFirstAdmin).toBeTypeOf('function')
@@ -2883,7 +2999,7 @@ describe('App', () => {
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.createFirstAdmin).toBeTypeOf('function')
@@ -2909,7 +3025,7 @@ describe('App', () => {
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: true, useServerAuth: false })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.createFirstAdmin).toBeTypeOf('function')
@@ -2933,7 +3049,7 @@ describe('App', () => {
         const hooks = installAppTestHooks()
         kvSeed['active-user-id'] = ''
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.handleSignIn).toBeTypeOf('function')
@@ -2966,7 +3082,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.handleMarkNotificationAsRead).toBeTypeOf('function')
@@ -2985,7 +3101,7 @@ describe('App', () => {
         kvSeed['notifications'] = undefined
         utilizationNotified = true
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.handleMarkNotificationAsRead).toBeTypeOf('function')
@@ -3001,7 +3117,7 @@ describe('App', () => {
     it('ignores role assignment for a missing user through the test hook', async () => {
         const hooks = installAppTestHooks()
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.handleAssignRole).toBeTypeOf('function')
@@ -3017,7 +3133,7 @@ describe('App', () => {
     it('no-ops role assignment when the user disappears before state update applies', async () => {
         const hooks = installAppTestHooks()
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.handleAssignRole).toBeTypeOf('function')
@@ -3067,7 +3183,7 @@ describe('App', () => {
         ]
         setAppRuntimeEnv({ initialActiveView: 'settings' })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
@@ -3088,7 +3204,7 @@ describe('App', () => {
             { trainerId: 'admin-1', timestamp: '2024-01-02T00:00:00.000Z', riskScore: 20 },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
@@ -3107,7 +3223,7 @@ describe('App', () => {
         const hooks = installAppTestHooks()
         kvSeed['risk-history-snapshots'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
@@ -3145,7 +3261,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
@@ -3173,7 +3289,7 @@ describe('App', () => {
         const hooks = installAppTestHooks()
         kvSeed['schedule-templates'] = undefined
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await waitFor(() => {
             expect(hooks.handleDeleteUser).toBeTypeOf('function')
@@ -3187,12 +3303,12 @@ describe('App', () => {
     })
 
     it('shows a server-auth credential error when the server rejects sign-in', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: true })
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
         await user.type(screen.getByLabelText(/password/i), 'password123')
@@ -3205,7 +3321,7 @@ describe('App', () => {
     })
 
     it('signs in through server auth when the response omits userId but the workspace user matches by email', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: true })
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -3213,7 +3329,7 @@ describe('App', () => {
             json: vi.fn().mockResolvedValue({}),
         }))
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
         await user.type(screen.getByLabelText(/password/i), 'password123')
@@ -3227,7 +3343,7 @@ describe('App', () => {
     })
 
     it('shows a server-auth workspace-user error when no matching account can be resolved', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: true })
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -3235,7 +3351,7 @@ describe('App', () => {
             json: vi.fn().mockResolvedValue({ userId: 'missing-user' }),
         }))
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
         await user.type(screen.getByLabelText(/password/i), 'password123')
@@ -3248,12 +3364,12 @@ describe('App', () => {
     })
 
     it('shows a server-auth service error when the request throws', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: true })
         vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.type(screen.getByLabelText(/email/i), 'admin@example.com')
         await user.type(screen.getByLabelText(/password/i), 'password123')
@@ -3266,7 +3382,7 @@ describe('App', () => {
     })
 
     it('shows a server-auth workspace-user error when response parsing fails and no matching email exists', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['active-user-id'] = ''
         setAppRuntimeEnv({ previewMode: false, useServerAuth: true })
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -3274,7 +3390,7 @@ describe('App', () => {
             json: vi.fn().mockRejectedValue(new Error('invalid json')),
         }))
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.type(screen.getByLabelText(/email/i), 'nobody@example.com')
         await user.type(screen.getByLabelText(/password/i), 'password123')
@@ -3349,10 +3465,10 @@ describe('App', () => {
     })
 
     it('does not add a default preview password when adding a user outside preview mode', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         await user.click(screen.getByRole('button', { name: /add user/i }))
@@ -3364,7 +3480,7 @@ describe('App', () => {
     })
 
     it('demotes the active admin into an inaccessible role and returns to dashboard', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = [
             {
                 id: 'admin-1',
@@ -3386,7 +3502,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
         const trainerButtons = screen.getAllByRole('button', { name: /^trainer$/i })
@@ -3402,7 +3518,7 @@ describe('App', () => {
     })
 
     it('deletes the active user when passwords are undefined and the replacement user can keep the current view', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = [
             {
                 id: 'admin-1',
@@ -3426,7 +3542,7 @@ describe('App', () => {
         kvSeed['auth-passwords'] = undefined
         setAppRuntimeEnv({ previewMode: false, useServerAuth: false })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         await user.click(screen.getByRole('button', { name: /delete active user/i }))
@@ -3437,9 +3553,9 @@ describe('App', () => {
     })
 
     it('keeps user state unchanged when the same role is assigned again', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
 
         const adminButtons = screen.getAllByRole('button', { name: /^admin$/i })
@@ -3450,9 +3566,9 @@ describe('App', () => {
     })
 
     it('assigns a new role from the settings role assignment card', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
 
@@ -3474,9 +3590,9 @@ describe('App', () => {
     })
 
     it('prevents removing the last admin via the settings role assignment card', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go settings$/i }))
 
@@ -3498,7 +3614,7 @@ describe('App', () => {
     })
 
     it('warns when stale session and stale user updates are submitted', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['sessions'] = [
             {
                 id: 'session-1',
@@ -3546,7 +3662,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
         await user.click(screen.getByRole('button', { name: /apply stale session update/i }))
@@ -3565,7 +3681,7 @@ describe('App', () => {
     })
 
     it('keeps warning on repeated stale user updates after the stored timestamp is refreshed', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['users'] = [
             {
                 id: 'admin-1',
@@ -3598,7 +3714,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go people$/i }))
         toastError.mockClear()
@@ -3619,7 +3735,7 @@ describe('App', () => {
     })
 
     it('deletes session-linked enrollments when a session is deleted', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['enrollments'] = [
             {
                 id: 'enroll-delete-session',
@@ -3632,7 +3748,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go dashboard$/i }))
         expect(screen.getByText(/dashboard enrollments:\s*1/i)).toBeInTheDocument()
@@ -3645,7 +3761,7 @@ describe('App', () => {
     })
 
     it('deletes course-linked sessions and enrollments when a course is deleted', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
         kvSeed['courses'] = [
             {
                 id: 'course-1',
@@ -3686,7 +3802,7 @@ describe('App', () => {
             },
         ]
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go courses$/i }))
         await user.click(screen.getByRole('button', { name: /^delete course$/i }))
@@ -3698,9 +3814,9 @@ describe('App', () => {
     })
 
     it('uses untitled course fallback when creating an empty course payload', async () => {
-        const user = userEvent.setup()
+        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-        render(<App />)
+        await act(async () => render(<App />))
 
         await user.click(screen.getByRole('button', { name: /^go courses$/i }))
         await user.click(screen.getByRole('button', { name: /^create empty course$/i }))
@@ -3738,9 +3854,9 @@ describe('App', () => {
         })
 
         it('fires a completion notification when a passing score is submitted', async () => {
-            const user = userEvent.setup()
+            const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
             expect(screen.getByText(/notification count:\s*1/i)).toBeInTheDocument()
@@ -3750,9 +3866,9 @@ describe('App', () => {
         })
 
         it('does not fire a notification when a failing score is submitted', async () => {
-            const user = userEvent.setup()
+            const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
             await user.click(screen.getByRole('button', { name: /record score fail/i }))
@@ -3760,9 +3876,9 @@ describe('App', () => {
         })
 
         it('is a no-op when the enrollment ID is not found', async () => {
-            const user = userEvent.setup()
+            const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
             await user.click(screen.getByRole('button', { name: /record score unknown/i }))
@@ -3781,9 +3897,9 @@ describe('App', () => {
                     enrolledAt: '2024-01-01T00:00:00.000Z',
                 },
             ]
-            const user = userEvent.setup()
+            const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
             await user.click(screen.getByRole('button', { name: /record score notify/i }))
@@ -3803,9 +3919,9 @@ describe('App', () => {
                     enrolledAt: '2024-01-01T00:00:00.000Z',
                 },
             ]
-            const user = userEvent.setup()
+            const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
             // Score 90 >= default passScore 80, so notify=true, but course is undefined → no notification
@@ -3825,9 +3941,9 @@ describe('App', () => {
                     enrolledAt: '2024-01-01T00:00:00.000Z',
                 },
             ]
-            const user = userEvent.setup()
+            const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
             await user.click(screen.getByRole('button', { name: /record score pass/i }))
@@ -3859,9 +3975,9 @@ describe('App', () => {
                     enrolledAt: '2024-01-02T00:00:00.000Z',
                 },
             ]
-            const user = userEvent.setup()
+            const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
             await user.click(screen.getByRole('button', { name: /record score pass/i }))
@@ -3897,12 +4013,12 @@ describe('App', () => {
         })
 
         it('shows a toast when scoring throws a range error', async () => {
-            const user = userEvent.setup()
+            const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
             scoringControls.applyScoreImpl = () => {
                 throw new RangeError('Score must remain within range.')
             }
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
             await user.click(screen.getByRole('button', { name: /record score pass/i }))
@@ -3914,7 +4030,7 @@ describe('App', () => {
         })
 
         it('rethrows unexpected scoring errors', async () => {
-            const user = userEvent.setup()
+            const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
             const errorHandler = vi.fn((event: ErrorEvent) => {
                 event.preventDefault()
             })
@@ -3925,7 +4041,7 @@ describe('App', () => {
             window.addEventListener('error', errorHandler)
 
             try {
-                render(<App />)
+                await act(async () => render(<App />))
 
                 await user.click(screen.getByRole('button', { name: /^go schedule$/i }))
                 fireEvent.click(screen.getByRole('button', { name: /record score pass/i }))
@@ -3963,7 +4079,7 @@ describe('App', () => {
                 },
             ]
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await waitFor(() => {
                 const notifications = (kvState['notifications'] as Array<{ metadata?: { learningReminderKey?: string; courseId?: string } }>) || []
@@ -4008,7 +4124,7 @@ describe('App', () => {
                 },
             ]
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await waitFor(() => {
                 const notifications = (kvState['notifications'] as Array<{ metadata?: { learningReminderKey?: string } }>) || []
@@ -4048,7 +4164,7 @@ describe('App', () => {
                 },
             ]
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await waitFor(() => {
                 const notifications = (kvState['notifications'] as Array<{ metadata?: { engagementReminderKey?: string; enrollmentId?: string; courseId?: string; ownerUserId?: string } }>) || []
@@ -4097,7 +4213,7 @@ describe('App', () => {
                 },
             ]
 
-            render(<App />)
+            await act(async () => render(<App />))
 
             await waitFor(() => {
                 const notifications = (kvState['notifications'] as Array<{ metadata?: { engagementReminderKey?: string } }>) || []

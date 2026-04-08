@@ -1,7 +1,7 @@
 /// <reference types="node" />
 
 import tailwindcss from "@tailwindcss/vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import type { PluginOption } from "vite";
 import { coverageConfigDefaults, defineConfig } from "vitest/config";
 
@@ -27,6 +27,41 @@ export default defineConfig({
     ...(isTest ? [] : [createIconImportProxy() as PluginOption, sparkPlugin() as PluginOption]),
   ],
   base: '/orchestrate/',
+  build: {
+    chunkSizeWarningLimit: 550,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return undefined
+          }
+
+          if (id.includes('/react/') || id.includes('/react-dom/')) {
+            return 'vendor-react'
+          }
+
+          if (id.includes('/@radix-ui/')) {
+            return 'vendor-radix'
+          }
+
+          if (
+            id.includes('/d3') ||
+            id.includes('/recharts') ||
+            id.includes('/framer-motion') ||
+            id.includes('/three')
+          ) {
+            return 'vendor-viz'
+          }
+
+          if (id.includes('/@octokit/') || id.includes('/octokit/')) {
+            return 'vendor-octokit'
+          }
+
+          return 'vendor'
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": resolve(projectRoot, "src"),

@@ -235,12 +235,7 @@ export function CertificationDashboard({ users, onNavigate, onAddCertification }
                     onClick={() => onNavigate('people', { userId: trainer.id })}
                     role="button"
                     tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onNavigate('people', { userId: trainer.id });
-                      }
-                    }}
+                    onKeyDown={handleKeyboardNavigation(trainer.id)}
                   >
                     <div>
                       <h3 className="font-semibold text-foreground">{trainer.name}</h3>

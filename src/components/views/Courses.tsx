@@ -94,6 +94,132 @@ interface CoursesProps {
 }
 
 /**
+ * Error payload used when a course save operation is blocked by missing access or callbacks.
+ */
+export interface CourseSavePermissionError {
+  /** User-facing toast title. */
+  title: string
+  /** User-facing toast description. */
+  description: string
+}
+
+/**
+ * Resolves whether a course save action is allowed and, if not, returns the appropriate toast payload.
+ *
+ * @param options - Save permission inputs for create/edit mode.
+ * @returns `null` when saving is allowed; otherwise an error title/description payload.
+ */
+export function getCourseSavePermissionError(options: {
+  isEditing: boolean
+  canManageEditingCourse: boolean
+  hasUpdateCallback: boolean
+  canCreateCourse: boolean
+  hasCreateCallback: boolean
+}): CourseSavePermissionError | null {
+  if (options.isEditing) {
+    if (!options.canManageEditingCourse) {
+      return {
+        title: 'Course management unavailable',
+        description: 'You do not have permission to manage courses.',
+      }
+    }
+
+    if (!options.hasUpdateCallback) {
+      return {
+        title: 'Course update unavailable',
+        description: 'Update callback is not configured.',
+      }
+    }
+
+    return null
+  }
+
+  if (!options.canCreateCourse) {
+    return {
+      title: 'Course management unavailable',
+      description: 'You do not have permission to manage courses.',
+    }
+  }
+
+  if (!options.hasCreateCallback) {
+    return {
+      title: 'Course creation unavailable',
+      description: 'Create callback is not configured.',
+    }
+  }
+
+  return null
+}
+
+/**
+ * Determines whether the selected course can be deleted in the current state.
+ *
+ * @param options - Delete-guard inputs.
+ * @returns True when delete should proceed.
+ */
+export function canDeleteSelectedCourse(options: {
+  hasSelectedCourse: boolean
+  hasDeleteCallback: boolean
+  canManageSelectedCourse: boolean
+  isDeleting: boolean
+}): boolean {
+  return options.hasSelectedCourse && options.hasDeleteCallback && options.canManageSelectedCourse && !options.isDeleting
+}
+
+/**
+ * Determines whether publish/draft toggling is allowed for the selected course in the current state.
+ *
+ * @param options - Publish-guard inputs.
+ * @returns True when publish/draft toggling should proceed.
+ */
+export function canPublishSelectedCourse(options: {
+  hasSelectedCourse: boolean
+  hasUpdateCallback: boolean
+  canManageSelectedCourse: boolean
+  isPublishing: boolean
+}): boolean {
+  return options.hasSelectedCourse && options.hasUpdateCallback && options.canManageSelectedCourse && !options.isPublishing
+}
+
+/**
+ * Merges module updates when a current module exists.
+ *
+ * @param currentModule - Current module value from form state.
+ * @param updates - Partial updates to apply.
+ * @returns Updated module object, or null when no module exists at the target index.
+ */
+export function mergeModuleUpdates<T extends object>(currentModule: T | undefined, updates: Partial<T>): T | null {
+  if (!currentModule) {
+    return null
+  }
+
+  return { ...currentModule, ...updates }
+}
+
+/**
+ * Determines whether a module can be moved in the requested direction.
+ *
+ * @param index - Current module index.
+ * @param direction - Move direction (-1 for up, 1 for down).
+ * @param moduleCount - Total number of modules.
+ * @returns True when the move target stays within bounds.
+ */
+export function canMoveModule(index: number, direction: -1 | 1, moduleCount: number): boolean {
+  const nextIndex = index + direction
+  return nextIndex >= 0 && nextIndex < moduleCount
+}
+
+/**
+ * Returns the first quiz question, providing an empty default when none exist.
+ *
+ * @param quizContent - Quiz content payload from a module.
+ * @returns The first existing question or a safe default placeholder.
+ */
+export function getFirstQuizQuestion(quizContent: { questions: Array<{ prompt: string; choices: string[]; correctIndex: number }> }) {
+  return quizContent.questions[0] || { prompt: '', choices: ['', ''], correctIndex: 0 }
+}
+
+/**
  * Type guard for courses view navigation payload.
  *
  * @param value - Unknown payload to validate.
@@ -135,7 +261,7 @@ function createEditorStateFromCourse(course: Course): CourseEditorState {
  * @param moduleItem - Module entry to validate.
  * @returns True when content is sufficiently populated.
  */
-function validateModuleContentByType(moduleItem: Module): boolean {
+export function validateModuleContentByType(moduleItem: Module): boolean {
   if (moduleItem.contentType === 'text') {
     return true
   }
@@ -349,11 +475,12 @@ export function Courses({
    */
   const handleModuleChange = (index: number, updates: Partial<Module>) => {
     const currentModule = getValues(`moduleDetails.${index}`)
-    if (!currentModule) {
+    const nextModule = mergeModuleUpdates(currentModule, updates)
+    if (!nextModule) {
       return
     }
 
-    setValue(`moduleDetails.${index}`, { ...currentModule, ...updates }, { shouldDirty: true, shouldValidate: true })
+    setValue(`moduleDetails.${index}`, nextModule, { shouldDirty: true, shouldValidate: true })
   }
 
   /**
@@ -390,10 +517,11 @@ export function Courses({
    * @param direction - `-1` to move up, `1` to move down.
    */
   const handleMoveModule = (index: number, direction: -1 | 1) => {
-    const nextIndex = index + direction
-    if (nextIndex < 0 || nextIndex >= moduleFields.length) {
+    if (!canMoveModule(index, direction, moduleFields.length)) {
       return
     }
+
+    const nextIndex = index + direction
 
     move(index, nextIndex)
     const reordered = getValues('moduleDetails').map((entry, order) => ({ ...entry, order }))
@@ -453,34 +581,19 @@ export function Courses({
       return
     }
 
-    if (editingCourse) {
-      if (!canManageCourse(editingCourse)) {
-        toast.error('Course management unavailable', {
-          description: 'You do not have permission to manage courses.',
-        })
-        return
-      }
+    const savePermissionError = getCourseSavePermissionError({
+      isEditing: Boolean(editingCourse),
+      canManageEditingCourse: editingCourse ? canManageCourse(editingCourse) : false,
+      hasUpdateCallback: typeof onUpdateCourse === 'function',
+      canCreateCourse,
+      hasCreateCallback: typeof onCreateCourse === 'function',
+    })
 
-      if (!onUpdateCourse) {
-        toast.error('Course update unavailable', {
-          description: 'Update callback is not configured.',
-        })
-        return
-      }
-    } else {
-      if (!canCreateCourse) {
-        toast.error('Course management unavailable', {
-          description: 'You do not have permission to manage courses.',
-        })
-        return
-      }
-
-      if (!onCreateCourse) {
-        toast.error('Course creation unavailable', {
-          description: 'Create callback is not configured.',
-        })
-        return
-      }
+    if (savePermissionError) {
+      toast.error(savePermissionError.title, {
+        description: savePermissionError.description,
+      })
+      return
     }
 
     let coursePayload: Omit<Course, 'id'> | Partial<Course>
@@ -530,34 +643,19 @@ export function Courses({
 
   /** Guards against missing permissions and callbacks before triggering the async course save. */
   const handleSaveButtonClick = () => {
-    if (editingCourse) {
-      if (!canManageCourse(editingCourse)) {
-        toast.error('Course management unavailable', {
-          description: 'You do not have permission to manage courses.',
-        })
-        return
-      }
+    const savePermissionError = getCourseSavePermissionError({
+      isEditing: Boolean(editingCourse),
+      canManageEditingCourse: editingCourse ? canManageCourse(editingCourse) : false,
+      hasUpdateCallback: typeof onUpdateCourse === 'function',
+      canCreateCourse,
+      hasCreateCallback: typeof onCreateCourse === 'function',
+    })
 
-      if (!onUpdateCourse) {
-        toast.error('Course update unavailable', {
-          description: 'Update callback is not configured.',
-        })
-        return
-      }
-    } else {
-      if (!canCreateCourse) {
-        toast.error('Course management unavailable', {
-          description: 'You do not have permission to manage courses.',
-        })
-        return
-      }
-
-      if (!onCreateCourse) {
-        toast.error('Course creation unavailable', {
-          description: 'Create callback is not configured.',
-        })
-        return
-      }
+    if (savePermissionError) {
+      toast.error(savePermissionError.title, {
+        description: savePermissionError.description,
+      })
+      return
     }
 
     void handleSaveCourse()
@@ -565,11 +663,22 @@ export function Courses({
 
   /** Confirms and deletes the currently selected course, also removing linked sessions. */
   const handleDeleteSelectedCourse = async () => {
-    if (!selectedCourse || !onDeleteCourse || !canManageCourse(selectedCourse) || isDeleting) {
+    if (!canDeleteSelectedCourse({
+      hasSelectedCourse: Boolean(selectedCourse),
+      hasDeleteCallback: typeof onDeleteCourse === 'function',
+      canManageSelectedCourse: selectedCourse ? canManageCourse(selectedCourse) : false,
+      isDeleting,
+    })) {
       return
     }
 
-    const confirmed = window.confirm(`Delete ${selectedCourse.title}? Related sessions will also be removed.`)
+    const course = selectedCourse
+    const deleteCourse = onDeleteCourse
+    if (!course || !deleteCourse) {
+      return
+    }
+
+    const confirmed = window.confirm(`Delete ${course.title}? Related sessions will also be removed.`)
     if (!confirmed) {
       return
     }
@@ -577,7 +686,7 @@ export function Courses({
     setIsDeleting(true)
 
     try {
-      await Promise.resolve(onDeleteCourse(selectedCourse.id))
+      await Promise.resolve(deleteCourse(course.id))
       setDetailDialogOpen(false)
       setSelectedCourse(null)
       toast.success('Course deleted', {
@@ -596,18 +705,29 @@ export function Courses({
 
   /** Toggles the published state of the selected course and persists the change. */
   const handlePublishToggle = async () => {
-    if (!selectedCourse || !onUpdateCourse || !canManageCourse(selectedCourse) || isPublishing) {
+    if (!canPublishSelectedCourse({
+      hasSelectedCourse: Boolean(selectedCourse),
+      hasUpdateCallback: typeof onUpdateCourse === 'function',
+      canManageSelectedCourse: selectedCourse ? canManageCourse(selectedCourse) : false,
+      isPublishing,
+    })) {
       return
     }
 
-    const nextPublished = !selectedCourse.published
+    const course = selectedCourse
+    const updateCourse = onUpdateCourse
+    if (!course || !updateCourse) {
+      return
+    }
+
+    const nextPublished = !course.published
 
     setIsPublishing(true)
 
     try {
-      await Promise.resolve(onUpdateCourse(selectedCourse.id, { published: nextPublished, updatedAt: selectedCourse.updatedAt }))
+      await Promise.resolve(updateCourse(course.id, { published: nextPublished, updatedAt: course.updatedAt }))
       toast.success(nextPublished ? 'Course published' : 'Course moved to draft', {
-        description: `${selectedCourse.title} is now ${nextPublished ? 'available' : 'hidden from employees'} for scheduling.`,
+        description: `${course.title} is now ${nextPublished ? 'available' : 'hidden from employees'} for scheduling.`,
       })
     } catch (error) {
       toast.error('Status update failed', {
@@ -1069,7 +1189,7 @@ export function Courses({
                       {moduleItem.contentType === 'quiz' && (
                         (() => {
                           const quizContent = moduleItem.content as Extract<Module['content'], { questions: Array<{ prompt: string; choices: string[]; correctIndex: number }> }>
-                          const firstQuestion = quizContent.questions[0] || { prompt: '', choices: ['', ''], correctIndex: 0 }
+                          const firstQuestion = getFirstQuizQuestion(quizContent)
 
                           return (
                             <>

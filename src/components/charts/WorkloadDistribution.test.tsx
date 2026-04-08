@@ -11,7 +11,7 @@ vi.mock('recharts', async () => {
             // Invoke the formatter with all four name values so every branch in the
             // component's formatter callback is exercised during each render.
             if (formatter) {
-                formatter(75, 'utilization')
+                formatter('75' as unknown as number, 'utilization')
                 formatter(40, 'hours')
                 formatter(10, 'sessions')
                 formatter(5, 'other')

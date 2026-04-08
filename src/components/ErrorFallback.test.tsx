@@ -34,6 +34,12 @@ describe('ErrorFallback', () => {
         expect(screen.getByText(/contact the spark author/i)).toBeInTheDocument()
     })
 
+    it('renders non-Error values by stringifying them', () => {
+        render(<ErrorFallback error={'string failure' as unknown as Error} resetErrorBoundary={vi.fn()} />)
+
+        expect(screen.getByText('string failure')).toBeInTheDocument()
+    })
+
     it('rethrows the error in DEV mode instead of rendering the fallback UI', () => {
         vi.stubEnv('DEV', true)
 

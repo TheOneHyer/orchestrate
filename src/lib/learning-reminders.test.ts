@@ -232,4 +232,46 @@ describe('learning-reminders', () => {
         expect(candidates).toHaveLength(1)
         expect(candidates[0].message).toMatch(/due today/i)
     })
+
+    it('uses singular day wording for one-day overdue reminders', () => {
+        const now = new Date('2026-04-01T00:00:00.000Z')
+        const enrollments: Enrollment[] = [
+            {
+                id: 'enrollment-overdue-one-day',
+                userId: 'user-1',
+                courseId: 'course-1',
+                status: 'in-progress',
+                progress: 55,
+                score: 0,
+                enrolledAt: '2026-03-01T00:00:00.000Z',
+                targetCompletionDate: '2026-03-31T00:00:00.000Z',
+            },
+        ]
+
+        const candidates = buildLearningReminderCandidates(enrollments, courses, [], now)
+        expect(candidates).toHaveLength(1)
+        expect(candidates[0].message).toContain('1 day overdue')
+        expect(candidates[0].message).not.toContain('1 days overdue')
+    })
+
+    it('uses singular day wording for due-soon reminders in one day', () => {
+        const now = new Date('2026-04-01T00:00:00.000Z')
+        const enrollments: Enrollment[] = [
+            {
+                id: 'enrollment-due-in-one-day',
+                userId: 'user-1',
+                courseId: 'course-1',
+                status: 'in-progress',
+                progress: 55,
+                score: 0,
+                enrolledAt: '2026-03-01T00:00:00.000Z',
+                targetCompletionDate: '2026-04-02T00:00:00.000Z',
+            },
+        ]
+
+        const candidates = buildLearningReminderCandidates(enrollments, courses, [], now)
+        expect(candidates).toHaveLength(1)
+        expect(candidates[0].message).toContain('due in 1 day')
+        expect(candidates[0].message).not.toContain('due in 1 days')
+    })
 })

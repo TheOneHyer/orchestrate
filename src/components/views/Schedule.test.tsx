@@ -1686,6 +1686,66 @@ describe('Schedule', () => {
     expect(onUpdateSession).toHaveBeenCalledWith('s-1', { status: 'completed' })
   })
 
+  it('updates selected session details when board drag changes its status', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({ onUpdateSession, currentUser: { ...baseTrainer, role: 'admin' } })
+
+    await user.click(screen.getByRole('tab', { name: /board/i }))
+    await user.click(screen.getAllByText(/morning safety session/i)[0])
+
+    const dataTransfer = createDragDataTransfer()
+    const sessionCard = screen.getAllByText(/morning safety session/i)[0]
+    const completedColumn = screen.getByText(/^completed$/i).parentElement?.parentElement
+    if (!(completedColumn instanceof HTMLElement)) {
+      throw new Error('Expected completed column to exist')
+    }
+
+    fireEvent.dragStart(sessionCard, { dataTransfer })
+    fireEvent.drop(completedColumn, { dataTransfer })
+
+    expect(onUpdateSession).toHaveBeenCalledWith('s-1', { status: 'completed' })
+    expect(screen.getByText(/^status$/i).parentElement).toHaveTextContent('completed')
+  })
+
+  it('does not update board status for employees without schedule permissions', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    const onUpdateSession = vi.fn()
+
+    renderSchedule({
+      currentUser: baseEmployee,
+      onUpdateSession,
+    })
+
+    await user.click(screen.getByRole('tab', { name: /board/i }))
+
+    const dataTransfer = createDragDataTransfer()
+    const sessionCard = screen.getByRole('button', { name: /morning safety session/i })
+    const completedColumn = screen.getByText(/^completed$/i).parentElement?.parentElement
+    if (!(completedColumn instanceof HTMLElement)) {
+      throw new Error('Expected completed column to exist')
+    }
+
+    fireEvent.dragStart(sessionCard, { dataTransfer })
+    fireEvent.drop(completedColumn, { dataTransfer })
+
+    expect(onUpdateSession).not.toHaveBeenCalled()
+  })
+
+  it('does not set drag metadata when a non-manager starts dragging', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+    renderSchedule({ currentUser: baseEmployee })
+
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+
+    const { sessionCard } = getDropZoneForSessionTitle(/morning safety session/i)
+    const dataTransfer = createDragDataTransfer()
+    fireEvent.dragStart(sessionCard, { dataTransfer })
+
+    expect(dataTransfer.setData).not.toHaveBeenCalled()
+  })
+
   it('does not update session status when a board card is dropped into the same column', async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 })
     const onUpdateSession = vi.fn()
@@ -1876,6 +1936,78 @@ describe('Schedule', () => {
 
     expect(emptyCellBody).not.toBeUndefined()
     await user.click(emptyCellBody as HTMLElement)
+
+    expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
+
+  it('opens guided scheduler when activating week cell container with Enter key', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: { ...baseTrainer, role: 'admin' }, sessions: [] })
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+
+    const weekCell = screen.getAllByRole('button').find((element) => {
+      return element.className.includes('min-h-[200px]')
+    })
+    if (!(weekCell instanceof HTMLElement)) {
+      throw new Error('Unable to find week calendar cell container')
+    }
+
+    weekCell.focus()
+    fireEvent.keyDown(weekCell, { key: 'Enter' })
+
+    expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
+
+  it('opens guided scheduler when clicking a week cell container directly', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: { ...baseTrainer, role: 'admin' }, sessions: [] })
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+
+    const weekCell = screen.getAllByRole('button').find((element) => {
+      return element.className.includes('min-h-[200px]')
+    })
+    if (!(weekCell instanceof HTMLElement)) {
+      throw new Error('Unable to find week calendar cell container')
+    }
+
+    await user.click(weekCell)
+
+    expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
+  })
+
+  it('does not open guided scheduler when activating week cell as employee', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: baseEmployee, sessions: [] })
+    await user.click(screen.getByRole('button', { name: /^week$/i }))
+
+    const weekCell = screen.getAllByRole('button').find((element) => {
+      return element.className.includes('min-h-[200px]')
+    })
+    if (!(weekCell instanceof HTMLElement)) {
+      throw new Error('Unable to find week calendar cell container')
+    }
+
+    fireEvent.keyDown(weekCell, { key: ' ' })
+
+    expect(screen.queryByText(/guidedscheduler mock/i)).not.toBeInTheDocument()
+  })
+
+  it('opens guided scheduler when clicking an empty month cell container as a manager', async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 })
+
+    renderSchedule({ currentUser: { ...baseTrainer, role: 'admin' }, sessions: [] })
+
+    const monthCell = screen.getAllByRole('button').find((element) => {
+      return element.className.includes('min-h-[100px]')
+    })
+    if (!(monthCell instanceof HTMLElement)) {
+      throw new Error('Unable to find month calendar cell container')
+    }
+
+    await user.click(monthCell)
 
     expect(screen.getByText(/guidedscheduler mock/i)).toBeInTheDocument()
   })
